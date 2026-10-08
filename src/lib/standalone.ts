@@ -24,7 +24,7 @@ export function useStandalone(): boolean {
     const update = () => {
       const value = isStandaloneDisplay();
       setStandalone(value);
-      document.documentElement.dataset.display = value ? "standalone" : "browser";
+      document.documentElement.dataset["display"] = value ? "standalone" : "browser";
     };
     update();
     const queries = ["standalone", "fullscreen"].map((m) =>
