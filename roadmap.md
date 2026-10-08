@@ -1,7 +1,7 @@
 # GTD foundation
-- [ ] Original cinematic launcher and shared landscape shell
-- [ ] Game viewport, contextual HUD, pause/bootstrap and functional input overlays
-- [ ] World districts and settings surfaces
-- [ ] Typed runtime bridge and reserved engine modules
-- [ ] Installable PWA and guarded bounded shell cache
-- [ ] Routing/runtime tests and desktop/mobile verification
+- [x] Original cinematic launcher and shared landscape shell
+- [x] Game viewport, contextual HUD, pause/bootstrap and functional input overlays
+- [x] World districts and settings surfaces
+- [x] Typed runtime bridge and reserved engine modules
+- [x] Installable PWA and guarded bounded shell cache (published install/offline behavior requires deployed verification)
+- [x] Routing/runtime tests and desktop/mobile verification

@@ -1,5 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useModalFocus } from "@/ui/menus/use-modal-focus";
+import { GameCanvasHost } from "@/game/renderer/game-canvas-host";
 import { ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Scene } from "@/ui/menus/shell";
@@ -33,6 +36,9 @@ function GamePage() {
   const [loaded, setLoaded] = useState(false);
   const [interaction, setInteraction] = useState("Observe Meridian City");
   const [lastInput, setLastInput] = useState("STANDBY");
+  const navigate = useNavigate();
+  const closePause = useCallback(() => setPaused(false), []);
+  useModalFocus(paused, closePause);
   const changeContext = (value: HudContext) => {
     setContext(value);
     bridge.command({ type: "set-context", context: value });
@@ -103,8 +109,7 @@ function GamePage() {
       if (!loaded || paused) return;
       if (event.code === "Tab" && !event.repeat) {
         event.preventDefault();
-        setPaused(true);
-        setPanel("objectives");
+        void navigate({ to: "/world" });
         return;
       }
       if (["KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
@@ -146,7 +151,7 @@ function GamePage() {
       window.removeEventListener("keyup", keyup);
       window.removeEventListener("blur", release);
     };
-  }, [bridge, loaded, paused]);
+  }, [bridge, loaded, paused, navigate]);
   useEffect(() => {
     if (paused) bridge.pause();
     else if (loaded) bridge.resume();
@@ -157,11 +162,7 @@ function GamePage() {
       className={`game-shell game-viewport ${settings.reducedMotion ? "motion-reduced" : ""} ${settings.contrast ? "high-contrast" : ""} ${settings.textSize === "Large" ? "large-interface" : ""}`}
     >
       <Scene game />
-      <canvas
-        ref={canvas}
-        className="canvas-host"
-        aria-label="GameCanvasHost — awaiting 3D engine"
-      />
+      <GameCanvasHost ref={canvas} />
       <div className="runtime-badge">
         <strong>MERIDIAN CITY // FOUNDATION</strong>
         <div className="system-label">3D RUNTIME NOT ATTACHED</div>

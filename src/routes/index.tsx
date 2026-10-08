@@ -11,7 +11,8 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useModalFocus } from "@/ui/menus/use-modal-focus";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/ui/menus/shell";
 import { pageHead } from "@/lib/page-head";
@@ -30,6 +31,8 @@ function Launcher() {
   const [development, setDevelopment] = useState(false);
   const [muted, setMuted] = useState(true);
   const input = useInputMode();
+  const closeDevelopment = useCallback(() => setDevelopment(false), []);
+  useModalFocus(development, closeDevelopment);
   return (
     <PageShell>
       <section className="launcher-content">
