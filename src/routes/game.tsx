@@ -33,7 +33,8 @@ function GamePage() {
   const [paused, setPaused] = useState(false);
   const [panel, setPanel] = useState<"pause" | "objectives" | "save">("pause");
   const [progress, setProgress] = useState(0);
-  const [loaded, setLoaded] = useState(false);\n  const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
+  const [loaded, setLoaded] = useState(false);
+  const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
   const [interaction, setInteraction] = useState("Explore Meridia");
   const [lastInput, setLastInput] = useState("STANDBY");
   const navigate = useNavigate();
@@ -52,9 +53,7 @@ function GamePage() {
   };
   const action = (value: GameAction) => {
     setLastInput(value.toUpperCase());
-    setInteraction(
-      `${value === "vehicle" ? "Vehicle" : value.charAt(0).toUpperCase() + value.slice(1)} · runtime not connected`,
-    );
+    setInteraction(value === "interact" ? "Meridia is quiet. For now." : value.toUpperCase());
   };
   useEffect(() => {
     let cancelled = false;
@@ -163,9 +162,7 @@ function GamePage() {
         if (!event.repeat) {
           bridge.command({ type: "action", action: value, pressed: true });
           setLastInput(value.toUpperCase());
-          setInteraction(
-            `${value === "vehicle" ? "Vehicle" : value.charAt(0).toUpperCase() + value.slice(1)} · runtime not connected`,
-          );
+          setInteraction(value === "interact" ? "Meridia is quiet. For now." : value.toUpperCase());
         }
       }
     };
