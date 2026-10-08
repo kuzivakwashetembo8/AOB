@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: ACTIVE — first FL-1 review accepted directionally; camera obstruction patch and neighborhood expansion implemented. Review deployment pending.
+Status: ACTIVE — FL-1 accepted. FL-2 surface and representation work is active; next visual review build deployed.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -284,7 +284,9 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - Hero building type: **South Ward neighborhood garage**.
 - FL-0: authorized.
 - Deployment: still requires explicit authorization.
-- FL-1 and subsequent phases remain gated by their review points.
+- FL-1 accepted after camera behavior review.
+- FL-2 authorized and active.
+- FL-3 and subsequent phases remain gated by their review points.
 
 ## Decision log
 
@@ -300,3 +302,7 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-08: Review accepted the structural direction. Road/sidewalk readability and building depth were validated. Highest-priority defect identified: third-person camera could cross solid walls while Voight remained collision-constrained inside the garage.
 - 2026-10-08: Camera obstruction handling implemented using target-to-camera ray tests against explicit camera-blocking geometry, fast inward compression, damped recovery, reduced near clip, and solid garage roof collision.
 - 2026-10-08: First Light neighborhood section expanded beyond the original corner with a rear cross street, connected sidewalks/curbs, pocket green, additional trees/streetlight, rear residential row, local shop, workshop, and second parked vehicle. Expansion remains a representation test section, not a complete South Ward district.
+- 2026-10-08: Camera behavior accepted as familiar and adequate for the current milestone. FL-1 accepted; FL-2 opened.
+- 2026-10-08: Vehicle proxy received a real static collision body so Voight can no longer walk through parked cars.
+- 2026-10-08: Hero garage rear wall was rebuilt around two real glazed window openings with physical glass, frames, mullions, and camera-transparent glazing.
+- 2026-10-08: FL-2 material language introduced using procedural asphalt, sidewalk slab, brick, concrete, and garage-block surface textures. Citywide moving traffic remains deferred because it belongs to later systemic work rather than this representation milestone.
