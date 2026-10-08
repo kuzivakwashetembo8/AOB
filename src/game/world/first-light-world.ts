@@ -59,6 +59,181 @@ function addBox(
   return mesh;
 }
 
+
+function createPatternTexture(
+  scene: Scene,
+  name: string,
+  draw: (ctx: CanvasRenderingContext2D, size: number) => void,
+  uScale: number,
+  vScale: number,
+) {
+  const size = 256;
+  const texture = new DynamicTexture(name, { width: size, height: size }, scene, false);
+  const ctx = texture.getContext() as CanvasRenderingContext2D;
+  draw(ctx, size);
+  texture.wrapU = Texture.WRAP_ADDRESSMODE;
+  texture.wrapV = Texture.WRAP_ADDRESSMODE;
+  texture.uScale = uScale;
+  texture.vScale = vScale;
+  texture.update(false);
+  return texture;
+}
+
+function applyFirstLightSurfaceTextures(
+  scene: Scene,
+  materials: {
+    asphalt: StandardMaterial;
+    sidewalk: StandardMaterial;
+    garageWall: StandardMaterial;
+    warmBrick: StandardMaterial;
+    coolConcrete: StandardMaterial;
+  },
+) {
+  materials.asphalt.diffuseTexture = createPatternTexture(
+    scene,
+    "south-ward-asphalt-texture",
+    (ctx, size) => {
+      ctx.fillStyle = "#4b4b47";
+      ctx.fillRect(0, 0, size, size);
+      let seed = 71;
+      const random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+      };
+      for (let i = 0; i < 900; i += 1) {
+        const shade = 55 + Math.floor(random() * 45);
+        ctx.fillStyle = `rgba(${shade},${shade},${shade - 3},${0.08 + random() * 0.14})`;
+        const r = 0.4 + random() * 1.25;
+        ctx.fillRect(random() * size, random() * size, r, r);
+      }
+      ctx.strokeStyle = "rgba(25,24,23,0.22)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(18, 245);
+      ctx.bezierCurveTo(90, 190, 150, 210, 246, 124);
+      ctx.stroke();
+    },
+    7,
+    2.4,
+  );
+
+  materials.sidewalk.diffuseTexture = createPatternTexture(
+    scene,
+    "south-ward-sidewalk-texture",
+    (ctx, size) => {
+      ctx.fillStyle = "#9b8d79";
+      ctx.fillRect(0, 0, size, size);
+      ctx.strokeStyle = "rgba(57,48,40,0.55)";
+      ctx.lineWidth = 4;
+      for (let x = 0; x <= size; x += 64) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, size);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= size; y += 64) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(size, y);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = "rgba(210,196,175,0.22)";
+      ctx.lineWidth = 1;
+      for (let y = 18; y < size; y += 39) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(size, y + 6);
+        ctx.stroke();
+      }
+    },
+    5.5,
+    1.7,
+  );
+
+  materials.warmBrick.diffuseTexture = createPatternTexture(
+    scene,
+    "south-ward-warm-brick-texture",
+    (ctx, size) => {
+      ctx.fillStyle = "#6e4330";
+      ctx.fillRect(0, 0, size, size);
+      const brickH = 32;
+      const brickW = 64;
+      for (let row = 0; row < 8; row += 1) {
+        const offset = row % 2 === 0 ? 0 : brickW / 2;
+        for (let x = -offset; x < size; x += brickW) {
+          const y = row * brickH;
+          ctx.fillStyle = row % 3 === 0 ? "#76503a" : "#69412f";
+          ctx.fillRect(x + 3, y + 3, brickW - 6, brickH - 6);
+        }
+      }
+      ctx.fillStyle = "rgba(22,18,15,0.15)";
+      ctx.fillRect(0, size - 34, size, 34);
+    },
+    3.2,
+    2.1,
+  );
+
+  materials.coolConcrete.diffuseTexture = createPatternTexture(
+    scene,
+    "south-ward-cool-concrete-texture",
+    (ctx, size) => {
+      ctx.fillStyle = "#62686a";
+      ctx.fillRect(0, 0, size, size);
+      let seed = 313;
+      const random = () => {
+        seed = (seed * 1103515245 + 12345) >>> 0;
+        return seed / 4294967296;
+      };
+      for (let i = 0; i < 130; i += 1) {
+        const a = 0.025 + random() * 0.065;
+        ctx.fillStyle = `rgba(15,18,18,${a})`;
+        ctx.beginPath();
+        ctx.ellipse(random() * size, random() * size, 5 + random() * 24, 2 + random() * 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "rgba(20,24,24,0.12)";
+      ctx.fillRect(0, size - 42, size, 42);
+    },
+    2.6,
+    1.9,
+  );
+
+  materials.garageWall.diffuseTexture = createPatternTexture(
+    scene,
+    "south-ward-garage-block-texture",
+    (ctx, size) => {
+      ctx.fillStyle = "#716b61";
+      ctx.fillRect(0, 0, size, size);
+      ctx.strokeStyle = "rgba(43,41,37,0.6)";
+      ctx.lineWidth = 4;
+      const blockH = 48;
+      const blockW = 96;
+      for (let row = 0; row <= 6; row += 1) {
+        const y = row * blockH;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(size, y);
+        ctx.stroke();
+        const offset = row % 2 === 0 ? 0 : blockW / 2;
+        for (let x = -offset; x <= size; x += blockW) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, Math.min(size, y + blockH));
+          ctx.stroke();
+        }
+      }
+      const grime = ctx.createLinearGradient(0, 0, 0, size);
+      grime.addColorStop(0, "rgba(0,0,0,0)");
+      grime.addColorStop(1, "rgba(35,30,24,0.28)");
+      ctx.fillStyle = grime;
+      ctx.fillRect(0, 0, size, size);
+    },
+    3.3,
+    2.2,
+  );
+}
+
+
 function createFoliageTexture(scene: Scene) {
   const texture = new DynamicTexture(
     "first-light-foliage-texture",
@@ -342,6 +517,14 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
   const doorMaterial = mat(scene, "garage-door", new Color3(0.13, 0.17, 0.16), 0.06);
   const accent = mat(scene, "garage-sign-accent", new Color3(0.55, 0.33, 0.12), 0.03);
   const grass = mat(scene, "south-ward-grass", new Color3(0.18, 0.3, 0.17), 0.01);
+
+  applyFirstLightSurfaceTextures(scene, {
+    asphalt,
+    sidewalk,
+    garageWall,
+    warmBrick,
+    coolConcrete,
+  });
 
   const base = MeshBuilder.CreateGround(
     "first-light-base",
