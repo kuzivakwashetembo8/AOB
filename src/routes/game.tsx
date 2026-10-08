@@ -14,7 +14,7 @@ import { useSettings } from "@/ui/menus/settings-state";
 import { GameHud } from "@/ui/hud/game-hud";
 import { TouchControls } from "@/ui/hud/touch-controls";
 import { BootstrapOverlay } from "@/ui/menus/bootstrap";
-import type { GameAction, HudContext } from "@/game/core/types";
+import type { GameAction } from "@/game/core/types";
 export const Route = createFileRoute("/game")({
   head: () =>
     pageHead(
@@ -29,7 +29,7 @@ function GamePage() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const mode = useInputMode();
   const { settings } = useSettings();
-  const [context, setContext] = useState<HudContext>("walking");
+  const context = snapshot.context;
   const [paused, setPaused] = useState(false);
   const [panel, setPanel] = useState<"pause" | "objectives" | "save">("pause");
   const [progress, setProgress] = useState(0);
