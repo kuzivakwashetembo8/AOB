@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: ACTIVE — FL-0 established; first FL-1 structural visual pass deployed for review. Further development is gated on review.
+Status: ACTIVE — first FL-1 review accepted directionally; camera obstruction patch and neighborhood expansion implemented. Review deployment pending.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -296,4 +296,7 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-08: First Light Asset Doctrine incorporated.
 - 2026-10-08: User granted explicit greenlight. Milestone activated; neighborhood garage confirmed as the hero building; FL-0 authorized. Deployment remains separately gated.
 - 2026-10-08: FL-0 visual contract and benchmark method established. First FL-1 structural/representation pass committed: South Ward street corner, enterable garage shell, supporting buildings, ground hierarchy, procedural foliage-card tree, streetlight, parked vehicle, shadows, and updated runtime spawn/location.
-- 2026-10-08: A deliberate review deployment was created from commit `5f84ecfef91d98c63fc2a13b508833fecf4067bb`. Build completed successfully and `/game` returned HTTP 200 with no grouped runtime errors at verification time. Automatic deployment guard was restored. Further First Light development is paused pending visual/interaction confirmation.
+- 2026-10-08: A deliberate review deployment was created from commit `5f84ecfef91d98c63fc2a13b508833fecf4067bb`. Build completed successfully and `/game` returned HTTP 200 with no grouped runtime errors at verification time. Automatic deployment guard was restored.
+- 2026-10-08: Review accepted the structural direction. Road/sidewalk readability and building depth were validated. Highest-priority defect identified: third-person camera could cross solid walls while Voight remained collision-constrained inside the garage.
+- 2026-10-08: Camera obstruction handling implemented using target-to-camera ray tests against explicit camera-blocking geometry, fast inward compression, damped recovery, reduced near clip, and solid garage roof collision.
+- 2026-10-08: First Light neighborhood section expanded beyond the original corner with a rear cross street, connected sidewalks/curbs, pocket green, additional trees/streetlight, rear residential row, local shop, workshop, and second parked vehicle. Expansion remains a representation test section, not a complete South Ward district.
