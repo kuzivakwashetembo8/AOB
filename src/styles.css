@@ -1381,3 +1381,6 @@ input[type="checkbox"] {
     margin-top: 10px;
   }
 }
+@media (max-width: 950px) and (orientation: landscape) {
+  .hud.touch .hud-bottom > div:last-child { top: -20px; }
+}
