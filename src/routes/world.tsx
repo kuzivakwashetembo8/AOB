@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, MapPin } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { BackLink, PageShell, pageHead } from "@/ui/menus/shell";
+import { BackLink, PageShell } from "@/ui/menus/shell";
+import { pageHead } from "@/lib/page-head";
 import { districts } from "@/game/world/districts";
 export const Route = createFileRoute("/world")({
   head: () =>

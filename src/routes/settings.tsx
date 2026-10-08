@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { BackLink, PageShell, pageHead } from "@/ui/menus/shell";
+import { BackLink, PageShell } from "@/ui/menus/shell";
+import { pageHead } from "@/lib/page-head";
 import { defaults, useSettings, type Settings } from "@/ui/menus/settings-state";
 export const Route = createFileRoute("/settings")({
   head: () =>

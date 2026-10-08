@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PageShell, pageHead } from "@/ui/menus/shell";
+import { PageShell } from "@/ui/menus/shell";
+import { pageHead } from "@/lib/page-head";
 import { useInputMode } from "@/game/input/use-input-mode";
 
 export const Route = createFileRoute("/")({
