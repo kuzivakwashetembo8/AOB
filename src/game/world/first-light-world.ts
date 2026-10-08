@@ -21,6 +21,7 @@ type BoxSpec = {
   material: StandardMaterial;
   collide?: boolean;
   castShadow?: boolean;
+  cameraBlocker?: boolean;
 };
 
 const mat = (scene: Scene, name: string, color: Color3, specular = 0.04) => {
@@ -44,6 +45,10 @@ function addBox(
   mesh.position.copyFrom(spec.position);
   mesh.material = spec.material;
   mesh.receiveShadows = true;
+  mesh.metadata = {
+    ...(mesh.metadata ?? {}),
+    cameraBlocker: spec.cameraBlocker ?? spec.collide ?? false,
+  };
   if (spec.castShadow) shadows.addShadowCaster(mesh);
   if (spec.collide) {
     physics.addStaticBox(
@@ -330,26 +335,27 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
 
   const base = MeshBuilder.CreateGround(
     "first-light-base",
-    { width: 110, height: 90 },
+    { width: 160, height: 130 },
     scene,
   );
+  base.position.z = 20;
   base.material = mat(scene, "first-light-base-material", new Color3(0.17, 0.16, 0.14), 0.01);
   base.receiveShadows = true;
-  physics.addStaticBox({ x: 0, y: -0.25, z: 10 }, { x: 55, y: 0.25, z: 45 });
+  physics.addStaticBox({ x: 0, y: -0.25, z: 20 }, { x: 80, y: 0.25, z: 65 });
 
   // Primary street.
   addBox(scene, physics, shadows, {
     name: "south-ward-main-road",
     position: new Vector3(0, 0.015, 8),
-    size: new Vector3(92, 0.03, 8),
+    size: new Vector3(130, 0.03, 8),
     material: asphalt,
   });
 
   // Side street gives the corner genuine urban depth.
   addBox(scene, physics, shadows, {
     name: "south-ward-side-road",
-    position: new Vector3(20, 0.018, 23),
-    size: new Vector3(8, 0.035, 30),
+    position: new Vector3(20, 0.018, 34),
+    size: new Vector3(8, 0.035, 52),
     material: asphalt,
   });
 
@@ -357,29 +363,29 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
   addBox(scene, physics, shadows, {
     name: "south-ward-north-walk",
     position: new Vector3(0, 0.055, 2.4),
-    size: new Vector3(92, 0.11, 3.1),
+    size: new Vector3(130, 0.11, 3.1),
     material: sidewalk,
   });
   addBox(scene, physics, shadows, {
     name: "south-ward-south-walk",
     position: new Vector3(0, 0.055, 13.6),
-    size: new Vector3(92, 0.11, 3.1),
+    size: new Vector3(130, 0.11, 3.1),
     material: sidewalk,
   });
   addBox(scene, physics, shadows, {
     name: "north-curb",
     position: new Vector3(0, 0.105, 4.02),
-    size: new Vector3(92, 0.21, 0.2),
+    size: new Vector3(130, 0.21, 0.2),
     material: curb,
   });
   addBox(scene, physics, shadows, {
     name: "south-curb",
     position: new Vector3(0, 0.105, 11.98),
-    size: new Vector3(92, 0.21, 0.2),
+    size: new Vector3(130, 0.21, 0.2),
     material: curb,
   });
 
-  for (let x = -38; x <= 38; x += 8) {
+  for (let x = -56; x <= 56; x += 8) {
     addBox(scene, physics, shadows, {
       name: `lane-mark-${x}`,
       position: new Vector3(x, 0.045, 8),
@@ -395,7 +401,7 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     size: new Vector3(5.2, 0.13, 2.35),
     material: grass,
   });
-  for (let x = -32; x <= 34; x += 11) {
+  for (let x = -54; x <= 54; x += 11) {
     addBox(scene, physics, shadows, {
       name: `drain-${x}`,
       position: new Vector3(x, 0.12, 3.89),
@@ -468,6 +474,7 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     position: new Vector3(gx, 4.82, -5.15),
     size: new Vector3(garageWidth + 0.35, 0.26, garageDepth + 0.35),
     material: garageTrim,
+    collide: true,
     castShadow: true,
   });
 
@@ -605,6 +612,144 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
       castShadow: true,
     });
   });
+
+  // First Light neighborhood expansion: a second cross street and rear block
+  // extend the spatial test without committing to district-scale simulation.
+  addBox(scene, physics, shadows, {
+    name: "south-ward-rear-road",
+    position: new Vector3(2, 0.018, 48),
+    size: new Vector3(118, 0.035, 8),
+    material: asphalt,
+  });
+  addBox(scene, physics, shadows, {
+    name: "rear-road-north-walk",
+    position: new Vector3(2, 0.055, 42.4),
+    size: new Vector3(118, 0.11, 3.1),
+    material: sidewalk,
+  });
+  addBox(scene, physics, shadows, {
+    name: "rear-road-south-walk",
+    position: new Vector3(2, 0.055, 53.6),
+    size: new Vector3(118, 0.11, 3.1),
+    material: sidewalk,
+  });
+  addBox(scene, physics, shadows, {
+    name: "rear-road-north-curb",
+    position: new Vector3(2, 0.105, 44.02),
+    size: new Vector3(118, 0.21, 0.2),
+    material: curb,
+  });
+  addBox(scene, physics, shadows, {
+    name: "rear-road-south-curb",
+    position: new Vector3(2, 0.105, 51.98),
+    size: new Vector3(118, 0.21, 0.2),
+    material: curb,
+  });
+
+  for (let x = -48; x <= 48; x += 8) {
+    addBox(scene, physics, shadows, {
+      name: `rear-lane-mark-${x}`,
+      position: new Vector3(x, 0.045, 48),
+      size: new Vector3(3.4, 0.035, 0.14),
+      material: lane,
+    });
+  }
+
+  // Side-street sidewalks connect the original garage corner to the rear block.
+  addBox(scene, physics, shadows, {
+    name: "side-street-west-walk",
+    position: new Vector3(14.4, 0.055, 30),
+    size: new Vector3(3.1, 0.11, 29),
+    material: sidewalk,
+  });
+  addBox(scene, physics, shadows, {
+    name: "side-street-east-walk",
+    position: new Vector3(25.6, 0.055, 30),
+    size: new Vector3(3.1, 0.11, 29),
+    material: sidewalk,
+  });
+  addBox(scene, physics, shadows, {
+    name: "side-street-west-curb",
+    position: new Vector3(16.02, 0.105, 30),
+    size: new Vector3(0.2, 0.21, 29),
+    material: curb,
+  });
+  addBox(scene, physics, shadows, {
+    name: "side-street-east-curb",
+    position: new Vector3(23.98, 0.105, 30),
+    size: new Vector3(0.2, 0.21, 29),
+    material: curb,
+  });
+
+  // Pocket green breaks the hard street wall and gives the neighborhood a
+  // recognizable local-space landmark.
+  addBox(scene, physics, shadows, {
+    name: "south-ward-pocket-green",
+    position: new Vector3(-2.5, 0.07, 35.5),
+    size: new Vector3(16, 0.14, 10),
+    material: grass,
+  });
+  createStreetTree(scene, physics, shadows, new Vector3(-6.5, 0, 34.5));
+  createStreetTree(scene, physics, shadows, new Vector3(1.8, 0, 36.1));
+  createStreetlight(scene, shadows, new Vector3(11.6, 0, 43.0));
+
+  // Rear residential row: deliberately simple massing with repeated window
+  // rhythm so later facade work can test reuse without looking cloned.
+  addBox(scene, physics, shadows, {
+    name: "rear-residential-row",
+    position: new Vector3(-31, 4.4, 60.2),
+    size: new Vector3(34, 8.8, 13),
+    material: warmBrick,
+    collide: true,
+    castShadow: true,
+  });
+  addWindowGrid(
+    scene,
+    shadows,
+    new Vector3(-31, 0, 0),
+    8,
+    2,
+    3.6,
+    2.6,
+    53.62,
+    3.0,
+    darkGlass,
+  );
+
+  // Small local shop/workshop mass anchors the side-street junction.
+  addBox(scene, physics, shadows, {
+    name: "rear-local-shop",
+    position: new Vector3(5, 3.1, 59.2),
+    size: new Vector3(16, 6.2, 11),
+    material: coolConcrete,
+    collide: true,
+    castShadow: true,
+  });
+  addBox(scene, physics, shadows, {
+    name: "rear-local-shopfront",
+    position: new Vector3(5, 1.35, 53.62),
+    size: new Vector3(12.8, 2.35, 0.16),
+    material: darkGlass,
+  });
+  addBox(scene, physics, shadows, {
+    name: "rear-local-shop-sign",
+    position: new Vector3(5, 3.95, 53.54),
+    size: new Vector3(7.2, 0.6, 0.18),
+    material: accent,
+    castShadow: true,
+  });
+
+  addBox(scene, physics, shadows, {
+    name: "rear-workshop",
+    position: new Vector3(36, 3.8, 59.5),
+    size: new Vector3(21, 7.6, 12),
+    material: garageWall,
+    collide: true,
+    castShadow: true,
+  });
+
+  // A second parked vehicle establishes street scale deeper into the block.
+  createParkedCar(scene, shadows, new Vector3(-14, 0, 49.6));
 
   return {
     spawn: new Vector3(-7.5, 0.92, 2.45),
