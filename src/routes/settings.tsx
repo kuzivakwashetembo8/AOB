@@ -134,9 +134,10 @@ function SettingsPage() {
                 {range("sensitivity", "Look sensitivity")}
                 {toggle("invertY", "Invert look Y axis")}
                 {toggle("vibration", "Controller vibration")}
+                {toggle("desktopControls", "Show desktop on-screen controls")}
                 <div className="setting-row">
                   <span>Movement</span>
-                  <span className="system-label">W A S D / LEFT STICK</span>
+                  <span className="system-label">ARROWS / W A S D / LEFT STICK</span>
                 </div>
                 <div className="setting-row">
                   <span>Interact / Enter vehicle</span>
