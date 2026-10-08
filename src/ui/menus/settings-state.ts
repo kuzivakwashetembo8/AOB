@@ -24,6 +24,7 @@ export type Settings = {
   handedness: string;
   haptics: boolean;
   autoHide: boolean;
+  desktopControls: boolean;
 };
 export const defaults: Settings = {
   quality: "High",
@@ -50,6 +51,7 @@ export const defaults: Settings = {
   handedness: "Right-handed",
   haptics: true,
   autoHide: true,
+  desktopControls: true,
 };
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>(defaults);
