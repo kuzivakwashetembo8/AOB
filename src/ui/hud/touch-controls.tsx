@@ -20,7 +20,7 @@ export function Joystick({ type, send }: { type: "move" | "look"; send: Send }) 
     }
     if (thumb.current)
       thumb.current.style.transform = `translate(${x * radius}px, ${y * radius}px)`;
-    send({ type, x, y });
+    send({ type, x: type === "move" ? -x : x, y });
   };
   const release = (event: PointerEvent<HTMLDivElement>) => {
     if (active.current !== event.pointerId) return;
