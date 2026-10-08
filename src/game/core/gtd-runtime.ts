@@ -3,6 +3,7 @@ import {
   Color3,
   Color4,
   Engine,
+  Ray,
   Scene,
   Vector3,
 } from "@babylonjs/core";
@@ -46,6 +47,7 @@ export class GTDGameRuntime implements GameRuntime {
   private accumulator = 0;
   private snapshotAccumulator = 0;
   private previousTime = 0;
+  private preferredCameraRadius = 6.2;
   private frameHandle: number | null = null;
   private snapshotListeners = new Set<(snapshot: GameSnapshot) => void>();
   private eventListeners = new Set<(event: GameEvent) => void>();
@@ -95,8 +97,9 @@ export class GTDGameRuntime implements GameRuntime {
       firstLight.focus,
       scene,
     );
-    camera.lowerRadiusLimit = 3.8;
+    camera.lowerRadiusLimit = 1.15;
     camera.upperRadiusLimit = 8.8;
+    camera.minZ = 0.08;
     camera.lowerBetaLimit = 0.55;
     camera.upperBetaLimit = 1.48;
     camera.fov = 0.9;
@@ -253,12 +256,59 @@ export class GTDGameRuntime implements GameRuntime {
       voight.root.rotation.y = Math.atan2(desired.x, desired.z);
     }
     camera.target.set(position.x, position.y + 0.55, position.z);
+    this.resolveCameraObstruction(camera, position, dt);
 
     this.snapshotAccumulator += dt;
     if (this.snapshotAccumulator >= SNAPSHOT_INTERVAL) {
       this.snapshotAccumulator = 0;
       this.publishSnapshot(desired.length() * speed);
     }
+  }
+
+
+  private resolveCameraObstruction(
+    camera: ArcRotateCamera,
+    playerPosition: { x: number; y: number; z: number },
+    dt: number,
+  ) {
+    const scene = this.scene;
+    if (!scene) return;
+
+    const target = new Vector3(
+      playerPosition.x,
+      playerPosition.y + 0.55,
+      playerPosition.z,
+    );
+    const sinBeta = Math.sin(camera.beta);
+    const desiredOffset = new Vector3(
+      Math.cos(camera.alpha) * sinBeta,
+      Math.cos(camera.beta),
+      Math.sin(camera.alpha) * sinBeta,
+    ).scale(this.preferredCameraRadius);
+
+    const desiredPosition = target.add(desiredOffset);
+    const rayVector = desiredPosition.subtract(target);
+    const rayLength = rayVector.length();
+    if (rayLength < 0.001) return;
+
+    const ray = new Ray(target, rayVector.scale(1 / rayLength), rayLength);
+    const hit = scene.pickWithRay(
+      ray,
+      (mesh) =>
+        mesh.isEnabled() &&
+        mesh.isVisible &&
+        mesh.metadata?.cameraBlocker === true,
+    );
+
+    let targetRadius = this.preferredCameraRadius;
+    if (hit?.hit && hit.distance > 0) {
+      targetRadius = Math.max(1.2, hit.distance - 0.28);
+    }
+
+    const current = camera.radius;
+    const response = targetRadius < current ? 20 : 6;
+    const blend = 1 - Math.exp(-response * dt);
+    camera.radius = current + (targetRadius - current) * blend;
   }
 
   private publishSnapshot(speed = this.snapshot.speed) {
