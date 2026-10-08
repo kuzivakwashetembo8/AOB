@@ -886,6 +886,64 @@ input[type="checkbox"] {
   font: 9px var(--font-mono);
   color: var(--muted-foreground);
 }
+
+.desktop-controls {
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left));
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(22px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+  z-index: 4;
+}
+.desktop-controls > * {
+  pointer-events: auto;
+}
+.desktop-movement-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 42px);
+  grid-template-rows: repeat(2, 42px);
+  gap: 6px;
+}
+.desktop-action-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 42px);
+  gap: 8px;
+}
+.desktop-control-button {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  position: relative;
+  background: color-mix(in oklch, var(--glass) 78%, transparent);
+  backdrop-filter: blur(4px);
+}
+.desktop-control-button::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--veil);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  padding: 5px 7px;
+  font: 9px var(--font-mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.desktop-control-button:hover::after,
+.desktop-control-button:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 .touch-controls {
   position: absolute;
   left: 0;
