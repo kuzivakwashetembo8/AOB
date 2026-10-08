@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: ACTIVE — FL-2 surface and representation work is active. Vegetation and road-network legibility refined; next visual review build pending.
+Status: ACTIVE — FL-2 refinement pass implemented: tree structure, road junction geometry, and skyline hierarchy improved. Visual review deployment pending.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -309,3 +309,7 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-08: Review confirmed garage glazing, building material treatment, and the direction of FL-2. Vegetation still read as abstract green geometry, and road junctions did not yet communicate a continuous city road network strongly enough.
 - 2026-10-08: Grass received a blade/noise surface texture; foliage cards were revised toward pointed leaf sprays with stem cues and irregular transparency. Main/side/rear-road junctions received explicit asphalt junction pads, center markings, and pedestrian crossings so the road graph reads as continuous infrastructure.
 - 2026-10-08: Basic day/night sky remains intentionally deferred to FL-3 because the implementation plan assigns exterior lighting and atmosphere there. Weather remains a later complexity layer after basic atmospheric behavior is validated.
+- 2026-10-08: User authorized the next FL-2 implementation pass with reference imagery reinforcing previously agreed tree silhouette, road-network, and city-massing targets.
+- 2026-10-08: Tree representation upgraded with bark-textured segmented trunks, root flares, asymmetry, wider umbrella-like canopy spread, and additional branch structure.
+- 2026-10-08: Road geometry corrected so sidewalks/curbs terminate around intersections rather than crossing active asphalt; main and rear junctions now read as uninterrupted road connections.
+- 2026-10-08: South Ward skyline hierarchy expanded with textured podium/tower masses and repeated window rhythm to introduce believable vertical city context without leaving FL-2 scope.
