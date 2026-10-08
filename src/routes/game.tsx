@@ -255,7 +255,7 @@ function GamePage() {
         >
           <div className="overlay-content">
             <div className="flex justify-between items-center">
-              <span className="system-label text-primary">MERIDIA TEST GROUND // SESSION PAUSED</span>
+              <span className="system-label text-primary">SOUTH WARD // FIRST LIGHT // SESSION PAUSED</span>
               <Button
                 variant="control"
                 aria-label="Close pause menu"
@@ -321,7 +321,7 @@ function GamePage() {
             <div className="overlay-note">
               VOIGHT // PROTECTOR
               <br />
-              BUILD 0.2.0 · FIRST 3D RUNTIME
+              BUILD 0.3.0 · MERIDIA FIRST LIGHT
             </div>
           </div>
         </div>
