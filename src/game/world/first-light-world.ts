@@ -87,6 +87,7 @@ function applyFirstLightSurfaceTextures(
     garageWall: StandardMaterial;
     warmBrick: StandardMaterial;
     coolConcrete: StandardMaterial;
+    grass: StandardMaterial;
   },
 ) {
   materials.asphalt.diffuseTexture = createPatternTexture(
@@ -198,6 +199,41 @@ function applyFirstLightSurfaceTextures(
     1.9,
   );
 
+  materials.grass.diffuseTexture = createPatternTexture(
+    scene,
+    "south-ward-grass-texture",
+    (ctx, size) => {
+      ctx.fillStyle = "#48663b";
+      ctx.fillRect(0, 0, size, size);
+      let seed = 20261008;
+      const random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+      };
+      for (let i = 0; i < 1500; i += 1) {
+        const x = random() * size;
+        const y = random() * size;
+        const len = 2 + random() * 7;
+        const lean = (random() - 0.5) * 3;
+        const shade = 70 + Math.floor(random() * 70);
+        ctx.strokeStyle = `rgba(${40 + Math.floor(random() * 35)},${shade},${32 + Math.floor(random() * 30)},${0.18 + random() * 0.35})`;
+        ctx.lineWidth = 0.55 + random() * 0.8;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + lean, y - len);
+        ctx.stroke();
+      }
+      for (let i = 0; i < 120; i += 1) {
+        ctx.fillStyle = `rgba(30,45,24,${0.04 + random() * 0.08})`;
+        ctx.beginPath();
+        ctx.ellipse(random() * size, random() * size, 3 + random() * 10, 2 + random() * 6, random() * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    },
+    5.2,
+    5.2,
+  );
+
   materials.garageWall.diffuseTexture = createPatternTexture(
     scene,
     "south-ward-garage-block-texture",
@@ -253,19 +289,59 @@ function createFoliageTexture(scene: Scene) {
     return seed / 4294967296;
   };
 
-  const colors = ["#244a2c", "#315c35", "#3b6b3b", "#4b7742", "#527d46"];
-  for (let i = 0; i < 105; i += 1) {
-    const x = 38 + random() * 180;
-    const y = 38 + random() * 180;
-    const rx = 10 + random() * 21;
-    const ry = 6 + random() * 14;
+  const colors = ["#25482a", "#315b34", "#3e693c", "#4f7542", "#5b8149"];
+  ctx.lineCap = "round";
+  for (let spray = 0; spray < 30; spray += 1) {
+    const sx = 34 + random() * 188;
+    const sy = 40 + random() * 176;
+    const angle = random() * Math.PI * 2;
+    const stemLength = 22 + random() * 46;
+    const ex = sx + Math.cos(angle) * stemLength;
+    const ey = sy + Math.sin(angle) * stemLength;
+    ctx.strokeStyle = "rgba(52,68,38,0.62)";
+    ctx.lineWidth = 1.3 + random() * 1.8;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    const leaves = 4 + Math.floor(random() * 5);
+    for (let i = 0; i < leaves; i += 1) {
+      const t = (i + 1) / (leaves + 1);
+      const cx = sx + (ex - sx) * t + (random() - 0.5) * 11;
+      const cy = sy + (ey - sy) * t + (random() - 0.5) * 11;
+      const leafAngle = angle + (random() - 0.5) * 1.8;
+      const length = 10 + random() * 18;
+      const width = 4 + random() * 8;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(leafAngle);
+      ctx.fillStyle = colors[Math.floor(random() * colors.length)] ?? colors[0];
+      ctx.globalAlpha = 0.82 + random() * 0.18;
+      ctx.beginPath();
+      ctx.moveTo(-length / 2, 0);
+      ctx.quadraticCurveTo(0, -width, length / 2, 0);
+      ctx.quadraticCurveTo(0, width, -length / 2, 0);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // Smaller leaf clusters fill the canopy while keeping irregular transparent gaps.
+  for (let i = 0; i < 110; i += 1) {
+    const x = 28 + random() * 200;
+    const y = 30 + random() * 196;
+    const length = 7 + random() * 13;
+    const width = 3 + random() * 6;
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(random() * Math.PI);
+    ctx.rotate(random() * Math.PI * 2);
     ctx.fillStyle = colors[Math.floor(random() * colors.length)] ?? colors[0];
-    ctx.globalAlpha = 0.8 + random() * 0.2;
+    ctx.globalAlpha = 0.72 + random() * 0.25;
     ctx.beginPath();
-    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.moveTo(-length / 2, 0);
+    ctx.quadraticCurveTo(0, -width, length / 2, 0);
+    ctx.quadraticCurveTo(0, width, -length / 2, 0);
     ctx.fill();
     ctx.restore();
   }
@@ -524,6 +600,7 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     garageWall,
     warmBrick,
     coolConcrete,
+    grass,
   });
 
   const base = MeshBuilder.CreateGround(
@@ -551,6 +628,31 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     size: new Vector3(8, 0.035, 52),
     material: asphalt,
   });
+
+  // Explicit junction pads visually merge the road graph. They intentionally
+  // override underlying curb/sidewalk surfaces at intersections so roads read
+  // as continuous links rather than independent strips.
+  addBox(scene, physics, shadows, {
+    name: "main-side-junction",
+    position: new Vector3(20, 0.05, 8),
+    size: new Vector3(11.6, 0.08, 11.6),
+    material: asphalt,
+  });
+  addBox(scene, physics, shadows, {
+    name: "rear-side-junction",
+    position: new Vector3(20, 0.05, 48),
+    size: new Vector3(11.6, 0.08, 11.6),
+    material: asphalt,
+  });
+
+  for (let z = 17; z <= 39; z += 8) {
+    addBox(scene, physics, shadows, {
+      name: `side-lane-mark-${z}`,
+      position: new Vector3(20, 0.06, z),
+      size: new Vector3(0.14, 0.04, 3.2),
+      material: lane,
+    });
+  }
 
   // Sidewalks and curb lines.
   addBox(scene, physics, shadows, {
@@ -586,6 +688,22 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
       material: lane,
     });
   }
+
+  // Pedestrian crossings make the intersections legible as junctions.
+  [-1.9, -1.25, -0.6, 0.6, 1.25, 1.9].forEach((offset, index) => {
+    addBox(scene, physics, shadows, {
+      name: `main-crosswalk-${index}`,
+      position: new Vector3(20 + offset, 0.065, 8),
+      size: new Vector3(0.34, 0.03, 7.2),
+      material: curb,
+    });
+    addBox(scene, physics, shadows, {
+      name: `rear-crosswalk-${index}`,
+      position: new Vector3(20 + offset, 0.065, 48),
+      size: new Vector3(0.34, 0.03, 7.2),
+      material: curb,
+    });
+  });
 
   // Small planted strip and drainage rhythm.
   addBox(scene, physics, shadows, {
