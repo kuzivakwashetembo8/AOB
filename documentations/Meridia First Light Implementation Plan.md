@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: ACTIVE — milestone approved. FL-0 authorized. Deployment remains separately gated.
+Status: ACTIVE — FL-0 established; first FL-1 structural visual pass deployed for review. Further development is gated on review.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -295,3 +295,5 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-08: User-supplied Payback 2 references reviewed. Tree strategy refined toward 3D trunk/branch structure with layered foliage cards; building strategy refined toward simple structural shells with facade-driven richness and selective depth; ground treatment elevated to first-class visual importance.
 - 2026-10-08: First Light Asset Doctrine incorporated.
 - 2026-10-08: User granted explicit greenlight. Milestone activated; neighborhood garage confirmed as the hero building; FL-0 authorized. Deployment remains separately gated.
+- 2026-10-08: FL-0 visual contract and benchmark method established. First FL-1 structural/representation pass committed: South Ward street corner, enterable garage shell, supporting buildings, ground hierarchy, procedural foliage-card tree, streetlight, parked vehicle, shadows, and updated runtime spawn/location.
+- 2026-10-08: A deliberate review deployment was created from commit `5f84ecfef91d98c63fc2a13b508833fecf4067bb`. Build completed successfully and `/game` returned HTTP 200 with no grouped runtime errors at verification time. Automatic deployment guard was restored. Further First Light development is paused pending visual/interaction confirmation.
