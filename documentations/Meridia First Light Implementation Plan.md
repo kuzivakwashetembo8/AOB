@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: PROPOSED — awaiting explicit greenlight. No development or deployment authorized.
+Status: ACTIVE — milestone approved. FL-0 authorized. Deployment remains separately gated.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -277,14 +277,14 @@ Priorities:
 
 No complete South Ward district, pedestrian AI system, city traffic system, missions, procedural metropolis, final Voight model, fully furnished multi-floor buildings, final vehicle physics, dense crowd simulation, or commitment to photorealism.
 
-## Open approvals before development
+## Approved decisions
 
-1. Confirm milestone name **Meridia: First Light**.
-2. Approve the revised First Light Asset Doctrine.
-3. Approve or amend the proposed hero building type (currently neighborhood garage).
-4. Approve FL-0 as the first authorized implementation phase.
-
-Until all required approvals are given, **development remains blocked**.
+- Milestone name: **Meridia: First Light**.
+- First Light Asset Doctrine: approved.
+- Hero building type: **South Ward neighborhood garage**.
+- FL-0: authorized.
+- Deployment: still requires explicit authorization.
+- FL-1 and subsequent phases remain gated by their review points.
 
 ## Decision log
 
@@ -293,4 +293,5 @@ Until all required approvals are given, **development remains blocked**.
 - 2026-10-08: Grounded cinematic stylization selected as the visual direction.
 - 2026-10-08: First Light plan drafted as a representation laboratory rather than a South Ward district build.
 - 2026-10-08: User-supplied Payback 2 references reviewed. Tree strategy refined toward 3D trunk/branch structure with layered foliage cards; building strategy refined toward simple structural shells with facade-driven richness and selective depth; ground treatment elevated to first-class visual importance.
-- 2026-10-08: First Light Asset Doctrine incorporated. Plan remains PROPOSED and awaits explicit greenlight.
+- 2026-10-08: First Light Asset Doctrine incorporated.
+- 2026-10-08: User granted explicit greenlight. Milestone activated; neighborhood garage confirmed as the hero building; FL-0 authorized. Deployment remains separately gated.
