@@ -270,6 +270,55 @@ function applyFirstLightSurfaceTextures(
 }
 
 
+function createBarkTexture(scene: Scene) {
+  return createPatternTexture(
+    scene,
+    "south-ward-bark-texture",
+    (ctx, size) => {
+      ctx.fillStyle = "#5f4a35";
+      ctx.fillRect(0, 0, size, size);
+      let seed = 90210;
+      const random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+      };
+
+      for (let i = 0; i < 150; i += 1) {
+        const x = random() * size;
+        const width = 1 + random() * 4;
+        const shade = 40 + Math.floor(random() * 55);
+        ctx.strokeStyle = `rgba(${shade + 20},${shade + 10},${shade},${0.18 + random() * 0.35})`;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(x, -12);
+        let y = -12;
+        while (y < size + 12) {
+          y += 14 + random() * 24;
+          ctx.lineTo(x + (random() - 0.5) * 11, y);
+        }
+        ctx.stroke();
+      }
+
+      for (let i = 0; i < 34; i += 1) {
+        const x = random() * size;
+        const y = random() * size;
+        ctx.strokeStyle = `rgba(28,20,14,${0.18 + random() * 0.25})`;
+        ctx.lineWidth = 1 + random() * 2;
+        ctx.beginPath();
+        ctx.arc(x, y, 3 + random() * 9, random() * Math.PI, random() * Math.PI * 2);
+        ctx.stroke();
+      }
+
+      for (let i = 0; i < 70; i += 1) {
+        ctx.fillStyle = `rgba(190,165,126,${0.035 + random() * 0.08})`;
+        ctx.fillRect(random() * size, random() * size, 1 + random() * 3, 8 + random() * 24);
+      }
+    },
+    1.3,
+    3.8,
+  );
+}
+
 function createFoliageTexture(scene: Scene) {
   const texture = new DynamicTexture(
     "first-light-foliage-texture",
@@ -358,26 +407,64 @@ function createStreetTree(
   const root = new TransformNode("south-ward-tree", scene);
   root.position.copyFrom(position);
 
-  const bark = mat(scene, "tree-bark", new Color3(0.22, 0.16, 0.1), 0.02);
-  const trunk = MeshBuilder.CreateCylinder(
-    "south-ward-tree-trunk",
-    { height: 4.7, diameterTop: 0.42, diameterBottom: 0.62, tessellation: 8 },
+  const bark = mat(scene, "tree-bark", new Color3(0.34, 0.25, 0.17), 0.02);
+  bark.diffuseTexture = createBarkTexture(scene);
+
+  const lowerTrunk = MeshBuilder.CreateCylinder(
+    "south-ward-tree-trunk-lower",
+    { height: 2.9, diameterTop: 0.5, diameterBottom: 0.78, tessellation: 10 },
     scene,
   );
-  trunk.position.y = 2.35;
-  trunk.parent = root;
-  trunk.material = bark;
-  trunk.receiveShadows = true;
-  shadows.addShadowCaster(trunk);
+  lowerTrunk.position.set(0, 1.45, 0);
+  lowerTrunk.rotation.z = -0.025;
+  lowerTrunk.parent = root;
+  lowerTrunk.material = bark;
+  lowerTrunk.receiveShadows = true;
+  shadows.addShadowCaster(lowerTrunk);
+
+  const upperTrunk = MeshBuilder.CreateCylinder(
+    "south-ward-tree-trunk-upper",
+    { height: 2.15, diameterTop: 0.34, diameterBottom: 0.52, tessellation: 10 },
+    scene,
+  );
+  upperTrunk.position.set(0.08, 3.86, 0.02);
+  upperTrunk.rotation.z = 0.075;
+  upperTrunk.rotation.x = -0.025;
+  upperTrunk.parent = root;
+  upperTrunk.material = bark;
+  upperTrunk.receiveShadows = true;
+  shadows.addShadowCaster(upperTrunk);
+
+  [
+    { x: -0.28, z: 0, rz: -0.38 },
+    { x: 0.28, z: 0.04, rz: 0.38 },
+    { x: 0, z: -0.26, rx: 0.34 },
+    { x: 0.05, z: 0.28, rx: -0.34 },
+  ].forEach((flare, index) => {
+    const rootFlare = MeshBuilder.CreateCylinder(
+      `south-ward-tree-root-flare-${index}`,
+      { height: 0.72, diameterTop: 0.22, diameterBottom: 0.48, tessellation: 7 },
+      scene,
+    );
+    rootFlare.position.set(flare.x, 0.3, flare.z);
+    rootFlare.rotation.z = flare.rz ?? 0;
+    rootFlare.rotation.x = flare.rx ?? 0;
+    rootFlare.parent = root;
+    rootFlare.material = bark;
+    rootFlare.receiveShadows = true;
+    shadows.addShadowCaster(rootFlare);
+  });
+
   physics.addStaticBox(
     { x: position.x, y: 2.2, z: position.z },
-    { x: 0.3, y: 2.2, z: 0.3 },
+    { x: 0.34, y: 2.2, z: 0.34 },
   );
 
   const branchSpecs = [
-    { p: new Vector3(-0.42, 4.1, 0.05), r: new Vector3(0, 0, -0.46), h: 2.0 },
-    { p: new Vector3(0.48, 4.0, 0.1), r: new Vector3(0.06, 0, 0.5), h: 2.1 },
-    { p: new Vector3(0.05, 4.35, -0.35), r: new Vector3(-0.42, 0, 0.08), h: 1.8 },
+    { p: new Vector3(-0.58, 4.2, 0.03), r: new Vector3(0, 0, -0.58), h: 2.35 },
+    { p: new Vector3(0.66, 4.12, 0.12), r: new Vector3(0.04, 0, 0.62), h: 2.45 },
+    { p: new Vector3(0.02, 4.5, -0.52), r: new Vector3(-0.52, 0, 0.06), h: 2.05 },
+    { p: new Vector3(-0.08, 4.48, 0.5), r: new Vector3(0.5, 0, -0.05), h: 1.9 },
   ];
   branchSpecs.forEach((b, i) => {
     const branch = MeshBuilder.CreateCylinder(
@@ -401,20 +488,23 @@ function createStreetTree(
   foliage.specularColor = Color3.Black();
 
   const clusters = [
-    new Vector3(0, 5.5, 0),
-    new Vector3(-1.05, 5.15, 0.15),
-    new Vector3(1.08, 5.1, 0.2),
-    new Vector3(-0.45, 6.2, -0.35),
-    new Vector3(0.62, 6.15, -0.25),
-    new Vector3(0.1, 5.75, 0.85),
-    new Vector3(-0.2, 5.55, -0.95),
+    new Vector3(0, 5.45, 0),
+    new Vector3(-1.75, 5.15, 0.05),
+    new Vector3(1.8, 5.12, 0.1),
+    new Vector3(-1.15, 5.85, -0.55),
+    new Vector3(1.2, 5.82, -0.48),
+    new Vector3(-0.75, 5.35, 1.15),
+    new Vector3(0.8, 5.28, 1.12),
+    new Vector3(0, 6.15, 0.12),
+    new Vector3(-2.05, 5.0, -0.85),
+    new Vector3(2.05, 5.0, -0.75),
   ];
 
   clusters.forEach((cluster, index) => {
     [0, Math.PI / 3, (2 * Math.PI) / 3].forEach((yaw, planeIndex) => {
       const card = MeshBuilder.CreatePlane(
         `tree-foliage-${index}-${planeIndex}`,
-        { width: 2.7, height: 1.95, sideOrientation: Mesh.DOUBLESIDE },
+        { width: 3.45, height: 1.85, sideOrientation: Mesh.DOUBLESIDE },
         scene,
       );
       card.parent = root;
@@ -661,11 +751,16 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     size: new Vector3(130, 0.11, 3.1),
     material: sidewalk,
   });
-  addBox(scene, physics, shadows, {
-    name: "south-ward-south-walk",
-    position: new Vector3(0, 0.055, 13.6),
-    size: new Vector3(130, 0.11, 3.1),
-    material: sidewalk,
+  [
+    { name: "south-ward-south-walk-west", x: -18.5, width: 83 },
+    { name: "south-ward-south-walk-east", x: 47.5, width: 35 },
+  ].forEach((segment) => {
+    addBox(scene, physics, shadows, {
+      name: segment.name,
+      position: new Vector3(segment.x, 0.055, 13.6),
+      size: new Vector3(segment.width, 0.11, 3.1),
+      material: sidewalk,
+    });
   });
   addBox(scene, physics, shadows, {
     name: "north-curb",
@@ -673,11 +768,16 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     size: new Vector3(130, 0.21, 0.2),
     material: curb,
   });
-  addBox(scene, physics, shadows, {
-    name: "south-curb",
-    position: new Vector3(0, 0.105, 11.98),
-    size: new Vector3(130, 0.21, 0.2),
-    material: curb,
+  [
+    { name: "south-curb-west", x: -18.5, width: 83 },
+    { name: "south-curb-east", x: 47.5, width: 35 },
+  ].forEach((segment) => {
+    addBox(scene, physics, shadows, {
+      name: segment.name,
+      position: new Vector3(segment.x, 0.105, 11.98),
+      size: new Vector3(segment.width, 0.21, 0.2),
+      material: curb,
+    });
   });
 
   for (let x = -56; x <= 56; x += 8) {
@@ -1004,29 +1104,35 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     size: new Vector3(118, 0.035, 8),
     material: asphalt,
   });
-  addBox(scene, physics, shadows, {
-    name: "rear-road-north-walk",
-    position: new Vector3(2, 0.055, 42.4),
-    size: new Vector3(118, 0.11, 3.1),
-    material: sidewalk,
-  });
-  addBox(scene, physics, shadows, {
-    name: "rear-road-south-walk",
-    position: new Vector3(2, 0.055, 53.6),
-    size: new Vector3(118, 0.11, 3.1),
-    material: sidewalk,
-  });
-  addBox(scene, physics, shadows, {
-    name: "rear-road-north-curb",
-    position: new Vector3(2, 0.105, 44.02),
-    size: new Vector3(118, 0.21, 0.2),
-    material: curb,
-  });
-  addBox(scene, physics, shadows, {
-    name: "rear-road-south-curb",
-    position: new Vector3(2, 0.105, 51.98),
-    size: new Vector3(118, 0.21, 0.2),
-    material: curb,
+  const rearSegments = [
+    { suffix: "west", x: -22.5, width: 69 },
+    { suffix: "east", x: 48.5, width: 49 },
+  ];
+  rearSegments.forEach((segment) => {
+    addBox(scene, physics, shadows, {
+      name: `rear-road-north-walk-${segment.suffix}`,
+      position: new Vector3(segment.x, 0.055, 42.4),
+      size: new Vector3(segment.width, 0.11, 3.1),
+      material: sidewalk,
+    });
+    addBox(scene, physics, shadows, {
+      name: `rear-road-south-walk-${segment.suffix}`,
+      position: new Vector3(segment.x, 0.055, 53.6),
+      size: new Vector3(segment.width, 0.11, 3.1),
+      material: sidewalk,
+    });
+    addBox(scene, physics, shadows, {
+      name: `rear-road-north-curb-${segment.suffix}`,
+      position: new Vector3(segment.x, 0.105, 44.02),
+      size: new Vector3(segment.width, 0.21, 0.2),
+      material: curb,
+    });
+    addBox(scene, physics, shadows, {
+      name: `rear-road-south-curb-${segment.suffix}`,
+      position: new Vector3(segment.x, 0.105, 51.98),
+      size: new Vector3(segment.width, 0.21, 0.2),
+      material: curb,
+    });
   });
 
   for (let x = -48; x <= 48; x += 8) {
@@ -1130,6 +1236,66 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     collide: true,
     castShadow: true,
   });
+
+  // First skyline anchors: textured, simplified high-rise masses create city
+  // hierarchy without turning FL-2 into a full downtown simulation.
+  addBox(scene, physics, shadows, {
+    name: "south-ward-skyline-west-podium",
+    position: new Vector3(-55, 6, 28),
+    size: new Vector3(15, 12, 18),
+    material: warmBrick,
+    collide: true,
+    castShadow: true,
+  });
+  addBox(scene, physics, shadows, {
+    name: "south-ward-skyline-west-tower",
+    position: new Vector3(-55, 17, 28),
+    size: new Vector3(11.5, 22, 14),
+    material: coolConcrete,
+    collide: true,
+    castShadow: true,
+  });
+  addWindowGrid(
+    scene,
+    shadows,
+    new Vector3(-55, 0, 0),
+    4,
+    8,
+    2.45,
+    2.45,
+    20.92,
+    8.2,
+    darkGlass,
+  );
+
+  addBox(scene, physics, shadows, {
+    name: "south-ward-skyline-east-podium",
+    position: new Vector3(53, 5.2, 31),
+    size: new Vector3(17, 10.4, 17),
+    material: garageWall,
+    collide: true,
+    castShadow: true,
+  });
+  addBox(scene, physics, shadows, {
+    name: "south-ward-skyline-east-tower",
+    position: new Vector3(53, 19.2, 31),
+    size: new Vector3(12, 28, 12),
+    material: coolConcrete,
+    collide: true,
+    castShadow: true,
+  });
+  addWindowGrid(
+    scene,
+    shadows,
+    new Vector3(53, 0, 0),
+    4,
+    10,
+    2.4,
+    2.45,
+    24.92,
+    7.4,
+    darkGlass,
+  );
 
   // A second parked vehicle establishes street scale deeper into the block.
   createParkedCar(scene, physics, shadows, new Vector3(-14, 0, 49.6));
