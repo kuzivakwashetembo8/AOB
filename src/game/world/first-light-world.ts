@@ -460,25 +460,6 @@ function createStreetTree(
     { x: 0.34, y: 2.2, z: 0.34 },
   );
 
-  const branchSpecs = [
-    { p: new Vector3(-0.58, 4.2, 0.03), r: new Vector3(0, 0, -0.58), h: 2.35 },
-    { p: new Vector3(0.66, 4.12, 0.12), r: new Vector3(0.04, 0, 0.62), h: 2.45 },
-    { p: new Vector3(0.02, 4.5, -0.52), r: new Vector3(-0.52, 0, 0.06), h: 2.05 },
-    { p: new Vector3(-0.08, 4.48, 0.5), r: new Vector3(0.5, 0, -0.05), h: 1.9 },
-  ];
-  branchSpecs.forEach((b, i) => {
-    const branch = MeshBuilder.CreateCylinder(
-      `south-ward-tree-branch-${i}`,
-      { height: b.h, diameterTop: 0.12, diameterBottom: 0.24, tessellation: 7 },
-      scene,
-    );
-    branch.position.copyFrom(b.p);
-    branch.rotation.copyFrom(b.r);
-    branch.parent = root;
-    branch.material = bark;
-    shadows.addShadowCaster(branch);
-  });
-
   const foliageTexture = createFoliageTexture(scene);
   const foliage = new StandardMaterial("tree-foliage-material", scene);
   foliage.diffuseTexture = foliageTexture;
@@ -752,8 +733,8 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     material: sidewalk,
   });
   [
-    { name: "south-ward-south-walk-west", x: -18.5, width: 83 },
-    { name: "south-ward-south-walk-east", x: 47.5, width: 35 },
+    { name: "south-ward-south-walk-west", x: -24.5, width: 81 },
+    { name: "south-ward-south-walk-east", x: 44.5, width: 41 },
   ].forEach((segment) => {
     addBox(scene, physics, shadows, {
       name: segment.name,
@@ -769,8 +750,8 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     material: curb,
   });
   [
-    { name: "south-curb-west", x: -18.5, width: 83 },
-    { name: "south-curb-east", x: 47.5, width: 35 },
+    { name: "south-curb-west", x: -24.5, width: 81 },
+    { name: "south-curb-east", x: 44.5, width: 41 },
   ].forEach((segment) => {
     addBox(scene, physics, shadows, {
       name: segment.name,
@@ -1105,8 +1086,8 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
     material: asphalt,
   });
   const rearSegments = [
-    { suffix: "west", x: -22.5, width: 69 },
-    { suffix: "east", x: 48.5, width: 49 },
+    { suffix: "west", x: -20.5, width: 73 },
+    { suffix: "east", x: 42.5, width: 37 },
   ];
   rearSegments.forEach((segment) => {
     addBox(scene, physics, shadows, {
@@ -1147,26 +1128,26 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
   // Side-street sidewalks connect the original garage corner to the rear block.
   addBox(scene, physics, shadows, {
     name: "side-street-west-walk",
-    position: new Vector3(14.4, 0.055, 30),
-    size: new Vector3(3.1, 0.11, 29),
+    position: new Vector3(14.4, 0.055, 28),
+    size: new Vector3(3.1, 0.11, 25.7),
     material: sidewalk,
   });
   addBox(scene, physics, shadows, {
     name: "side-street-east-walk",
-    position: new Vector3(25.6, 0.055, 30),
-    size: new Vector3(3.1, 0.11, 29),
+    position: new Vector3(25.6, 0.055, 28),
+    size: new Vector3(3.1, 0.11, 25.7),
     material: sidewalk,
   });
   addBox(scene, physics, shadows, {
     name: "side-street-west-curb",
-    position: new Vector3(16.02, 0.105, 30),
-    size: new Vector3(0.2, 0.21, 29),
+    position: new Vector3(16.02, 0.105, 28),
+    size: new Vector3(0.2, 0.21, 25.7),
     material: curb,
   });
   addBox(scene, physics, shadows, {
     name: "side-street-east-curb",
-    position: new Vector3(23.98, 0.105, 30),
-    size: new Vector3(0.2, 0.21, 29),
+    position: new Vector3(23.98, 0.105, 28),
+    size: new Vector3(0.2, 0.21, 25.7),
     material: curb,
   });
 
