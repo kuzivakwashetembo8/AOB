@@ -1285,3 +1285,74 @@ input[type="checkbox"] {
 .large-interface .hud-prompt {
   font-size: 15px;
 }
+/* Executable-style framing keeps launcher status within the first viewport. */
+.game-shell:has(.launcher-content) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+.game-shell:has(.launcher-content) .launcher-content {
+  padding-top: 7vh;
+  padding-bottom: 24px;
+}
+.game-shell:has(.launcher-content) .launcher-footer {
+  margin-top: auto;
+}
+.game-shell:has(.launcher-content) .wordmark {
+  font-size: 148px;
+}
+.game-shell:has(.launcher-content) .launcher-menu .menu-button {
+  height: 35px;
+}
+@media (max-height: 820px) and (orientation: landscape) and (min-width: 951px) {
+  .game-shell:has(.launcher-content) .launcher-content {
+    padding-top: 35px;
+  }
+  .game-shell:has(.launcher-content) .wordmark {
+    font-size: 118px;
+  }
+  .launcher-menu {
+    grid-template-columns: 1fr 1fr;
+    width: 400px;
+    gap: 0 24px;
+  }
+  .launcher-rule {
+    margin: 19px 0 15px;
+  }
+  .launcher-copy {
+    margin-bottom: 20px;
+  }
+}
+@media (max-width: 950px) and (orientation: landscape) {
+  .game-shell:has(.launcher-content) .launcher-content {
+    padding-top: 15px;
+    padding-bottom: 10px;
+  }
+  .game-shell:has(.launcher-content) .wordmark {
+    font-size: 76px;
+    margin-top: 9px;
+  }
+  .launcher-rule,
+  .launcher-copy {
+    display: none;
+  }
+  .launcher-primary {
+    margin-top: 16px;
+  }
+  .game-shell:has(.launcher-content) .launcher-menu .menu-button {
+    height: 32px;
+  }
+  .launcher-caption {
+    bottom: 65px;
+  }
+  .hud.touch .hud-bottom {
+    bottom: 135px;
+  }
+  .hud.touch .hud-prompt {
+    bottom: 42%;
+  }
+  .game-viewport:has(.touch-controls) .runtime-badge {
+    top: 32%;
+    padding: 10px 16px;
+  }
+}
