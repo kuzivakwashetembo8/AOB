@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: ACTIVE — FL-2 refinement pass implemented: tree structure, road junction geometry, and skyline hierarchy improved. Visual review deployment pending.
+Status: ACTIVE — FL-2 refinement continues. Dynamic Building Generation Algorithm documented; tree branch artifacts, remaining curb/junction errors, and vertical look range patched. No new deployment yet.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -313,3 +313,7 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-08: Tree representation upgraded with bark-textured segmented trunks, root flares, asymmetry, wider umbrella-like canopy spread, and additional branch structure.
 - 2026-10-08: Road geometry corrected so sidewalks/curbs terminate around intersections rather than crossing active asphalt; main and rear junctions now read as uninterrupted road connections.
 - 2026-10-08: South Ward skyline hierarchy expanded with textured podium/tower masses and repeated window rhythm to introduce believable vertical city context without leaving FL-2 scope.
+- 2026-10-08: Dynamic Building Generation Algorithm documented as the architectural scaling strategy for Meridian: declarative BuildingSpecs, archetype defaults, deterministic generation, facade grammar, openings/interiors/collision/camera blockers, LOD, streaming, and district inheritance.
+- 2026-10-08: Tree branch cylinders removed because they read as falling sticks rather than growth; textured trunk/root-flare structure now disappears directly into the foliage canopy.
+- 2026-10-08: Main and rear junction curb/sidewalk segmentation corrected to leave exact asphalt openings, and side-street edge geometry shortened so it does not intrude into the rear junction.
+- 2026-10-08: Third-person vertical camera range expanded so Voight can look substantially upward toward tall buildings and future helicopters/stars while preserving camera obstruction handling.
