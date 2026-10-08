@@ -513,7 +513,11 @@ The runtime should not contain a separate “mobile movement system.”
 
 Desktop arrow keys are the primary movement convention. WASD remains a supported compatibility binding.
 
-The mobile movement joystick feeds the same normalized movement vector. Touch-axis conversion must preserve direct spatial intent: moving the joystick left moves Voight left, and moving it right moves Voight right.
+Desktop/laptop may also expose optional on-screen controls intended for cursor use. These controls are enabled by default, can be disabled in Settings, and must expose keyboard equivalents through hover/focus tooltips. They are instructional and interactive, but must remain visually subordinate to the world.
+
+The desktop control overlay currently exposes movement, jump, sprint, aim/combat, interact, vehicle, and context actions through the same normalized command path as keyboard input.
+
+The mobile movement joystick feeds the same normalized movement vector. All input surfaces must preserve direct spatial intent: left means left and right means right, regardless of device.
 
 ## Look
 
@@ -880,6 +884,8 @@ Current implementation state:
 - Meridia Test Ground exists as the first deliberately empty world;
 - Voight exists as a temporary technical humanoid proxy backed by a Rapier capsule;
 - desktop arrow keys are the primary movement binding, WASD remains compatible, and mobile touch movement feeds the same runtime movement state;
+- camera-relative horizontal movement now uses one shared axis convention across keyboard, desktop overlay, and touch;
+- optional cursor-driven desktop controls are enabled by default and may be disabled in Settings; each exposes its keyboard equivalent on hover/focus;
 - mouse pointer-lock look and mobile right-stick look feed the same runtime camera state;
 - ground and static obstacle collision are connected;
 - runtime lifecycle and movement state feed the existing HUD snapshot bridge;
