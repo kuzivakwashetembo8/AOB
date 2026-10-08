@@ -113,7 +113,6 @@ export class GTDGameRuntime implements GameRuntime {
     this.voight = voight;
     window.addEventListener("resize", this.resize);
     this.lifecycle = "ready";
-    this.emit({ type: "interaction", label: "Explore Meridia" });
     this.emit({ type: "progress", progress: 100, detail: "Meridia ready" });
     this.publishSnapshot();
     scene.render();
@@ -177,9 +176,6 @@ export class GTDGameRuntime implements GameRuntime {
     if (command.type === "action") {
       if (command.pressed) this.actions.add(command.action);
       else this.actions.delete(command.action);
-      if (command.pressed && command.action === "interact") {
-        this.emit({ type: "interaction", label: "Meridia is quiet. For now." });
-      }
       return;
     }
     if (command.type === "set-context") {
