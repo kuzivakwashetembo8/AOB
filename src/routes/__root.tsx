@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { LandscapeBoundary } from "@/ui/menus/shell";
 import { registerShellWorker } from "@/lib/pwa";
+import { captureInstallPrompt, useStandalone } from "@/lib/standalone";
 
 function NotFoundComponent() {
   return (
@@ -79,8 +80,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "GTD — Grand Theft Division" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { title: "G.T.D — Grand Theft Division" },
+      { name: "application-name", content: "G.T.D" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "G.T.D" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "format-detection", content: "telephone=no" },
       { name: "description", content: "An original urban action world. Meridian City awaits." },
       { name: "theme-color", content: "#1a1c1f" },
       { property: "og:type", content: "website" },
@@ -91,8 +98,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/icon-192.png" },
+      { rel: "icon", href: "/icons/gtd-48x48.png", type: "image/png", sizes: "48x48" },
+      { rel: "icon", href: "/icons/gtd-192x192.png", type: "image/png", sizes: "192x192" },
+      { rel: "apple-touch-icon", href: "/icons/gtd-180x180.png", sizes: "180x180" },
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -124,7 +132,9 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useStandalone();
   useEffect(() => {
+    captureInstallPrompt();
     void registerShellWorker().catch(() => {
       /* Shell remains usable without install support. */
     });

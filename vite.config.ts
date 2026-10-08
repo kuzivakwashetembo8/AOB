@@ -18,7 +18,10 @@ export default defineConfig({
         devOptions: { enabled: false },
         manifest: false,
         workbox: {
-          globPatterns: ["assets/*.{js,css,woff2}", "*.png", "manifest.webmanifest"],
+          globPatterns: ["assets/*.{js,css,woff2}", "icons/*.png", "favicon.png", "manifest.webmanifest"],
+          globIgnores: ["**/assets/*.{jpg,jpeg,webp,mp3,ogg,wav,glb,gltf,ktx2,bin}"],
+          skipWaiting: true,
+          clientsClaim: true,
           maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
           navigateFallback: null,
           cleanupOutdatedCaches: true,
