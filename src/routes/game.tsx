@@ -40,11 +40,6 @@ function GamePage() {
   const navigate = useNavigate();
   const closePause = useCallback(() => setPaused(false), []);
   useModalFocus(paused, closePause);
-  const changeContext = (value: HudContext) => {
-    setContext(value);
-    bridge.command({ type: "set-context", context: value });
-    setInteraction("");
-  };
   const action = (value: GameAction) => {
     setLastInput(value.toUpperCase());
     setInteraction("");
