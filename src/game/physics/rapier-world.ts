@@ -53,6 +53,11 @@ export class MeridianPhysics {
     };
   }
 
+  setPlayerPosition(position: Vec3) {
+    this.playerBody.setTranslation(position, true);
+    this.playerBody.setNextKinematicTranslation(position);
+  }
+
   playerPosition(): Vec3 {
     const p = this.playerBody.translation();
     return { x: p.x, y: p.y, z: p.z };
