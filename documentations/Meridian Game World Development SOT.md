@@ -511,7 +511,9 @@ The runtime should not contain a separate “mobile movement system.”
 
 ## Movement
 
-Keyboard WASD and the mobile movement joystick both populate a normalized movement vector.
+Desktop arrow keys are the primary movement convention. WASD remains a supported compatibility binding.
+
+The mobile movement joystick feeds the same normalized movement vector. Touch-axis conversion must preserve direct spatial intent: moving the joystick left moves Voight left, and moving it right moves Voight right.
 
 ## Look
 
@@ -593,6 +595,48 @@ or, once the first South Ward block begins:
 `South Ward`
 
 Snapshot emission should be lower-frequency than the render loop unless a UI element genuinely requires higher frequency.
+
+---
+
+# 13A. Gameplay HUD Contract
+
+The gameplay HUD exists to communicate actionable information, not to expose implementation state or permanently narrate the game.
+
+## Persistent baseline
+
+Only controls that must remain directly accessible, such as pause, may be persistently visible.
+
+## Conditional information
+
+The following appear only when the state makes them useful:
+
+- current objective, when objective display is enabled;
+- heat, only when heat is above zero;
+- health, when Voight is injured or the health state materially matters;
+- interaction prompts, only when a real interaction is available;
+- crosshair/weapon information, only in a combat context;
+- speed/vehicle information, only while driving;
+- navigation/map information, only when it represents real runtime world data.
+
+## Information that does not belong in the normal gameplay HUD
+
+Do not persistently display:
+
+- development/runtime metadata;
+- “walking / driving / combat” preview selectors;
+- placeholder reputation states such as “unestablished”;
+- static character labels such as “Voight // Protector”;
+- technical test-ground labels unless required for development/debug mode;
+- fake or schematic minimaps that are not driven by actual world state;
+- control legends that permanently compete with the world.
+
+Mission titles, district/location names, reputation changes, tutorials, and similar information should be event-driven or transient unless gameplay requires continuous awareness.
+
+## Context prompt placement
+
+Interaction prompts must not obscure Voight or the central play space. Desktop prompts should occupy a low-priority lower-screen region. On touch devices they should sit near the relevant action controls rather than over the character.
+
+The central visual field belongs to the world.
 
 ---
 
@@ -835,11 +879,13 @@ Current implementation state:
 - the simulation runs on a fixed 60 Hz timestep while rendering follows the browser frame rate;
 - Meridia Test Ground exists as the first deliberately empty world;
 - Voight exists as a temporary technical humanoid proxy backed by a Rapier capsule;
-- desktop WASD and mobile touch movement feed the same runtime movement state;
+- desktop arrow keys are the primary movement binding, WASD remains compatible, and mobile touch movement feeds the same runtime movement state;
 - mouse pointer-lock look and mobile right-stick look feed the same runtime camera state;
 - ground and static obstacle collision are connected;
 - runtime lifecycle and movement state feed the existing HUD snapshot bridge;
 - pause/resume and route teardown are connected to the actual runtime;
+- touch horizontal movement direction has been corrected so gesture direction matches character direction;
+- the gameplay HUD has been reduced to actionable/conditional information instead of persistent development metadata;
 - no production deployment has been requested for this runtime milestone yet.
 
 **Next validation milestone:** build and experience **Voight standing and moving in Meridia Test Ground**. Only after that validation passes should South Ward environment construction begin.
