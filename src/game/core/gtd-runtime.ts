@@ -1,0 +1,284 @@
+import {
+  ArcRotateCamera,
+  Color3,
+  Color4,
+  Engine,
+  Scene,
+  Vector3,
+} from "@babylonjs/core";
+import type {
+  GameAction,
+  GameCommand,
+  GameEvent,
+  GameRuntime,
+  GameSnapshot,
+  HudContext,
+  InputMode,
+} from "./types";
+import { MeridianPhysics } from "../physics/rapier-world";
+import { createMeridiaTestWorld } from "../world/test-world";
+import { createVoightPrototype, type VoightPrototype } from "../character/voight";
+
+const FIXED_STEP = 1 / 60;
+const MAX_FRAME_DELTA = 0.1;
+const WALK_SPEED = 3.8;
+const SPRINT_SPEED = 6.4;
+const JUMP_SPEED = 5.4;
+const SNAPSHOT_INTERVAL = 1 / 12;
+
+type Lifecycle = GameSnapshot["lifecycle"];
+
+export class GTDGameRuntime implements GameRuntime {
+  private host: HTMLCanvasElement | null = null;
+  private engine: Engine | null = null;
+  private scene: Scene | null = null;
+  private camera: ArcRotateCamera | null = null;
+  private physics: MeridianPhysics | null = null;
+  private voight: VoightPrototype | null = null;
+  private lifecycle: Lifecycle = "idle";
+  private context: HudContext = "walking";
+  private inputMode: InputMode = "keyboard";
+  private move = { x: 0, y: 0 };
+  private look = { x: 0, y: 0 };
+  private actions = new Set<GameAction>();
+  private verticalVelocity = 0;
+  private grounded = true;
+  private accumulator = 0;
+  private snapshotAccumulator = 0;
+  private previousTime = 0;
+  private frameHandle: number | null = null;
+  private snapshotListeners = new Set<(snapshot: GameSnapshot) => void>();
+  private eventListeners = new Set<(event: GameEvent) => void>();
+  private resize = () => this.engine?.resize();
+  private snapshot: GameSnapshot = {
+    lifecycle: "idle",
+    context: "walking",
+    location: "Meridia Test Ground",
+    objective: "Take your first steps in Meridia",
+    health: 100,
+    reputation: 0,
+    heat: 0,
+    speed: 0,
+    vehicle: null,
+  };
+
+  async bootstrap(host: HTMLCanvasElement): Promise<void> {
+    if (this.lifecycle !== "idle") return;
+    this.lifecycle = "bootstrapping";
+    this.publishSnapshot();
+    this.emit({ type: "progress", progress: 8, detail: "Initializing renderer" });
+    this.host = host;
+    const engine = new Engine(host, true, {
+      preserveDrawingBuffer: false,
+      stencil: true,
+      adaptToDeviceRatio: true,
+    });
+    engine.setHardwareScalingLevel(Math.max(1, window.devicePixelRatio / 1.5));
+    const scene = new Scene(engine);
+    scene.clearColor = new Color4(0.055, 0.075, 0.09, 1);
+    scene.fogMode = Scene.FOGMODE_EXP2;
+    scene.fogDensity = 0.006;
+    scene.fogColor = new Color3(0.09, 0.12, 0.14);
+
+    this.emit({ type: "progress", progress: 28, detail: "Initializing Rapier" });
+    const physics = await MeridianPhysics.create();
+    this.emit({ type: "progress", progress: 52, detail: "Creating Meridia test ground" });
+    createMeridiaTestWorld(scene, physics);
+
+    const camera = new ArcRotateCamera(
+      "gtd-third-person-camera",
+      -Math.PI / 2,
+      1.16,
+      6.2,
+      new Vector3(0, 1.1, 0),
+      scene,
+    );
+    camera.lowerRadiusLimit = 3.5;
+    camera.upperRadiusLimit = 8.5;
+    camera.lowerBetaLimit = 0.55;
+    camera.upperBetaLimit = 1.48;
+    camera.fov = 0.9;
+    scene.activeCamera = camera;
+
+    this.emit({ type: "progress", progress: 76, detail: "Placing Voight" });
+    const voight = createVoightPrototype(scene);
+    const spawn = physics.playerPosition();
+    voight.root.position.set(spawn.x, spawn.y, spawn.z);
+
+    this.engine = engine;
+    this.scene = scene;
+    this.physics = physics;
+    this.camera = camera;
+    this.voight = voight;
+    window.addEventListener("resize", this.resize);
+    this.lifecycle = "ready";
+    this.emit({ type: "interaction", label: "Explore Meridia" });
+    this.emit({ type: "progress", progress: 100, detail: "Meridia ready" });
+    this.publishSnapshot();
+    scene.render();
+  }
+
+  start(): void {
+    if (this.lifecycle !== "ready" && this.lifecycle !== "paused") return;
+    this.lifecycle = "running";
+    this.accumulator = 0;
+    this.previousTime = performance.now();
+    this.publishSnapshot();
+    this.schedule();
+  }
+
+  pause(): void {
+    if (this.lifecycle !== "running") return;
+    this.lifecycle = "paused";
+    this.accumulator = 0;
+    if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
+    this.frameHandle = null;
+    this.scene?.render();
+    this.publishSnapshot();
+  }
+
+  resume(): void {
+    if (this.lifecycle !== "paused" && this.lifecycle !== "ready") return;
+    this.start();
+  }
+
+  destroy(): void {
+    if (this.lifecycle === "destroyed") return;
+    if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
+    this.frameHandle = null;
+    window.removeEventListener("resize", this.resize);
+    this.scene?.dispose();
+    this.engine?.dispose();
+    this.physics?.destroy();
+    this.host = null;
+    this.engine = null;
+    this.scene = null;
+    this.camera = null;
+    this.physics = null;
+    this.voight = null;
+    this.actions.clear();
+    this.lifecycle = "destroyed";
+    this.publishSnapshot();
+    this.snapshotListeners.clear();
+    this.eventListeners.clear();
+  }
+
+  command(command: GameCommand): void {
+    if (command.type === "move") {
+      const length = Math.hypot(command.x, command.y);
+      this.move = length > 1 ? { x: command.x / length, y: command.y / length } : { x: command.x, y: command.y };
+      return;
+    }
+    if (command.type === "look") {
+      this.look = { x: command.x, y: command.y };
+      return;
+    }
+    if (command.type === "action") {
+      if (command.pressed) this.actions.add(command.action);
+      else this.actions.delete(command.action);
+      if (command.pressed && command.action === "interact") {
+        this.emit({ type: "interaction", label: "Meridia is quiet. For now." });
+      }
+      return;
+    }
+    if (command.type === "set-context") {
+      this.context = command.context;
+      this.publishSnapshot();
+      return;
+    }
+    this.inputMode = command.mode;
+  }
+
+  getSnapshot(): GameSnapshot {
+    return this.snapshot;
+  }
+
+  subscribeSnapshot(listener: (snapshot: GameSnapshot) => void): () => void {
+    this.snapshotListeners.add(listener);
+    return () => this.snapshotListeners.delete(listener);
+  }
+
+  subscribeEvent(listener: (event: GameEvent) => void): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
+  }
+
+  private schedule() {
+    if (this.lifecycle !== "running") return;
+    this.frameHandle = requestAnimationFrame((time) => {
+      const delta = Math.min(MAX_FRAME_DELTA, Math.max(0, (time - this.previousTime) / 1000));
+      this.previousTime = time;
+      this.accumulator += delta;
+      while (this.accumulator >= FIXED_STEP) {
+        this.fixedUpdate(FIXED_STEP);
+        this.accumulator -= FIXED_STEP;
+      }
+      this.scene?.render();
+      this.schedule();
+    });
+  }
+
+  private fixedUpdate(dt: number) {
+    const physics = this.physics;
+    const camera = this.camera;
+    const voight = this.voight;
+    if (!physics || !camera || !voight) return;
+
+    camera.alpha -= this.look.x * (this.inputMode === "touch" ? 1.8 : 0.035) * dt * 60;
+    camera.beta = Math.max(0.58, Math.min(1.42, camera.beta + this.look.y * (this.inputMode === "touch" ? 1.25 : 0.028) * dt * 60));
+
+    const forward = new Vector3(-Math.cos(camera.alpha), 0, -Math.sin(camera.alpha));
+    const right = new Vector3(Math.sin(camera.alpha), 0, -Math.cos(camera.alpha));
+    const desired = forward.scale(-this.move.y).add(right.scale(this.move.x));
+    if (desired.lengthSquared() > 1) desired.normalize();
+    const speed = this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
+    const horizontal = desired.scale(speed * dt);
+
+    if (this.actions.has("jump") && this.grounded) {
+      this.verticalVelocity = JUMP_SPEED;
+      this.grounded = false;
+      this.actions.delete("jump");
+    }
+    this.verticalVelocity += -9.81 * dt;
+
+    const movement = physics.movePlayer({
+      x: horizontal.x,
+      y: this.verticalVelocity * dt,
+      z: horizontal.z,
+    });
+    this.grounded = movement.grounded;
+    if (this.grounded && this.verticalVelocity < 0) this.verticalVelocity = 0;
+
+    const position = physics.playerPosition();
+    voight.root.position.set(position.x, position.y, position.z);
+    if (desired.lengthSquared() > 0.001) {
+      voight.root.rotation.y = Math.atan2(desired.x, desired.z);
+    }
+    camera.target.set(position.x, position.y + 0.55, position.z);
+
+    this.snapshotAccumulator += dt;
+    if (this.snapshotAccumulator >= SNAPSHOT_INTERVAL) {
+      this.snapshotAccumulator = 0;
+      this.publishSnapshot(desired.length() * speed);
+    }
+  }
+
+  private publishSnapshot(speed = this.snapshot.speed) {
+    this.snapshot = {
+      lifecycle: this.lifecycle,
+      context: this.context,
+      location: "Meridia Test Ground",
+      objective: "Take your first steps in Meridia",
+      health: 100,
+      reputation: 0,
+      heat: 0,
+      speed: Math.round(speed * 3.6),
+      vehicle: null,
+    };
+    this.snapshotListeners.forEach((listener) => listener(this.snapshot));
+  }
+
+  private emit(event: GameEvent) {
+    this.eventListeners.forEach((listener) => listener(event));
+  }
+}

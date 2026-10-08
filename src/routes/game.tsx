@@ -33,7 +33,7 @@ function GamePage() {
   const [paused, setPaused] = useState(false);
   const [panel, setPanel] = useState<"pause" | "objectives" | "save">("pause");
   const [progress, setProgress] = useState(0);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(false);\n  const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
   const [interaction, setInteraction] = useState("Observe Meridian City");
   const [lastInput, setLastInput] = useState("STANDBY");
   const navigate = useNavigate();
@@ -47,7 +47,7 @@ function GamePage() {
         ? "Exit vehicle · runtime not connected"
         : value === "combat"
           ? "Focus · runtime not connected"
-          : "Observe Meridian City",
+          : "Explore Meridia",
     );
   };
   const action = (value: GameAction) => {
@@ -57,22 +57,36 @@ function GamePage() {
     );
   };
   useEffect(() => {
-    const host = canvas.current;
-    if (host) void bridge.bootstrap(host);
-    const stages = [
-      setTimeout(() => setProgress(34), 180),
-      setTimeout(() => setProgress(72), 480),
-      setTimeout(() => setProgress(100), 800),
-      setTimeout(() => {
-        setLoaded(true);
-        bridge.start();
-      }, 1150),
-    ];
+    let cancelled = false;
     const unsubscribe = bridge.subscribeEvent((event) => {
       if (event.type === "interaction") setInteraction(event.label ?? "");
+      if (event.type === "progress") {
+        setProgress(event.progress);
+        setRuntimeDetail(event.detail.toUpperCase());
+      }
+      if (event.type === "error") {
+        setRuntimeDetail(event.message.toUpperCase());
+      }
     });
+    void (async () => {
+      try {
+        const host = canvas.current;
+        if (!host) return;
+        const { GTDGameRuntime } = await import("@/game/core/gtd-runtime");
+        if (cancelled) return;
+        const runtime = new GTDGameRuntime();
+        bridge.attach(runtime);
+        await bridge.bootstrap(host);
+        if (cancelled) return;
+        setLoaded(true);
+        bridge.start();
+      } catch (error) {
+        console.error("GTD runtime bootstrap failed", error);
+        setRuntimeDetail("RUNTIME BOOT FAILED");
+      }
+    })();
     return () => {
-      stages.forEach(clearTimeout);
+      cancelled = true;
       unsubscribe();
       bridge.destroy();
     };
@@ -80,6 +94,32 @@ function GamePage() {
   useEffect(() => {
     bridge.command({ type: "input-mode", mode });
   }, [bridge, mode]);
+
+  useEffect(() => {
+    const host = canvas.current;
+    if (!host || !loaded) return;
+    const requestLock = () => {
+      if (mode === "keyboard" && document.pointerLockElement !== host) {
+        void host.requestPointerLock?.();
+      }
+    };
+    const mouseLook = (event: MouseEvent) => {
+      if (document.pointerLockElement !== host || paused) return;
+      bridge.command({
+        type: "look",
+        x: Math.max(-1, Math.min(1, event.movementX / 18)),
+        y: Math.max(-1, Math.min(1, event.movementY / 18)),
+      });
+      requestAnimationFrame(() => bridge.command({ type: "look", x: 0, y: 0 }));
+    };
+    host.addEventListener("click", requestLock);
+    document.addEventListener("mousemove", mouseLook);
+    return () => {
+      host.removeEventListener("click", requestLock);
+      document.removeEventListener("mousemove", mouseLook);
+      if (document.pointerLockElement === host) document.exitPointerLock?.();
+    };
+  }, [bridge, loaded, mode, paused]);
   useEffect(() => {
     const held = new Set<string>();
     const actions: Record<string, GameAction> = {
@@ -163,13 +203,15 @@ function GamePage() {
     >
       <Scene game />
       <GameCanvasHost ref={canvas} />
-      <div className="runtime-badge">
-        <strong>MERIDIAN CITY // FOUNDATION</strong>
-        <div className="system-label">3D RUNTIME NOT ATTACHED</div>
-        <div className="system-label text-system" aria-live="polite">
-          INPUT // {lastInput}
+      {!loaded && (
+        <div className="runtime-badge">
+          <strong>MERIDIA // RUNTIME</strong>
+          <div className="system-label">{runtimeDetail}</div>
+          <div className="system-label text-system" aria-live="polite">
+            INPUT // {lastInput}
+          </div>
         </div>
-      </div>
+      )}
       {loaded && settings.hud && (
         <GameHud
           snapshot={snapshot}
@@ -217,7 +259,7 @@ function GamePage() {
         >
           <div className="overlay-content">
             <div className="flex justify-between items-center">
-              <span className="system-label text-primary">MERIDIAN CENTRAL // SESSION PAUSED</span>
+              <span className="system-label text-primary">MERIDIA TEST GROUND // SESSION PAUSED</span>
               <Button
                 variant="control"
                 aria-label="Close pause menu"
@@ -283,7 +325,7 @@ function GamePage() {
             <div className="overlay-note">
               VOIGHT // PROTECTOR
               <br />
-              BUILD 0.1.0 · PRESENTATION SHELL
+              BUILD 0.2.0 · FIRST 3D RUNTIME
             </div>
           </div>
         </div>
