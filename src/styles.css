@@ -610,14 +610,10 @@ input[type="checkbox"] {
   border-left: 2px solid var(--primary);
   padding-left: 16px;
 }
-.objective h2 {
-  font: 600 24px var(--font-display);
-  margin: 4px 0;
-}
 .objective p {
-  margin: 0;
+  margin: 2px 0 0;
   font-size: 13px;
-  color: var(--muted-foreground);
+  color: var(--foreground);
 }
 .hud-top-right {
   display: flex;
@@ -741,14 +737,40 @@ input[type="checkbox"] {
 }
 .hud-prompt {
   position: absolute;
-  bottom: 27%;
   left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   background: var(--smoke);
-  padding: 12px 18px;
-  font-size: 12px;
+  padding: 9px 13px;
+  font-size: 11px;
   border-bottom: 1px solid var(--primary);
   white-space: nowrap;
+}
+.hud-health {
+  position: absolute;
+  left: max(30px, env(safe-area-inset-left));
+  bottom: max(28px, env(safe-area-inset-bottom));
+  width: 150px;
+}
+.health-track {
+  height: 3px;
+  margin-top: 5px;
+  background: var(--border);
+}
+.health-track > div {
+  height: 100%;
+  background: var(--system);
+}
+.crosshair-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  color: var(--foreground);
+  opacity: 0.85;
+  pointer-events: none;
 }
 .desktop-prompts {
   display: flex;
@@ -948,15 +970,15 @@ input[type="checkbox"] {
 .touch-controls.positions-compact .touch-actions {
   right: max(46px, env(safe-area-inset-right));
 }
-.hud.touch .hud-bottom {
-  bottom: 205px;
-}
 .hud.touch .minimap {
   width: 120px;
   height: 90px;
 }
 .hud.touch .hud-prompt {
-  bottom: 45%;
+  left: auto;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: 170px;
+  transform: none;
 }
 .toast-line {
   color: var(--system);
@@ -1147,11 +1169,6 @@ input[type="checkbox"] {
   }
   .objective p {
     font-size: 11px;
-  }
-  .hud.touch .hud-bottom {
-    left: 20px;
-    right: 20px;
-    bottom: 175px;
   }
   .hud.touch .minimap {
     width: 90px;
@@ -1350,11 +1367,11 @@ input[type="checkbox"] {
   .launcher-caption {
     bottom: 65px;
   }
-  .hud.touch .hud-bottom {
-    bottom: 135px;
-  }
   .hud.touch .hud-prompt {
-    bottom: 42%;
+    left: auto;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: 145px;
+    transform: none;
   }
   .game-viewport:has(.touch-controls) .runtime-badge {
     top: 32%;
@@ -1362,14 +1379,6 @@ input[type="checkbox"] {
   }
 }
 @media (max-width: 950px) and (orientation: landscape) {
-  .hud.touch .hud-bottom {
-    bottom: 160px;
-  }
-  .hud.touch .hud-bottom > div:last-child {
-    position: absolute;
-    right: 0;
-    top: -90px;
-  }
   .game-shell:has(.launcher-content) .launcher-menu .menu-button {
     height: 44px;
   }
@@ -1386,10 +1395,6 @@ input[type="checkbox"] {
     margin-top: 10px;
   }
 }
-@media (max-width: 950px) and (orientation: landscape) {
-  .hud.touch .hud-bottom > div:last-child { top: -20px; }
-}
-
 /* Installed/standalone shell: lock the document so game surfaces never scroll or bounce. */
 html,
 body {
