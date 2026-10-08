@@ -13,6 +13,7 @@ import { useInputMode } from "@/game/input/use-input-mode";
 import { useSettings } from "@/ui/menus/settings-state";
 import { GameHud } from "@/ui/hud/game-hud";
 import { TouchControls } from "@/ui/hud/touch-controls";
+import { DesktopControls } from "@/ui/hud/desktop-controls";
 import { BootstrapOverlay } from "@/ui/menus/bootstrap";
 import type { GameAction } from "@/game/core/types";
 export const Route = createFileRoute("/game")({
@@ -228,6 +229,12 @@ function GamePage() {
       {loaded && touch && !paused && (
         <TouchControls
           settings={settings}
+          send={(command) => bridge.command(command)}
+          onAction={action}
+        />
+      )}
+      {loaded && !touch && settings.desktopControls && !paused && (
+        <DesktopControls
           send={(command) => bridge.command(command)}
           onAction={action}
         />
