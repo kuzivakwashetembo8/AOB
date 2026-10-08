@@ -68,11 +68,12 @@ export class GTDGameRuntime implements GameRuntime {
     this.publishSnapshot();
     this.emit({ type: "progress", progress: 8, detail: "Initializing renderer" });
     this.host = host;
-    const engine = new Engine(host, true, {
-      preserveDrawingBuffer: false,
-      stencil: true,
-      adaptToDeviceRatio: true,
-    });
+    const engine = new Engine(
+      host,
+      true,
+      { preserveDrawingBuffer: false, stencil: true },
+      true,
+    );
     engine.setHardwareScalingLevel(Math.max(1, window.devicePixelRatio / 1.5));
     const scene = new Scene(engine);
     scene.clearColor = new Color4(0.055, 0.075, 0.09, 1);
