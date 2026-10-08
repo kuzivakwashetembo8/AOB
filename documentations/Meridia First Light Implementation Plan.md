@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: ACTIVE — FL-1 accepted. FL-2 surface and representation work is active; next visual review build deployed.
+Status: ACTIVE — FL-2 surface and representation work is active. Vegetation and road-network legibility refined; next visual review build pending.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -306,3 +306,6 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-08: Vehicle proxy received a real static collision body so Voight can no longer walk through parked cars.
 - 2026-10-08: Hero garage rear wall was rebuilt around two real glazed window openings with physical glass, frames, mullions, and camera-transparent glazing.
 - 2026-10-08: FL-2 material language introduced using procedural asphalt, sidewalk slab, brick, concrete, and garage-block surface textures. Citywide moving traffic remains deferred because it belongs to later systemic work rather than this representation milestone.
+- 2026-10-08: Review confirmed garage glazing, building material treatment, and the direction of FL-2. Vegetation still read as abstract green geometry, and road junctions did not yet communicate a continuous city road network strongly enough.
+- 2026-10-08: Grass received a blade/noise surface texture; foliage cards were revised toward pointed leaf sprays with stem cues and irregular transparency. Main/side/rear-road junctions received explicit asphalt junction pads, center markings, and pedestrian crossings so the road graph reads as continuous infrastructure.
+- 2026-10-08: Basic day/night sky remains intentionally deferred to FL-3 because the implementation plan assigns exterior lighting and atmosphere there. Weather remains a later complexity layer after basic atmospheric behavior is validated.
