@@ -97,7 +97,8 @@
 }
 .game-shell {
   position: relative;
-  min-height: 100svh;
+  min-height: 100vh;
+  min-height: 100dvh;
   isolation: isolate;
   overflow: hidden;
 }
@@ -571,8 +572,11 @@ input[type="checkbox"] {
   gap: 15px;
 }
 .game-viewport {
-  height: 100svh;
+  height: 100vh;
+  height: 100dvh;
   min-height: 320px;
+  overscroll-behavior: none;
+  touch-action: none;
   overflow: hidden;
   position: relative;
 }
@@ -1289,7 +1293,8 @@ input[type="checkbox"] {
 .game-shell:has(.launcher-content) {
   display: flex;
   flex-direction: column;
-  min-height: 100svh;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 .game-shell:has(.launcher-content) .launcher-content {
   padding-top: 7vh;
@@ -1383,4 +1388,61 @@ input[type="checkbox"] {
 }
 @media (max-width: 950px) and (orientation: landscape) {
   .hud.touch .hud-bottom > div:last-child { top: -20px; }
+}
+
+/* Installed/standalone shell: lock the document so game surfaces never scroll or bounce. */
+html,
+body {
+  overscroll-behavior: none;
+  background: var(--background);
+}
+html[data-display="standalone"],
+html[data-display="standalone"] body {
+  height: 100%;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+html[data-display="standalone"] body > * {
+  height: 100%;
+  overflow-y: auto;
+}
+.install-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.install-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  background: var(--glass);
+  transition: color 0.2s, border-color 0.2s;
+}
+.install-button:hover,
+.install-button:focus-visible {
+  color: var(--foreground);
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: var(--focus-glow);
+}
+.install-hint {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  white-space: nowrap;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  background: var(--veil);
+  border: 1px solid var(--border);
 }

@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { PageShell } from "@/ui/menus/shell";
 import { pageHead } from "@/lib/page-head";
 import { useInputMode } from "@/game/input/use-input-mode";
+import { InstallAction } from "@/ui/menus/install-action";
 
 export const Route = createFileRoute("/")({
   head: () =>
@@ -134,6 +135,7 @@ function Launcher() {
           <span className="footer-note">
             BUILD 0.1.0 <span className="text-primary">//</span> PRE-ALPHA
           </span>
+          <InstallAction />
           <Button
             variant="control"
             className="sound-button"
