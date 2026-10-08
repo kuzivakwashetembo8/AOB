@@ -34,7 +34,7 @@ function GamePage() {
   const [panel, setPanel] = useState<"pause" | "objectives" | "save">("pause");
   const [progress, setProgress] = useState(0);
   const [loaded, setLoaded] = useState(false);\n  const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
-  const [interaction, setInteraction] = useState("Observe Meridian City");
+  const [interaction, setInteraction] = useState("Explore Meridia");
   const [lastInput, setLastInput] = useState("STANDBY");
   const navigate = useNavigate();
   const closePause = useCallback(() => setPaused(false), []);
