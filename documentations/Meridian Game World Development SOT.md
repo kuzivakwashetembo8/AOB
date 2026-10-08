@@ -823,17 +823,23 @@ This SOT is canonical for the technical implementation of the 3D world runtime.
 
 # 22. Current State
 
-At the time this SOT was created:
+Current implementation state:
 
-- application shell is complete;
-- PWA behavior is working;
-- mobile landscape behavior is verified;
-- Lovable-specific dependencies and metadata have been removed;
-- GitHub is the canonical source;
-- Vercel production is intentionally deployed only;
-- the existing production shell is healthy;
-- no real 3D runtime is attached yet;
-- Babylon.js and Rapier have not yet been introduced;
-- the next implementation task is the first empty-world runtime.
+- application shell is complete and remains the React/TanStack presentation layer;
+- PWA behavior and mobile landscape behavior are verified;
+- Lovable-specific dependencies and metadata are removed;
+- GitHub `main` is canonical and Vercel deployment remains intentional only;
+- Babylon.js 9.29.0 is attached behind the existing `GameCanvasHost`;
+- Rapier 0.21.0 compat is the authoritative collision/character-motion boundary;
+- `GTDGameRuntime` implements bootstrap, start, pause, resume, destroy, command, snapshot, and event contracts;
+- the simulation runs on a fixed 60 Hz timestep while rendering follows the browser frame rate;
+- Meridia Test Ground exists as the first deliberately empty world;
+- Voight exists as a temporary technical humanoid proxy backed by a Rapier capsule;
+- desktop WASD and mobile touch movement feed the same runtime movement state;
+- mouse pointer-lock look and mobile right-stick look feed the same runtime camera state;
+- ground and static obstacle collision are connected;
+- runtime lifecycle and movement state feed the existing HUD snapshot bridge;
+- pause/resume and route teardown are connected to the actual runtime;
+- no production deployment has been requested for this runtime milestone yet.
 
-**Next action:** implement `GTDGameRuntime` and reach the first visual milestone: **Voight standing in an empty Meridia world.**
+**Next validation milestone:** build and experience **Voight standing and moving in Meridia Test Ground**. Only after that validation passes should South Ward environment construction begin.
