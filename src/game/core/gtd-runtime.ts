@@ -100,8 +100,8 @@ export class GTDGameRuntime implements GameRuntime {
     camera.lowerRadiusLimit = 1.15;
     camera.upperRadiusLimit = 8.8;
     camera.minZ = 0.08;
-    camera.lowerBetaLimit = 0.55;
-    camera.upperBetaLimit = 1.48;
+    camera.lowerBetaLimit = 0.35;
+    camera.upperBetaLimit = 2.25;
     camera.fov = 0.9;
     scene.activeCamera = camera;
 
@@ -226,7 +226,13 @@ export class GTDGameRuntime implements GameRuntime {
     if (!physics || !camera || !voight) return;
 
     camera.alpha -= this.look.x * (this.inputMode === "touch" ? 1.8 : 0.035) * dt * 60;
-    camera.beta = Math.max(0.58, Math.min(1.42, camera.beta + this.look.y * (this.inputMode === "touch" ? 1.25 : 0.028) * dt * 60));
+    camera.beta = Math.max(
+      0.38,
+      Math.min(
+        2.22,
+        camera.beta + this.look.y * (this.inputMode === "touch" ? 1.25 : 0.028) * dt * 60,
+      ),
+    );
 
     const forward = new Vector3(-Math.cos(camera.alpha), 0, -Math.sin(camera.alpha));
     const right = new Vector3(-Math.sin(camera.alpha), 0, Math.cos(camera.alpha));
