@@ -216,12 +216,20 @@ function createStreetlight(
 
 function createParkedCar(
   scene: Scene,
+  physics: MeridianPhysics,
   shadows: ShadowGenerator,
   position: Vector3,
 ) {
   const root = new TransformNode("south-ward-parked-car", scene);
   root.position.copyFrom(position);
   root.rotation.y = Math.PI / 2;
+
+  // Parked vehicles are world geometry at this stage: a simple body collider
+  // prevents Voight from walking through the visual proxy.
+  physics.addStaticBox(
+    { x: position.x, y: 0.76, z: position.z },
+    { x: 2.0, y: 0.76, z: 0.88 },
+  );
 
   const paint = mat(scene, "parked-car-paint", new Color3(0.18, 0.28, 0.24), 0.16);
   const dark = mat(scene, "parked-car-dark", new Color3(0.035, 0.045, 0.045), 0.04);
@@ -329,6 +337,8 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
   const warmBrick = mat(scene, "support-warm-brick", new Color3(0.39, 0.25, 0.18), 0.025);
   const coolConcrete = mat(scene, "support-cool-concrete", new Color3(0.26, 0.29, 0.3), 0.03);
   const darkGlass = mat(scene, "south-ward-window", new Color3(0.075, 0.11, 0.12), 0.14);
+  darkGlass.alpha = 0.78;
+  const windowFrame = mat(scene, "garage-window-frame", new Color3(0.12, 0.13, 0.12), 0.08);
   const doorMaterial = mat(scene, "garage-door", new Color3(0.13, 0.17, 0.16), 0.06);
   const accent = mat(scene, "garage-sign-accent", new Color3(0.55, 0.33, 0.12), 0.03);
   const grass = mat(scene, "south-ward-grass", new Color3(0.18, 0.3, 0.17), 0.01);
@@ -418,13 +428,85 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
   const garageWidth = 13.5;
   const wallHeight = 4.7;
 
+  // Rear wall is physically segmented around two real glazed openings. The
+  // glass blocks Voight but is not a camera blocker, so the window reads as an
+  // actual opening instead of a dark rectangle painted onto a wall.
   addBox(scene, physics, shadows, {
-    name: "garage-back-wall",
-    position: new Vector3(gx, wallHeight / 2, backZ),
-    size: new Vector3(garageWidth, wallHeight, 0.35),
+    name: "garage-back-sill-wall",
+    position: new Vector3(gx, 0.55, backZ),
+    size: new Vector3(garageWidth, 1.1, 0.35),
     material: garageWall,
     collide: true,
     castShadow: true,
+  });
+  addBox(scene, physics, shadows, {
+    name: "garage-back-lintel-wall",
+    position: new Vector3(gx, 4.05, backZ),
+    size: new Vector3(garageWidth, 1.3, 0.35),
+    material: garageWall,
+    collide: true,
+    castShadow: true,
+  });
+
+  const rearWindowWidth = 2.45;
+  const rearWindowHeight = 1.75;
+  const rearWindowY = 2.35;
+  const rearWindowXs = [gx - 3.35, gx + 3.35];
+  const rearPostXs = [gx - 6.35, gx, gx + 6.35];
+  rearPostXs.forEach((x, index) => {
+    addBox(scene, physics, shadows, {
+      name: `garage-back-post-${index}`,
+      position: new Vector3(x, 2.35, backZ),
+      size: new Vector3(index === 1 ? 1.25 : 0.8, 2.2, 0.35),
+      material: garageWall,
+      collide: true,
+      castShadow: true,
+    });
+  });
+
+  rearWindowXs.forEach((x, index) => {
+    addBox(scene, physics, shadows, {
+      name: `garage-real-window-glass-${index}`,
+      position: new Vector3(x, rearWindowY, backZ + 0.01),
+      size: new Vector3(rearWindowWidth, rearWindowHeight, 0.08),
+      material: darkGlass,
+      collide: true,
+      cameraBlocker: false,
+    });
+    addBox(scene, physics, shadows, {
+      name: `garage-real-window-top-frame-${index}`,
+      position: new Vector3(x, rearWindowY + rearWindowHeight / 2 + 0.08, backZ + 0.2),
+      size: new Vector3(rearWindowWidth + 0.22, 0.14, 0.18),
+      material: windowFrame,
+      castShadow: true,
+    });
+    addBox(scene, physics, shadows, {
+      name: `garage-real-window-bottom-frame-${index}`,
+      position: new Vector3(x, rearWindowY - rearWindowHeight / 2 - 0.08, backZ + 0.2),
+      size: new Vector3(rearWindowWidth + 0.22, 0.14, 0.18),
+      material: windowFrame,
+      castShadow: true,
+    });
+    [-1, 1].forEach((side) => {
+      addBox(scene, physics, shadows, {
+        name: `garage-real-window-side-frame-${index}-${side}`,
+        position: new Vector3(
+          x + side * (rearWindowWidth / 2 + 0.06),
+          rearWindowY,
+          backZ + 0.2,
+        ),
+        size: new Vector3(0.14, rearWindowHeight + 0.28, 0.18),
+        material: windowFrame,
+        castShadow: true,
+      });
+    });
+    addBox(scene, physics, shadows, {
+      name: `garage-real-window-mullion-${index}`,
+      position: new Vector3(x, rearWindowY, backZ + 0.2),
+      size: new Vector3(0.11, rearWindowHeight, 0.14),
+      material: windowFrame,
+      castShadow: true,
+    });
   });
   addBox(scene, physics, shadows, {
     name: "garage-left-wall",
@@ -590,7 +672,7 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
 
   createStreetTree(scene, physics, shadows, new Vector3(11.2, 0, 2.2));
   createStreetlight(scene, shadows, new Vector3(4.7, 0, 3.15));
-  createParkedCar(scene, shadows, new Vector3(7.4, 0, 9.65));
+  createParkedCar(scene, physics, shadows, new Vector3(7.4, 0, 9.65));
 
   // Simple service-yard fence rhythm; intentionally sparse.
   const fenceMat = mat(scene, "service-fence", new Color3(0.25, 0.27, 0.25), 0.08);
@@ -749,7 +831,7 @@ export function createFirstLightWorld(scene: Scene, physics: MeridianPhysics) {
   });
 
   // A second parked vehicle establishes street scale deeper into the block.
-  createParkedCar(scene, shadows, new Vector3(-14, 0, 49.6));
+  createParkedCar(scene, physics, shadows, new Vector3(-14, 0, 49.6));
 
   return {
     spawn: new Vector3(-7.5, 0.92, 2.45),
