@@ -225,7 +225,7 @@ export class GTDGameRuntime implements GameRuntime {
     camera.beta = Math.max(0.58, Math.min(1.42, camera.beta + this.look.y * (this.inputMode === "touch" ? 1.25 : 0.028) * dt * 60));
 
     const forward = new Vector3(-Math.cos(camera.alpha), 0, -Math.sin(camera.alpha));
-    const right = new Vector3(Math.sin(camera.alpha), 0, -Math.cos(camera.alpha));
+    const right = new Vector3(-Math.sin(camera.alpha), 0, Math.cos(camera.alpha));
     const desired = forward.scale(-this.move.y).add(right.scale(this.move.x));
     if (desired.lengthSquared() > 1) desired.normalize();
     const speed = this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
