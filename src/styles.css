@@ -1356,3 +1356,28 @@ input[type="checkbox"] {
     padding: 10px 16px;
   }
 }
+@media (max-width: 950px) and (orientation: landscape) {
+  .hud.touch .hud-bottom {
+    bottom: 160px;
+  }
+  .hud.touch .hud-bottom > div:last-child {
+    position: absolute;
+    right: 0;
+    top: -90px;
+  }
+  .game-shell:has(.launcher-content) .launcher-menu .menu-button {
+    height: 44px;
+  }
+  .game-shell:has(.launcher-content) .launcher-content {
+    padding-bottom: 8px;
+  }
+  .game-shell:has(.launcher-content) .wordmark {
+    font-size: 68px;
+  }
+  .game-shell:has(.launcher-content) .game-title {
+    font-size: 13px;
+  }
+  .game-shell:has(.launcher-content) .launcher-primary {
+    margin-top: 10px;
+  }
+}
