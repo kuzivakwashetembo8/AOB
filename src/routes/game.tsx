@@ -35,7 +35,7 @@ function GamePage() {
   const [progress, setProgress] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
-  const [interaction, setInteraction] = useState("Explore Meridia");
+  const [interaction, setInteraction] = useState("");
   const [lastInput, setLastInput] = useState("STANDBY");
   const navigate = useNavigate();
   const closePause = useCallback(() => setPaused(false), []);
@@ -43,17 +43,11 @@ function GamePage() {
   const changeContext = (value: HudContext) => {
     setContext(value);
     bridge.command({ type: "set-context", context: value });
-    setInteraction(
-      value === "driving"
-        ? "Exit vehicle · runtime not connected"
-        : value === "combat"
-          ? "Focus · runtime not connected"
-          : "Explore Meridia",
-    );
+    setInteraction("");
   };
   const action = (value: GameAction) => {
     setLastInput(value.toUpperCase());
-    setInteraction(value === "interact" ? "Meridia is quiet. For now." : value.toUpperCase());
+    setInteraction("");
   };
   useEffect(() => {
     let cancelled = false;
@@ -133,8 +127,12 @@ function GamePage() {
     const movement = () =>
       bridge.command({
         type: "move",
-        x: Number(held.has("KeyD")) - Number(held.has("KeyA")),
-        y: Number(held.has("KeyS")) - Number(held.has("KeyW")),
+        x:
+          Number(held.has("ArrowRight") || held.has("KeyD")) -
+          Number(held.has("ArrowLeft") || held.has("KeyA")),
+        y:
+          Number(held.has("ArrowDown") || held.has("KeyS")) -
+          Number(held.has("ArrowUp") || held.has("KeyW")),
       });
     const keydown = (event: KeyboardEvent) => {
       if (event.code === "Escape") {
@@ -151,7 +149,7 @@ function GamePage() {
         void navigate({ to: "/world" });
         return;
       }
-      if (["KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
         event.preventDefault();
         held.add(event.code);
         movement();
@@ -162,7 +160,7 @@ function GamePage() {
         if (!event.repeat) {
           bridge.command({ type: "action", action: value, pressed: true });
           setLastInput(value.toUpperCase());
-          setInteraction(value === "interact" ? "Meridia is quiet. For now." : value.toUpperCase());
+          setInteraction("");
         }
       }
     };
@@ -219,7 +217,6 @@ function GamePage() {
             setPaused(true);
             setPanel("pause");
           }}
-          setContext={changeContext}
           showObjective={settings.objective}
         />
       )}
