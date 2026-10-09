@@ -198,8 +198,9 @@ export function planBuildingInteraction(
   };
   const anchors: InteractionAnchor[] = (spec.anchors ?? []).map((anchor) => {
     const opening = plan.openings.find((item) => item.anchorId === anchor.id);
-    const accessible = !!opening && interiorMode !== "none" && canTraverse(opening) &&
-      (interiorMode !== "shallow" || opening.facade === "front");
+    const accessible = interiorMode !== "none" && (anchor.kind === "interior-spawn" ||
+      (!!opening && canTraverse(opening) &&
+      (interiorMode !== "shallow" || opening.facade === "front")));
     return {
       ...anchor, buildingId: spec.id, accessible,
       ...(opening ? { openingId: opening.id } : {}),
