@@ -119,6 +119,20 @@ export class GTDGameRuntime implements GameRuntime {
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
     );
+    // FL-4 isolation probes are strictly opt-in, never regular gameplay.
+    // noSky tests the sky layer; noShadows tests shadow-pass overhead.
+    if (diagnosticParams.get("fl4Diagnostics") === "1") {
+      const probe = diagnosticParams.get("fl4Probe");
+      if (probe === "noSky") {
+        for (const mesh of scene.meshes) {
+          if (mesh.name === "meridian-sky-dome" || mesh.name === "meridian-star-dome") {
+            mesh.setEnabled(false);
+          }
+        }
+      } else if (probe === "noShadows") {
+        scene.shadowsEnabled = false;
+      }
+    }
     physics.setPlayerPosition({
       x: firstLight.spawn.x,
       y: firstLight.spawn.y,
