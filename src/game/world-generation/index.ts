@@ -20,3 +20,4 @@ export * from "./urban-composition";
 export * from "./city-registry";
 export * from "./block-streaming";
 export * from "./block-lifecycle";
+export * from "./streaming-policy";
