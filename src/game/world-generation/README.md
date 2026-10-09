@@ -45,3 +45,5 @@ All dimensions are in metres, with local geometry under the building ground-cent
 ## Step 5 handoff
 
 See `documentations/Meridian City Generation Step 5 Implementation and Handoff.md`. Road geometry, neighborhood composition, semantic city queries, block resource ownership, proximity policy and Rapier reclamation are opt-in foundations. First Light remains unchanged. Build, tests and visual parity are not yet verified.
+
+FL-4 architecture audit in progress.
