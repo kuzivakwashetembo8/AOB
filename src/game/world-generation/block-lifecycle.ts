@@ -27,3 +27,5 @@ export class BlockLifecycle<T extends BlockAsset> {
   }
   getActiveIds(): readonly string[] { return [...this.entries.keys()]; }
 }
+
+// Caller owns the scene; this module only owns returned resources.
