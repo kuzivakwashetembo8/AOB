@@ -78,6 +78,7 @@ describe("Meridian FL-3 environment controller", () => {
       expect(starTexture).toBeDefined();
       expect(starTexture?.getSize().width).toBe(2048);
       expect(starTexture?.getSize().height).toBe(1024);
+      expect(starTexture?.samplingMode).toBe(3); // TRILINEAR_SAMPLINGMODE
 
       environment.dispose();
       expect(scene.lights).toHaveLength(0);
