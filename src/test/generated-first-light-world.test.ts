@@ -39,12 +39,41 @@ describe("Generated First Light live-runtime world", () => {
       expect(
         world.garageInterior?.meshes.some((mesh) => mesh.name === "garage-drawer-chest"),
       ).toBe(true);
+      expect(
+        world.garageInterior?.meshes.some(
+          (mesh) => mesh.name === "garage-interior-ceiling",
+        ),
+      ).toBe(true);
       const heroGarage = world.buildings.find(
         (building) => building.buildingId === "sw-fl-garage",
       );
       expect(heroGarage?.portals).toHaveLength(1);
       expect(heroGarage?.portals[0]?.width ?? 0).toBeGreaterThan(0.9);
       expect(heroGarage?.portals[0]?.height ?? 0).toBeGreaterThan(1.8);
+
+      const rearWindowTop = Math.max(
+        0,
+        ...(heroGarage?.plan.openings ?? [])
+          .filter(
+            (opening) =>
+              opening.facade === "rear" && opening.kind === "window",
+          )
+          .map((opening) => opening.sillHeight + opening.height),
+      );
+      const toolBoard = world.garageInterior?.meshes.find(
+        (mesh) => mesh.name === "garage-wall-tool-board",
+      );
+      const shelf = world.garageInterior?.meshes.find(
+        (mesh) => mesh.name === "garage-shelf-0",
+      );
+      expect(toolBoard).toBeDefined();
+      expect(
+        (toolBoard?.position.y ?? 0) -
+          (toolBoard?.getBoundingInfo().boundingBox.extendSize.y ?? 0),
+      ).toBeGreaterThan(rearWindowTop);
+      expect(shelf?.position.x ?? 0).toBeGreaterThan(5);
+      expect(shelf?.rotation.y ?? 0).toBeCloseTo(Math.PI / 2);
+
       expect(world.environmentSnapshot.formattedTime).toBe("14:30");
       expect(world.environmentSnapshot.timeScale).toBe(2);
       expect(
