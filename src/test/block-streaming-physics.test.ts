@@ -45,6 +45,12 @@ describe("Meridian Step 5 streaming prerequisites", () => {
     expect(runtime.getActiveIds()).toHaveLength(0);
     expect(cleaned).toBe(1);
   });
+  it("rejects invalid streaming distances", () => {
+    const registry = new CityRegistry(FIRST_LIGHT_CITY_SPEC);
+    const runtime = new BlockLifecycle(registry, () => ({ dispose() {} }));
+    expect(() => updateBlockStreaming(runtime, { x: 0, y: 0, z: 0 },
+      { activateWithin: 10, discardBeyond: 5 })).toThrow();
+  });
   it("retains stable block references", () => {
     const registry = new CityRegistry(FIRST_LIGHT_CITY_SPEC);
     expect(registry.getBlock("sw-fl-main-north")?.block.lots).toHaveLength(3);
