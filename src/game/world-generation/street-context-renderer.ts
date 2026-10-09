@@ -354,7 +354,7 @@ export function createGeneratedStreetContext(
   foliage.opacityTexture = foliageMap;
   foliage.useAlphaFromDiffuseTexture = true;
   foliage.backFaceCulling = false;
-  foliage.transparencyMode = StandardMaterial.MATERIAL_ALPHATESTANDBLEND;
+  foliage.transparencyMode = Material.MATERIAL_ALPHATESTANDBLEND;
   foliage.specularColor = Color3.Black();
 
   const metal = material(
