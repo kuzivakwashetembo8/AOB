@@ -7,7 +7,7 @@ import {
 } from "@babylonjs/core";
 import type { Material, Scene } from "@babylonjs/core";
 import type { CitySpec, WorldPosition } from "./schema";
-import { planRoadGraph } from "./road-graph";
+import { planRoadGraph, projectToRoad } from "./road-graph";
 import type { JunctionEdge, RoadJunctionPlan } from "./road-graph";
 import { MATERIAL_FAMILIES } from "./representation-materials";
 import { createSurfaceTexture } from "./surface-textures";
@@ -25,9 +25,18 @@ export interface RoadMarkingPlan {
   readonly kind: "center-dash" | "stop-line";
 }
 
+export interface CurbCutPlan {
+  readonly id: string;
+  readonly segmentId: string;
+  readonly side: "left" | "right";
+  readonly center: WorldPosition;
+  readonly width: number;
+}
+
 export interface GeneratedUrbanSurfaces {
   readonly meshes: readonly Mesh[];
   readonly markingPlan: readonly RoadMarkingPlan[];
+  readonly curbCutPlan: readonly CurbCutPlan[];
   dispose(): void;
 }
 
@@ -141,6 +150,117 @@ function createStrip(
 
 function average(a: WorldPosition, b: WorldPosition, y = 0): WorldPosition {
   return { x: (a.x + b.x) / 2, y, z: (a.z + b.z) / 2 };
+}
+
+export function planCurbCuts(city: CitySpec): readonly CurbCutPlan[] {
+  const cuts: CurbCutPlan[] = [];
+  const segments = new Map(
+    city.roads.segments.map((segment) => [segment.id, segment] as const),
+  );
+  const nodes = new Map(
+    city.roads.nodes.map((node) => [node.id, node.position] as const),
+  );
+
+  for (const district of city.districts) {
+    for (const neighborhood of district.neighborhoods) {
+      for (const block of neighborhood.blocks) {
+        for (const lot of block.lots) {
+          const building = lot.building;
+          if (!building) continue;
+          const segment = segments.get(lot.frontage.roadSegmentId);
+          if (!segment) continue;
+          const a = nodes.get(segment.startNodeId);
+          const b = nodes.get(segment.endNodeId);
+          if (!a || !b) continue;
+
+          const garageAnchors = (building.anchors ?? []).filter(
+            (item) => item.kind === "garage-entrance",
+          );
+          for (const garage of garageAnchors) {
+            const projection = projectToRoad(
+              city.roads,
+              garage.position,
+              segment.id,
+            );
+            if (!projection) continue;
+            const nx = -projection.tangent.z;
+            const nz = projection.tangent.x;
+            const sideDot =
+              (garage.position.x - projection.position.x) * nx +
+              (garage.position.z - projection.position.z) * nz;
+            const opening = (building.openings ?? []).find(
+              (item) => item.anchorId === garage.id,
+            );
+            cuts.push({
+              id: building.id + ":" + garage.id,
+              segmentId: segment.id,
+              side: sideDot >= 0 ? "left" : "right",
+              center: projection.position,
+              width: Math.max(3.2, (opening?.width ?? 3.8) + 0.8),
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return cuts.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function splitLineAroundCuts(
+  start: WorldPosition,
+  end: WorldPosition,
+  cuts: readonly CurbCutPlan[],
+): readonly [WorldPosition, WorldPosition][] {
+  const dx = end.x - start.x;
+  const dz = end.z - start.z;
+  const length = Math.hypot(dx, dz);
+  if (length <= 0.001 || cuts.length === 0) return [[start, end]];
+  const ux = dx / length;
+  const uz = dz / length;
+
+  const intervals = cuts
+    .map((cut) => {
+      const distanceAlong =
+        (cut.center.x - start.x) * ux + (cut.center.z - start.z) * uz;
+      return {
+        from: Math.max(0, distanceAlong - cut.width / 2),
+        to: Math.min(length, distanceAlong + cut.width / 2),
+      };
+    })
+    .filter((item) => item.to > item.from)
+    .sort((a, b) => a.from - b.from);
+
+  const pieces: [WorldPosition, WorldPosition][] = [];
+  let cursor = 0;
+  for (const interval of intervals) {
+    if (interval.from > cursor + 0.01) {
+      pieces.push([
+        {
+          x: start.x + ux * cursor,
+          y: start.y,
+          z: start.z + uz * cursor,
+        },
+        {
+          x: start.x + ux * interval.from,
+          y: start.y,
+          z: start.z + uz * interval.from,
+        },
+      ]);
+    }
+    cursor = Math.max(cursor, interval.to);
+  }
+  if (cursor < length - 0.01) {
+    pieces.push([
+      {
+        x: start.x + ux * cursor,
+        y: start.y,
+        z: start.z + uz * cursor,
+      },
+      end,
+    ]);
+  }
+  return pieces;
 }
 
 const oppositeEdge = (edge: JunctionEdge): JunctionEdge =>
@@ -355,6 +475,7 @@ export function createGeneratedUrbanSurfaces(
   city: CitySpec,
 ): GeneratedUrbanSurfaces {
   const roadPlan = planRoadGraph(city.roads);
+  const curbCutPlan = planCurbCuts(city);
   const meshes: Mesh[] = [];
   const materials: StandardMaterial[] = [];
 
@@ -413,28 +534,66 @@ export function createGeneratedUrbanSurfaces(
       ),
     );
 
-    meshes.push(
-      createStrip(
-        scene,
-        "generated-curb-left:" + surface.segmentId,
-        surface.leftCurb[0]!,
-        surface.leftCurb[1]!,
-        0.2,
-        0.17,
-        0.055,
-        curb,
-      ),
-      createStrip(
-        scene,
-        "generated-curb-right:" + surface.segmentId,
-        surface.rightCurb[0]!,
-        surface.rightCurb[1]!,
-        0.2,
-        0.17,
-        0.055,
-        curb,
-      ),
-    );
+    for (const side of ["left", "right"] as const) {
+      const line = side === "left" ? surface.leftCurb : surface.rightCurb;
+      const cuts = curbCutPlan.filter(
+        (cut) => cut.segmentId === surface.segmentId && cut.side === side,
+      );
+      const pieces = splitLineAroundCuts(line[0]!, line[1]!, cuts);
+      pieces.forEach(([start, end], index) => {
+        meshes.push(
+          createStrip(
+            scene,
+            "generated-curb-" +
+              side +
+              ":" +
+              surface.segmentId +
+              ":" +
+              index,
+            start,
+            end,
+            0.2,
+            0.17,
+            0.055,
+            curb,
+          ),
+        );
+      });
+
+      for (const cut of cuts) {
+        const dx = line[1]!.x - line[0]!.x;
+        const dz = line[1]!.z - line[0]!.z;
+        const length = Math.hypot(dx, dz);
+        const ux = dx / length;
+        const uz = dz / length;
+        const along =
+          (cut.center.x - line[0]!.x) * ux +
+          (cut.center.z - line[0]!.z) * uz;
+        const half = cut.width / 2;
+        const rampStart = {
+          x: line[0]!.x + ux * Math.max(0, along - half),
+          y: line[0]!.y,
+          z: line[0]!.z + uz * Math.max(0, along - half),
+        };
+        const rampEnd = {
+          x: line[0]!.x + ux * Math.min(length, along + half),
+          y: line[0]!.y,
+          z: line[0]!.z + uz * Math.min(length, along + half),
+        };
+        meshes.push(
+          createStrip(
+            scene,
+            "generated-curb-cut:" + cut.id,
+            rampStart,
+            rampEnd,
+            0.24,
+            0.045,
+            0.055,
+            sidewalk,
+          ),
+        );
+      }
+    }
   }
 
   for (const junction of roadPlan.junctions) {
@@ -502,6 +661,7 @@ export function createGeneratedUrbanSurfaces(
   return {
     meshes,
     markingPlan,
+    curbCutPlan,
     dispose() {
       if (disposed) return;
       disposed = true;
