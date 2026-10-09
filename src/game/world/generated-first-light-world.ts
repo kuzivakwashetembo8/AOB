@@ -104,24 +104,154 @@ function registerStreetContextCollision(
   const plan = planStreetContext(FIRST_LIGHT_CITY_SPEC);
 
   for (const item of plan.items) {
-    if (item.kind !== "parked-car") continue;
+    switch (item.kind) {
+      case "parked-car":
+        handles.push(
+          physics.addStaticBox(
+            { x: item.position.x, y: 0.76, z: item.position.z },
+            {
+              x: 0.88 * item.scale,
+              y: 0.76 * item.scale,
+              z: 2.0 * item.scale,
+            },
+            item.yawRadians,
+          ),
+        );
+        break;
+      case "streetlight":
+        handles.push(
+          physics.addStaticCylinder(
+            {
+              x: item.position.x,
+              y: 2.65 * item.scale,
+              z: item.position.z,
+            },
+            2.65 * item.scale,
+            0.13 * item.scale,
+          ),
+        );
+        break;
+      case "tree":
+        handles.push(
+          physics.addStaticCylinder(
+            {
+              x: item.position.x,
+              y: 1.8 * item.scale,
+              z: item.position.z,
+            },
+            1.8 * item.scale,
+            0.28 * item.scale,
+          ),
+        );
+        break;
+      case "bench":
+        handles.push(
+          physics.addStaticBox(
+            { x: item.position.x, y: 0.48, z: item.position.z },
+            { x: 0.95, y: 0.48, z: 0.36 },
+            item.yawRadians,
+          ),
+        );
+        break;
+      case "bin":
+        handles.push(
+          physics.addStaticBox(
+            { x: item.position.x, y: 0.48, z: item.position.z },
+            { x: 0.34, y: 0.48, z: 0.34 },
+            item.yawRadians,
+          ),
+        );
+        break;
+      case "shrub":
+        // Shrubs remain deliberately decorative.
+        break;
+    }
+  }
+
+  return handles;
+}
+
+function registerUrbanNavigationCollision(
+  physics: MeridianPhysics,
+  urbanSurfaces: GeneratedUrbanSurfaces,
+): StaticCollisionHandle[] {
+  const handles: StaticCollisionHandle[] = [];
+  for (const mesh of urbanSurfaces.meshes) {
+    if (!mesh.name.includes("curb")) continue;
+    mesh.computeWorldMatrix(true);
+    const box = mesh.getBoundingInfo().boundingBox;
     handles.push(
       physics.addStaticBox(
         {
-          x: item.position.x,
-          y: 0.76,
-          z: item.position.z,
+          x: box.centerWorld.x,
+          y: box.centerWorld.y,
+          z: box.centerWorld.z,
         },
         {
-          x: 0.88 * item.scale,
-          y: 0.76 * item.scale,
-          z: 2.0 * item.scale,
+          x: Math.max(0.02, box.extendSizeWorld.x),
+          y: Math.max(0.02, box.extendSizeWorld.y),
+          z: Math.max(0.02, box.extendSizeWorld.z),
         },
-        item.yawRadians,
       ),
     );
   }
+  return handles;
+}
 
+function registerGaragePropCollision(
+  physics: MeridianPhysics,
+  garageInterior: GeneratedGarageInterior | null,
+): StaticCollisionHandle[] {
+  const handles: StaticCollisionHandle[] = [];
+  for (const mesh of garageInterior?.meshes ?? []) {
+    if (!mesh.name.startsWith("garage-tire-")) continue;
+    mesh.computeWorldMatrix(true);
+    const box = mesh.getBoundingInfo().boundingBox;
+    handles.push(
+      physics.addStaticBox(
+        {
+          x: box.centerWorld.x,
+          y: box.centerWorld.y,
+          z: box.centerWorld.z,
+        },
+        {
+          x: Math.max(0.12, box.extendSizeWorld.x),
+          y: Math.max(0.12, box.extendSizeWorld.y),
+          z: Math.max(0.12, box.extendSizeWorld.z),
+        },
+      ),
+    );
+  }
+  return handles;
+}
+
+function registerGarageThresholdCollision(
+  physics: MeridianPhysics,
+  building: GeneratedBuilding,
+): StaticCollisionHandle[] {
+  const handles: StaticCollisionHandle[] = [];
+  for (const portal of building.portals) {
+    const centerX = (portal.exterior.x + portal.interior.x) / 2;
+    const centerZ = (portal.exterior.z + portal.interior.z) / 2;
+    const frontRear = portal.facade === "front" || portal.facade === "rear";
+    const yaw =
+      building.spatial.yawRadians + (frontRear ? 0 : Math.PI / 2);
+    handles.push(
+      physics.addStaticBox(
+        {
+          x: centerX,
+          y: building.spatial.origin.y + 0.11,
+          z: centerZ,
+        },
+        {
+          x: Math.max(0.45, portal.width / 2 - 0.08),
+          y: 0.11,
+          z: 0.36,
+        },
+        yaw,
+      ),
+    );
+  }
   return handles;
 }
 
@@ -259,8 +389,19 @@ export function createGeneratedFirstLightWorld(
     initialTimeScale: 2,
   });
   const contextCollision = registerStreetContextCollision(physics);
+  const urbanNavigationCollision = registerUrbanNavigationCollision(
+    physics,
+    urbanSurfaces,
+  );
   const garageInteriorCollision = heroGarage
     ? registerGarageInteriorCollision(physics, heroGarage)
+    : [];
+  const garagePropCollision = registerGaragePropCollision(
+    physics,
+    garageInterior,
+  );
+  const garageThresholdCollision = heroGarage
+    ? registerGarageThresholdCollision(physics, heroGarage)
     : [];
 
   for (const mesh of urbanSurfaces.meshes) {
@@ -337,7 +478,10 @@ export function createGeneratedFirstLightWorld(
       disposed = true;
 
       for (const handle of contextCollision) handle.dispose();
+      for (const handle of urbanNavigationCollision) handle.dispose();
       for (const handle of garageInteriorCollision) handle.dispose();
+      for (const handle of garagePropCollision) handle.dispose();
+      for (const handle of garageThresholdCollision) handle.dispose();
       garageInterior?.dispose();
       environment.dispose();
       for (const building of buildings) building.dispose();
