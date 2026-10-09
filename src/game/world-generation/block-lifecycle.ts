@@ -1,6 +1,5 @@
 import type { ResolvedBuildingSpec } from "./schema";
 import { CityRegistry } from "./city-registry";
-import { blockDistanceTo } from "./block-streaming";
 export interface BlockAsset { dispose(): void; }
 export class BlockLifecycle<T extends BlockAsset> {
   private readonly entries = new Map<string, T[]>();
