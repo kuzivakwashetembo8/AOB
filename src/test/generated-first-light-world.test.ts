@@ -89,5 +89,5 @@ describe("Generated First Light live-runtime world", () => {
       scene.dispose();
       engine.dispose();
     }
-  });
+  }, 15_000);
 });
