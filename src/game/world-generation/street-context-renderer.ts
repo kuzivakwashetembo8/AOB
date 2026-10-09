@@ -1,5 +1,6 @@
 import {
   Color3,
+  DynamicTexture,
   Material,
   Mesh,
   MeshBuilder,
@@ -37,36 +38,186 @@ function sample(seed: number, x: number, y: number): number {
   return ((value ^ (value >>> 16)) >>> 0) / 4294967295;
 }
 
-function foliageTexture(scene: Scene): RawTexture {
-  const size = 64;
-  const pixels = new Uint8Array(size * size * 4);
-  const seed = seedHash("first-light-foliage");
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const index = (y * size + x) * 4;
-      const nx = (x - size / 2) / (size / 2);
-      const ny = (y - size / 2) / (size / 2);
-      const ellipse = nx * nx / 1.08 + ny * ny / 0.68;
-      const n = sample(seed, x, y);
-      const alpha = ellipse < 0.94 + (n - 0.5) * 0.28 ? 255 : 0;
-      const green = 88 + Math.round(n * 60);
-      pixels[index] = 38 + Math.round(n * 28);
-      pixels[index + 1] = green;
-      pixels[index + 2] = 40 + Math.round(n * 26);
-      pixels[index + 3] = alpha;
+function createPatternTexture(
+  scene: Scene,
+  name: string,
+  draw: (ctx: CanvasRenderingContext2D, size: number) => void,
+  uScale: number,
+  vScale: number,
+): DynamicTexture {
+  const size = 256;
+  const texture = new DynamicTexture(
+    name,
+    { width: size, height: size },
+    scene,
+    false,
+  );
+  const ctx = texture.getContext() as CanvasRenderingContext2D;
+  draw(ctx, size);
+  texture.wrapU = Texture.WRAP_ADDRESSMODE;
+  texture.wrapV = Texture.WRAP_ADDRESSMODE;
+  texture.uScale = uScale;
+  texture.vScale = vScale;
+  texture.update(false);
+  return texture;
+}
+
+function barkTexture(scene: Scene): DynamicTexture {
+  return createPatternTexture(
+    scene,
+    "generated-south-ward-bark-texture",
+    (ctx, size) => {
+      ctx.fillStyle = "#5f4a35";
+      ctx.fillRect(0, 0, size, size);
+      let seed = 90210;
+      const random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+      };
+
+      for (let i = 0; i < 150; i += 1) {
+        const x = random() * size;
+        const width = 1 + random() * 4;
+        const shade = 40 + Math.floor(random() * 55);
+        ctx.strokeStyle =
+          "rgba(" +
+          (shade + 20) +
+          "," +
+          (shade + 10) +
+          "," +
+          shade +
+          "," +
+          (0.18 + random() * 0.35) +
+          ")";
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(x, -12);
+        let y = -12;
+        while (y < size + 12) {
+          y += 14 + random() * 24;
+          ctx.lineTo(x + (random() - 0.5) * 11, y);
+        }
+        ctx.stroke();
+      }
+
+      for (let i = 0; i < 34; i += 1) {
+        const x = random() * size;
+        const y = random() * size;
+        ctx.strokeStyle =
+          "rgba(28,20,14," + (0.18 + random() * 0.25) + ")";
+        ctx.lineWidth = 1 + random() * 2;
+        ctx.beginPath();
+        ctx.arc(
+          x,
+          y,
+          3 + random() * 9,
+          random() * Math.PI,
+          random() * Math.PI * 2,
+        );
+        ctx.stroke();
+      }
+
+      for (let i = 0; i < 70; i += 1) {
+        ctx.fillStyle =
+          "rgba(190,165,126," + (0.035 + random() * 0.08) + ")";
+        ctx.fillRect(
+          random() * size,
+          random() * size,
+          1 + random() * 3,
+          8 + random() * 24,
+        );
+      }
+    },
+    1.3,
+    3.8,
+  );
+}
+
+function foliageTexture(scene: Scene): DynamicTexture {
+  const texture = new DynamicTexture(
+    "generated-first-light-foliage-texture",
+    { width: 256, height: 256 },
+    scene,
+    false,
+  );
+  texture.hasAlpha = true;
+  texture.wrapU = Texture.CLAMP_ADDRESSMODE;
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+
+  const ctx = texture.getContext() as CanvasRenderingContext2D;
+  ctx.clearRect(0, 0, 256, 256);
+  let seed = 41721;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+
+  const colors = [
+    "#25482a",
+    "#315b34",
+    "#3e693c",
+    "#4f7542",
+    "#5b8149",
+  ] as const;
+  const fallbackLeafColor = colors[0];
+
+  for (let spray = 0; spray < 30; spray += 1) {
+    const sx = 34 + random() * 188;
+    const sy = 40 + random() * 176;
+    const angle = random() * Math.PI * 2;
+    const stemLength = 22 + random() * 46;
+    const ex = sx + Math.cos(angle) * stemLength;
+    const ey = sy + Math.sin(angle) * stemLength;
+    ctx.strokeStyle = "rgba(52,68,38,0.62)";
+    ctx.lineWidth = 1.3 + random() * 1.8;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    const leaves = 4 + Math.floor(random() * 5);
+    for (let i = 0; i < leaves; i += 1) {
+      const t = (i + 1) / (leaves + 1);
+      const cx = sx + (ex - sx) * t + (random() - 0.5) * 11;
+      const cy = sy + (ey - sy) * t + (random() - 0.5) * 11;
+      const leafAngle = angle + (random() - 0.5) * 1.8;
+      const length = 10 + random() * 18;
+      const width = 4 + random() * 8;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(leafAngle);
+      ctx.fillStyle =
+        colors[Math.floor(random() * colors.length)] ?? fallbackLeafColor;
+      ctx.globalAlpha = 0.82 + random() * 0.18;
+      ctx.beginPath();
+      ctx.moveTo(-length / 2, 0);
+      ctx.quadraticCurveTo(0, -width, length / 2, 0);
+      ctx.quadraticCurveTo(0, width, -length / 2, 0);
+      ctx.fill();
+      ctx.restore();
     }
   }
-  const texture = RawTexture.CreateRGBATexture(
-    pixels,
-    size,
-    size,
-    scene,
-    true,
-    false,
-    Texture.TRILINEAR_SAMPLINGMODE,
-  );
-  texture.name = "generated-first-light-foliage";
-  texture.hasAlpha = true;
+
+  for (let i = 0; i < 110; i += 1) {
+    const x = 28 + random() * 200;
+    const y = 30 + random() * 196;
+    const length = 7 + random() * 13;
+    const width = 3 + random() * 6;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(random() * Math.PI * 2);
+    ctx.fillStyle =
+      colors[Math.floor(random() * colors.length)] ?? fallbackLeafColor;
+    ctx.globalAlpha = 0.72 + random() * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(-length / 2, 0);
+    ctx.quadraticCurveTo(0, -width, length / 2, 0);
+    ctx.quadraticCurveTo(0, width, -length / 2, 0);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  texture.update(false);
   return texture;
 }
 
@@ -135,14 +286,15 @@ function addTree(
   const lowerTrunk = MeshBuilder.CreateCylinder(
     "generated-tree-trunk-lower:" + item.id,
     {
-      height: 3.15,
+      height: 2.9,
       diameterTop: 0.5,
-      diameterBottom: 0.76,
-      tessellation: 8,
+      diameterBottom: 0.78,
+      tessellation: 10,
     },
     scene,
   );
-  lowerTrunk.position.y = 1.56;
+  lowerTrunk.position.set(0, 1.45, 0);
+  lowerTrunk.rotation.z = -0.025;
   lowerTrunk.parent = root;
   lowerTrunk.material = trunkMaterial;
   lowerTrunk.receiveShadows = true;
@@ -151,10 +303,10 @@ function addTree(
   const upperTrunk = MeshBuilder.CreateCylinder(
     "generated-tree-trunk-upper:" + item.id,
     {
-      height: 2.2,
-      diameterTop: 0.3,
-      diameterBottom: 0.5,
-      tessellation: 8,
+      height: 2.15,
+      diameterTop: 0.34,
+      diameterBottom: 0.52,
+      tessellation: 10,
     },
     scene,
   );
@@ -191,7 +343,7 @@ function addTree(
     meshes.push(rootFlare);
   });
 
-  const baseClusters = [
+  const clusters = [
     [0, 5.45, 0],
     [-1.75, 5.15, 0.05],
     [1.8, 5.12, 0.1],
@@ -203,18 +355,8 @@ function addTree(
     [-2.05, 5.0, -0.85],
     [2.05, 5.0, -0.75],
   ] as const;
-  const canopyScale = item.canopyScale ?? 1.12;
-  const seed = seedHash(item.seed);
 
-  baseClusters.forEach(([baseX, baseY, baseZ], clusterIndex) => {
-    const jitterX = (sample(seed, clusterIndex, 1) - 0.5) * 0.42;
-    const jitterY = (sample(seed, clusterIndex, 2) - 0.5) * 0.18;
-    const jitterZ = (sample(seed, clusterIndex, 3) - 0.5) * 0.42;
-    const clusterScale =
-      canopyScale * (0.96 + sample(seed, clusterIndex, 4) * 0.1);
-    const width = 3.45 * clusterScale;
-    const height = 1.78 * clusterScale;
-
+  clusters.forEach(([x, y, z], clusterIndex) => {
     [0, Math.PI / 3, (2 * Math.PI) / 3].forEach((yaw, planeIndex) => {
       const card = MeshBuilder.CreatePlane(
         "generated-tree-foliage:" +
@@ -224,23 +366,18 @@ function addTree(
           ":" +
           planeIndex,
         {
-          width,
-          height,
+          width: 3.45,
+          height: 1.85,
           sideOrientation: Mesh.DOUBLESIDE,
         },
         scene,
       );
-      card.position.set(
-        baseX * canopyScale + jitterX,
-        baseY + jitterY,
-        baseZ * canopyScale + jitterZ,
-      );
-      card.rotation.y =
-        yaw +
-        (sample(seed, clusterIndex, planeIndex + 10) - 0.5) * 0.16;
+      card.position.set(x, y, z);
+      card.rotation.y = yaw;
       card.rotation.x = planeIndex === 1 ? 0.08 : -0.04;
       card.parent = root;
       card.material = foliageMaterial;
+      card.receiveShadows = false;
       card.isPickable = false;
       meshes.push(card);
     });
@@ -527,9 +664,10 @@ export function createGeneratedStreetContext(
   const trunk = material(
     scene,
     "generated-tree-bark",
-    new Color3(0.31, 0.22, 0.14),
+    new Color3(0.34, 0.25, 0.17),
     0.02,
   );
+  trunk.diffuseTexture = barkTexture(scene);
 
   const foliage = new StandardMaterial(
     "generated-tree-foliage-material",
