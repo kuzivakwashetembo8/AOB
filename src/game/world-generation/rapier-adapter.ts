@@ -49,7 +49,7 @@ export function registerBuildingCollision(
       physics.world.createCollider(desc, body);
     }
   } catch (error) {
-    body.setEnabled(false);
+    physics.world.removeRigidBody(body);
     throw error;
   }
   let disposed = false;
@@ -58,9 +58,8 @@ export function registerBuildingCollision(
     dispose: () => {
       if (disposed) return;
       disposed = true;
-      // Rapier keeps this disabled body allocated until MeridianPhysics.destroy().
-      // Step 5 must replace deactivation with reclaiming bodies for long-lived streaming.
-      body.setEnabled(false);
+      // Removing the rigid body also reclaims all attached colliders.
+      physics.world.removeRigidBody(body);
     },
   };
 }
