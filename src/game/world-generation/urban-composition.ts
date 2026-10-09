@@ -1,0 +1,1 @@
+export const MERIDIAN_URBAN_COMPOSITION_VERSION = 1 as const;
