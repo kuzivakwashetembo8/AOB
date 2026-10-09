@@ -6,12 +6,14 @@ import {
   CityRegistry,
   createGeneratedStreetContext,
   createGeneratedUrbanSurfaces,
+  planCurbCuts,
   planLotOrientation,
   planNeighborhood,
   planRoadGraph,
   planRoadMarkings,
   planStreetContext,
 } from "../game/world-generation";
+import type { RoadNetworkSpec } from "../game/world-generation";
 
 describe("Meridian Step 5 roads and fidelity context", () => {
   it("indexes stable First Light identities", () => {
@@ -45,10 +47,82 @@ describe("Meridian Step 5 roads and fidelity context", () => {
     expect(JSON.stringify(city)).toBe(before);
   });
 
-  it("plans First Light roads and intersection-safe marking geometry", () => {
+  it("plans authored-style orthogonal First Light junctions", () => {
     const plan = planRoadGraph(FIRST_LIGHT_CITY_SPEC.roads);
     expect(plan.surfaces).toHaveLength(5);
     expect(plan.junctions).toHaveLength(2);
+
+    for (const junction of plan.junctions) {
+      expect(junction.kind).toBe("t");
+      expect(junction.cornerTreatment).toBe("orthogonal");
+      expect(junction.asphalt).toHaveLength(4);
+      expect(junction.sidewalkCorners).toHaveLength(4);
+      expect(junction.roadMouths).toHaveLength(3);
+      expect(junction.curbSegments.length).toBeGreaterThanOrEqual(4);
+      expect(
+        junction.curbSegments.every(
+          (segment) => segment.length === 2,
+        ),
+      ).toBe(true);
+      expect(junction.radius).toBeCloseTo(junction.halfExtent);
+    }
+
+    const main = plan.junctions.find(
+      (junction) => junction.nodeId === "sw-fl-main-junction",
+    )!;
+    expect(main.roadMouths.map((mouth) => mouth.edge).sort()).toEqual(
+      ["negative-x", "positive-x", "positive-z"].sort(),
+    );
+
+    const positiveZ = main.curbSegments.filter(
+      ([a, b]) =>
+        Math.abs(a.z - (8 + main.halfExtent)) < 0.001 &&
+        Math.abs(b.z - (8 + main.halfExtent)) < 0.001,
+    );
+    expect(positiveZ.length).toBeGreaterThanOrEqual(2);
+    expect(
+      positiveZ.every(([a, b]) => {
+        const minX = Math.min(a.x, b.x);
+        const maxX = Math.max(a.x, b.x);
+        return !(minX < 20 && maxX > 20);
+      }),
+    ).toBe(true);
+  });
+
+  it("plans a conventional four-way intersection without a radial cap", () => {
+    const roads: RoadNetworkSpec = {
+      nodes: [
+        { id: "center", position: { x: 0, y: 0, z: 0 } },
+        { id: "west", position: { x: -30, y: 0, z: 0 } },
+        { id: "east", position: { x: 30, y: 0, z: 0 } },
+        { id: "north", position: { x: 0, y: 0, z: -30 } },
+        { id: "south", position: { x: 0, y: 0, z: 30 } },
+      ],
+      segments: [
+        { id: "w", startNodeId: "west", endNodeId: "center", name: "W", roadClass: "local", width: 8, laneCount: 2, sidewalkWidth: 3.1 },
+        { id: "e", startNodeId: "center", endNodeId: "east", name: "E", roadClass: "local", width: 8, laneCount: 2, sidewalkWidth: 3.1 },
+        { id: "n", startNodeId: "north", endNodeId: "center", name: "N", roadClass: "local", width: 8, laneCount: 2, sidewalkWidth: 3.1 },
+        { id: "s", startNodeId: "center", endNodeId: "south", name: "S", roadClass: "local", width: 8, laneCount: 2, sidewalkWidth: 3.1 },
+      ],
+      intersections: [
+        {
+          id: "cross",
+          nodeId: "center",
+          kind: "four-way",
+          connectedSegmentIds: ["w", "e", "n", "s"],
+        },
+      ],
+    };
+
+    const junction = planRoadGraph(roads).junctions[0]!;
+    expect(junction.kind).toBe("four-way");
+    expect(junction.asphalt).toHaveLength(4);
+    expect(junction.roadMouths).toHaveLength(4);
+    expect(junction.cornerTreatment).toBe("orthogonal");
+    expect(junction.sidewalkCorners).toHaveLength(4);
+  });
+
+  it("plans intersection-safe road markings and limits stop lines to T stems", () => {
     const markings = planRoadMarkings(FIRST_LIGHT_CITY_SPEC);
     expect(markings.length).toBeGreaterThan(10);
     expect(
@@ -60,19 +134,43 @@ describe("Meridian Step 5 roads and fidelity context", () => {
           item.width > 0,
       ),
     ).toBe(true);
-    expect(markings.some((item) => item.kind === "stop-line")).toBe(true);
+    const stopLines = markings.filter((item) => item.kind === "stop-line");
+    expect(stopLines).toHaveLength(2);
+    expect(
+      stopLines.every((item) =>
+        item.id.startsWith("sw-fl-workshop-link"),
+      ),
+    ).toBe(true);
   });
 
-  it("plans deterministic vegetation, streetlights, vehicles and pocket props", () => {
+  it("plans a stable garage curb cut on the frontage road", () => {
+    const cuts = planCurbCuts(FIRST_LIGHT_CITY_SPEC);
+    const garage = cuts.find((cut) => cut.id === "sw-fl-garage:vehicle-entry");
+    expect(garage).toBeDefined();
+    expect(garage?.segmentId).toBe("sw-fl-mercer-west");
+    expect(garage?.width).toBeCloseTo(5.4);
+    expect(["left", "right"]).toContain(garage?.side);
+  });
+
+  it("plans deterministic vegetation, broader tree canopies and pocket-green shrubs", () => {
     const first = planStreetContext(FIRST_LIGHT_CITY_SPEC);
     expect(planStreetContext(FIRST_LIGHT_CITY_SPEC)).toEqual(first);
     expect(first.treeCount).toBeGreaterThanOrEqual(3);
+    expect(first.shrubCount).toBe(4);
     expect(first.streetlightCount).toBeGreaterThanOrEqual(2);
     expect(first.parkedCarCount).toBeGreaterThanOrEqual(2);
     expect(first.propCount).toBeGreaterThanOrEqual(2);
     expect(new Set(first.items.map((item) => item.id)).size).toBe(
       first.items.length,
     );
+
+    const pocketTrees = first.items.filter(
+      (item) => item.kind === "tree" && item.id.includes("pocket"),
+    );
+    expect(pocketTrees).toHaveLength(2);
+    expect(
+      pocketTrees.every((item) => (item.canopyScale ?? 0) >= 1.17),
+    ).toBe(true);
   });
 
   it("renders and disposes generated urban surfaces and context under NullEngine", () => {
@@ -88,9 +186,20 @@ describe("Meridian Step 5 roads and fidelity context", () => {
         scene,
         FIRST_LIGHT_CITY_SPEC,
       );
-      expect(surfaces.meshes.length).toBeGreaterThan(20);
+      expect(surfaces.meshes.length).toBeGreaterThan(30);
       expect(surfaces.markingPlan.length).toBeGreaterThan(10);
-      expect(context.itemCount).toBeGreaterThan(5);
+      expect(surfaces.curbCutPlan.length).toBeGreaterThanOrEqual(1);
+      expect(
+        surfaces.meshes.some((mesh) =>
+          mesh.name.startsWith("generated-curb-cut:"),
+        ),
+      ).toBe(true);
+      expect(
+        surfaces.meshes.some((mesh) =>
+          mesh.name.startsWith("generated-drain:"),
+        ),
+      ).toBe(true);
+      expect(context.itemCount).toBeGreaterThan(9);
       expect(context.meshes.length).toBeGreaterThan(context.itemCount);
       context.dispose();
       surfaces.dispose();
