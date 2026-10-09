@@ -23,7 +23,11 @@ export class MeridianPhysics {
     );
     this.controller = world.createCharacterController(0.03);
     this.controller.setApplyImpulsesToDynamicBodies(true);
-    this.controller.enableSnapToGround(0.18);
+    this.controller.enableSnapToGround(0.22);
+    // Ordinary urban height changes should feel like steps, not invisible
+    // geometry. Curbs/thresholds below this limit are traversed automatically;
+    // larger props remain blocking collision.
+    this.controller.enableAutostep(0.28, 0.18, false);
   }
 
   static async create(): Promise<MeridianPhysics> {
@@ -54,6 +58,38 @@ export class MeridianPhysics {
           halfExtents.y,
           halfExtents.z,
         ),
+        body,
+      );
+    } catch (error) {
+      this.world.removeRigidBody(body);
+      throw error;
+    }
+
+    let disposed = false;
+    return {
+      dispose: () => {
+        if (disposed) return;
+        disposed = true;
+        this.world.removeRigidBody(body);
+      },
+    };
+  }
+
+  addStaticCylinder(
+    position: Vec3,
+    halfHeight: number,
+    radius: number,
+  ): StaticCollisionHandle {
+    const body = this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.fixed().setTranslation(
+        position.x,
+        position.y,
+        position.z,
+      ),
+    );
+    try {
+      this.world.createCollider(
+        RAPIER.ColliderDesc.cylinder(halfHeight, radius),
         body,
       );
     } catch (error) {
