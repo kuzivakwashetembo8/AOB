@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: ACTIVE — FL-2 visual parity accepted; Generated First Light is now integrated into the live /game runtime candidate and awaiting final promotion/deployment acceptance.
+Status: ACTIVE — FL-2 accepted; FL-3 Interaction and Atmosphere authorized and active. Camera-ground exclusion and road-junction continuity remain rolling refinements.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -285,8 +285,8 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - FL-0: authorized.
 - Deployment: still requires explicit authorization.
 - FL-1 accepted after camera behavior review.
-- FL-2 authorized and active.
-- FL-3 and subsequent phases remain gated by their review points.
+- FL-2 accepted on 2026-10-09 after successful generated-world navigation review.
+- FL-3 authorized and active. FL-4 remains gated by its review point.
 
 ## Decision log
 
@@ -319,3 +319,5 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-08: Third-person vertical camera range expanded so Voight can look substantially upward toward tall buildings and future helicopters/stars while preserving camera obstruction handling.
 
 - 2026-10-09: Generated First Light visual parity accepted for architecture, authored road/curb baseline, authored-style vegetation, structured street context, and fixed daytime shadows. The darker authored asphalt and timber curb/edge aesthetic is retained as a future district-selectable streetscape family rather than deprecated. Generated First Light has been wired into the live `/game` runtime candidate behind a controlled authored/generated source switch; final promotion and playable deployment acceptance remain pending.
+
+- 2026-10-09: Live Generated First Light review accepted FL-2 as successful enough to proceed. Navigation around the block works. Two rolling refinements were recorded rather than treated as blockers: (1) extreme upward camera orbit could place the camera below terrain, so generated terrain is now a semantic camera blocker governed by the same obstruction system as walls/roofs; (2) the literal raised T-junction asphalt pads read like carpet patches, so First Light parity rendering now relies on the already-overlapping continuous carriageways instead of separate junction overlays. FL-3 Interaction and Atmosphere is authorized and active.
