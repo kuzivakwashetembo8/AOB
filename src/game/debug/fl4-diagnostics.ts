@@ -72,7 +72,7 @@ export class FL4Diagnostics {
     const bounds = this.canvas.getBoundingClientRect();
     const frames = this.samples.map((v) => v.frameMs);
     const p50 = percentile(frames, 0.5);
-    const shadowGenerators = this.scene.lights.flatMap((light) => light.getShadowGenerators ? [...(light.getShadowGenerators()?.values() ?? [])] : []);
+    const shadowGenerators = this.scene.lights.map((light) => light.getShadowGenerator()).filter((generator) => generator !== null);
     const mainShadow = shadowGenerators[0];
     const shadowMap = mainShadow?.getShadowMap();
     const shadowCasters = shadowMap?.renderList ?? [];
