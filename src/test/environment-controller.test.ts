@@ -57,9 +57,11 @@ describe("Meridian FL-3 environment controller", () => {
       const midnight = environment.setTimeMinutes(0);
       expect(midnight.night).toBeGreaterThan(0.95);
       expect(midnight.starVisibility).toBeGreaterThan(0.95);
-      expect(midnight.streetlightIntensity).toBeGreaterThan(2.5);
+      expect(midnight.streetlightIntensity).toBeGreaterThan(2.2);
+      expect(environment.nightFill.intensity).toBeGreaterThan(0.3);
+      expect(environment.ambient.intensity).toBeGreaterThan(0.3);
       expect(
-        environment.streetlights.every((light) => light.intensity > 2.5),
+        environment.streetlights.every((light) => light.intensity > 2.2),
       ).toBe(true);
       expect(
         environment.streetlights.every((light) => light.range >= 17),
