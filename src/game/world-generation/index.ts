@@ -12,3 +12,4 @@ export * from "./facade-details";
 export * from "./material-library";
 export * from "./building-generator";
 export * from "./interaction-plan";
+export * from "./rapier-adapter";
