@@ -33,6 +33,17 @@ describe("Meridian Step 5 streaming prerequisites", () => {
     runtime.discard("sw-fl-main-north");
     expect(disposed).toHaveLength(3);
   });
+  it("rolls back partial block creation on factory failure", () => {
+    const registry = new CityRegistry(FIRST_LIGHT_CITY_SPEC);
+    let made = 0, cleaned = 0;
+    const runtime = new BlockLifecycle(registry, () => {
+      if (++made === 2) throw new Error("factory failed");
+      return { dispose: () => { cleaned++; } };
+    });
+    expect(() => runtime.acquire("sw-fl-main-north")).toThrow("factory failed");
+    expect(runtime.getActiveIds()).toHaveLength(0);
+    expect(cleaned).toBe(1);
+  });
   it("retains stable block references", () => {
     const registry = new CityRegistry(FIRST_LIGHT_CITY_SPEC);
     expect(registry.getBlock("sw-fl-main-north")?.block.lots).toHaveLength(3);
