@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NullEngine, Scene } from "@babylonjs/core";
 import {
-  BuildingMaterialLibrary, FIRST_LIGHT_CITY_SPEC, generateBuilding, materialRecipe,
+  BuildingMaterialLibrary, FACADE_DETAIL_CATALOG, MATERIAL_FAMILIES, FIRST_LIGHT_CITY_SPEC, generateBuilding, materialRecipe,
   planBuilding, planFacadeDetails, resolveCityBuildings, selectRepresentationTier,
   windowRepresentation,
 } from "../game/world-generation";
@@ -12,6 +12,15 @@ const commercial = specs.find((item) => item.id === "sw-fl-corner-commercial")!;
 const version = FIRST_LIGHT_CITY_SPEC.generatorVersion;
 
 describe("Meridian Step 3 visual representation", () => {
+  it("defines required shared material and facade-detail families", () => {
+    expect(MATERIAL_FAMILIES["warm-brick"]).toBeDefined();
+    expect(MATERIAL_FAMILIES["institutional-concrete"]).toBeDefined();
+    expect(MATERIAL_FAMILIES["asphalt"]).toBeDefined();
+    expect(MATERIAL_FAMILIES["sidewalk-paving"]).toBeDefined();
+    expect(FACADE_DETAIL_CATALOG["ac-unit"]).toBeDefined();
+    expect(FACADE_DETAIL_CATALOG["shutter"]).toBeDefined();
+    expect(FACADE_DETAIL_CATALOG["vent"]).toBeDefined();
+  });
   it("uses deterministic material recipes and bounded shared tint buckets", () => {
     const recipe = materialRecipe(garage, version, "wall");
     expect(materialRecipe(garage, version, "wall")).toEqual(recipe);

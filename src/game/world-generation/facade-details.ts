@@ -2,10 +2,11 @@ import { featureRandom } from "./seeded-variation";
 import type { BoxPrimitive, BuildingMass, GeneratedBuildingPlan, PlannedOpening } from "./architecture-plan";
 import type { FacadeSide, ResolvedBuildingSpec } from "./schema";
 
-export type FacadeDetailKind = "sill" | "mullion" | "awning" | "vent" | "utility-box" | "downpipe";
+export type FacadeDetailKind = "sill" | "mullion" | "shutter" | "awning" | "vent" | "ac-unit" | "utility-box" | "downpipe";
 export type DecalKind = "grime" | "patch" | "signage" | "graffiti";
 export const FACADE_DETAIL_CATALOG: Readonly<Record<FacadeDetailKind, { role: BoxPrimitive["role"]; geometry: true }>> = {
   sill: { role: "trim", geometry: true }, mullion: { role: "trim", geometry: true },
+  shutter: { role: "metal", geometry: true }, "ac-unit": { role: "metal", geometry: true },
   awning: { role: "metal", geometry: true }, vent: { role: "metal", geometry: true },
   "utility-box": { role: "metal", geometry: true }, downpipe: { role: "metal", geometry: true },
 };
@@ -57,6 +58,16 @@ export function planFacadeDetails(spec: ResolvedBuildingSpec, plan: GeneratedBui
         primitives.push(panel("mullion:" + opening.id, "mullion", mass, opening.facade,
           opening.offset, (opening.sillHeight + top) / 2, 0.055, opening.height - 0.12, 0.09, 0.22));
       }
+      if (primitives.length < max && sample(opening.id + ":shutter") > 0.88) {
+        primitives.push(panel("shutter:" + opening.id, "shutter", mass, opening.facade,
+          opening.offset - opening.width / 2 - 0.11, (opening.sillHeight + top) / 2,
+          0.16, opening.height, 0.10));
+      }
+      if (primitives.length < max && opening.sillHeight >= 1.1 &&
+          sample(opening.id + ":ac") > 0.91) {
+        primitives.push(panel("ac:" + opening.id, "ac-unit", mass, opening.facade,
+          opening.offset, opening.sillHeight - 0.42, 0.7, 0.46, 0.48, 0.42));
+      }
     } else if (opening.kind === "storefront" && opening.width > 1.7 && sample(opening.id + ":awning") > 0.55) {
       primitives.push(awning(opening, mass));
     }
@@ -71,6 +82,12 @@ export function planFacadeDetails(spec: ResolvedBuildingSpec, plan: GeneratedBui
       if (max > 0 && primitives.length < max && spec.archetype === "garage" && side === "front") {
         primitives.push(panel("utility:" + mass.id, "utility-box", mass, side,
           -span / 2 + 0.9, mass.baseY + 1.3, 0.65, 0.85, 0.22));
+      }
+      if (max > 0 && primitives.length < max &&
+          (spec.archetype === "warehouse" || spec.archetype === "industrial") &&
+          sample(mass.id + ":" + side + ":vent") > 0.38) {
+        primitives.push(panel("vent:" + mass.id + ":" + side, "vent", mass, side,
+          0, mass.baseY + Math.min(mass.height - 0.8, 2.6), 0.72, 0.38, 0.14));
       }
       const kind: DecalKind = spec.archetype === "commercial" && side === "front" ? "signage" :
         sample(mass.id + ":" + side + ":decal-kind") > 0.7 ? "patch" : "grime";
