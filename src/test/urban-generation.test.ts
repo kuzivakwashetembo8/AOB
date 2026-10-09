@@ -191,7 +191,13 @@ describe("Meridian Step 5 roads and fidelity context", () => {
       expect(surfaces.curbCutPlan).toHaveLength(0);
       expect(
         surfaces.meshes.some((mesh) =>
-          mesh.name === "generated-parity-main-junction",
+          mesh.name === "generated-parity-main-junction" ||
+          mesh.name === "generated-parity-rear-junction",
+        ),
+      ).toBe(false);
+      expect(
+        surfaces.meshes.some((mesh) =>
+          mesh.name === "generated-parity-side-road",
         ),
       ).toBe(true);
       expect(
