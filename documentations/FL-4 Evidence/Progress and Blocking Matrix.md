@@ -174,3 +174,13 @@ Implemented:
 **Current FL-4 disposition:** improved measurement instruments (FL4-01/02), source code regression verification partly satisfied (FL4-05), still no baseline-vs-optimized same-device performance comparison to justify substantive visual optimization (FL4-04). Real landscape-mobile test and final visual approval remain outstanding (FL4-03/06). Keep banding as cosmetic non-blocking `GTD-VIS-001`. No changes to production or `main`.
 
 **Progress reporting:** The previous 35% estimate is subjective, not an official quantitative milestone. Stronger telemetry and 67 passing tests increase implementation confidence but cannot legitimately establish >=75% FL-4 completion while live mobile evidence, measurable performance interventions, and final acceptance are pending. Do not use synthetic samples as real device benchmarks.
+
+## FL-4 vegetation representation correction — 2026-10-09
+
+**User visual observation:** In the current preview, trees appear as if two sticks were stacked at mismatched angles. The apparent attempt to bend the trunk produces an unnatural broken-joint silhouette. A relatively straight trunk with small irregular bumps/root structures is preferred over a visibly segmented shaft.
+
+**Measured source cause:** `src/game/world-generation/street-context-renderer.ts` instantiated a lower and upper trunk as two separate rotated cylinder meshes with different offsets and rotations. The joint is explicitly represented in geometry; this is distinct from the non-blocking sky-banding issue documented in `documentations/Issues/`.
+
+**Applied on development branch:** `eb18cee1424e6df9d79dfa582e06d1e960386a9a` replaces the lower/upper trunk pair with a single continuous tapered cylinder, still retaining four small ground-level root flares and the existing foliage-card canopy. A generated tree now requires one fewer trunk mesh. `85b0a6b0ef01e57e10095cd02a48e19bdb9aba87` adds a test asserting one unrotated continuous trunk per planned tree and the absence of legacy upper/lower trunk segments.
+
+**Verification distinction:** The structural correction is implemented; visual fidelity and comparative performance savings require the next review preview. One fewer mesh per tree is a count reduction, **not** a measured FPS benefit. No changes to collision, night lighting, star rendering or default resolution policy were requested.
