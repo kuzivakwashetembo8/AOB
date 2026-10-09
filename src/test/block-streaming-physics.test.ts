@@ -20,6 +20,19 @@ describe("Meridian Step 5 streaming prerequisites", () => {
       physics.destroy(); scene.dispose(); engine.dispose();
     }
   });
+  it("allocates and disposes block-owned resources exactly once", () => {
+    const registry = new CityRegistry(FIRST_LIGHT_CITY_SPEC);
+    const disposed: string[] = [];
+    const runtime = new BlockLifecycle(registry, (building) => ({
+      dispose: () => { disposed.push(building.id); },
+    }));
+    runtime.acquire("sw-fl-main-north");
+    runtime.acquire("sw-fl-main-north");
+    expect(runtime.getActiveIds()).toEqual(["sw-fl-main-north"]);
+    runtime.discard("sw-fl-main-north");
+    runtime.discard("sw-fl-main-north");
+    expect(disposed).toHaveLength(3);
+  });
   it("retains stable block references", () => {
     const registry = new CityRegistry(FIRST_LIGHT_CITY_SPEC);
     expect(registry.getBlock("sw-fl-main-north")?.block.lots).toHaveLength(3);
