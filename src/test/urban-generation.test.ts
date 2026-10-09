@@ -143,7 +143,7 @@ describe("Meridian Step 5 roads and fidelity context", () => {
     ).toBe(true);
   });
 
-  it("plans a stable garage curb cut on the frontage road", () => {
+  it("retains generic garage curb-cut planning without forcing it into First Light parity rendering", () => {
     const cuts = planCurbCuts(FIRST_LIGHT_CITY_SPEC);
     const garage = cuts.find((cut) => cut.id === "sw-fl-garage:vehicle-entry");
     expect(garage).toBeDefined();
@@ -188,15 +188,20 @@ describe("Meridian Step 5 roads and fidelity context", () => {
       );
       expect(surfaces.meshes.length).toBeGreaterThan(30);
       expect(surfaces.markingPlan.length).toBeGreaterThan(10);
-      expect(surfaces.curbCutPlan.length).toBeGreaterThanOrEqual(1);
+      expect(surfaces.curbCutPlan).toHaveLength(0);
       expect(
         surfaces.meshes.some((mesh) =>
-          mesh.name.startsWith("generated-curb-cut:"),
+          mesh.name === "generated-parity-main-junction",
         ),
       ).toBe(true);
       expect(
         surfaces.meshes.some((mesh) =>
-          mesh.name.startsWith("generated-drain:"),
+          mesh.name === "generated-parity-north-curb",
+        ),
+      ).toBe(true);
+      expect(
+        surfaces.meshes.some((mesh) =>
+          mesh.name.startsWith("generated-parity-drain-"),
         ),
       ).toBe(true);
       expect(context.itemCount).toBeGreaterThan(9);
