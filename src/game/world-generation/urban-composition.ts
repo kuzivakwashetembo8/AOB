@@ -1,1 +1,1 @@
-export const MERIDIAN_URBAN_COMPOSITION_VERSION = 1 as const;
+export const MERIDIAN_URBAN_COMPOSITION_VERSION = 2 as const;
