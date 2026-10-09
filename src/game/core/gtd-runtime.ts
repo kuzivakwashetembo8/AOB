@@ -67,6 +67,10 @@ export class GTDGameRuntime implements GameRuntime {
     heat: 0,
     speed: 0,
     vehicle: null,
+    meridianTime: "14:30",
+    meridianMinuteOfDay: 14 * 60 + 30,
+    meridianTimeScale: 2,
+    interiorState: "outside",
   };
 
   async bootstrap(host: HTMLCanvasElement): Promise<void> {
@@ -209,6 +213,18 @@ export class GTDGameRuntime implements GameRuntime {
     }
     if (command.type === "input-mode") {
       this.inputMode = command.mode;
+      return;
+    }
+    if (command.type === "set-meridian-time") {
+      this.world?.setTimeMinutes(command.minuteOfDay);
+      this.publishSnapshot();
+      this.scene?.render();
+      return;
+    }
+    if (command.type === "set-meridian-time-scale") {
+      this.world?.setTimeScale(command.scale);
+      this.publishSnapshot();
+      return;
     }
   }
 
@@ -279,6 +295,11 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.grounded && this.verticalVelocity < 0) this.verticalVelocity = 0;
 
     const position = physics.playerPosition();
+    this.world?.update(dt, position);
+    const interiorState = this.world?.interiorState ?? "outside";
+    this.preferredCameraRadius =
+      interiorState === "inside" ? 3.35 : interiorState === "threshold" ? 4.5 : 6.2;
+
     voight.root.position.set(position.x, position.y, position.z);
     if (desired.lengthSquared() > 0.001) {
       voight.root.rotation.y = Math.atan2(desired.x, desired.z);
@@ -351,6 +372,14 @@ export class GTDGameRuntime implements GameRuntime {
       heat: 0,
       speed: Math.round(speed * 3.6),
       vehicle: null,
+      meridianTime:
+        this.world?.environmentSnapshot.formattedTime ?? this.snapshot.meridianTime,
+      meridianMinuteOfDay:
+        this.world?.environmentSnapshot.minuteOfDay ??
+        this.snapshot.meridianMinuteOfDay,
+      meridianTimeScale:
+        this.world?.environmentSnapshot.timeScale ?? this.snapshot.meridianTimeScale,
+      interiorState: this.world?.interiorState ?? "outside",
     };
     this.snapshotListeners.forEach((listener) => listener(this.snapshot));
   }
