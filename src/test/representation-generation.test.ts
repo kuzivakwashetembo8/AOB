@@ -83,8 +83,14 @@ describe("Meridian Step 3 visual representation", () => {
       const building = generateBuilding(scene, null, commercial, {
         generatorVersion: version, enableFacadeDetails: true, batchingMode: "thin-instances",
       });
-      expect(building.meshes.length).toBeLessThan(building.plan.primitives.length);
-      expect(building.meshes.some((mesh) => mesh.thinInstanceCount > 1)).toBe(true);
+      const supportsThinInstances = Boolean(engine.getCaps().instancedArrays);
+      if (supportsThinInstances) {
+        expect(building.meshes.length).toBeLessThan(building.plan.primitives.length);
+        expect(building.meshes.some((mesh) => mesh.thinInstanceCount > 1)).toBe(true);
+      } else {
+        expect(building.meshes.some((mesh) => mesh.thinInstanceCount > 0)).toBe(false);
+        expect(building.meshes.length).toBeGreaterThanOrEqual(building.plan.primitives.length);
+      }
       expect(building.detailPlan.decals.length).toBeGreaterThan(0);
       building.setRepresentationDistance(1000);
       expect(building.representationTier).toBe("skyline");
