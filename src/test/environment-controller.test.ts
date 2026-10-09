@@ -32,7 +32,7 @@ describe("Meridian FL-3 environment controller", () => {
     expect(clock.format()).toBe("00:10");
   });
 
-  it("switches daylight and streetlight intensity deterministically under NullEngine", () => {
+  it("keeps daytime bright while making night urban, starred, and street-lit", () => {
     const engine = new NullEngine();
     const scene = new Scene(engine);
     try {
@@ -43,13 +43,33 @@ describe("Meridian FL-3 environment controller", () => {
       });
       const noon = environment.snapshot();
       expect(noon.daylight).toBeGreaterThan(0.95);
+      expect(noon.starVisibility).toBeLessThan(0.01);
+      expect(noon.streetlightIntensity).toBeLessThan(0.01);
       expect(environment.shadowGenerator).toBeNull();
-      expect(environment.streetlights.every((light) => light.intensity < 0.01)).toBe(true);
+      expect(
+        environment.streetlights.every((light) => light.intensity < 0.01),
+      ).toBe(true);
+
+      const dusk = environment.setTimeMinutes(18 * 60);
+      expect(dusk.twilight).toBeGreaterThan(0.5);
+      expect(dusk.horizonGlow).toBeGreaterThan(noon.horizonGlow);
 
       const midnight = environment.setTimeMinutes(0);
       expect(midnight.night).toBeGreaterThan(0.95);
-      expect(environment.streetlights.every((light) => light.intensity > 1)).toBe(true);
-      expect(environment.interiorLights.every((light) => light.intensity > 0.9)).toBe(true);
+      expect(midnight.starVisibility).toBeGreaterThan(0.95);
+      expect(midnight.streetlightIntensity).toBeGreaterThan(2.5);
+      expect(
+        environment.streetlights.every((light) => light.intensity > 2.5),
+      ).toBe(true);
+      expect(
+        environment.streetlights.every((light) => light.range >= 17),
+      ).toBe(true);
+      expect(
+        environment.interiorLights.every((light) => light.intensity > 1.2),
+      ).toBe(true);
+      expect(scene.getMeshByName("meridian-star-dome")?.visibility).toBeGreaterThan(
+        0.95,
+      );
 
       environment.dispose();
       expect(scene.lights).toHaveLength(0);
