@@ -19,3 +19,4 @@ export * from "./skyline";
 export * from "./urban-composition";
 export * from "./city-registry";
 export * from "./block-streaming";
+export * from "./block-lifecycle";
