@@ -7,7 +7,8 @@ export class BlockLifecycle<T extends BlockAsset> {
   acquire(id: string): void {
     if (this.entries.has(id)) return;
     const specs = this.city.getBuildingsInBlock(id);
-    const assets = specs.map((spec) => this.factory(spec));
+    const assets: T[] = [];
+    for (const spec of specs) assets.push(this.factory(spec));
     this.entries.set(id, assets);
   }
   discard(id: string): void {
