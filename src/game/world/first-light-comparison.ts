@@ -7,6 +7,7 @@ import {
   HemisphericLight,
   MeshBuilder,
   Scene,
+  ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
@@ -67,7 +68,9 @@ function configureComparisonScene(scene: Scene): void {
   scene.fogColor = new Color3(0.09, 0.12, 0.14);
 }
 
-function createGeneratedLighting(scene: Scene): void {
+function createGeneratedLighting(
+  scene: Scene,
+): { sun: DirectionalLight; shadows: ShadowGenerator } {
   const sky = new HemisphericLight(
     "generated-first-light-sky",
     new Vector3(0.2, 1, -0.15),
@@ -85,6 +88,18 @@ function createGeneratedLighting(scene: Scene): void {
   sun.position = new Vector3(24, 34, -18);
   sun.intensity = 1.05;
   sun.diffuse = new Color3(1, 0.83, 0.66);
+  sun.shadowMinZ = 0.1;
+  sun.shadowMaxZ = 140;
+  sun.autoUpdateExtends = true;
+
+  const shadows = new ShadowGenerator(2048, sun);
+  shadows.usePercentageCloserFiltering = true;
+  shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
+  shadows.bias = 0.0005;
+  shadows.normalBias = 0.025;
+  shadows.transparencyShadow = true;
+
+  return { sun, shadows };
 }
 
 function createGeneratedGround(scene: Scene): void {
@@ -99,6 +114,7 @@ function createGeneratedGround(scene: Scene): void {
   );
   ground.position.z = 20;
   ground.material = material;
+  ground.receiveShadows = true;
 }
 
 async function createAuthoredRuntime(
@@ -138,7 +154,7 @@ async function createGeneratedRuntime(
   });
   const scene = new Scene(engine);
   configureComparisonScene(scene);
-  createGeneratedLighting(scene);
+  const { shadows } = createGeneratedLighting(scene);
   createGeneratedGround(scene);
   const urbanSurfaces = createGeneratedUrbanSurfaces(
     scene,
@@ -161,6 +177,26 @@ async function createGeneratedRuntime(
       enableCameraBlockers: false,
     }),
   );
+
+  for (const mesh of urbanSurfaces.meshes) {
+    mesh.receiveShadows = true;
+  }
+
+  for (const building of buildings) {
+    for (const mesh of building.meshes) {
+      shadows.addShadowCaster(mesh);
+    }
+  }
+
+  for (const mesh of streetContext.meshes) {
+    mesh.receiveShadows = true;
+    if (
+      !mesh.name.startsWith("generated-public-space:") &&
+      !mesh.name.startsWith("generated-grass-variation:")
+    ) {
+      shadows.addShadowCaster(mesh);
+    }
+  }
 
   engine.runRenderLoop(() => scene.render());
   return {
