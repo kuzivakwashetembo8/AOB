@@ -7,3 +7,5 @@ export class CityBlockRuntime<T extends StreamedObject> {
   constructor(readonly registry: CityRegistry, readonly factory: BlockFactory<T>) {}
   getActiveIds(): readonly string[] { return [...this.active.keys()]; }
 }
+
+// Activation is opt-in.
