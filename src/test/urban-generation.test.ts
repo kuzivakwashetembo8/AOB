@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIRST_LIGHT_CITY_SPEC, planRoadGraph, CityRegistry } from "../game/world-generation";
+import { FIRST_LIGHT_CITY_SPEC, planRoadGraph, CityRegistry, planLotOrientation, planNeighborhood } from "../game/world-generation";
 describe("Meridian Step 5 roads", () => {
   it("indexes stable First Light identities", () => {
     const registry = new CityRegistry(FIRST_LIGHT_CITY_SPEC);
