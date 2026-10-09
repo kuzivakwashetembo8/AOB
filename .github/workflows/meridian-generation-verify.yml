@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - automation/meridian-step2-verified
+      - automation/meridian-step3-verified
   workflow_dispatch:
 
 jobs:

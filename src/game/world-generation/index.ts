@@ -6,4 +6,8 @@ export * from "./validation";
 export * from "./first-light-spec";
 export * from "./architecture-templates";
 export * from "./architecture-plan";
+export * from "./representation-materials";
+export * from "./representation-lod";
+export * from "./facade-details";
+export * from "./material-library";
 export * from "./building-generator";
