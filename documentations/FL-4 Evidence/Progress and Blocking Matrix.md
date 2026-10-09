@@ -129,3 +129,15 @@ The user compared three screenshots from diagnostic preview `dpl_2akYuvy9To7e2kr
 Fine horizontal striations remain visible across the sky in all three screenshots. The source of the pattern is undetermined; resolution-factor manipulation alone has not convincingly solved it. The latest installed mobile PWA is not up to date; these screenshots are desktop-browser evidence **only**, not current-build mobile-band validation.
 
 **Follow-up:** Do not make a default resolution-policy adjustment. Prioritize isolating the recurring sky banding/texture/filtering appearance from global canvas pixel scaling, and obtain representative mobile build evidence when feasible. The baseline is the approved comparator for future visual and perf regressions; do not mark FL4-02 PASS until matched viewports, instrumentation and real-mobile evidence support closure.
+
+## FL4-04 diagnostic isolation — 2026-10-09
+
+Source inspection identifies a 2048 × 2048 Babylon sun shadow generator with medium-quality percentage-closer filtering in `src/game/world/environment-controller.ts`, alongside the independent `meridian-sky-dome` and `meridian-star-dome` meshes. This establishes **candidate subsystems**, not root causes.
+
+Development commit `02239d152f52636a849b6815a50c500d77856107` introduces two **diagnostics-only** controlled isolation modes, gated behind `?fl4Diagnostics=1`:
+- `&fl4Probe=noSky`: disables the sky dome and star dome to assess whether horizontal striations survive without those surfaces. This mode is deliberately visually invalid as a gameplay presentation.
+- `&fl4Probe=noShadows`: disables scene shadow rendering to assess the change in draw calls and frame-time. This mode is deliberately visually invalid as a final environment.
+
+For comparison, also sample `?fl4Diagnostics=1` (unchanged baseline). Use the **same preview commit, native window size, camera view, Meridian time and movement path** for all three. Export `window.__GTD_FL4_REPORT__()` for each, allowing a 30–120-second sampling period. Mark any result with DevTools docked separately. A faster no-shadow probe is evidence of shadow-pass cost, **not** authorization to eliminate approved shadows. If banding persists without the sky mesh, look at screen-space capture/display or other materials; if it disappears, investigate sky material, sphere UVs, antialiasing and sampling before proposing a fix. Only user-validated observations can close the mobile banding concern.
+
+Status: probes implemented on development branch; **no performance savings, visual remedy or actual cause established**.
