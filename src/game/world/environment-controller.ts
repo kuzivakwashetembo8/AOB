@@ -94,6 +94,7 @@ export interface MeridianEnvironmentController {
   readonly clock: MeridianClock;
   readonly sun: DirectionalLight;
   readonly ambient: HemisphericLight;
+  readonly nightFill: HemisphericLight;
   readonly shadowGenerator: ShadowGenerator | null;
   readonly streetlights: readonly PointLight[];
   readonly interiorLights: readonly PointLight[];
@@ -156,8 +157,8 @@ function twilightForDaylight(daylight: number): number {
 }
 
 function createStarTexture(scene: Scene): RawTexture {
-  const width = 512;
-  const height = 256;
+  const width = 1024;
+  const height = 512;
   const pixels = new Uint8Array(width * height * 4);
   let seed = 0x47544431;
   const random = () => {
@@ -174,20 +175,23 @@ function createStarTexture(scene: Scene): RawTexture {
     pixels[index + 3] = Math.max(pixels[index + 3]!, alpha);
   };
 
-  for (let index = 0; index < 680; index += 1) {
+  for (let index = 0; index < 1350; index += 1) {
     const x = Math.floor(random() * width);
-    // Keep the densest stars away from the lowest horizon band.
-    const y = Math.floor(random() * height * 0.84);
-    const bright = random() > 0.91;
-    const value = Math.round(bright ? 220 + random() * 35 : 125 + random() * 95);
-    const alpha = Math.round(bright ? 210 + random() * 45 : 115 + random() * 110);
+    // Reduce density toward the horizon so the field reads as distant sky,
+    // not particles hanging immediately above the district.
+    const y = Math.floor(random() * height * 0.82);
+    const sample = random();
+    const bright = sample > 0.985;
+    const medium = sample > 0.88;
+    const value = Math.round(
+      bright ? 225 + random() * 28 : medium ? 155 + random() * 55 : 100 + random() * 55,
+    );
+    const alpha = Math.round(
+      bright ? 205 + random() * 35 : medium ? 135 + random() * 65 : 82 + random() * 60,
+    );
+    // Intentionally one texel only. Four-point flares made the sky feel
+    // miniature and close; real distant stars should read primarily as dots.
     write(x, y, value, alpha);
-    if (bright) {
-      write(x - 1, y, Math.round(value * 0.55), Math.round(alpha * 0.42));
-      write(x + 1, y, Math.round(value * 0.55), Math.round(alpha * 0.42));
-      write(x, y - 1, Math.round(value * 0.55), Math.round(alpha * 0.42));
-      write(x, y + 1, Math.round(value * 0.55), Math.round(alpha * 0.42));
-    }
   }
 
   const texture = RawTexture.CreateRGBATexture(
@@ -197,7 +201,7 @@ function createStarTexture(scene: Scene): RawTexture {
     scene,
     true,
     false,
-    Texture.BILINEAR_SAMPLINGMODE,
+    Texture.NEAREST_SAMPLINGMODE,
   );
   texture.name = "meridian-procedural-star-field";
   texture.hasAlpha = true;
@@ -243,7 +247,7 @@ function createSky(scene: Scene): {
 
   const starMesh = MeshBuilder.CreateSphere(
     "meridian-star-dome",
-    { diameter: 276, segments: 20 },
+    { diameter: 279, segments: 20 },
     scene,
   );
   starMesh.infiniteDistance = true;
@@ -272,6 +276,15 @@ export function createMeridianEnvironment(
     new Vector3(0.18, 1, -0.12),
     scene,
   );
+  const nightFill = new HemisphericLight(
+    "meridian-night-readability-fill",
+    new Vector3(-0.22, 0.72, 0.28),
+    scene,
+  );
+  nightFill.diffuse = new Color3(0.18, 0.23, 0.34);
+  nightFill.groundColor = new Color3(0.055, 0.06, 0.08);
+  nightFill.intensity = 0;
+
   const sun = new DirectionalLight(
     "meridian-environment-sun",
     new Vector3(-0.5, -1, 0.38),
@@ -380,16 +393,26 @@ export function createMeridianEnvironment(
 
     // City night is dark, not unlit. Preserve enough cool ambient fill for
     // silhouettes/materials while local lights provide the warm contrast.
-    ambient.intensity = 0.27 + daylight * 0.58 + twilight * 0.08;
+    ambient.intensity = 0.34 + daylight * 0.52 + twilight * 0.09;
     ambient.diffuse = color(
       [0.66, 0.75, 0.86],
-      [0.18, 0.24, 0.38],
+      [0.23, 0.29, 0.42],
       daylight,
     );
     ambient.groundColor = color(
       [0.17, 0.15, 0.13],
-      [0.07, 0.065, 0.075],
+      [0.09, 0.085, 0.1],
       daylight,
+    );
+
+    // Deliberate game-lighting cheat: this has no visible emitter. It creates
+    // the city-night luminance floor so roads, facades and Voight remain
+    // readable between practical light sources.
+    nightFill.intensity = night * 0.34 + twilight * 0.08;
+    nightFill.diffuse = new Color3(
+      0.16 + twilight * 0.04,
+      0.21 + twilight * 0.035,
+      0.34 + twilight * 0.025,
     );
 
     const skyColor = color(
@@ -414,7 +437,7 @@ export function createMeridianEnvironment(
 
     sky.material.emissiveColor = skyColor;
     sky.starMesh.visibility = starVisibility;
-    sky.starMaterial.alpha = 0.28 + starVisibility * 0.72;
+    sky.starMaterial.alpha = 0.18 + starVisibility * 0.62;
     scene.clearColor.set(
       Math.max(0.022, skyColor.r * 0.72),
       Math.max(0.04, skyColor.g * 0.76),
@@ -426,12 +449,12 @@ export function createMeridianEnvironment(
     scene.fogColor = horizon;
 
     const streetlightIntensity =
-      smoothstep(0.16, 0.68, night) * (2.65 + twilight * 0.45);
+      smoothstep(0.16, 0.68, night) * (2.35 + twilight * 0.38);
     for (const light of streetlights) {
       light.intensity = streetlightIntensity;
     }
     if (streetlightGlow) {
-      const glowStrength = clamp01(streetlightIntensity / 2.65);
+      const glowStrength = clamp01(streetlightIntensity / 2.35);
       streetlightGlow.emissiveColor = new Color3(
         0.17 + glowStrength * 1.05,
         0.1 + glowStrength * 0.62,
@@ -463,6 +486,7 @@ export function createMeridianEnvironment(
     clock,
     sun,
     ambient,
+    nightFill,
     shadowGenerator: shadows,
     streetlights,
     interiorLights,
@@ -500,6 +524,7 @@ export function createMeridianEnvironment(
       for (const light of interiorLights) light.dispose();
       sun.dispose();
       ambient.dispose();
+      nightFill.dispose();
       sky.starMesh.dispose();
       sky.mesh.dispose();
       sky.starMaterial.diffuseTexture = null;
