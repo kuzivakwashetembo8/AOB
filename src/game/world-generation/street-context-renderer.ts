@@ -375,8 +375,8 @@ function addTree(
     "generated-tree-trunk:" + item.id,
     {
       height: 5.05,
-      diameterTop: 0.34,
-      diameterBottom: 0.78,
+      diameterTop: 0.66,
+      diameterBottom: 0.7,
       tessellation: 10,
     },
     scene,
