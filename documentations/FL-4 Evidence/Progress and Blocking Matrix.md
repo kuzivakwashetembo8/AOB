@@ -184,3 +184,11 @@ Implemented:
 **Applied on development branch:** `eb18cee1424e6df9d79dfa582e06d1e960386a9a` replaces the lower/upper trunk pair with a single continuous tapered cylinder, still retaining four small ground-level root flares and the existing foliage-card canopy. A generated tree now requires one fewer trunk mesh. `85b0a6b0ef01e57e10095cd02a48e19bdb9aba87` adds a test asserting one unrotated continuous trunk per planned tree and the absence of legacy upper/lower trunk segments.
 
 **Verification distinction:** The structural correction is implemented; visual fidelity and comparative performance savings require the next review preview. One fewer mesh per tree is a count reduction, **not** a measured FPS benefit. No changes to collision, night lighting, star rendering or default resolution policy were requested.
+
+## Tree visual acceptance and proportional refinement — 2026-10-09
+
+User visually accepted the single-piece tree trunk patch after reviewing preview `dpl_EGmEHJ5ippjTvSEb4oT2iWaQ3XRa`. Additional art-direction constraint: real tree trunks should remain **approximately the same width throughout their visible height**. Variation belongs mainly in natural branch and root protrusions, not an exaggerated conical taper. User explicitly prefers the continuous-trunk design over separate bent segments.
+
+On development branch, commit `7f64cfc49d0fec4705888362be34955507c0a880` adjusts the generated main tree shaft from a strong 0.78-to-0.34 diameter taper to an approximately uniform 0.70-to-0.66 diameter. The root flares and canopy remain. This tiny proportional refinement is **awaiting separate visual review**, though the preceding one-piece trunk implementation is accepted. FL-4 remains in progress; progress percentages are subjective planning estimates, not test-derived output.
+
+**Remaining FL-4 truth conditions:** No instrumented before/after performance optimization is verified yet. No current-build mobile PWA hardware run has been supplied. The accepted baseline graphics settings remain unchanged. Horizontal banding stays a non-blocking cosmetic issue (GTD-VIS-001). Do not close FL-4 without the prescribed stability, device and user acceptance evidence.
