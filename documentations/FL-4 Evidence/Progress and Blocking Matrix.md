@@ -157,3 +157,20 @@ The user compared baseline, `fl4Probe=noSky`, and `fl4Probe=noShadows` screensho
 **Authoritative disposition for horizontal banding:** `documentations/Issues/Horizontal Sky Banding - Non-blocking Visual Refinement.md` (`GTD-VIS-001`). The user explicitly classified horizontal sky banding as a **LOW-severity, cosmetic, non-blocking visual phenomenon** that does not obstruct gameplay or materially impair UX. It is **not an FL-4 stop condition or a mandatory root-cause investigation**, notwithstanding earlier exploratory language in this evidence log calling the banding a priority or a defect requiring immediate isolation. Such earlier characterizations are now superseded.
 
 Continue FL-4 profiling, justified optimization, stability verification, and device validation without fixating on a banding remedy. Preserve its evidence and disclose it as a known limitation; investigate progressively if justified. A live mobile validation requirement for **overall resolution, performance, controls and runtime stability** remains in force independently of this cosmetic banding. No rendering correction is implied or authorized by this classification alone.
+
+## FL4 baseline telemetry verification batch — 2026-10-09
+
+**Development branch:** `development/meridian-fl4-optimization`  
+**Pinned verification SHA:** `488c1411c3cf8915521bf81816b7d969e5ec181a`  
+**Vercel preview:** `dpl_Hrq6Rbn2uQBvY5K7HJQSaqNcropp` — `https://gtd-96mr1kocq-interlinkglobaltech.vercel.app` — **READY**.  
+**Build override for this preview:** `npx tsc --noEmit && npm run test && npm run build`. Verification reached the tests and subsequent successful Vite production build; **strict TypeScript passed, 11 test files / 67 tests passed, build completed**. This is developer/CI verification and not a measured live-device performance improvement.
+
+Implemented:
+- `src/game/debug/fl4-metrics.ts`: deterministic percentiles, median-derived frame-rate approximation, device-pixel coverage.
+- `src/game/debug/fl4-diagnostics.ts`: adds native pixel coverage, shadow caster count/map dimension and initial scene timing to opt-in reports; preserves bounded sample history and resource disposal.
+- `src/game/core/gtd-runtime.ts`: captures boot-to-ready and first-render wall time without modifying normal rendering policy, fixed-step gameplay or locked lighting.
+- `src/test/fl4-metrics.test.ts`: three new tests; all passed in Vercel verification.
+
+**Current FL-4 disposition:** improved measurement instruments (FL4-01/02), source code regression verification partly satisfied (FL4-05), still no baseline-vs-optimized same-device performance comparison to justify substantive visual optimization (FL4-04). Real landscape-mobile test and final visual approval remain outstanding (FL4-03/06). Keep banding as cosmetic non-blocking `GTD-VIS-001`. No changes to production or `main`.
+
+**Progress reporting:** The previous 35% estimate is subjective, not an official quantitative milestone. Stronger telemetry and 67 passing tests increase implementation confidence but cannot legitimately establish >=75% FL-4 completion while live mobile evidence, measurable performance interventions, and final acceptance are pending. Do not use synthetic samples as real device benchmarks.
