@@ -47,6 +47,26 @@ describe("Meridian Step 5 streaming prerequisites", () => {
       physics.destroy(); scene.dispose(); engine.dispose();
     }
   });
+  it("allocates and reclaims solid pole-style cylindrical collision", async () => {
+    const physics = await MeridianPhysics.create();
+    const baselineBodies = physics.world.bodies.len();
+    const baselineColliders = physics.world.colliders.len();
+    try {
+      const pole = physics.addStaticCylinder(
+        { x: 2, y: 2.5, z: 3 },
+        2.5,
+        0.14,
+      );
+      expect(physics.world.bodies.len()).toBe(baselineBodies + 1);
+      expect(physics.world.colliders.len()).toBe(baselineColliders + 1);
+      pole.dispose();
+      expect(physics.world.bodies.len()).toBe(baselineBodies);
+      expect(physics.world.colliders.len()).toBe(baselineColliders);
+    } finally {
+      physics.destroy();
+    }
+  });
+
   it("allocates and disposes block-owned resources exactly once", () => {
     const registry = new CityRegistry(FIRST_LIGHT_CITY_SPEC);
     const disposed: string[] = [];
