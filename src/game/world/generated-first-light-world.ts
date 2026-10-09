@@ -125,6 +125,51 @@ function registerStreetContextCollision(
   return handles;
 }
 
+function registerGarageInteriorCollision(
+  physics: MeridianPhysics,
+  building: GeneratedBuilding,
+): StaticCollisionHandle[] {
+  const handles: StaticCollisionHandle[] = [];
+  const yaw = building.spatial.yawRadians;
+  const cos = Math.cos(yaw);
+  const sin = Math.sin(yaw);
+  const origin = building.spatial.origin;
+  const fixtures = [
+    { x: -3.7, y: 0.52, z: -3.75, hx: 2.1, hy: 0.52, hz: 0.43 },
+    { x: -5.45, y: 1.05, z: -2.85, hx: 0.63, hy: 1.05, hz: 0.33 },
+    { x: 3.9, y: 1.05, z: -3.72, hx: 1.8, hy: 1.05, hz: 0.36 },
+    { x: 5.45, y: 1.08, z: 2.85, hx: 0.83, hy: 1.08, hz: 0.29 },
+    { x: 4.1, y: 0.88, z: 3.02, hx: 0.41, hy: 0.88, hz: 0.36 },
+    { x: -4.6, y: 0.43, z: 3.1, hx: 1.28, hy: 0.43, hz: 0.4 },
+  ] as const;
+
+  for (const fixture of fixtures) {
+    const worldX = origin.x + fixture.x * cos - fixture.z * sin;
+    const worldZ = origin.z + fixture.x * sin + fixture.z * cos;
+    handles.push(
+      physics.addStaticBox(
+        { x: worldX, y: origin.y + fixture.y, z: worldZ },
+        { x: fixture.hx, y: fixture.hy, z: fixture.hz },
+        yaw,
+      ),
+    );
+  }
+  return handles;
+}
+
+function applyGarageVisibility(
+  building: GeneratedBuilding,
+  state: InteriorVisibilityState,
+): void {
+  const roofVisibility =
+    state === "inside" ? 0.08 : state === "threshold" ? 0.38 : 1;
+  for (const mesh of building.meshes) {
+    if (mesh.metadata?.architecturalRole === "roof") {
+      mesh.visibility = roofVisibility;
+    }
+  }
+}
+
 function classifyGarageInterior(
   building: GeneratedBuilding,
   playerPosition: { x: number; y: number; z: number },
@@ -206,6 +251,9 @@ export function createGeneratedFirstLightWorld(
     initialTimeScale: 2,
   });
   const contextCollision = registerStreetContextCollision(physics);
+  const garageInteriorCollision = heroGarage
+    ? registerGarageInteriorCollision(physics, heroGarage)
+    : [];
 
   for (const mesh of urbanSurfaces.meshes) {
     mesh.receiveShadows = true;
@@ -266,6 +314,7 @@ export function createGeneratedFirstLightWorld(
       interiorState = heroGarage
         ? classifyGarageInterior(heroGarage, playerPosition)
         : "outside";
+      if (heroGarage) applyGarageVisibility(heroGarage, interiorState);
     },
     setTimeMinutes(minutes) {
       environmentSnapshot = environment.setTimeMinutes(minutes);
@@ -280,6 +329,7 @@ export function createGeneratedFirstLightWorld(
       disposed = true;
 
       for (const handle of contextCollision) handle.dispose();
+      for (const handle of garageInteriorCollision) handle.dispose();
       garageInterior?.dispose();
       environment.dispose();
       for (const building of buildings) building.dispose();
