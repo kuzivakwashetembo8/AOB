@@ -117,7 +117,7 @@ function FirstLightComparisonPage() {
         </div>
       </header>
 
-      <div className="mx-auto mb-4 grid max-w-[1600px] gap-3 border border-border bg-card/60 p-3 text-xs md:grid-cols-5">
+      <div className="mx-auto mb-4 grid max-w-[1600px] gap-3 border border-border bg-card/60 p-3 text-xs md:grid-cols-7">
         <div>
           <div className="system-label">STATUS</div>
           <strong>{status}</strong>
@@ -138,6 +138,14 @@ function FirstLightComparisonPage() {
           <div className="system-label">GENERATED COLLIDERS</div>
           <strong>{stats?.generatedColliderCount ?? "—"}</strong>
         </div>
+        <div>
+          <div className="system-label">URBAN MESHES</div>
+          <strong>{stats?.urbanMeshCount ?? "—"}</strong>
+        </div>
+        <div>
+          <div className="system-label">CONTEXT ITEMS</div>
+          <strong>{stats?.contextItemCount ?? "—"}</strong>
+        </div>
       </div>
 
       <div className="mx-auto grid max-w-[1600px] gap-4 lg:grid-cols-2">
@@ -148,17 +156,18 @@ function FirstLightComparisonPage() {
         />
         <ComparisonPanel
           title="GENERATED FIRST LIGHT"
-          subtitle="Step 1–5 building generation with semantic roads and real Rapier collision."
+          subtitle="Generated buildings plus textured roads, sidewalks, curbs, markings, vegetation, props, and real Rapier collision."
           canvasRef={generatedCanvas}
         />
       </div>
 
       <footer className="mx-auto mt-4 max-w-[1600px] border border-border bg-card/60 p-4 text-xs text-muted-foreground">
-        Comparison scope: building massing, facade grammar, openings,
-        materials, LOD-capable representation, collision, and road topology.
-        Trees, parked vehicles, streetlights, lane markings, drainage, and
-        finished generated curb meshes remain authored-only and should not be
-        interpreted as parity failures at this gate.
+        Comparison scope now includes building massing, facade grammar,
+        procedural surface materials, weathering variation, window/storefront
+        treatment, secondary facade detail, collision, finished semantic roads,
+        sidewalks, curbs, lane markings, pocket-green vegetation, streetlights,
+        parked vehicles, benches, and bins. Drainage, fine road wear, richer
+        signage, and FL-3 atmosphere remain later refinement areas.
       </footer>
     </main>
   );
