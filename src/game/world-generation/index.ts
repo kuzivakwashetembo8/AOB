@@ -21,3 +21,8 @@ export * from "./city-registry";
 export { blockDistanceTo, DEFAULT_STREAMING_OPTIONS } from "./block-streaming";
 export * from "./block-lifecycle";
 export * from "./streaming-policy";
+
+export * from "./surface-textures";
+export * from "./urban-surface-renderer";
+export * from "./street-context";
+export * from "./street-context-renderer";
