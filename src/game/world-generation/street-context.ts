@@ -1,8 +1,14 @@
 import { featureRandom } from "./seeded-variation";
-import type { CitySpec, PropPlacementSpec, VegetationPlacementSpec, WorldPosition } from "./schema";
+import type {
+  CitySpec,
+  PropPlacementSpec,
+  VegetationPlacementSpec,
+  WorldPosition,
+} from "./schema";
 
 export type StreetContextKind =
   | "tree"
+  | "shrub"
   | "streetlight"
   | "parked-car"
   | "bench"
@@ -14,12 +20,14 @@ export interface StreetContextItem {
   readonly position: WorldPosition;
   readonly yawRadians: number;
   readonly scale: number;
+  readonly canopyScale?: number;
   readonly seed: string | number;
 }
 
 export interface StreetContextPlan {
   readonly items: readonly StreetContextItem[];
   readonly treeCount: number;
+  readonly shrubCount: number;
   readonly streetlightCount: number;
   readonly parkedCarCount: number;
   readonly propCount: number;
@@ -57,10 +65,63 @@ function propKind(templateId: string): StreetContextKind | null {
   return null;
 }
 
+function addPocketGreenShrubs(
+  city: CitySpec,
+  items: StreetContextItem[],
+): void {
+  for (const district of city.districts) {
+    for (const neighborhood of district.neighborhoods) {
+      for (const block of neighborhood.blocks) {
+        for (const space of block.publicSpaces ?? []) {
+          if (space.kind !== "pocket-park") continue;
+          const positions = [
+            { x: -0.32, z: -0.31 },
+            { x: 0.35, z: -0.24 },
+            { x: -0.38, z: 0.3 },
+            { x: 0.32, z: 0.34 },
+          ] as const;
+          positions.forEach((offset, index) => {
+            const seed = space.id + ":shrub:" + index;
+            items.push({
+              id: seed,
+              kind: "shrub",
+              position: {
+                x: space.position.x + offset.x * space.width,
+                y: 0,
+                z: space.position.z + offset.z * space.depth,
+              },
+              yawRadians:
+                featureRandom(seed, city.generatorVersion, "shrub:yaw") *
+                Math.PI *
+                2,
+              scale:
+                0.78 +
+                featureRandom(seed, city.generatorVersion, "shrub:scale") *
+                  0.36,
+              seed,
+            });
+          });
+        }
+      }
+    }
+  }
+}
+
 export function planStreetContext(city: CitySpec): StreetContextPlan {
   const items: StreetContextItem[] = [];
 
   for (const tree of collectAuthoredVegetation(city)) {
+    const pocketTree = tree.id.includes("pocket");
+    const scaleSample = featureRandom(
+      tree.seed,
+      city.generatorVersion,
+      "vegetation:scale",
+    );
+    const canopySample = featureRandom(
+      tree.seed,
+      city.generatorVersion,
+      "vegetation:canopy",
+    );
     items.push({
       id: tree.id,
       kind: "tree",
@@ -69,13 +130,14 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
         featureRandom(tree.seed, city.generatorVersion, "vegetation:yaw") *
         Math.PI *
         2,
-      scale:
-        0.9 +
-        featureRandom(tree.seed, city.generatorVersion, "vegetation:scale") *
-          0.22,
+      scale: 0.94 + scaleSample * 0.16,
+      canopyScale:
+        (pocketTree ? 1.17 : 1.08) + canopySample * (pocketTree ? 0.14 : 0.1),
       seed: tree.seed,
     });
   }
+
+  addPocketGreenShrubs(city, items);
 
   for (const prop of collectAuthoredProps(city)) {
     const kind = propKind(prop.templateId);
@@ -111,9 +173,9 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
     const sidewalkOffset =
       segment.width / 2 + Math.max(1, segment.sidewalkWidth * 0.72);
     const carOffset = Math.max(0.7, segment.width / 2 - 1.12);
-    const clear = Math.min(9, length * 0.18);
+    const clear = Math.min(10.5, Math.max(7.5, length * 0.2));
 
-    const lightSpacing = segment.roadClass === "local" ? 22 : 18;
+    const lightSpacing = segment.roadClass === "local" ? 24 : 19;
     for (
       let distance = clear + 2;
       distance <= length - clear - 2;
@@ -141,7 +203,7 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
       });
     }
 
-    const carSpacing = 25;
+    const carSpacing = 28;
     for (
       let distance = clear + 6;
       distance <= length - clear - 6;
@@ -152,8 +214,8 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
         city.generatorVersion,
         "parked-car:" + distance.toFixed(1),
       );
-      if (sample < 0.42) continue;
-      const side = sample > 0.72 ? 1 : -1;
+      if (sample < 0.48) continue;
+      const side = sample > 0.74 ? 1 : -1;
       items.push({
         id: segment.id + ":parked-car:" + distance.toFixed(1),
         kind: "parked-car",
@@ -162,8 +224,7 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
           y: 0,
           z: start.z + uz * distance + nz * carOffset * side,
         },
-        yawRadians:
-          Math.atan2(dx, dz) + (side > 0 ? 0 : Math.PI),
+        yawRadians: Math.atan2(dx, dz) + (side > 0 ? 0 : Math.PI),
         scale:
           0.92 +
           featureRandom(
@@ -185,6 +246,7 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
   return {
     items: result,
     treeCount: result.filter((item) => item.kind === "tree").length,
+    shrubCount: result.filter((item) => item.kind === "shrub").length,
     streetlightCount: result.filter((item) => item.kind === "streetlight")
       .length,
     parkedCarCount: result.filter((item) => item.kind === "parked-car")
