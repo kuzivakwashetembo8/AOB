@@ -76,3 +76,28 @@ Note: `renderMs` measures the JavaScript `scene.render()` call wall time, **not 
 5. Complete FL4-03 through FL4-06 and obtain visual acceptance. Update the canonical milestone only then.
 
 **Stop condition:** FL-4 MUST NOT be represented as complete or visually validated until the real-device and user-acceptance gates are evidenced.
+
+## Desktop diagnostic capture — user-provided 2026-10-09
+
+**Evidence:** Three user-provided Chrome DevTools/screenshots plus an exported `gtd.fl4.v1` JSON diagnostic report. Environment: Windows 10 x64, Chrome 155, Vercel preview `dpl_AFqXF3ic9EVh8mCtuGSxpVrt9SY6`, FL-4 branch commit `9e1ac6e`. Collection time according to browser report: `2026-10-09T19:59:18.407Z`.
+
+| Signal | Result |
+| --- | ---: |
+| CSS viewport and canvas | 811 × 633 |
+| Canvas backing and Babylon render buffer | 811 × 633 |
+| DevicePixelRatio / hardware scaling | 1 / 1 |
+| Captured frames | 1,800 |
+| Frame interval median / p95 | 66.6 / 183.2 ms |
+| Render-call wall time median / p95 | 45 / 111.7 ms |
+| Median-based approximate FPS | 15.02 |
+| Draw calls median | 449 |
+| Active meshes / active indices median | 130 / 172,146 |
+| Total meshes / materials / textures | 588 / 81 / 57 |
+
+**Confirmed:** No framebuffer undersampling in this specific desktop capture: backing-store, rendering buffer, and CSS dimensions coincide at DPR 1. Severe frame-time cost is observed, with render-call time a major contributor. Screenshots show repeated horizontal screen-space banding; cause has not been confirmed. No evidence yet that one component (shadow pass, CPU, GPU, texture filtering or Vercel SSO) is causal. DevTools was open, and changing dock/layout can change the measurement context.
+
+**Interpretation guard:** `fpsApprox` derives from the **median** frame interval; it is not a whole-run FPS average. `renderMs` is wall time around Babylon scene rendering, not GPU timer output. A median 449 draw calls versus 130 active meshes does not mean each active mesh directly submits 3.45 draw calls; inspect shadow/depth/render passes and Babylon instrumentation before attributing cost.
+
+**Proposed controlled comparison:** Repeat a 60–120-second sample with DevTools undocked or closed after instrumentation is active, same camera route, same desktop viewport size; record output. Then inspect rendering pass counts, shadow casters, active mesh/submesh counts and texture resolution/mip profiles. Separately obtain native landscape mobile DPR/backing-buffer measurements. Do not increase render resolution while median frame interval remains ~67ms without proving acceptable device headroom.
+
+**Gate impact:** A01, A02, A03 and A05 now have partial real-desktop evidence; A02 and A03 are not yet passed because no before/after optimization comparison, GPU measure or matched repeat. FL4-04 remains unstarted pending identification of the dominant bottleneck. Real mobile validation and acceptance are blocked.
