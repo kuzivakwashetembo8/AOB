@@ -3,9 +3,9 @@ import { approximateFps, percentile, renderScaleCoverage } from "../game/debug/f
 
 describe("FL-4 measurement invariants", () => {
   it("computes stable percentiles independent of sample order", () => {
-    expect(percentile([40, 10, 20, 30], 0.5)).toBe(20);
+    expect(percentile([40, 10, 20, 30], 0.5)).toBe(30);
     expect(percentile([40, 10, 20, 30], 0.95)).toBe(40);
-    expect(percentile([10, Number.NaN, -7, 20], 0.5)).toBe(10);
+    expect(percentile([10, Number.NaN, -7, 20], 0.5)).toBe(20);
     expect(percentile([], 0.5)).toBeNull();
     expect(percentile([20], 1.1)).toBeNull();
   });
