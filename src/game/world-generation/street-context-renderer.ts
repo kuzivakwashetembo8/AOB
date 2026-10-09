@@ -38,6 +38,85 @@ function sample(seed: number, x: number, y: number): number {
   return ((value ^ (value >>> 16)) >>> 0) / 4294967295;
 }
 
+function isHeadlessTextureEnvironment(scene: Scene): boolean {
+  const engine = scene.getEngine() as {
+    getClassName?: () => string;
+    constructor?: { name?: string };
+  };
+  return (
+    engine.getClassName?.() === "NullEngine" ||
+    engine.constructor?.name === "NullEngine"
+  );
+}
+
+function createFallbackBarkTexture(scene: Scene): RawTexture {
+  const size = 64;
+  const pixels = new Uint8Array(size * size * 4);
+  const seed = seedHash("first-light-bark-fallback");
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const index = (y * size + x) * 4;
+      const n = sample(seed, x, y);
+      const groove = x % 9 <= 1 ? -34 : 0;
+      const scratch =
+        sample(seed ^ 0x7f4a7c15, Math.floor(x / 3), y) > 0.91 ? 22 : 0;
+      pixels[index] = Math.max(34, Math.min(145, 96 + groove + scratch + n * 22));
+      pixels[index + 1] = Math.max(26, Math.min(122, 72 + groove + n * 18));
+      pixels[index + 2] = Math.max(18, Math.min(98, 48 + groove + n * 14));
+      pixels[index + 3] = 255;
+    }
+  }
+  const texture = RawTexture.CreateRGBATexture(
+    pixels,
+    size,
+    size,
+    scene,
+    true,
+    false,
+    Texture.TRILINEAR_SAMPLINGMODE,
+  );
+  texture.name = "generated-south-ward-bark-fallback";
+  texture.wrapU = Texture.WRAP_ADDRESSMODE;
+  texture.wrapV = Texture.WRAP_ADDRESSMODE;
+  texture.uScale = 1.3;
+  texture.vScale = 3.8;
+  return texture;
+}
+
+function createFallbackFoliageTexture(scene: Scene): RawTexture {
+  const size = 64;
+  const pixels = new Uint8Array(size * size * 4);
+  const seed = seedHash("first-light-foliage-fallback");
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const index = (y * size + x) * 4;
+      const nx = (x - size / 2) / (size / 2);
+      const ny = (y - size / 2) / (size / 2);
+      const radial = nx * nx / 1.08 + ny * ny / 0.72;
+      const n = sample(seed, x, y);
+      const spray = sample(seed ^ 0x5bd1e995, Math.floor(x / 4), Math.floor(y / 3));
+      pixels[index] = 42 + Math.round(n * 28);
+      pixels[index + 1] = 82 + Math.round(n * 56 + spray * 18);
+      pixels[index + 2] = 40 + Math.round(n * 26);
+      pixels[index + 3] = radial < 0.92 + (spray - 0.5) * 0.28 ? 255 : 0;
+    }
+  }
+  const texture = RawTexture.CreateRGBATexture(
+    pixels,
+    size,
+    size,
+    scene,
+    true,
+    false,
+    Texture.TRILINEAR_SAMPLINGMODE,
+  );
+  texture.name = "generated-first-light-foliage-fallback";
+  texture.hasAlpha = true;
+  texture.wrapU = Texture.CLAMP_ADDRESSMODE;
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+  return texture;
+}
+
 function createPatternTexture(
   scene: Scene,
   name: string,
@@ -62,7 +141,10 @@ function createPatternTexture(
   return texture;
 }
 
-function barkTexture(scene: Scene): DynamicTexture {
+function barkTexture(scene: Scene): Texture {
+  if (isHeadlessTextureEnvironment(scene)) {
+    return createFallbackBarkTexture(scene);
+  }
   return createPatternTexture(
     scene,
     "generated-south-ward-bark-texture",
@@ -133,7 +215,10 @@ function barkTexture(scene: Scene): DynamicTexture {
   );
 }
 
-function foliageTexture(scene: Scene): DynamicTexture {
+function foliageTexture(scene: Scene): Texture {
+  if (isHeadlessTextureEnvironment(scene)) {
+    return createFallbackFoliageTexture(scene);
+  }
   const texture = new DynamicTexture(
     "generated-first-light-foliage-texture",
     { width: 256, height: 256 },
