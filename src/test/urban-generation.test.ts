@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIRST_LIGHT_CITY_SPEC, planRoadGraph } from "../game/world-generation";
+import { FIRST_LIGHT_CITY_SPEC, planRoadGraph, CityRegistry } from "../game/world-generation";
 describe("Meridian Step 5 roads", () => {
   it("plans First Light roads", () => {
     const plan = planRoadGraph(FIRST_LIGHT_CITY_SPEC.roads);
