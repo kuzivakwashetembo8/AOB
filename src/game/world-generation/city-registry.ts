@@ -32,7 +32,9 @@ export class CityRegistry {
   }
   getNearestRoad(position: WorldPosition) { return projectToRoad(this.city.roads, position); }
   getRoadAt(position: WorldPosition) {
-    return this.getNearestRoad(position);
+    const nearest = this.getNearestRoad(position);
+    if (!nearest) return null;
+    return nearest.distance <= nearest.roadWidth / 2 ? nearest : null;
   }
   getBuilding(id: string) { return this.byId.get(id); }
 }
