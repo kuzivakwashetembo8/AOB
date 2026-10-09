@@ -4,3 +4,6 @@ export * from "./seeded-variation";
 export * from "./spatial";
 export * from "./validation";
 export * from "./first-light-spec";
+export * from "./architecture-templates";
+export * from "./architecture-plan";
+export * from "./building-generator";
