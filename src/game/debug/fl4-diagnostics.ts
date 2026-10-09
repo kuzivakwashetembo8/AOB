@@ -1,4 +1,4 @@
-import type { Engine, Scene } from "@babylonjs/core";
+import { SceneInstrumentation, type Engine, type Scene } from "@babylonjs/core";
 
 export type FL4Sample = Readonly<{
   frameMs: number;
@@ -36,12 +36,15 @@ function medianOrPercentile(values: number[], p: number): number | null {
 export class FL4Diagnostics {
   private readonly samples: FL4Sample[] = [];
   private previousFrameTime: number | null = null;
+  private readonly instrumentation: SceneInstrumentation;
 
   constructor(
     private readonly engine: Engine,
     private readonly scene: Scene,
     private readonly canvas: HTMLCanvasElement,
-  ) {}
+  ) {
+    this.instrumentation = new SceneInstrumentation(scene);
+  }
 
   recordFrame(now: number, renderMs: number) {
     if (this.previousFrameTime !== null) {
@@ -50,7 +53,7 @@ export class FL4Diagnostics {
         this.samples.push({
           frameMs,
           renderMs,
-          drawCalls: this.scene.getEngine().drawCalls ?? null,
+          drawCalls: this.instrumentation.drawCallsCounter.current,
           activeMeshes: this.scene.getActiveMeshes().length,
           activeIndices: this.scene.getActiveIndices(),
         });
@@ -102,6 +105,11 @@ export class FL4Diagnostics {
         "Scene texture byte sizes: not instrumented",
       ],
     };
+  }
+
+  dispose() {
+    this.instrumentation.dispose();
+    this.reset();
   }
 
   reset() {
