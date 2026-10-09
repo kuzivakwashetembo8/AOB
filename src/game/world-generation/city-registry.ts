@@ -36,5 +36,11 @@ export class CityRegistry {
     if (!nearest) return null;
     return nearest.distance <= nearest.roadWidth / 2 ? nearest : null;
   }
+  getNearestGarage(position: WorldPosition) {
+    const garages = this.buildings.filter((b) => b.archetype === "garage");
+    return garages.sort((a, b) =>
+      Math.hypot(a.position.x - position.x, a.position.z - position.z) -
+      Math.hypot(b.position.x - position.x, b.position.z - position.z))[0];
+  }
   getBuilding(id: string) { return this.byId.get(id); }
 }
