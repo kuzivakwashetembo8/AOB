@@ -20,6 +20,9 @@ describe("Meridian Step 3 visual representation", () => {
     expect(FACADE_DETAIL_CATALOG["ac-unit"]).toBeDefined();
     expect(FACADE_DETAIL_CATALOG["shutter"]).toBeDefined();
     expect(FACADE_DETAIL_CATALOG["vent"]).toBeDefined();
+    expect(FACADE_DETAIL_CATALOG["cornice"]).toBeDefined();
+    expect(FACADE_DETAIL_CATALOG["sign-band"]).toBeDefined();
+    expect(FACADE_DETAIL_CATALOG["foundation-band"]).toBeDefined();
   });
   it("uses deterministic material recipes and bounded shared tint buckets", () => {
     const recipe = materialRecipe(garage, version, "wall");
@@ -28,6 +31,9 @@ describe("Meridian Step 3 visual representation", () => {
     expect(recipe.variation.tintBucket).toBeGreaterThanOrEqual(0);
     expect(recipe.variation.tintBucket).toBeLessThan(8);
     expect(recipe.color).toMatch(/^#[0-9a-f]{6}$/);
+    expect(recipe.textureKind).toBe("block");
+    expect(recipe.textureScale.u).toBeGreaterThan(0);
+    expect(recipe.key).toContain("garage-block");
     expect(new Set(specs.map((item) => materialRecipe(item, version, "wall").key)).size)
       .toBeLessThanOrEqual(specs.length);
   });
@@ -38,6 +44,7 @@ describe("Meridian Step 3 visual representation", () => {
     const first = planFacadeDetails(commercial, plan);
     expect(planFacadeDetails(commercial, plan)).toEqual(first);
     expect(first.decals.length).toBeGreaterThan(0);
+    expect(first.primitives.some((part) => part.templateId === "facade-foundation-band")).toBe(true);
     expect(first.primitives.every((part) => part.id.startsWith("detail:"))).toBe(true);
     expect(new Set(first.primitives.map((part) => part.id)).size).toBe(first.primitives.length);
     expect(JSON.stringify(plan)).toBe(before);
