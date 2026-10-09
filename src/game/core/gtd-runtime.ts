@@ -183,6 +183,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.frameHandle = null;
     window.removeEventListener("resize", this.resize);
     this.world?.dispose();
+    this.fl4Diagnostics?.dispose();
     this.fl4Diagnostics = null;
     delete (window as Window & { __GTD_FL4_REPORT__?: unknown }).__GTD_FL4_REPORT__;
     this.scene?.dispose();
