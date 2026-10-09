@@ -2,6 +2,12 @@ import { Matrix, MeshBuilder, TransformNode } from "@babylonjs/core";
 import type { Material, Mesh, Scene } from "@babylonjs/core";
 import type { MeridianPhysics } from "../physics/rapier-world";
 import type { ResolvedBuildingSpec } from "./schema";
+import { planBuildingInteraction } from "./interaction-plan";
+import type {
+  BuildingInteractionPlan, BuildingSpatialMetadata, InteractionAnchor, InteriorCell, InteriorPortal,
+} from "./interaction-plan";
+import { registerBuildingCollision } from "./rapier-adapter";
+import type { BuildingCollisionHandle } from "./rapier-adapter";
 import { planBuilding } from "./architecture-plan";
 import type { BoxPrimitive, GeneratedBuildingPlan, PrimitiveRole } from "./architecture-plan";
 import { planFacadeDetails } from "./facade-details";
@@ -11,7 +17,7 @@ import { materialRecipe } from "./representation-materials";
 import { REPRESENTATION_POLICIES, selectRepresentationTier } from "./representation-lod";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
 
-/** Step 3 is visual only; Step 4 owns collision, portals and camera blockers. */
+/** Step 4 adds optional physics and camera semantics without changing the live First Light scene. */
 export interface BuildingGenerationContext {
   readonly generatorVersion: number;
   /** Caller-owned materials override catalog recipes and are never disposed here. */
@@ -22,6 +28,8 @@ export interface BuildingGenerationContext {
   readonly batchingMode?: BatchingMode;
   /** Metres from camera/player to building origin; default 0 preserves Step 2 output. */
   readonly initialDistance?: number;
+  /** Defaults to enabled only when a physics world is provided. */
+  readonly enableCameraBlockers?: boolean;
 }
 export interface GeneratedBuilding {
   readonly buildingId: string;
@@ -31,7 +39,14 @@ export interface GeneratedBuilding {
   readonly detailPlan: FacadeDetailPlan;
   readonly batchingMode: BatchingMode;
   readonly representationTier: RepresentationTier;
-  readonly physicsIntegrated: false;
+  readonly physicsIntegrated: boolean;
+  readonly colliderCount: number;
+  readonly interaction: BuildingInteractionPlan;
+  readonly cameraBlockers: readonly Mesh[];
+  readonly entrances: readonly InteractionAnchor[];
+  readonly portals: readonly InteriorPortal[];
+  readonly interior: InteriorCell | null;
+  readonly spatial: BuildingSpatialMetadata;
   setRepresentationTier(tier: RepresentationTier): void;
   setRepresentationDistance(distance: number): void;
   dispose(): void;
@@ -46,6 +61,7 @@ export function generateBuilding(
   scene: Scene, _physics: MeridianPhysics | null, spec: ResolvedBuildingSpec, context: BuildingGenerationContext,
 ): GeneratedBuilding {
   const plan = planBuilding(spec, context.generatorVersion);
+  const interaction = planBuildingInteraction(spec, plan);
   const detailPlan = context.enableFacadeDetails ? planFacadeDetails(spec, plan) : { primitives: [], decals: [] };
   const batchingMode = context.batchingMode ?? "individual";
   const library = context.materialLibrary ?? new BuildingMaterialLibrary(scene);
@@ -54,6 +70,8 @@ export function generateBuilding(
   root.position.set(spec.position.x, spec.position.y, spec.position.z);
   root.rotation.y = spec.yawRadians;
   const meshes: Mesh[] = [];
+  const cameraBlockers: Mesh[] = [];
+  let collisionHandle: BuildingCollisionHandle | null = null;
   const groups: RenderGroup[] = [];
   const leases = new Map<PrimitiveRole, string>();
   const roleMaterials = new Map<PrimitiveRole, Material>();
@@ -85,7 +103,8 @@ export function generateBuilding(
     if (part.rotationZ !== undefined) mesh.rotation.z = part.rotationZ;
     mesh.material = materialFor(part.role);
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
-      primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind };
+      primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind,
+      cameraBlocker: false };
     register(mesh, kind);
   };
   const makeBatches = (parts: readonly BoxPrimitive[]): void => {
@@ -103,7 +122,8 @@ export function generateBuilding(
       const mesh = MeshBuilder.CreateBox("generated-batch:" + spec.id + ":" + key, { size: 1 }, scene);
       mesh.material = materialFor(first.role);
       mesh.metadata = { buildingId: spec.id, architecturalRole: first.role,
-        primitiveIds: bucket.map((part) => part.id), renderClass: kind, thinInstanced: true };
+        primitiveIds: bucket.map((part) => part.id), renderClass: kind,
+        thinInstanced: true, cameraBlocker: false };
       register(mesh, kind);
       for (const part of bucket) {
         const scale = Matrix.Scaling(part.size.x, part.size.y, part.size.z);
@@ -112,6 +132,24 @@ export function generateBuilding(
         mesh.thinInstanceAdd(scale.multiply(rotation).multiply(translation));
       }
       mesh.thinInstanceRefreshBoundingInfo();
+    }
+  };
+  const createCameraBlockers = (): void => {
+    if (spec.parameters.cameraBlockerMode === "none") return;
+    for (const box of interaction.cameraBlockerBoxes) {
+      const mesh = MeshBuilder.CreateBox("generated-camera-blocker:" + spec.id + ":" + box.id,
+        { width: box.size.x, height: box.size.y, depth: box.size.z }, scene);
+      mesh.parent = root;
+      mesh.position.set(box.center.x, box.center.y, box.center.z);
+      if (box.rotationZ !== undefined) mesh.rotation.z = box.rotationZ;
+      mesh.visibility = 0;
+      mesh.isVisible = true;
+      mesh.isPickable = true;
+      mesh.metadata = {
+        buildingId: spec.id, spatialRole: box.role, colliderId: box.id,
+        cameraBlocker: true,
+      };
+      cameraBlockers.push(mesh);
     }
   };
   const ensureProxies = (): void => {
@@ -144,23 +182,34 @@ export function generateBuilding(
   const dispose = (): void => {
     if (disposed) return;
     disposed = true;
+    collisionHandle?.dispose();
+    for (const mesh of cameraBlockers) mesh.dispose();
     for (const mesh of meshes) mesh.dispose();
     root.dispose();
     for (const key of leases.values()) library.release(key);
     if (ownsLibrary) library.dispose();
   };
   try {
-    const parts = [...plan.primitives, ...detailPlan.primitives];
+    const parts = [
+      ...plan.primitives, ...detailPlan.primitives,
+      ...(physics ? interaction.closedDoorPanels : []),
+    ];
     if (batchingMode === "thin-instances") makeBatches(parts);
     else if (batchingMode === "individual") {
       for (const part of parts) makeIndividual(part, renderClass(part));
     } else throw new Error("Unknown batching mode: " + batchingMode);
     if (context.initialDistance !== undefined) setRepresentationDistance(context.initialDistance);
+    if (physics) collisionHandle = registerBuildingCollision(physics, spec.position, spec.yawRadians, interaction);
+    if (context.enableCameraBlockers ?? physics !== null) createCameraBlockers();
   } catch (error) {
     dispose();
     throw error;
   }
   return { buildingId: spec.id, root, meshes, plan, detailPlan, batchingMode,
-    get representationTier() { return tier; }, physicsIntegrated: false,
+    interaction, cameraBlockers, entrances: interaction.anchors,
+    portals: interaction.portals, interior: interaction.interior, spatial: interaction.spatial,
+    get representationTier() { return tier; },
+    get physicsIntegrated() { return collisionHandle !== null; },
+    get colliderCount() { return collisionHandle?.colliderCount ?? 0; },
     setRepresentationTier, setRepresentationDistance, dispose };
 }
