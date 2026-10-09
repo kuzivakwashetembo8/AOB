@@ -4,11 +4,12 @@ import {
   HemisphericLight,
   MeshBuilder,
   PointLight,
+  Scene,
   ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
-import type { AbstractMesh, Mesh, Scene } from "@babylonjs/core";
+import type { AbstractMesh, Mesh } from "@babylonjs/core";
 import { planStreetContext } from "../world-generation/street-context";
 import { FIRST_LIGHT_CITY_SPEC } from "../world-generation/first-light-spec";
 
