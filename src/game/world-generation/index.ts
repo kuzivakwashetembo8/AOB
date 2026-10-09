@@ -11,3 +11,4 @@ export * from "./representation-lod";
 export * from "./facade-details";
 export * from "./material-library";
 export * from "./building-generator";
+export * from "./interaction-plan";
