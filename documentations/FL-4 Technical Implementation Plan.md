@@ -1,7 +1,7 @@
 # FL-4 — Optimization and Final Acceptance: Technical Implementation Plan
 
 **Project:** G.T.D — Grand Theft Division / Meridia: First Light  
-**Status:** PROPOSED — IMPLEMENTATION NOT AUTHORIZED  
+**Status:** IMPLEMENTATION AUTHORIZED — FL-4 IN PROGRESS; ACCEPTANCE AND DEPLOYMENT PENDING  
 **Date:** 2026-10-09  
 **Milestone:** FL-4, final First Light phase  
 **Planning branch:** `development/meridian-fl3-interaction-atmosphere`  
@@ -47,7 +47,7 @@ Observable outcomes to verify:
 
 **Explicit exclusions:** New districts, missions, traffic/NPC systems, playable vehicle model, new street-prop content sets, new character art, new weather, relighting, changing accepted stellar design, redesigning the city/garage, speculative engine rewrites, production promotion or unrestricted deployment. Preserve current intentional Vercel build controls.
 
-**Authorization boundary:** Creating this document does **not** authorize FL-4 code edits, benchmarks on private user devices, preview deployments, or production promotion. Begin implementation only after explicit greenlight; obtain separate permission for deployment when required by the canonical plan.
+**Authorization boundary:** Implementation was explicitly authorized by the user on 2026-10-09. This authorization permits FL-4 development/code edits, but does **not** authorize access to private user hardware, preview deployments or production promotion; obtain separate permission for deployment under the canonical plan.
 
 ## 3. Execution sequence — exact steps and deliverables
 
@@ -181,7 +181,7 @@ Authorization / reviewer decision (where required):
 - Stop if prospective optimization introduces a measurable regression without an acceptable, user-reviewed tradeoff.
 - Stop if reliable real-device testing is unavailable for a mandatory mobile acceptance claim. Report blocker and request access/evidence rather than claiming completion.
 - Any new gameplay, city/asset content, production deployment, or broader system redesign requires separate scope authorization.
-- FL-4 is not started by publishing this plan. Any text above phrased “implement” describes a *future conditional action only*. Current authoritative phase state remains **FL-3 COMPLETED; FL-4 NOT AUTHORIZED**.
+- FL-4 was activated by the user's 2026-10-09 authorization, **not** by publication of this plan. Current authoritative phase state is **FL-3 COMPLETED; FL-4 IN PROGRESS**, with actual device testing, optimization proof, final acceptance and deployment still gated.
 
 ## 7. Definition of Done
 
