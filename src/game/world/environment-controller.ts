@@ -157,8 +157,8 @@ function twilightForDaylight(daylight: number): number {
 }
 
 function createStarTexture(scene: Scene): RawTexture {
-  const width = 1024;
-  const height = 512;
+  const width = 2048;
+  const height = 1024;
   const pixels = new Uint8Array(width * height * 4);
   let seed = 0x47544431;
   const random = () => {
@@ -175,23 +175,76 @@ function createStarTexture(scene: Scene): RawTexture {
     pixels[index + 3] = Math.max(pixels[index + 3]!, alpha);
   };
 
-  for (let index = 0; index < 1350; index += 1) {
+  const addSoftPoint = (
+    x: number,
+    y: number,
+    value: number,
+    alpha: number,
+    radius: 0 | 1 | 2,
+  ) => {
+    write(x, y, value, alpha);
+    if (radius === 0) return;
+
+    const firstRingValue = Math.round(value * 0.24);
+    const firstRingAlpha = Math.round(alpha * 0.18);
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+      [1, 1],
+    ] as const) {
+      write(x + dx, y + dy, firstRingValue, firstRingAlpha);
+    }
+
+    if (radius === 1) return;
+
+    const secondRingValue = Math.round(value * 0.1);
+    const secondRingAlpha = Math.round(alpha * 0.065);
+    for (let dy = -2; dy <= 2; dy += 1) {
+      for (let dx = -2; dx <= 2; dx += 1) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== 2) continue;
+        write(x + dx, y + dy, secondRingValue, secondRingAlpha);
+      }
+    }
+  };
+
+  // Higher density + far smaller angular size sells astronomical distance
+  // better than a sparse field of individually legible sprites.
+  for (let index = 0; index < 4600; index += 1) {
     const x = Math.floor(random() * width);
-    // Reduce density toward the horizon so the field reads as distant sky,
-    // not particles hanging immediately above the district.
-    const y = Math.floor(random() * height * 0.82);
+
+    // Atmospheric extinction: suppress the lowest horizon band and gradually
+    // thin stars as they approach it.
+    const normalizedY = random();
+    const y = Math.floor(normalizedY * height * 0.86);
+    const horizonFactor = clamp01(1 - normalizedY * 0.72);
+    if (random() > horizonFactor) continue;
+
     const sample = random();
-    const bright = sample > 0.985;
-    const medium = sample > 0.88;
+    const halo = sample > 0.996;
+    const bright = sample > 0.94;
     const value = Math.round(
-      bright ? 225 + random() * 28 : medium ? 155 + random() * 55 : 100 + random() * 55,
+      halo
+        ? 220 + random() * 28
+        : bright
+          ? 155 + random() * 58
+          : 92 + random() * 58,
     );
     const alpha = Math.round(
-      bright ? 205 + random() * 35 : medium ? 135 + random() * 65 : 82 + random() * 60,
+      halo
+        ? 190 + random() * 38
+        : bright
+          ? 120 + random() * 68
+          : 62 + random() * 72,
     );
-    // Intentionally one texel only. Four-point flares made the sky feel
-    // miniature and close; real distant stars should read primarily as dots.
-    write(x, y, value, alpha);
+
+    // About 94% remain effectively pinpricks. A small minority receive only
+    // a soft circular halo; never cross-shaped rays.
+    addSoftPoint(x, y, value, alpha, halo ? 2 : bright ? 1 : 0);
   }
 
   const texture = RawTexture.CreateRGBATexture(
@@ -201,7 +254,7 @@ function createStarTexture(scene: Scene): RawTexture {
     scene,
     true,
     false,
-    Texture.NEAREST_SAMPLINGMODE,
+    Texture.BILINEAR_SAMPLINGMODE,
   );
   texture.name = "meridian-procedural-star-field";
   texture.hasAlpha = true;
@@ -437,7 +490,7 @@ export function createMeridianEnvironment(
 
     sky.material.emissiveColor = skyColor;
     sky.starMesh.visibility = starVisibility;
-    sky.starMaterial.alpha = 0.18 + starVisibility * 0.62;
+    sky.starMaterial.alpha = 0.12 + starVisibility * 0.56;
     scene.clearColor.set(
       Math.max(0.022, skyColor.r * 0.72),
       Math.max(0.04, skyColor.g * 0.76),
