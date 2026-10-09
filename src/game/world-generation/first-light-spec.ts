@@ -102,15 +102,44 @@ export const FIRST_LIGHT_CITY_SPEC: CitySpec = {
     neighborhoods: [{
       id: "south-ward-first-light", name: "First Light", rules: { lodProfile: "standard" },
       blocks: [
-        { id: "sw-fl-main-north", lots: rows.filter((row) => row.block === "north").map(makeLot) },
-        { id: "sw-fl-main-south", lots: rows.filter((row) => row.block === "south").map(makeLot) },
-        { id: "sw-fl-rear-south", lots: rows.filter((row) => row.block === "rear").map(makeLot) },
-        { id: "sw-fl-pocket-green-block", lots: [], publicSpaces: [
-          { id: "sw-fl-pocket-green", kind: "pocket-park", position: { x: -2.5, y: 0, z: 35.5 }, width: 16, depth: 10 },
-        ], vegetation: [
-          { id: "sw-fl-tree-pocket-west", speciesId: "first-light-street-tree", position: { x: -6.5, y: 0, z: 34.5 }, seed: "sw-fl-tree-pocket-west" },
-          { id: "sw-fl-tree-pocket-east", speciesId: "first-light-street-tree", position: { x: 1.8, y: 0, z: 36.1 }, seed: "sw-fl-tree-pocket-east" },
-        ] },
+        {
+          id: "sw-fl-main-north",
+          lots: rows.filter((row) => row.block === "north").map(makeLot),
+          vegetation: [
+            { id: "sw-fl-tree-garage-east", speciesId: "first-light-street-tree", position: { x: 11.2, y: 0, z: 2.2 }, seed: "sw-fl-tree-garage-east" },
+          ],
+          props: [
+            { id: "sw-fl-authored-light-garage", templateId: "streetlight", position: { x: 4.7, y: 0, z: 3.15 }, yawRadians: 0 },
+            { id: "sw-fl-authored-car-garage", templateId: "parked-car", position: { x: 7.4, y: 0, z: 9.65 }, yawRadians: Math.PI / 2 },
+          ],
+        },
+        {
+          id: "sw-fl-main-south",
+          lots: rows.filter((row) => row.block === "south").map(makeLot),
+        },
+        {
+          id: "sw-fl-rear-south",
+          lots: rows.filter((row) => row.block === "rear").map(makeLot),
+          props: [
+            { id: "sw-fl-authored-car-rear", templateId: "parked-car", position: { x: -14, y: 0, z: 49.6 }, yawRadians: Math.PI / 2 },
+          ],
+        },
+        {
+          id: "sw-fl-pocket-green-block",
+          lots: [],
+          publicSpaces: [
+            { id: "sw-fl-pocket-green", kind: "pocket-park", position: { x: -2.5, y: 0, z: 35.5 }, width: 16, depth: 10 },
+          ],
+          vegetation: [
+            { id: "sw-fl-tree-pocket-west", speciesId: "first-light-street-tree", position: { x: -6.5, y: 0, z: 34.5 }, seed: "sw-fl-tree-pocket-west" },
+            { id: "sw-fl-tree-pocket-east", speciesId: "first-light-street-tree", position: { x: 1.8, y: 0, z: 36.1 }, seed: "sw-fl-tree-pocket-east" },
+          ],
+          props: [
+            { id: "sw-fl-authored-light-pocket", templateId: "streetlight", position: { x: 11.6, y: 0, z: 43 }, yawRadians: Math.PI },
+            { id: "sw-fl-pocket-bench", templateId: "bench", position: { x: -2.7, y: 0, z: 38.2 }, yawRadians: 0 },
+            { id: "sw-fl-pocket-bin", templateId: "bin", position: { x: 3.2, y: 0, z: 39.1 }, yawRadians: 0 },
+          ],
+        },
       ],
     }],
   }],
