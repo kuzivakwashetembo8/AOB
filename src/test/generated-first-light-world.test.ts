@@ -31,12 +31,45 @@ describe("Generated First Light live-runtime world", () => {
       expect(world.objective).toContain("generated South Ward");
       expect(world.buildings).toHaveLength(10);
       expect(world.shadowGenerator).toBeNull();
+      expect(world.garageInterior).not.toBeNull();
+      expect(world.garageInterior?.meshes.length ?? 0).toBeGreaterThan(20);
+      expect(world.environmentSnapshot.formattedTime).toBe("14:30");
+      expect(world.environmentSnapshot.timeScale).toBe(2);
       expect(
         world.buildings.some((building) => building.cameraBlockers.length > 0),
       ).toBe(true);
       const ground = scene.getMeshByName("generated-first-light-ground");
       expect(ground?.metadata?.cameraBlocker).toBe(true);
       expect(ground?.metadata?.cameraGround).toBe(true);
+      world.dispose();
+    } finally {
+      physics.destroy();
+      scene.dispose();
+      engine.dispose();
+    }
+  });
+
+  it("classifies the hero garage interior and supports direct time controls", async () => {
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    const physics = await MeridianPhysics.create();
+    try {
+      const world = createGeneratedFirstLightWorld(scene, physics, {
+        enableCameraBlockers: true,
+        enableShadows: false,
+      });
+      world.update(0, { x: -7.5, y: 0.92, z: -5.15 });
+      expect(world.interiorState).toBe("inside");
+
+      world.update(0, { x: -7.5, y: 0.92, z: -0.2 });
+      expect(["inside", "threshold"]).toContain(world.interiorState);
+
+      world.update(0, { x: -7.5, y: 0.92, z: 3.2 });
+      expect(world.interiorState).toBe("outside");
+
+      expect(world.setTimeMinutes(0).formattedTime).toBe("00:00");
+      expect(world.environment.streetlights.every((light) => light.intensity > 1)).toBe(true);
+      expect(world.setTimeScale(8).timeScale).toBe(8);
       world.dispose();
     } finally {
       physics.destroy();
