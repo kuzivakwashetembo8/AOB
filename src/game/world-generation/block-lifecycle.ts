@@ -16,5 +16,8 @@ export class BlockLifecycle<T extends BlockAsset> {
     this.entries.delete(id);
     for (const asset of assets) asset.dispose();
   }
+  dispose(): void {
+    for (const id of this.getActiveIds()) this.discard(id);
+  }
   getActiveIds(): readonly string[] { return [...this.entries.keys()]; }
 }
