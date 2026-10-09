@@ -1,9 +1,9 @@
 # Meridian Generated First Light Live Runtime Implementation and Handoff
 
-Status: PRE-PROMOTION VERIFIED — PLAYABLE DEPLOYMENT ACCEPTANCE PENDING  
+Status: PROMOTED AND PLAYABLE — FL-2 ACCEPTED; FL-3 ACTIVE  
 Date: 2026-10-09  
-Branch: `development/meridian-first-light-fidelity`  
-Verified source commit: `2f4396da06d8e38732e4ad15ccfaa5914791ff80`
+Branch: `main`  
+Promoted source commit: `553f2bd4c394a587a9bae6bb1d74c140462cfba7`
 
 ## Outcome
 
@@ -56,6 +56,20 @@ Controlled verification deployment:
 - grouped runtime errors in verification window: none
 - Vercel automatic deployment guard: restored to `exit 0`
 
+## Live review acceptance — 2026-10-09
+
+The promoted Generated First Light `/game` runtime was reviewed in motion.
+
+Accepted:
+- Voight can navigate around the block successfully.
+- Generated First Light is sufficiently stable and visually coherent to close FL-2 and proceed to FL-3.
+- T-junctions, turns, and intersections are functionally acceptable.
+
+Rolling refinements:
+- Extreme upward camera orbit could cross below terrain. Generated terrain now participates in the semantic camera-blocker ray system, matching the wall/roof exclusion model.
+- The raised square asphalt overlays at the two First Light T-junctions read as separate carpet patches. They were removed; the existing overlapping main/side/rear carriageways now form the continuous tar surface.
+
+No new deployment was triggered for these refinement commits. They will ride with the next substantial FL-3 visual review build.
 ## Promotion gate
 
 Before `main` promotion:
@@ -68,4 +82,4 @@ Before `main` promotion:
 6. `/game` must reach READY and remain error-free;
 7. user must visually confirm Voight movement, collision, camera, and Generated First Light presentation.
 
-Only after that confirmation should FL-2 be marked complete and FL-3 become authoritative.
+The live review confirmation was received on 2026-10-09. FL-2 is accepted and FL-3 is now authoritative.
