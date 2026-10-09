@@ -28,7 +28,7 @@ describe("Generated First Light live-runtime world", () => {
         [world.spawn.x, world.spawn.y, world.spawn.z].every(Number.isFinite),
       ).toBe(true);
       expect(world.location).toBe("South Ward // First Light");
-      expect(world.objective).toContain("generated South Ward");
+      expect(world.objective).toContain("South Ward garage");
       expect(world.buildings).toHaveLength(10);
       expect(world.shadowGenerator).toBeNull();
       expect(world.garageInterior).not.toBeNull();
