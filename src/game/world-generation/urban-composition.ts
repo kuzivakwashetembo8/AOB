@@ -41,7 +41,7 @@ export function planNeighborhood(city: CitySpec, neighborhoodId: string, rules?:
     const building = lot.building ? resolved.get(lot.building.id) : undefined;
     const height = building ? building.parameters.floors * building.parameters.floorHeight : proposedFloors * 3.3;
     return {
-      lotId: lot.id, roadSegmentId: lot.frontage.roadSegmentId,
+      lotId: lot.id,
       ...orientation, proposedArchetype, proposedFloors,
       proposedMaterial: featureChoice(lot.id, city.generatorVersion, "composition:material", policy.materialFamilies),
       skylineBand: skylineBand(height), authoredBuildingId: building?.id,
