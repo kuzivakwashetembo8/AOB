@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: FL-3 COMPLETED AND ACCEPTED (2026-10-09); FL-4 NOT YET AUTHORIZED. Development branch accepted; production promotion remains separate.
+Status: FL-3 COMPLETED AND ACCEPTED (2026-10-09); FL-4 AUTHORIZED AND IN PROGRESS — measurement and acceptance gates outstanding. Production promotion remains separate.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -286,7 +286,8 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - Deployment: still requires explicit authorization.
 - FL-1 accepted after camera behavior review.
 - FL-2 accepted on 2026-10-09 after successful generated-world navigation review.
-- FL-3 completed and explicitly accepted on 2026-10-09 following user-confirmed garage traversal, camera, collision and visibility checks, and realistic night-sky visual acceptance. FL-4 remains unopened pending separate authorization.
+- FL-3 completed and explicitly accepted on 2026-10-09 following user-confirmed garage traversal, camera, collision and visibility checks, and realistic night-sky visual acceptance.
+- FL-4 implementation authorized on 2026-10-09. FL-4 is **IN PROGRESS**, with performance measurement, real-device validation and final user acceptance outstanding. Follow `documentations/FL-4 Technical Implementation Plan.md` and the traceable `documentations/FL-4 Evidence/` register.
 
 ## Decision log
 
@@ -325,3 +326,5 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-09: FL-3 implementation candidate completed on `development/meridian-fl3-interaction-atmosphere`. Added authoritative Meridian time/environment state, 48-minute canonical day with 24-minute accelerated validation rate, editable HUD time controls, dynamic sun/sky/ambient/fog response, night streetlight illumination, a populated and locally lit South Ward garage interior, major interior fixture collision, semantic outside/threshold/inside state, interior camera-radius adaptation, and selective roof visibility. Candidate `ec81e6d0a6a8cc06455cc84f3ae0a2136b8efc63` passed strict TypeScript, targeted ESLint, production build, and 10 Vitest files / 63 tests. Review deployment `dpl_6oDCRuWRDtssn6e1tbjeDjReCrCX` reached READY; `/game` and `/first-light-comparison` returned HTTP 200 with no grouped runtime errors. Main promotion remains gated on live FL-3 review.
 
 - 2026-10-09: **FL-3 CLOSED — USER ACCEPTED.** User confirmed that Voight can enter the South Ward garage, move around inside, and return to the street without collision, camera, physics or visibility problems. This completes the FL-3 street-to-interior-to-street interaction gate in addition to the accepted environment/day-night lighting and realistic night sky. Source audit confirmed the runtime retains fixed 60 Hz simulation, Rapier-owned movement/collision, runtime-owned environmental/interior state, camera adaptation, and resource disposal. Acceptance is user gameplay validation plus existing test/build evidence; no claim of new device-specific performance benchmarking is made. The blurry screen/mobile render-output-resolution observation remains an open **FL-4 optimization/resolution-policy candidate**, not a blocker to FL-3 closure. FL-4 has not been authorized or started. No production/main promotion is implied by this milestone decision.
+
+- 2026-10-09: User authorized the FL-4 implementation contract. Development work isolated on `development/meridian-fl4-optimization`; introduced opt-in diagnostic instrumentation for actual canvas/framebuffer dimensions, DPR, frame-time distributions and draw calls. Source audit identified potentially sub-native rendering from existing hardware scaling, but physical device measurements have not yet confirmed it. The canonical FL-4 acceptance gate remains OPEN; no production promotion and no authorized FL-4 deployment. Evidence and blockers recorded in `documentations/FL-4 Evidence/Progress and Blocking Matrix.md`.
