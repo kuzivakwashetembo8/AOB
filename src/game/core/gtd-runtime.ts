@@ -18,9 +18,10 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import {
-  createGeneratedFirstLightWorld,
-  type GeneratedFirstLightWorld,
-} from "../world/generated-first-light-world";
+  ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
+  createFirstLightRuntimeWorld,
+  type RuntimeFirstLightWorld,
+} from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
 
 const FIXED_STEP = 1 / 60;
@@ -39,7 +40,7 @@ export class GTDGameRuntime implements GameRuntime {
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
   private voight: VoightPrototype | null = null;
-  private world: GeneratedFirstLightWorld | null = null;
+  private world: RuntimeFirstLightWorld | null = null;
   private lifecycle: Lifecycle = "idle";
   private context: HudContext = "walking";
   private inputMode: InputMode = "keyboard";
@@ -94,10 +95,11 @@ export class GTDGameRuntime implements GameRuntime {
       progress: 52,
       detail: "Generating South Ward First Light",
     });
-    const firstLight = createGeneratedFirstLightWorld(scene, physics, {
-      enableCameraBlockers: true,
-      enableShadows: true,
-    });
+    const firstLight = createFirstLightRuntimeWorld(
+      scene,
+      physics,
+      ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
+    );
     physics.setPlayerPosition({
       x: firstLight.spawn.x,
       y: firstLight.spawn.y,
