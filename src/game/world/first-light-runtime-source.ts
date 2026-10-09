@@ -21,7 +21,11 @@ const AUTHORED_ENVIRONMENT: MeridianEnvironmentSnapshot = {
   formattedTime: "14:30",
   timeScale: 0,
   daylight: 1,
+  twilight: 0,
   night: 0,
+  starVisibility: 0,
+  streetlightIntensity: 0,
+  horizonGlow: 0.16,
 };
 
 export interface RuntimeFirstLightWorld {
