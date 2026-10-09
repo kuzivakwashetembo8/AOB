@@ -196,9 +196,16 @@ export function planBuildingInteraction(
     y: spec.parameters.floorHeight,
     z: firstMass.centerZ + firstMass.depth / 2 - WALL_THICKNESS,
   };
-  const anchors: InteractionAnchor[] = (spec.anchors ?? []).map((anchor) => ({
-    ...anchor, buildingId: spec.id, accessible: interiorMode !== "none",
-  }));
+  const anchors: InteractionAnchor[] = (spec.anchors ?? []).map((anchor) => {
+    const opening = plan.openings.find((item) => item.anchorId === anchor.id);
+    const accessible = !!opening && interiorMode !== "none" && canTraverse(opening) &&
+      (interiorMode !== "shallow" || opening.facade === "front");
+    return {
+      ...anchor, buildingId: spec.id, accessible,
+      ...(opening ? { openingId: opening.id } : {}),
+      ...(accessible ? { targetInteriorId: interiorId } : {}),
+    };
+  });
   const authoredAnchors = new Map(anchors.map((anchor) => [anchor.id, anchor]));
   const portals: InteriorPortal[] = [];
   for (const opening of plan.openings) {
