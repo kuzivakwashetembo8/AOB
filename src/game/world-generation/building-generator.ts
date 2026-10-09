@@ -58,7 +58,7 @@ const renderClass = (part: BoxPrimitive): RenderClass =>
 
 /** A separate scene/preview can instantiate generated buildings without touching First Light. */
 export function generateBuilding(
-  scene: Scene, _physics: MeridianPhysics | null, spec: ResolvedBuildingSpec, context: BuildingGenerationContext,
+  scene: Scene, physics: MeridianPhysics | null, spec: ResolvedBuildingSpec, context: BuildingGenerationContext,
 ): GeneratedBuilding {
   const plan = planBuilding(spec, context.generatorVersion);
   const interaction = planBuildingInteraction(spec, plan);
