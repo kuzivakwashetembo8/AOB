@@ -4,3 +4,12 @@ import type { BlockAsset } from "./block-lifecycle";
 export interface StreamingPolicy { readonly activateWithin: number; readonly discardBeyond: number; }
 export const DEFAULT_BLOCK_POLICY: StreamingPolicy = { activateWithin: 85, discardBeyond: 125 };
 import { blockDistanceTo } from "./block-streaming";
+
+export function updateBlockStreaming<T extends BlockAsset>(
+  runtime: BlockLifecycle<T>, position: WorldPosition,
+  policy: StreamingPolicy = DEFAULT_BLOCK_POLICY,
+): void {
+  if (!(policy.activateWithin > 0 && policy.discardBeyond > policy.activateWithin)) {
+    throw new Error("Invalid streaming hysteresis radii");
+  }
+}
