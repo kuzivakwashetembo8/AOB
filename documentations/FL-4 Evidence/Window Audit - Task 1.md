@@ -1,5 +1,3 @@
 # Window Audit — Task 1
 
-Source inventory underway.
-
-Audit phase: source inspection.
+Current state: ten generated buildings inspected. Pending code changes.
