@@ -8,7 +8,12 @@ export class BlockLifecycle<T extends BlockAsset> {
     if (this.entries.has(id)) return;
     const specs = this.city.getBuildingsInBlock(id);
     const assets: T[] = [];
-    for (const spec of specs) assets.push(this.factory(spec));
+    try {
+      for (const spec of specs) assets.push(this.factory(spec));
+    } catch (failure) {
+      for (const asset of assets) asset.dispose();
+      throw failure;
+    }
     this.entries.set(id, assets);
   }
   discard(id: string): void {
