@@ -10,6 +10,10 @@ export const initialSnapshot: GameSnapshot = {
   heat: 0,
   speed: 0,
   vehicle: null,
+  meridianTime: "14:30",
+  meridianMinuteOfDay: 14 * 60 + 30,
+  meridianTimeScale: 2,
+  interiorState: "outside",
 };
 
 /** Presentation boundary only. No renderer, simulation, timers, or engine implementation. */
