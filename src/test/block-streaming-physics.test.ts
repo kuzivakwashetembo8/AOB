@@ -4,6 +4,32 @@ import { NullEngine, Scene } from "@babylonjs/core";
 import { MeridianPhysics } from "../game/physics/rapier-world";
 import { FIRST_LIGHT_CITY_SPEC, CityRegistry, BlockLifecycle, generateBuilding, resolveCityBuildings } from "../game/world-generation";
 describe("Meridian Step 5 streaming prerequisites", () => {
+  it("reclaims generated colliders across repeated load-dispose cycles", async () => {
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    const physics = await MeridianPhysics.create();
+    const garage = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC).find((item) => item.id === "sw-fl-garage")!;
+    const baselineBodies = physics.world.bodies.len();
+    const baselineColliders = physics.world.colliders.len();
+    try {
+      for (let cycle = 0; cycle < 50; cycle += 1) {
+        const building = generateBuilding(scene, physics, garage, {
+          generatorVersion: FIRST_LIGHT_CITY_SPEC.generatorVersion,
+          enableCameraBlockers: true,
+        });
+        expect(physics.world.bodies.len()).toBeGreaterThan(baselineBodies);
+        expect(physics.world.colliders.len()).toBeGreaterThan(baselineColliders);
+        building.dispose();
+        expect(physics.world.bodies.len()).toBe(baselineBodies);
+        expect(physics.world.colliders.len()).toBe(baselineColliders);
+      }
+    } finally {
+      physics.destroy();
+      scene.dispose();
+      engine.dispose();
+    }
+  });
+
   it("reclaims generated colliders on disposal", async () => {
     const engine = new NullEngine();
     const scene = new Scene(engine);
