@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: ACTIVE — FL-2 accepted; FL-3 Interaction and Atmosphere authorized and active. Camera-ground exclusion and road-junction continuity remain rolling refinements.
+Status: ACTIVE — FL-3 implemented on development branch and verified as a visual review candidate; user acceptance pending.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -321,3 +321,5 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-09: Generated First Light visual parity accepted for architecture, authored road/curb baseline, authored-style vegetation, structured street context, and fixed daytime shadows. The darker authored asphalt and timber curb/edge aesthetic is retained as a future district-selectable streetscape family rather than deprecated. Generated First Light has been wired into the live `/game` runtime candidate behind a controlled authored/generated source switch; final promotion and playable deployment acceptance remain pending.
 
 - 2026-10-09: Live Generated First Light review accepted FL-2 as successful enough to proceed. Navigation around the block works. Two rolling refinements were recorded rather than treated as blockers: (1) extreme upward camera orbit could place the camera below terrain, so generated terrain is now a semantic camera blocker governed by the same obstruction system as walls/roofs; (2) the literal raised T-junction asphalt pads read like carpet patches, so First Light parity rendering now relies on the already-overlapping continuous carriageways instead of separate junction overlays. FL-3 Interaction and Atmosphere is authorized and active.
+
+- 2026-10-09: FL-3 implementation candidate completed on `development/meridian-fl3-interaction-atmosphere`. Added authoritative Meridian time/environment state, 48-minute canonical day with 24-minute accelerated validation rate, editable HUD time controls, dynamic sun/sky/ambient/fog response, night streetlight illumination, a populated and locally lit South Ward garage interior, major interior fixture collision, semantic outside/threshold/inside state, interior camera-radius adaptation, and selective roof visibility. Candidate `ec81e6d0a6a8cc06455cc84f3ae0a2136b8efc63` passed strict TypeScript, targeted ESLint, production build, and 10 Vitest files / 63 tests. Review deployment `dpl_6oDCRuWRDtssn6e1tbjeDjReCrCX` reached READY; `/game` and `/first-light-comparison` returned HTTP 200 with no grouped runtime errors. Main promotion remains gated on live FL-3 review.
