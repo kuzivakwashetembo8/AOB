@@ -166,85 +166,62 @@ function createStarTexture(scene: Scene): RawTexture {
     return seed / 4294967296;
   };
 
-  const write = (x: number, y: number, value: number, alpha: number) => {
-    if (x < 0 || y < 0 || x >= width || y >= height) return;
-    const index = (y * width + x) * 4;
-    pixels[index] = value;
-    pixels[index + 1] = Math.min(255, value + 4);
-    pixels[index + 2] = Math.min(255, value + 14);
-    pixels[index + 3] = Math.max(pixels[index + 3]!, alpha);
-  };
-
-  const addSoftPoint = (
-    x: number,
-    y: number,
-    value: number,
-    alpha: number,
-    radius: 0 | 1 | 2,
+  // Store continuous pixel coverage, not a one-texel square or a repeated
+  // cardinal-point halo. Fractional centres produce varied round point-spreads.
+  const splat = (
+    cx: number,
+    cy: number,
+    brightness: number,
+    opacity: number,
+    sigma: number,
   ) => {
-    write(x, y, value, alpha);
-    if (radius === 0) return;
-
-    const firstRingValue = Math.round(value * 0.24);
-    const firstRingAlpha = Math.round(alpha * 0.18);
-    for (const [dx, dy] of [
-      [-1, 0],
-      [1, 0],
-      [0, -1],
-      [0, 1],
-      [-1, -1],
-      [1, -1],
-      [-1, 1],
-      [1, 1],
-    ] as const) {
-      write(x + dx, y + dy, firstRingValue, firstRingAlpha);
-    }
-
-    if (radius === 1) return;
-
-    const secondRingValue = Math.round(value * 0.1);
-    const secondRingAlpha = Math.round(alpha * 0.065);
-    for (let dy = -2; dy <= 2; dy += 1) {
-      for (let dx = -2; dx <= 2; dx += 1) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== 2) continue;
-        write(x + dx, y + dy, secondRingValue, secondRingAlpha);
+    const reach = Math.ceil(2.6 * sigma + 0.5);
+    for (let dy = -reach; dy <= reach; dy += 1) {
+      const y = Math.floor(cy) + dy;
+      if (y < 0 || y >= height) continue;
+      for (let dx = -reach; dx <= reach; dx += 1) {
+        const unwrappedX = Math.floor(cx) + dx;
+        const x = ((unwrappedX % width) + width) % width;
+        const distanceSquared =
+          (unwrappedX + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2;
+        const coverage = Math.exp(-distanceSquared / (2 * sigma * sigma));
+        const alpha = Math.round(opacity * coverage);
+        if (alpha < 2) continue;
+        const offset = (y * width + x) * 4;
+        // Preserve the brighter sample on overlap. Colour channels stay
+        // consistent while alpha carries the radial luminance falloff.
+        if (alpha <= pixels[offset + 3]!) continue;
+        pixels[offset] = brightness;
+        pixels[offset + 1] = Math.min(255, brightness + 3);
+        pixels[offset + 2] = Math.min(255, brightness + 9);
+        pixels[offset + 3] = alpha;
       }
     }
   };
 
-  // Higher density + far smaller angular size sells astronomical distance
-  // better than a sparse field of individually legible sprites.
-  for (let index = 0; index < 4600; index += 1) {
-    const x = Math.floor(random() * width);
-
-    // Atmospheric extinction: suppress the lowest horizon band and gradually
-    // thin stars as they approach it.
-    const normalizedY = random();
-    const y = Math.floor(normalizedY * height * 0.86);
-    const horizonFactor = clamp01(1 - normalizedY * 0.72);
-    if (random() > horizonFactor) continue;
-
-    const sample = random();
-    const halo = sample > 0.996;
-    const bright = sample > 0.94;
-    const value = Math.round(
-      halo
-        ? 220 + random() * 28
-        : bright
-          ? 155 + random() * 58
-          : 92 + random() * 58,
+  // Babylon sphere UV: v=0 is the zenith, v~0.5 is the geometric
+  // horizon. Avoid the old arbitrary horizontal texture cutoff.
+  // Decline smoothly toward the horizon as the atmospheric path grows.
+  for (let index = 0; index < 10000; index += 1) {
+    const v = random() * 0.5;
+    const extinction = 1 - smoothstep(0.29, 0.5, v);
+    if (random() > extinction) continue;
+    const cx = random() * width;
+    const cy = v * height;
+    const roll = random();
+    const halo = roll > 0.997;
+    const bright = roll > 0.935;
+    const brightness = Math.round(
+      halo ? 211 + random() * 34 :
+      bright ? 156 + random() * 57 : 88 + random() * 64,
     );
-    const alpha = Math.round(
-      halo
-        ? 190 + random() * 38
-        : bright
-          ? 120 + random() * 68
-          : 62 + random() * 72,
+    const opacity = Math.round(
+      (halo ? 176 + random() * 50 :
+        bright ? 119 + random() * 65 : 58 + random() * 82) *
+        (0.45 + 0.55 * extinction),
     );
-
-    // About 94% remain effectively pinpricks. A small minority receive only
-    // a soft circular halo; never cross-shaped rays.
-    addSoftPoint(x, y, value, alpha, halo ? 2 : bright ? 1 : 0);
+    const sigma = halo ? 1.15 : bright ? 0.76 : 0.54;
+    splat(cx, cy, brightness, opacity, sigma);
   }
 
   const texture = RawTexture.CreateRGBATexture(
@@ -254,7 +231,7 @@ function createStarTexture(scene: Scene): RawTexture {
     scene,
     true,
     false,
-    Texture.BILINEAR_SAMPLINGMODE,
+    Texture.TRILINEAR_SAMPLINGMODE,
   );
   texture.name = "meridian-procedural-star-field";
   texture.hasAlpha = true;
