@@ -17,6 +17,7 @@ import type {
   InputMode,
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
+import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
   ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
   createFirstLightRuntimeWorld,
@@ -36,6 +37,7 @@ type Lifecycle = GameSnapshot["lifecycle"];
 export class GTDGameRuntime implements GameRuntime {
   private host: HTMLCanvasElement | null = null;
   private engine: Engine | null = null;
+  private fl4Diagnostics: FL4Diagnostics | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
@@ -133,6 +135,13 @@ export class GTDGameRuntime implements GameRuntime {
 
     this.engine = engine;
     this.scene = scene;
+    // FL-4 is opt-in: production players incur no instrumentation cost.
+    if (new URLSearchParams(window.location.search).get("fl4Diagnostics") === "1") {
+      const diagnostics = new FL4Diagnostics(engine, scene, host);
+      this.fl4Diagnostics = diagnostics;
+      (window as Window & { __GTD_FL4_REPORT__?: () => ReturnType<FL4Diagnostics["report"]> })
+        .__GTD_FL4_REPORT__ = () => diagnostics.report();
+    }
     this.physics = physics;
     this.camera = camera;
     this.voight = voight;
@@ -174,6 +183,8 @@ export class GTDGameRuntime implements GameRuntime {
     this.frameHandle = null;
     window.removeEventListener("resize", this.resize);
     this.world?.dispose();
+    this.fl4Diagnostics = null;
+    delete (window as Window & { __GTD_FL4_REPORT__?: unknown }).__GTD_FL4_REPORT__;
     this.scene?.dispose();
     this.engine?.dispose();
     this.physics?.destroy();
@@ -252,7 +263,9 @@ export class GTDGameRuntime implements GameRuntime {
         this.fixedUpdate(FIXED_STEP);
         this.accumulator -= FIXED_STEP;
       }
+      const renderStart = performance.now();
       this.scene?.render();
+      this.fl4Diagnostics?.recordFrame(time, performance.now() - renderStart);
       this.schedule();
     });
   }
