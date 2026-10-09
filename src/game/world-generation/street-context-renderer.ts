@@ -396,6 +396,32 @@ export function createGeneratedStreetContext(
     new Color3(0.34, 0.24, 0.16),
     0.04,
   );
+  const grass = material(
+    scene,
+    "generated-pocket-grass",
+    new Color3(0.24, 0.39, 0.2),
+    0.02,
+  );
+
+  for (const district of city.districts) {
+    for (const neighborhood of district.neighborhoods) {
+      for (const block of neighborhood.blocks) {
+        for (const space of block.publicSpaces ?? []) {
+          if (space.kind !== "pocket-park") continue;
+          const park = MeshBuilder.CreateBox(
+            "generated-public-space:" + space.id,
+            { width: space.width, height: 0.12, depth: space.depth },
+            scene,
+          );
+          park.position.set(space.position.x, 0.06, space.position.z);
+          park.material = grass;
+          park.receiveShadows = true;
+          park.isPickable = false;
+          meshes.push(park);
+        }
+      }
+    }
+  }
 
   for (const item of plan.items) {
     if (item.kind === "tree") {
@@ -411,7 +437,7 @@ export function createGeneratedStreetContext(
     }
   }
 
-  const materials = [trunk, foliage, metal, glow, paint, dark, glass, wood];
+  const materials = [trunk, foliage, metal, glow, paint, dark, glass, wood, grass];
   let disposed = false;
   return {
     itemCount: plan.items.length,
