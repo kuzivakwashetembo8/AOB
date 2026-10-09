@@ -183,6 +183,12 @@ Authorization / reviewer decision (where required):
 - Any new gameplay, city/asset content, production deployment, or broader system redesign requires separate scope authorization.
 - FL-4 was activated by the user's 2026-10-09 authorization, **not** by publication of this plan. Current authoritative phase state is **FL-3 COMPLETED; FL-4 IN PROGRESS**, with actual device testing, optimization proof, final acceptance and deployment still gated.
 
+## Visual realism addendum — decisions and controlled batches
+
+The user-reviewed tree-canopy, window/storey and parked-vehicle observations, their **why** rationale, proposed implementation steps (FL4-VIS-A01–A04, B01–B03, C01–C03) and acceptance register VIS-01–VIS-10 are recorded in [FL-4 Visual Realism — Decision Record and Implementation Plan](./FL-4%20Visual%20Realism%20Decision%20Record%20and%20Implementation%20Plan.md).
+
+This addendum is a subordinate, separately gated visual-fidelity refinement. It does **not** replace canonical FL4-01–FL4-06 performance/device requirements, authorize new vehicle gameplay, or override the First Light Source of Truth. The visual batches are documented for future review; implementation requires explicit authorization. The non-blocking sky-banding issue remains independently tracked in `documentations/Issues/`.
+
 ## 7. Definition of Done
 
 FL-4 is complete only when all six ordered packages have auditable evidence, required acceptance checks are satisfied or specifically approved as limitations, rendering sharpness and device-dependent performance are validated without compromising the FL-3 art and gameplay contract, and the user explicitly accepts both visuals and responsiveness/stability. The canonical Source of Truth must then be updated, and **only then** is the First Light milestone closed. Production/main promotion remains a distinct decision.
