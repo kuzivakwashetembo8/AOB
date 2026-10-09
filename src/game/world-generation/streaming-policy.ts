@@ -14,4 +14,8 @@ export function updateBlockStreaming<T extends BlockAsset>(
   }
   const blocks = runtime.city.city.districts.flatMap((district) =>
     district.neighborhoods.flatMap((neighborhood) => neighborhood.blocks));
+  for (const block of blocks) {
+    const distance = blockDistanceTo(runtime.city, block.id, position);
+    if (distance <= policy.activateWithin) runtime.acquire(block.id);
+  }
 }
