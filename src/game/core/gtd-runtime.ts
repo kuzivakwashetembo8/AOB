@@ -187,7 +187,9 @@ export class GTDGameRuntime implements GameRuntime {
       this.publishSnapshot();
       return;
     }
-    this.inputMode = command.mode;
+    if (command.type === "input-mode") {
+      this.inputMode = command.mode;
+    }
   }
 
   getSnapshot(): GameSnapshot {
