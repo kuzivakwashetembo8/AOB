@@ -77,7 +77,6 @@ export interface BuildingInteractionPlan {
 }
 
 const WALL_THICKNESS = 0.24;
-const SIDES: readonly FacadeSide[] = ["front", "rear", "left", "right"];
 
 function localFacadePoint(mass: BuildingMass, side: FacadeSide, offset: number, y: number): WorldPosition {
   switch (side) {
@@ -184,7 +183,7 @@ export function planBuildingInteraction(
   const interiorMode = spec.parameters.interiorMode;
   const interiorId = spec.id + ":interior:ground";
   const firstMass = plan.masses[0]!;
-  const depth = interiorMode === "shallow" ? Math.min(3.5, firstMass.depth - 0.48) : firstMass.depth - 0.48;
+  const depth = interiorMode === "shallow" ? Math.max(0.1, Math.min(3.5, firstMass.depth - 0.48)) : firstMass.depth - 0.48;
   const localMin: WorldPosition = {
     x: firstMass.centerX - firstMass.width / 2 + WALL_THICKNESS,
     y: 0,
@@ -209,7 +208,8 @@ export function planBuildingInteraction(
     const point = worldPoint(spec, localFacadePoint(mass, opening.facade, opening.offset,
       opening.sillHeight));
     const facing = facadeOutward(spec.yawRadians, opening.facade);
-    const accessible = interiorMode !== "none" && canTraverse(opening);
+    const accessible = interiorMode !== "none" && canTraverse(opening) &&
+      (interiorMode !== "shallow" || opening.facade === "front");
     const id = opening.anchorId ?? spec.id + ":opening:" + opening.id;
     if (!authoredAnchors.has(id)) {
       const anchor: InteractionAnchor = {
@@ -231,7 +231,7 @@ export function planBuildingInteraction(
         interior: { x: point.x - facing.x * 0.65, y: point.y, z: point.z - facing.z * 0.65 },
         facing,
       });
-    } else if (interiorMode === "none") {
+    } else {
       const panel = openingPanel(mass, opening);
       closedDoorPanels.push(panel);
       const box = boxFromPrimitive(panel, "closed-door");
