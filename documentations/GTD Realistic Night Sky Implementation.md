@@ -1,6 +1,6 @@
 # GTD Realistic Night Sky Implementation
 
-Status: PROPOSED — AWAITING EXPLICIT IMPLEMENTATION AUTHORIZATION  
+Status: IMPLEMENTED — USER VISUAL ACCEPTANCE CONFIRMED; DISPLAY RESOLUTION FOLLOW-UP OPEN  
 Date: 2026-10-09  
 Project: G.T.D — Grand Theft Division / Meridia First Light, FL-3 Interaction and Atmosphere  
 Repository: `interlinkglobal/GTD`  
@@ -127,3 +127,20 @@ No numerical star-size, count or FPS threshold is asserted without device measur
 - `documentations/Meridian Game World Development SOT.md` — technical world authority.
 - `documentations/For Overnight Schedules.md` — project verification and intentional-deployment standards.
 - This document is the **task-specific implementation plan** for the realistic night-sky correction and does not supersede the above documents beyond the explicitly locked lighting requirement.
+
+## 9. Implementation acceptance — 2026-10-09
+
+**Decision: SUCCESSFUL / VISUALLY ACCEPTED.** The user explicitly accepted the realistic night-sky correction after viewing the deployed FL-3 preview at 01:25 and 02:39 Meridian time (screenshots supplied in the acceptance conversation). This closes the specific square/blocky stellar-representation defect. The previously approved night illumination remains locked.
+
+Implemented on `development/meridian-fl3-interaction-atmosphere`:
+- `daf4ecac481d4042d9ae299c6a82f848f282784f` — subpixel-positioned radial star coverage, increased candidate density, angular-horizon extinction, filtered sampling.
+- `ced5bdb709e512cda3b277524e82d8fd9a753763` — texture-sampling regression assertion.
+- Vercel preview deployment `dpl_AShFqcmhYcLsFTyf3rBzMAecuQdm` reported READY for `ced5bdb` at `https://gtd-qayxkvqmp-interlinkglobaltech.vercel.app`. The Vercel build completed. This acceptance is user visual approval; it is not an independently measured cross-device FPS or pixel-resolution certification.
+
+### Remaining improvement — screen-space sharpness / mobile resolution
+
+**OPEN / NOT PART OF THE ACCEPTED CELESTIAL PATCH.** The user observes a blurred, soft-resolution presentation of the sky and, on mobile, of the *entire screen*, rather than ultra-high-definition sharp output. This is a **render-output-resolution / pixel-density investigation**, not evidence that the accepted star-shape fix failed. No cause has yet been established.
+
+Before proposing changes, inspect Babylon engine render dimensions, hardware scaling level, browser devicePixelRatio, canvas CSS size versus backing-store size, mobile landscape viewport, antialiasing, texture filtering, postprocessing/upscaling, and performance-based dynamic scaling, if any. Capture native-resolution desktop and mobile screenshots, measure physical versus rendered pixels, and profile FPS/frame time and GPU memory. Avoid conflating a 2048 × 1024 *source sky texture* with the final framebuffer's device-pixel resolution. A global mobile blur indicates a possible broader render-scaling issue; do not merely increase the star texture again.
+
+Develop a separate, measurable, performance-conscious resolution plan and seek user authorization before modifying rendering resolution or graphics-quality defaults. Preserve the visually accepted star field, night illumination, and existing controls/UI. No production promotion is implied by this acceptance.
