@@ -532,8 +532,9 @@ function createFirstLightAuthoredParitySurfaces(
   meshes.push(
     authoredParityBox(scene, "generated-parity-main-road", 0, 0.015, 8, 130, 0.03, 8, asphalt),
     authoredParityBox(scene, "generated-parity-side-road", 20, 0.018, 34, 8, 0.035, 52, asphalt),
-    authoredParityBox(scene, "generated-parity-main-junction", 20, 0.05, 8, 11.6, 0.08, 11.6, asphalt),
-    authoredParityBox(scene, "generated-parity-rear-junction", 20, 0.05, 48, 11.6, 0.08, 11.6, asphalt),
+    // The three carriageway boxes already overlap at both T-junctions. Keep the
+    // asphalt as one continuous road field instead of layering a raised square
+    // junction pad whose UVs/material shading read like a carpet patch.
     authoredParityBox(scene, "generated-parity-north-walk", 0, 0.055, 2.4, 130, 0.11, 3.1, sidewalk),
     authoredParityBox(scene, "generated-parity-south-walk-west", -24.5, 0.055, 13.6, 81, 0.11, 3.1, sidewalk),
     authoredParityBox(scene, "generated-parity-south-walk-east", 44.5, 0.055, 13.6, 41, 0.11, 3.1, sidewalk),
