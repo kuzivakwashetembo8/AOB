@@ -220,6 +220,7 @@ describe("Meridian Step 5 roads and fidelity context", () => {
         mesh.name.includes("generated-tree-trunk-lower:"),
       )).toBe(false);
       expect(treeTrunks.every((mesh) => mesh.rotation.x === 0 && mesh.rotation.z === 0)).toBe(true);
+      expect(treeTrunks.every((mesh) => mesh.getBoundingInfo().boundingBox.extendSizeWorld.y > 0)).toBe(true);
       expect(context.meshes.length).toBeGreaterThan(context.itemCount);
       context.dispose();
       surfaces.dispose();
