@@ -7,9 +7,10 @@ import {
   StandardMaterial,
   Texture,
   TransformNode,
+  VertexData,
 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
-import type { CitySpec } from "./schema";
+import type { CitySpec, PublicSpaceSpec } from "./schema";
 import { planStreetContext } from "./street-context";
 import type { StreetContextItem } from "./street-context";
 
@@ -30,7 +31,8 @@ function seedHash(input: string | number): number {
 }
 
 function sample(seed: number, x: number, y: number): number {
-  let value = seed ^ Math.imul(x + 3, 374761393) ^ Math.imul(y + 5, 668265263);
+  let value =
+    seed ^ Math.imul(x + 3, 374761393) ^ Math.imul(y + 5, 668265263);
   value = Math.imul(value ^ (value >>> 13), 1274126177);
   return ((value ^ (value >>> 16)) >>> 0) / 4294967295;
 }
@@ -44,13 +46,13 @@ function foliageTexture(scene: Scene): RawTexture {
       const index = (y * size + x) * 4;
       const nx = (x - size / 2) / (size / 2);
       const ny = (y - size / 2) / (size / 2);
-      const ellipse = nx * nx / 1.05 + ny * ny / 0.72;
+      const ellipse = nx * nx / 1.08 + ny * ny / 0.68;
       const n = sample(seed, x, y);
-      const alpha = ellipse < 0.9 + (n - 0.5) * 0.25 ? 255 : 0;
-      const green = 92 + Math.round(n * 55);
-      pixels[index] = 42 + Math.round(n * 24);
+      const alpha = ellipse < 0.94 + (n - 0.5) * 0.28 ? 255 : 0;
+      const green = 88 + Math.round(n * 60);
+      pixels[index] = 38 + Math.round(n * 28);
       pixels[index + 1] = green;
-      pixels[index + 2] = 44 + Math.round(n * 22);
+      pixels[index + 2] = 40 + Math.round(n * 26);
       pixels[index + 3] = alpha;
     }
   }
@@ -65,6 +67,38 @@ function foliageTexture(scene: Scene): RawTexture {
   );
   texture.name = "generated-first-light-foliage";
   texture.hasAlpha = true;
+  return texture;
+}
+
+function grassTexture(scene: Scene): RawTexture {
+  const size = 64;
+  const pixels = new Uint8Array(size * size * 4);
+  const seed = seedHash("first-light-grass");
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const index = (y * size + x) * 4;
+      const n = sample(seed, x, y);
+      const broad = sample(seed ^ 0x51ed270b, Math.floor(x / 8), Math.floor(y / 8));
+      pixels[index] = 45 + Math.round(n * 18 + broad * 10);
+      pixels[index + 1] = 78 + Math.round(n * 28 + broad * 18);
+      pixels[index + 2] = 42 + Math.round(n * 16);
+      pixels[index + 3] = 255;
+    }
+  }
+  const texture = RawTexture.CreateRGBATexture(
+    pixels,
+    size,
+    size,
+    scene,
+    true,
+    false,
+    Texture.TRILINEAR_SAMPLINGMODE,
+  );
+  texture.name = "generated-first-light-grass";
+  texture.wrapU = Texture.WRAP_ADDRESSMODE;
+  texture.wrapV = Texture.WRAP_ADDRESSMODE;
+  texture.uScale = 3.2;
+  texture.vScale = 2.4;
   return texture;
 }
 
@@ -88,32 +122,52 @@ function addTree(
   scene: Scene,
   item: StreetContextItem,
   meshes: Mesh[],
+  nodes: TransformNode[],
   trunkMaterial: Material,
   foliageMaterial: Material,
 ): void {
   const root = new TransformNode("generated-tree:" + item.id, scene);
+  nodes.push(root);
   root.position.set(item.position.x, item.position.y, item.position.z);
   root.rotation.y = item.yawRadians;
   root.scaling.setAll(item.scale);
 
-  const trunk = MeshBuilder.CreateCylinder(
-    "generated-tree-trunk:" + item.id,
+  const lowerTrunk = MeshBuilder.CreateCylinder(
+    "generated-tree-trunk-lower:" + item.id,
     {
-      height: 4.5,
-      diameterTop: 0.48,
-      diameterBottom: 0.74,
+      height: 3.15,
+      diameterTop: 0.5,
+      diameterBottom: 0.76,
       tessellation: 8,
     },
     scene,
   );
-  trunk.position.y = 2.15;
-  trunk.parent = root;
-  trunk.material = trunkMaterial;
-  trunk.receiveShadows = true;
-  meshes.push(trunk);
+  lowerTrunk.position.y = 1.56;
+  lowerTrunk.parent = root;
+  lowerTrunk.material = trunkMaterial;
+  lowerTrunk.receiveShadows = true;
+  meshes.push(lowerTrunk);
+
+  const upperTrunk = MeshBuilder.CreateCylinder(
+    "generated-tree-trunk-upper:" + item.id,
+    {
+      height: 2.2,
+      diameterTop: 0.3,
+      diameterBottom: 0.5,
+      tessellation: 8,
+    },
+    scene,
+  );
+  upperTrunk.position.set(0.08, 3.86, 0.02);
+  upperTrunk.rotation.z = 0.075;
+  upperTrunk.rotation.x = -0.025;
+  upperTrunk.parent = root;
+  upperTrunk.material = trunkMaterial;
+  upperTrunk.receiveShadows = true;
+  meshes.push(upperTrunk);
 
   const flareData = [
-    { x: -0.28, z: 0.02, rz: -0.38 },
+    { x: -0.28, z: 0, rz: -0.38 },
     { x: 0.28, z: 0.04, rz: 0.38 },
     { x: 0, z: -0.26, rx: 0.34 },
     { x: 0.05, z: 0.28, rx: -0.34 },
@@ -137,18 +191,30 @@ function addTree(
     meshes.push(rootFlare);
   });
 
-  const clusters = [
-    [0, 5.45, 0, 3.7, 1.95],
-    [-1.72, 5.15, 0.08, 3.2, 1.8],
-    [1.76, 5.14, 0.1, 3.2, 1.8],
-    [-1.15, 5.82, -0.5, 3.0, 1.7],
-    [1.16, 5.8, -0.45, 3.0, 1.7],
-    [-0.8, 5.34, 1.12, 3.1, 1.7],
-    [0.82, 5.3, 1.08, 3.1, 1.7],
-    [0, 6.12, 0.1, 3.4, 1.72],
+  const baseClusters = [
+    [0, 5.45, 0],
+    [-1.75, 5.15, 0.05],
+    [1.8, 5.12, 0.1],
+    [-1.15, 5.85, -0.55],
+    [1.2, 5.82, -0.48],
+    [-0.75, 5.35, 1.15],
+    [0.8, 5.28, 1.12],
+    [0, 6.15, 0.12],
+    [-2.05, 5.0, -0.85],
+    [2.05, 5.0, -0.75],
   ] as const;
+  const canopyScale = item.canopyScale ?? 1.12;
+  const seed = seedHash(item.seed);
 
-  clusters.forEach(([x, y, z, width, height], clusterIndex) => {
+  baseClusters.forEach(([baseX, baseY, baseZ], clusterIndex) => {
+    const jitterX = (sample(seed, clusterIndex, 1) - 0.5) * 0.42;
+    const jitterY = (sample(seed, clusterIndex, 2) - 0.5) * 0.18;
+    const jitterZ = (sample(seed, clusterIndex, 3) - 0.5) * 0.42;
+    const clusterScale =
+      canopyScale * (0.96 + sample(seed, clusterIndex, 4) * 0.1);
+    const width = 3.45 * clusterScale;
+    const height = 1.78 * clusterScale;
+
     [0, Math.PI / 3, (2 * Math.PI) / 3].forEach((yaw, planeIndex) => {
       const card = MeshBuilder.CreatePlane(
         "generated-tree-foliage:" +
@@ -164,9 +230,15 @@ function addTree(
         },
         scene,
       );
-      card.position.set(x, y, z);
-      card.rotation.y = yaw;
-      card.rotation.x = planeIndex === 1 ? 0.06 : -0.035;
+      card.position.set(
+        baseX * canopyScale + jitterX,
+        baseY + jitterY,
+        baseZ * canopyScale + jitterZ,
+      );
+      card.rotation.y =
+        yaw +
+        (sample(seed, clusterIndex, planeIndex + 10) - 0.5) * 0.16;
+      card.rotation.x = planeIndex === 1 ? 0.08 : -0.04;
       card.parent = root;
       card.material = foliageMaterial;
       card.isPickable = false;
@@ -175,14 +247,48 @@ function addTree(
   });
 }
 
+function addShrub(
+  scene: Scene,
+  item: StreetContextItem,
+  meshes: Mesh[],
+  nodes: TransformNode[],
+  foliageMaterial: Material,
+): void {
+  const root = new TransformNode("generated-shrub:" + item.id, scene);
+  nodes.push(root);
+  root.position.set(item.position.x, item.position.y, item.position.z);
+  root.rotation.y = item.yawRadians;
+  root.scaling.setAll(item.scale);
+
+  [0, Math.PI / 3, (2 * Math.PI) / 3].forEach((yaw, index) => {
+    const card = MeshBuilder.CreatePlane(
+      "generated-shrub-card:" + item.id + ":" + index,
+      {
+        width: 1.35,
+        height: 0.88,
+        sideOrientation: Mesh.DOUBLESIDE,
+      },
+      scene,
+    );
+    card.position.y = 0.45;
+    card.rotation.y = yaw;
+    card.parent = root;
+    card.material = foliageMaterial;
+    card.isPickable = false;
+    meshes.push(card);
+  });
+}
+
 function addStreetlight(
   scene: Scene,
   item: StreetContextItem,
   meshes: Mesh[],
+  nodes: TransformNode[],
   metal: Material,
   glow: Material,
 ): void {
   const root = new TransformNode("generated-streetlight:" + item.id, scene);
+  nodes.push(root);
   root.position.set(item.position.x, item.position.y, item.position.z);
   root.rotation.y = item.yawRadians;
 
@@ -221,11 +327,13 @@ function addParkedCar(
   scene: Scene,
   item: StreetContextItem,
   meshes: Mesh[],
+  nodes: TransformNode[],
   paint: Material,
   dark: Material,
   glass: Material,
 ): void {
   const root = new TransformNode("generated-car:" + item.id, scene);
+  nodes.push(root);
   root.position.set(item.position.x, item.position.y, item.position.z);
   root.rotation.y = item.yawRadians;
   root.scaling.setAll(item.scale);
@@ -274,9 +382,11 @@ function addBench(
   scene: Scene,
   item: StreetContextItem,
   meshes: Mesh[],
+  nodes: TransformNode[],
   materialValue: Material,
 ): void {
   const root = new TransformNode("generated-bench:" + item.id, scene);
+  nodes.push(root);
   root.position.set(item.position.x, item.position.y, item.position.z);
   root.rotation.y = item.yawRadians;
 
@@ -335,12 +445,84 @@ function addBin(
   meshes.push(bin);
 }
 
+function createPocketParkSurface(
+  scene: Scene,
+  space: PublicSpaceSpec,
+  baseMaterial: Material,
+  accentMaterial: Material,
+  meshes: Mesh[],
+): void {
+  const halfWidth = space.width / 2;
+  const halfDepth = space.depth / 2;
+  const perimeter = [
+    [-halfWidth + 0.7, -halfDepth],
+    [halfWidth - 0.9, -halfDepth],
+    [halfWidth, -halfDepth + 0.75],
+    [halfWidth, halfDepth - 0.95],
+    [halfWidth - 0.65, halfDepth],
+    [-halfWidth + 1.0, halfDepth],
+    [-halfWidth, halfDepth - 0.65],
+    [-halfWidth, -halfDepth + 0.9],
+  ] as const;
+
+  const mesh = new Mesh("generated-public-space:" + space.id, scene);
+  const positions: number[] = [space.position.x, 0.065, space.position.z];
+  const normals: number[] = [0, 1, 0];
+  const uvs: number[] = [0.5, 0.5];
+  for (const [x, z] of perimeter) {
+    positions.push(space.position.x + x, 0.065, space.position.z + z);
+    normals.push(0, 1, 0);
+    uvs.push(x / space.width + 0.5, z / space.depth + 0.5);
+  }
+  const indices: number[] = [];
+  for (let index = 0; index < perimeter.length; index += 1) {
+    indices.push(0, index + 1, ((index + 1) % perimeter.length) + 1);
+  }
+  const data = new VertexData();
+  data.positions = positions;
+  data.normals = normals;
+  data.uvs = uvs;
+  data.indices = indices;
+  data.applyToMesh(mesh);
+  mesh.material = baseMaterial;
+  mesh.receiveShadows = true;
+  mesh.isPickable = false;
+  meshes.push(mesh);
+
+  const seed = seedHash(space.id);
+  for (let index = 0; index < 5; index += 1) {
+    const patch = MeshBuilder.CreateCylinder(
+      "generated-grass-variation:" + space.id + ":" + index,
+      {
+        height: 0.012,
+        diameter:
+          Math.min(space.width, space.depth) *
+          (0.16 + sample(seed, index, 1) * 0.12),
+        tessellation: 14,
+      },
+      scene,
+    );
+    patch.position.set(
+      space.position.x +
+        (sample(seed, index, 2) - 0.5) * space.width * 0.65,
+      0.074,
+      space.position.z +
+        (sample(seed, index, 3) - 0.5) * space.depth * 0.6,
+    );
+    patch.scaling.z = 0.7 + sample(seed, index, 4) * 0.55;
+    patch.material = accentMaterial;
+    patch.isPickable = false;
+    meshes.push(patch);
+  }
+}
+
 export function createGeneratedStreetContext(
   scene: Scene,
   city: CitySpec,
 ): GeneratedStreetContext {
   const plan = planStreetContext(city);
   const meshes: Mesh[] = [];
+  const nodes: TransformNode[] = [];
 
   const trunk = material(
     scene,
@@ -348,7 +530,11 @@ export function createGeneratedStreetContext(
     new Color3(0.31, 0.22, 0.14),
     0.02,
   );
-  const foliage = new StandardMaterial("generated-tree-foliage-material", scene);
+
+  const foliage = new StandardMaterial(
+    "generated-tree-foliage-material",
+    scene,
+  );
   const foliageMap = foliageTexture(scene);
   foliage.diffuseTexture = foliageMap;
   foliage.opacityTexture = foliageMap;
@@ -369,9 +555,8 @@ export function createGeneratedStreetContext(
     new Color3(0.84, 0.64, 0.3),
     0,
   );
-  if (glow instanceof StandardMaterial) {
-    glow.emissiveColor = new Color3(0.5, 0.31, 0.1);
-  }
+  glow.emissiveColor = new Color3(0.5, 0.31, 0.1);
+
   const paint = material(
     scene,
     "generated-car-paint",
@@ -396,11 +581,19 @@ export function createGeneratedStreetContext(
     new Color3(0.34, 0.24, 0.16),
     0.04,
   );
+
   const grass = material(
     scene,
     "generated-pocket-grass",
-    new Color3(0.24, 0.39, 0.2),
+    Color3.White(),
     0.02,
+  );
+  grass.diffuseTexture = grassTexture(scene);
+  const grassAccent = material(
+    scene,
+    "generated-pocket-grass-accent",
+    new Color3(0.19, 0.32, 0.17),
+    0.01,
   );
 
   for (const district of city.districts) {
@@ -408,16 +601,13 @@ export function createGeneratedStreetContext(
       for (const block of neighborhood.blocks) {
         for (const space of block.publicSpaces ?? []) {
           if (space.kind !== "pocket-park") continue;
-          const park = MeshBuilder.CreateBox(
-            "generated-public-space:" + space.id,
-            { width: space.width, height: 0.12, depth: space.depth },
+          createPocketParkSurface(
             scene,
+            space,
+            grass,
+            grassAccent,
+            meshes,
           );
-          park.position.set(space.position.x, 0.06, space.position.z);
-          park.material = grass;
-          park.receiveShadows = true;
-          park.isPickable = false;
-          meshes.push(park);
         }
       }
     }
@@ -425,19 +615,33 @@ export function createGeneratedStreetContext(
 
   for (const item of plan.items) {
     if (item.kind === "tree") {
-      addTree(scene, item, meshes, trunk, foliage);
+      addTree(scene, item, meshes, nodes, trunk, foliage);
+    } else if (item.kind === "shrub") {
+      addShrub(scene, item, meshes, nodes, foliage);
     } else if (item.kind === "streetlight") {
-      addStreetlight(scene, item, meshes, metal, glow);
+      addStreetlight(scene, item, meshes, nodes, metal, glow);
     } else if (item.kind === "parked-car") {
-      addParkedCar(scene, item, meshes, paint, dark, glass);
+      addParkedCar(scene, item, meshes, nodes, paint, dark, glass);
     } else if (item.kind === "bench") {
-      addBench(scene, item, meshes, wood);
+      addBench(scene, item, meshes, nodes, wood);
     } else if (item.kind === "bin") {
       addBin(scene, item, meshes, metal);
     }
   }
 
-  const materials = [trunk, foliage, metal, glow, paint, dark, glass, wood, grass];
+  const materials = [
+    trunk,
+    foliage,
+    metal,
+    glow,
+    paint,
+    dark,
+    glass,
+    wood,
+    grass,
+    grassAccent,
+  ];
+
   let disposed = false;
   return {
     itemCount: plan.items.length,
@@ -446,6 +650,7 @@ export function createGeneratedStreetContext(
       if (disposed) return;
       disposed = true;
       for (const mesh of meshes) mesh.dispose();
+      for (const node of nodes) node.dispose();
       for (const materialValue of materials) {
         if (materialValue instanceof StandardMaterial) {
           const diffuse = materialValue.diffuseTexture;
