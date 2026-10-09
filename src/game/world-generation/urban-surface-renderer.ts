@@ -470,10 +470,183 @@ function createRoadNaturalism(
   return meshes;
 }
 
+
+function isFirstLightReferenceCity(city: CitySpec): boolean {
+  return (
+    city.id === "meridian-city" &&
+    city.districts.some((district) =>
+      district.neighborhoods.some(
+        (neighborhood) => neighborhood.id === "south-ward-first-light",
+      ),
+    )
+  );
+}
+
+function authoredParityBox(
+  scene: Scene,
+  name: string,
+  x: number,
+  y: number,
+  z: number,
+  width: number,
+  height: number,
+  depth: number,
+  material: Material,
+): Mesh {
+  const mesh = MeshBuilder.CreateBox(name, { width, height, depth }, scene);
+  mesh.position.set(x, y, z);
+  mesh.material = material;
+  mesh.receiveShadows = true;
+  mesh.isPickable = false;
+  return mesh;
+}
+
+function createFirstLightAuthoredParitySurfaces(
+  scene: Scene,
+): GeneratedUrbanSurfaces {
+  const meshes: Mesh[] = [];
+  const materials: StandardMaterial[] = [];
+
+  const asphalt = makeTexturedMaterial(scene, "generated-asphalt", "asphalt");
+  const sidewalk = makeTexturedMaterial(
+    scene,
+    "generated-sidewalk",
+    "sidewalk-paving",
+  );
+  const curb = new StandardMaterial("generated-curb", scene);
+  curb.diffuseColor = new Color3(0.48, 0.45, 0.39);
+  curb.specularColor = new Color3(0.03, 0.03, 0.03);
+
+  const marking = new StandardMaterial("generated-road-marking", scene);
+  marking.diffuseColor = new Color3(0.72, 0.61, 0.31);
+  marking.specularColor = new Color3(0.02, 0.02, 0.02);
+
+  const drain = new StandardMaterial("generated-road-drain", scene);
+  drain.diffuseColor = new Color3(0.16, 0.19, 0.18);
+  drain.specularColor = new Color3(0.04, 0.04, 0.04);
+
+  materials.push(asphalt, sidewalk, curb, marking, drain);
+
+  // Verbatim First Light road geometry. This is intentionally literal:
+  // parity first, abstraction second.
+  meshes.push(
+    authoredParityBox(scene, "generated-parity-main-road", 0, 0.015, 8, 130, 0.03, 8, asphalt),
+    authoredParityBox(scene, "generated-parity-side-road", 20, 0.018, 34, 8, 0.035, 52, asphalt),
+    authoredParityBox(scene, "generated-parity-main-junction", 20, 0.05, 8, 11.6, 0.08, 11.6, asphalt),
+    authoredParityBox(scene, "generated-parity-rear-junction", 20, 0.05, 48, 11.6, 0.08, 11.6, asphalt),
+    authoredParityBox(scene, "generated-parity-north-walk", 0, 0.055, 2.4, 130, 0.11, 3.1, sidewalk),
+    authoredParityBox(scene, "generated-parity-south-walk-west", -24.5, 0.055, 13.6, 81, 0.11, 3.1, sidewalk),
+    authoredParityBox(scene, "generated-parity-south-walk-east", 44.5, 0.055, 13.6, 41, 0.11, 3.1, sidewalk),
+    authoredParityBox(scene, "generated-parity-north-curb", 0, 0.105, 4.02, 130, 0.21, 0.2, curb),
+    authoredParityBox(scene, "generated-parity-south-curb-west", -24.5, 0.105, 11.98, 81, 0.21, 0.2, curb),
+    authoredParityBox(scene, "generated-parity-south-curb-east", 44.5, 0.105, 11.98, 41, 0.21, 0.2, curb),
+    authoredParityBox(scene, "generated-parity-rear-road", 2, 0.018, 48, 118, 0.035, 8, asphalt),
+  );
+
+  const rearSegments = [
+    { suffix: "west", x: -20.5, width: 73 },
+    { suffix: "east", x: 42.5, width: 37 },
+  ] as const;
+  rearSegments.forEach((segment) => {
+    meshes.push(
+      authoredParityBox(scene, "generated-parity-rear-north-walk-" + segment.suffix, segment.x, 0.055, 42.4, segment.width, 0.11, 3.1, sidewalk),
+      authoredParityBox(scene, "generated-parity-rear-south-walk-" + segment.suffix, segment.x, 0.055, 53.6, segment.width, 0.11, 3.1, sidewalk),
+      authoredParityBox(scene, "generated-parity-rear-north-curb-" + segment.suffix, segment.x, 0.105, 44.02, segment.width, 0.21, 0.2, curb),
+      authoredParityBox(scene, "generated-parity-rear-south-curb-" + segment.suffix, segment.x, 0.105, 51.98, segment.width, 0.21, 0.2, curb),
+    );
+  });
+
+  meshes.push(
+    authoredParityBox(scene, "generated-parity-side-west-walk", 14.4, 0.055, 28, 3.1, 0.11, 25.7, sidewalk),
+    authoredParityBox(scene, "generated-parity-side-east-walk", 25.6, 0.055, 28, 3.1, 0.11, 25.7, sidewalk),
+    authoredParityBox(scene, "generated-parity-side-west-curb", 16.02, 0.105, 28, 0.2, 0.21, 25.7, curb),
+    authoredParityBox(scene, "generated-parity-side-east-curb", 23.98, 0.105, 28, 0.2, 0.21, 25.7, curb),
+  );
+
+  const markingPlan: RoadMarkingPlan[] = [];
+
+  for (let x = -56; x <= 56; x += 8) {
+    meshes.push(
+      authoredParityBox(scene, "generated-parity-main-lane-" + x, x, 0.045, 8, 3.4, 0.035, 0.14, marking),
+    );
+    markingPlan.push({
+      id: "parity-main:" + x,
+      center: { x, y: 0.045, z: 8 },
+      length: 3.4,
+      width: 0.14,
+      yawRadians: Math.PI / 2,
+      kind: "center-dash",
+    });
+  }
+
+  for (let z = 17; z <= 39; z += 8) {
+    meshes.push(
+      authoredParityBox(scene, "generated-parity-side-lane-" + z, 20, 0.06, z, 0.14, 0.04, 3.2, marking),
+    );
+    markingPlan.push({
+      id: "parity-side:" + z,
+      center: { x: 20, y: 0.06, z },
+      length: 3.2,
+      width: 0.14,
+      yawRadians: 0,
+      kind: "center-dash",
+    });
+  }
+
+  for (let x = -48; x <= 48; x += 8) {
+    meshes.push(
+      authoredParityBox(scene, "generated-parity-rear-lane-" + x, x, 0.045, 48, 3.4, 0.035, 0.14, marking),
+    );
+    markingPlan.push({
+      id: "parity-rear:" + x,
+      center: { x, y: 0.045, z: 48 },
+      length: 3.4,
+      width: 0.14,
+      yawRadians: Math.PI / 2,
+      kind: "center-dash",
+    });
+  }
+
+  [-1.9, -1.25, -0.6, 0.6, 1.25, 1.9].forEach((offset, index) => {
+    meshes.push(
+      authoredParityBox(scene, "generated-parity-main-crosswalk-" + index, 20 + offset, 0.065, 8, 0.34, 0.03, 7.2, curb),
+      authoredParityBox(scene, "generated-parity-rear-crosswalk-" + index, 20 + offset, 0.065, 48, 0.34, 0.03, 7.2, curb),
+    );
+  });
+
+  for (let x = -54; x <= 54; x += 11) {
+    meshes.push(
+      authoredParityBox(scene, "generated-parity-drain-" + x, x, 0.12, 3.89, 1.1, 0.03, 0.17, drain),
+    );
+  }
+
+  let disposed = false;
+  return {
+    meshes,
+    markingPlan,
+    curbCutPlan: [],
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      for (const mesh of meshes) mesh.dispose();
+      for (const material of materials) {
+        const texture = material.diffuseTexture;
+        material.diffuseTexture = null;
+        texture?.dispose();
+        material.dispose();
+      }
+    },
+  };
+}
+
 export function createGeneratedUrbanSurfaces(
   scene: Scene,
   city: CitySpec,
 ): GeneratedUrbanSurfaces {
+  if (isFirstLightReferenceCity(city)) {
+    return createFirstLightAuthoredParitySurfaces(scene);
+  }
+
   const roadPlan = planRoadGraph(city.roads);
   const curbCutPlan = planCurbCuts(city);
   const meshes: Mesh[] = [];
