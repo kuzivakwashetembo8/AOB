@@ -34,6 +34,9 @@ describe("Generated First Light live-runtime world", () => {
       expect(
         world.buildings.some((building) => building.cameraBlockers.length > 0),
       ).toBe(true);
+      const ground = scene.getMeshByName("generated-first-light-ground");
+      expect(ground?.metadata?.cameraBlocker).toBe(true);
+      expect(ground?.metadata?.cameraGround).toBe(true);
       world.dispose();
     } finally {
       physics.destroy();
