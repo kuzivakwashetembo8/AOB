@@ -12,6 +12,15 @@ describe("Meridian Step 5 roads", () => {
     expect(Math.abs(planLotOrientation(FIRST_LIGHT_CITY_SPEC, blocks[1]!.lots[0]!).yawRadians))
       .toBeCloseTo(Math.PI);
   });
+  it("keeps neighborhood composition deterministic", () => {
+    const city = FIRST_LIGHT_CITY_SPEC;
+    const before = JSON.stringify(city);
+    const first = planNeighborhood(city, "south-ward-first-light");
+    expect(first.lots).toHaveLength(10);
+    expect(first.skylineAnchorBuildingIds).toHaveLength(2);
+    expect(planNeighborhood(city, "south-ward-first-light")).toEqual(first);
+    expect(JSON.stringify(city)).toBe(before);
+  });
   it("plans First Light roads", () => {
     const plan = planRoadGraph(FIRST_LIGHT_CITY_SPEC.roads);
     expect(plan.surfaces).toHaveLength(5);
