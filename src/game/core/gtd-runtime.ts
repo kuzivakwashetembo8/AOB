@@ -87,7 +87,20 @@ export class GTDGameRuntime implements GameRuntime {
       { preserveDrawingBuffer: false, stencil: true },
       true,
     );
-    engine.setHardwareScalingLevel(Math.max(1, window.devicePixelRatio / 1.5));
+    const baselineScaling = Math.max(1, window.devicePixelRatio / 1.5);
+    // Controlled FL-4 A/B experiment only. The ordinary game retains its
+    // accepted baseline scale; trial values must be explicitly requested.
+    const diagnosticParams = new URLSearchParams(window.location.search);
+    const requestedScale = diagnosticParams.get("fl4Scale");
+    const trialScale =
+      diagnosticParams.get("fl4Diagnostics") === "1" && requestedScale !== null
+        ? Number(requestedScale)
+        : Number.NaN;
+    const hardwareScale =
+      Number.isFinite(trialScale) && trialScale >= 0.75 && trialScale <= 2
+        ? trialScale
+        : baselineScaling;
+    engine.setHardwareScalingLevel(hardwareScale);
     const scene = new Scene(engine);
     scene.clearColor = new Color4(0.055, 0.075, 0.09, 1);
     scene.fogMode = Scene.FOGMODE_EXP2;
