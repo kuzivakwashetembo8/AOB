@@ -10,5 +10,11 @@ export class BlockLifecycle<T extends BlockAsset> {
     const assets = specs.map((spec) => this.factory(spec));
     this.entries.set(id, assets);
   }
+  discard(id: string): void {
+    const assets = this.entries.get(id);
+    if (!assets) return;
+    this.entries.delete(id);
+    for (const asset of assets) asset.dispose();
+  }
   getActiveIds(): readonly string[] { return [...this.entries.keys()]; }
 }
