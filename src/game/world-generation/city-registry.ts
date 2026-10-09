@@ -1,6 +1,8 @@
 import type { CitySpec, ResolvedBuildingSpec } from "./schema";
 import { assertValidCitySpec } from "./validation";
 import { resolveCityBuildings } from "./defaults";
+import { projectToRoad } from "./road-graph";
+import type { WorldPosition } from "./schema";
 
 export class CityRegistry {
   readonly buildings: readonly ResolvedBuildingSpec[];
