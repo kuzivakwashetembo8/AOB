@@ -41,7 +41,6 @@ export function openingTemplateId(kind: FacadeOpeningSpec["kind"], windowType: W
     case "garage": return "garage-bay";
     case "storefront": return "storefront-glazed";
     case "loading": return "loading-bay";
-    case "window": return "window-decorative";
   }
 }
 
