@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GameRouteImport } from './routes/game'
+import { Route as FirstLightComparisonRouteImport } from './routes/first-light-comparison'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as WorldRouteImport } from './routes/world'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const GameRoute = GameRouteImport.update({
   id: '/game',
   path: '/game',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FirstLightComparisonRoute = FirstLightComparisonRouteImport.update({
+  id: '/first-light-comparison',
+  path: '/first-light-comparison',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -38,12 +44,14 @@ const WorldRoute = WorldRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/game': typeof GameRoute
+  '/first-light-comparison': typeof FirstLightComparisonRoute
   '/settings': typeof SettingsRoute
   '/world': typeof WorldRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/game': typeof GameRoute
+  '/first-light-comparison': typeof FirstLightComparisonRoute
   '/settings': typeof SettingsRoute
   '/world': typeof WorldRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/game': typeof GameRoute
+  '/first-light-comparison': typeof FirstLightComparisonRoute
   '/settings': typeof SettingsRoute
   '/world': typeof WorldRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/game' | '/settings' | '/world'
+  fullPaths: '/' | '/game' | '/first-light-comparison' | '/settings' | '/world'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/game' | '/settings' | '/world'
-  id: '__root__' | '/' | '/game' | '/settings' | '/world'
+  to: '/' | '/game' | '/first-light-comparison' | '/settings' | '/world'
+  id: '__root__' | '/' | '/game' | '/first-light-comparison' | '/settings' | '/world'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GameRoute: typeof GameRoute
+  FirstLightComparisonRoute: typeof FirstLightComparisonRoute
   SettingsRoute: typeof SettingsRoute
   WorldRoute: typeof WorldRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/game'
       fullPath: '/game'
       preLoaderRoute: typeof GameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/first-light-comparison': {
+      id: '/first-light-comparison'
+      path: '/first-light-comparison'
+      fullPath: '/first-light-comparison'
+      preLoaderRoute: typeof FirstLightComparisonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GameRoute: GameRoute,
+  FirstLightComparisonRoute: FirstLightComparisonRoute,
   SettingsRoute: SettingsRoute,
   WorldRoute: WorldRoute,
 }
