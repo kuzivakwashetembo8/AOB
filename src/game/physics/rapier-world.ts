@@ -2,6 +2,10 @@ import RAPIER from "@dimforge/rapier3d-compat";
 
 export type Vec3 = { x: number; y: number; z: number };
 
+export interface StaticCollisionHandle {
+  dispose(): void;
+}
+
 export class MeridianPhysics {
   readonly world: RAPIER.World;
   private readonly playerBody: RAPIER.RigidBody;
@@ -27,14 +31,44 @@ export class MeridianPhysics {
     return new MeridianPhysics(new RAPIER.World({ x: 0, y: -9.81, z: 0 }));
   }
 
-  addStaticBox(position: Vec3, halfExtents: Vec3) {
+  addStaticBox(
+    position: Vec3,
+    halfExtents: Vec3,
+    yawRadians = 0,
+  ): StaticCollisionHandle {
+    const halfYaw = yawRadians / 2;
     const body = this.world.createRigidBody(
-      RAPIER.RigidBodyDesc.fixed().setTranslation(position.x, position.y, position.z),
+      RAPIER.RigidBodyDesc.fixed()
+        .setTranslation(position.x, position.y, position.z)
+        .setRotation({
+          x: 0,
+          y: Math.sin(halfYaw),
+          z: 0,
+          w: Math.cos(halfYaw),
+        }),
     );
-    this.world.createCollider(
-      RAPIER.ColliderDesc.cuboid(halfExtents.x, halfExtents.y, halfExtents.z),
-      body,
-    );
+    try {
+      this.world.createCollider(
+        RAPIER.ColliderDesc.cuboid(
+          halfExtents.x,
+          halfExtents.y,
+          halfExtents.z,
+        ),
+        body,
+      );
+    } catch (error) {
+      this.world.removeRigidBody(body);
+      throw error;
+    }
+
+    let disposed = false;
+    return {
+      dispose: () => {
+        if (disposed) return;
+        disposed = true;
+        this.world.removeRigidBody(body);
+      },
+    };
   }
 
   movePlayer(desired: Vec3): { movement: Vec3; grounded: boolean } {

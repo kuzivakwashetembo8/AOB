@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: ACTIVE — FL-2 refinement continues. Dynamic Building Generation Algorithm documented; tree branch artifacts, remaining curb/junction errors, and vertical look range patched. No new deployment yet.
+Status: ACTIVE — FL-2 visual parity accepted; Generated First Light is now integrated into the live /game runtime candidate and awaiting final promotion/deployment acceptance.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -317,3 +317,5 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 - 2026-10-08: Tree branch cylinders removed because they read as falling sticks rather than growth; textured trunk/root-flare structure now disappears directly into the foliage canopy.
 - 2026-10-08: Main and rear junction curb/sidewalk segmentation corrected to leave exact asphalt openings, and side-street edge geometry shortened so it does not intrude into the rear junction.
 - 2026-10-08: Third-person vertical camera range expanded so Voight can look substantially upward toward tall buildings and future helicopters/stars while preserving camera obstruction handling.
+
+- 2026-10-09: Generated First Light visual parity accepted for architecture, authored road/curb baseline, authored-style vegetation, structured street context, and fixed daytime shadows. The darker authored asphalt and timber curb/edge aesthetic is retained as a future district-selectable streetscape family rather than deprecated. Generated First Light has been wired into the live `/game` runtime candidate behind a controlled authored/generated source switch; final promotion and playable deployment acceptance remain pending.

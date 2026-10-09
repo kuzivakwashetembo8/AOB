@@ -17,7 +17,11 @@ import type {
   InputMode,
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
-import { createFirstLightWorld } from "../world/first-light-world";
+import {
+  ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
+  createFirstLightRuntimeWorld,
+  type RuntimeFirstLightWorld,
+} from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
 
 const FIXED_STEP = 1 / 60;
@@ -36,6 +40,7 @@ export class GTDGameRuntime implements GameRuntime {
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
   private voight: VoightPrototype | null = null;
+  private world: RuntimeFirstLightWorld | null = null;
   private lifecycle: Lifecycle = "idle";
   private context: HudContext = "walking";
   private inputMode: InputMode = "keyboard";
@@ -85,9 +90,21 @@ export class GTDGameRuntime implements GameRuntime {
 
     this.emit({ type: "progress", progress: 28, detail: "Initializing Rapier" });
     const physics = await MeridianPhysics.create();
-    this.emit({ type: "progress", progress: 52, detail: "Building South Ward corner" });
-    const firstLight = createFirstLightWorld(scene, physics);
-    physics.setPlayerPosition({ x: firstLight.spawn.x, y: firstLight.spawn.y, z: firstLight.spawn.z });
+    this.emit({
+      type: "progress",
+      progress: 52,
+      detail: "Generating South Ward First Light",
+    });
+    const firstLight = createFirstLightRuntimeWorld(
+      scene,
+      physics,
+      ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
+    );
+    physics.setPlayerPosition({
+      x: firstLight.spawn.x,
+      y: firstLight.spawn.y,
+      z: firstLight.spawn.z,
+    });
 
     const camera = new ArcRotateCamera(
       "gtd-third-person-camera",
@@ -115,6 +132,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.physics = physics;
     this.camera = camera;
     this.voight = voight;
+    this.world = firstLight;
     window.addEventListener("resize", this.resize);
     this.lifecycle = "ready";
     this.emit({ type: "progress", progress: 100, detail: "First Light ready" });
@@ -151,6 +169,7 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
     this.frameHandle = null;
     window.removeEventListener("resize", this.resize);
+    this.world?.dispose();
     this.scene?.dispose();
     this.engine?.dispose();
     this.physics?.destroy();
@@ -160,6 +179,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.camera = null;
     this.physics = null;
     this.voight = null;
+    this.world = null;
     this.actions.clear();
     this.lifecycle = "destroyed";
     this.publishSnapshot();
@@ -187,7 +207,9 @@ export class GTDGameRuntime implements GameRuntime {
       this.publishSnapshot();
       return;
     }
-    this.inputMode = command.mode;
+    if (command.type === "input-mode") {
+      this.inputMode = command.mode;
+    }
   }
 
   getSnapshot(): GameSnapshot {
@@ -321,8 +343,9 @@ export class GTDGameRuntime implements GameRuntime {
     this.snapshot = {
       lifecycle: this.lifecycle,
       context: this.context,
-      location: "South Ward // First Light",
-      objective: "Walk the South Ward garage corner",
+      location: this.world?.location ?? "South Ward // First Light",
+      objective:
+        this.world?.objective ?? "Walk the generated South Ward garage corner",
       health: 100,
       reputation: 0,
       heat: 0,

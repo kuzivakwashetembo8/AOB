@@ -338,8 +338,8 @@ function createFoliageTexture(scene: Scene) {
     return seed / 4294967296;
   };
 
-  const colors = ["#25482a", "#315b34", "#3e693c", "#4f7542", "#5b8149"];
-  ctx.lineCap = "round";
+  const colors = ["#25482a", "#315b34", "#3e693c", "#4f7542", "#5b8149"] as const;
+  const fallbackLeafColor = colors[0];
   for (let spray = 0; spray < 30; spray += 1) {
     const sx = 34 + random() * 188;
     const sy = 40 + random() * 176;
@@ -365,7 +365,7 @@ function createFoliageTexture(scene: Scene) {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(leafAngle);
-      ctx.fillStyle = colors[Math.floor(random() * colors.length)] ?? colors[0];
+      ctx.fillStyle = colors[Math.floor(random() * colors.length)] ?? fallbackLeafColor;
       ctx.globalAlpha = 0.82 + random() * 0.18;
       ctx.beginPath();
       ctx.moveTo(-length / 2, 0);
@@ -385,7 +385,7 @@ function createFoliageTexture(scene: Scene) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(random() * Math.PI * 2);
-    ctx.fillStyle = colors[Math.floor(random() * colors.length)] ?? colors[0];
+    ctx.fillStyle = colors[Math.floor(random() * colors.length)] ?? fallbackLeafColor;
     ctx.globalAlpha = 0.72 + random() * 0.25;
     ctx.beginPath();
     ctx.moveTo(-length / 2, 0);
@@ -578,12 +578,13 @@ function createParkedCar(
   cabin.material = glass;
   shadows.addShadowCaster(cabin);
 
-  [
+  const wheelPositions: ReadonlyArray<readonly [number, number, number]> = [
     [-0.88, 0.42, -1.25],
     [0.88, 0.42, -1.25],
     [-0.88, 0.42, 1.25],
     [0.88, 0.42, 1.25],
-  ].forEach(([x, y, z], i) => {
+  ];
+  wheelPositions.forEach(([x, y, z], i) => {
     const wheel = MeshBuilder.CreateCylinder(
       `parked-car-wheel-${i}`,
       { height: 0.18, diameter: 0.62, tessellation: 12 },

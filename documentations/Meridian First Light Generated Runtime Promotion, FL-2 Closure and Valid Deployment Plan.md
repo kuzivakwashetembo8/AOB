@@ -1,9 +1,40 @@
 # Meridian First Light Generated Runtime Promotion, FL-2 Closure and Valid Deployment Plan
 
-Status: APPROVED TECHNICAL PLAN — IMPLEMENTATION PENDING GREENLIGHT  
+Status: IMPLEMENTED THROUGH PRE-PROMOTION VERIFICATION — MAIN PROMOTION AND PLAYABLE DEPLOYMENT PENDING
 Date: 2026-10-09  
 Project: GTD — Grand Theft Division  
 Repository: `interlinkglobal/GTD`
+
+## Implementation checkpoint — 2026-10-09
+
+Implemented on `development/meridian-first-light-fidelity`:
+
+- branch reconciled with current `main`; comparison now reports 0 commits behind
+- reusable `GeneratedFirstLightWorld` owner created
+- shared generated world owner now drives both `/first-light-comparison` and the live runtime path
+- `/game` selects `generated-first-light` through a controlled authored/generated source switch
+- stable semantic player spawn and camera-focus anchors added
+- Voight runtime spawn now targets the generated world
+- generated building collision, camera blockers, ground collision, and parked-vehicle collision integrated with the existing Rapier/player runtime
+- fixed daytime shadow baseline moved into the reusable gameplay world
+- complete generated-world disposal owns physics, materials, meshes, context, lighting, and shadows
+- authored dark-asphalt/timber-curb visual language preserved as district-selectable streetscape data
+- generated-world lifecycle regression tests added
+- strict TypeScript, full Vitest suite, and production build passed on deployment `dpl_D1B1MoGhXcQrYmNJyFM6VemnguLf`
+- deployment reached READY
+- both `/game` and `/first-light-comparison` returned HTTP 200
+- no grouped runtime errors were reported in the verification window
+- Vercel automatic build guard restored to `exit 0`
+
+Verification source commit:
+
+`2f4396da06d8e38732e4ad15ccfaa5914791ff80`
+
+Verification preview:
+
+`https://gtd-jfd788f4f-interlinkglobaltech.vercel.app/game`
+
+The remaining gates are targeted substantive lint, controlled promotion to `main`, intentional deployment from the exact promoted commit, and live user confirmation that Voight movement/camera/collision are correct in the generated world.
 
 ## Purpose
 
@@ -15,7 +46,7 @@ The required visual outcome is:
 
 That is the decisive transition from comparison/proof infrastructure to accepted playable world infrastructure.
 
-This plan does not authorize implementation by itself. Implementation begins only after explicit greenlight.
+Implementation was explicitly greenlit on 2026-10-09. The generated-world runtime integration is implemented and has passed branch build/test/route smoke verification; controlled promotion and the final playable deployment gate remain.
 
 ---
 
