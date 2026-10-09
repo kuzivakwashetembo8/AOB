@@ -26,3 +26,5 @@ export * from "./surface-textures";
 export * from "./urban-surface-renderer";
 export * from "./street-context";
 export * from "./street-context-renderer";
+
+export * from "./streetscape-styles";
