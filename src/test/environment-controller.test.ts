@@ -72,6 +72,12 @@ describe("Meridian FL-3 environment controller", () => {
       expect(scene.getMeshByName("meridian-star-dome")?.visibility).toBeGreaterThan(
         0.95,
       );
+      const starTexture = scene.textures.find(
+        (texture) => texture.name === "meridian-procedural-star-field",
+      );
+      expect(starTexture).toBeDefined();
+      expect(starTexture?.getSize().width).toBe(2048);
+      expect(starTexture?.getSize().height).toBe(1024);
 
       environment.dispose();
       expect(scene.lights).toHaveLength(0);
