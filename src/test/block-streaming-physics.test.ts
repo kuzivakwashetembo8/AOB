@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { updateBlockStreaming } from "../game/world-generation";
 import { NullEngine, Scene } from "@babylonjs/core";
 import { MeridianPhysics } from "../game/physics/rapier-world";
 import { FIRST_LIGHT_CITY_SPEC, CityRegistry, BlockLifecycle, generateBuilding, resolveCityBuildings } from "../game/world-generation";
