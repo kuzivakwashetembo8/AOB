@@ -1,10 +1,39 @@
 # Meridian Generated First Light Fidelity and FL-3 Transition Plan
 
-Status: APPROVED — IMPLEMENTATION PENDING GREENLIGHT  
+Status: IMPLEMENTED THROUGH SECOND COMPARISON GATE — AWAITING LIVE VISUAL REVIEW  
 Date: 2026-10-09  
 Project: GTD — Grand Theft Division  
 Repository: `interlinkglobal/GTD`  
 Canonical implementation branch at approval: `integration/meridian-generation-validation`
+
+## Implementation status — 2026-10-09
+
+The approved fidelity implementation has now reached the second live comparison gate on `development/meridian-first-light-fidelity`.
+
+Implemented before review:
+- deterministic procedural facade and urban surface textures
+- richer shared material families and deterministic weathering/grime/patch variation
+- expanded secondary facade detail grammar
+- stronger window/storefront trim and mullion treatment
+- generated semantic asphalt, sidewalks, curbs, junction curb arcs, center markings, and stop lines
+- structured First Light vegetation and street-context placement
+- generated trees using the accepted trunk/root-flare + foliage-card representation, with no explicit branch cylinders
+- generated streetlights, parked vehicle proxies, bench, bin, and pocket-green surface
+- updated live First Light comparison interface with urban/context metrics
+- expanded NullEngine and lifecycle regression coverage
+
+Verification candidate:
+- branch: `development/meridian-first-light-fidelity`
+- commit: `822e4efcee80b89cde90b196339c93d7c1330550`
+- Vercel deployment: `dpl_FxyZMkpJVm7VLt6Xn6wGBEQhvjiN`
+- preview: `https://gtd-e1l5djxss-interlinkglobaltech.vercel.app/first-light-comparison`
+- strict TypeScript: passed
+- Vitest: passed
+- Rapier repeated collider/body reclamation: passed
+- production build: passed
+- deployment state: READY
+
+No promotion to `main` is authorized until the live comparison is reviewed and accepted.
 
 ## Purpose
 
