@@ -15,10 +15,16 @@ import { createFirstLightWorld } from "./first-light-world";
 import {
   BuildingMaterialLibrary,
   FIRST_LIGHT_CITY_SPEC,
+  createGeneratedStreetContext,
+  createGeneratedUrbanSurfaces,
   generateBuilding,
   resolveCityBuildings,
 } from "../world-generation";
-import type { GeneratedBuilding } from "../world-generation";
+import type {
+  GeneratedBuilding,
+  GeneratedStreetContext,
+  GeneratedUrbanSurfaces,
+} from "../world-generation";
 
 export interface FirstLightComparisonStats {
   readonly buildingCount: number;
@@ -26,6 +32,8 @@ export interface FirstLightComparisonStats {
   readonly intersectionCount: number;
   readonly generatedMeshCount: number;
   readonly generatedColliderCount: number;
+  readonly urbanMeshCount: number;
+  readonly contextItemCount: number;
 }
 
 export interface FirstLightComparisonRuntime {
@@ -93,58 +101,6 @@ function createGeneratedGround(scene: Scene): void {
   ground.material = material;
 }
 
-function createGeneratedRoads(scene: Scene): void {
-  const asphalt = new StandardMaterial("generated-asphalt-material", scene);
-  asphalt.diffuseColor = new Color3(0.18, 0.185, 0.18);
-  asphalt.specularColor = Color3.Black();
-
-  const nodes = new Map(
-    FIRST_LIGHT_CITY_SPEC.roads.nodes.map((node) => [node.id, node] as const),
-  );
-
-  for (const segment of FIRST_LIGHT_CITY_SPEC.roads.segments) {
-    const start = nodes.get(segment.startNodeId);
-    const end = nodes.get(segment.endNodeId);
-    if (!start || !end) continue;
-
-    const dx = end.position.x - start.position.x;
-    const dz = end.position.z - start.position.z;
-    const length = Math.hypot(dx, dz);
-    const road = MeshBuilder.CreateBox(
-      `generated-road:${segment.id}`,
-      {
-        width: segment.width,
-        height: 0.04,
-        depth: length,
-      },
-      scene,
-    );
-    road.position.set(
-      (start.position.x + end.position.x) / 2,
-      0.02,
-      (start.position.z + end.position.z) / 2,
-    );
-    road.rotation.y = Math.atan2(dx, dz);
-    road.material = asphalt;
-  }
-
-  for (const intersection of FIRST_LIGHT_CITY_SPEC.roads.intersections) {
-    const node = nodes.get(intersection.nodeId);
-    if (!node) continue;
-    const pad = MeshBuilder.CreateCylinder(
-      `generated-junction:${intersection.id}`,
-      {
-        height: 0.055,
-        diameter: 11.6,
-        tessellation: 32,
-      },
-      scene,
-    );
-    pad.position.set(node.position.x, 0.035, node.position.z);
-    pad.material = asphalt;
-  }
-}
-
 async function createAuthoredRuntime(
   canvas: HTMLCanvasElement,
 ): Promise<{
@@ -173,6 +129,8 @@ async function createGeneratedRuntime(
   physics: MeridianPhysics;
   buildings: GeneratedBuilding[];
   materialLibrary: BuildingMaterialLibrary;
+  urbanSurfaces: GeneratedUrbanSurfaces;
+  streetContext: GeneratedStreetContext;
 }> {
   const engine = new Engine(canvas, true, {
     preserveDrawingBuffer: false,
@@ -182,7 +140,14 @@ async function createGeneratedRuntime(
   configureComparisonScene(scene);
   createGeneratedLighting(scene);
   createGeneratedGround(scene);
-  createGeneratedRoads(scene);
+  const urbanSurfaces = createGeneratedUrbanSurfaces(
+    scene,
+    FIRST_LIGHT_CITY_SPEC,
+  );
+  const streetContext = createGeneratedStreetContext(
+    scene,
+    FIRST_LIGHT_CITY_SPEC,
+  );
   createOverviewCamera(scene, "generated-first-light-comparison-camera");
 
   const physics = await MeridianPhysics.create();
@@ -198,7 +163,15 @@ async function createGeneratedRuntime(
   );
 
   engine.runRenderLoop(() => scene.render());
-  return { engine, scene, physics, buildings, materialLibrary };
+  return {
+    engine,
+    scene,
+    physics,
+    buildings,
+    materialLibrary,
+    urbanSurfaces,
+    streetContext,
+  };
 }
 
 export async function bootstrapFirstLightComparison(
@@ -228,6 +201,8 @@ export async function bootstrapFirstLightComparison(
         (total, building) => total + building.colliderCount,
         0,
       ),
+      urbanMeshCount: generated.urbanSurfaces.meshes.length,
+      contextItemCount: generated.streetContext.itemCount,
     };
 
     const resize = () => {
@@ -247,6 +222,8 @@ export async function bootstrapFirstLightComparison(
         for (const building of generated?.buildings ?? []) {
           building.dispose();
         }
+        generated?.streetContext.dispose();
+        generated?.urbanSurfaces.dispose();
         generated?.materialLibrary.dispose();
         generated?.scene.dispose();
         generated?.engine.dispose();
@@ -261,6 +238,8 @@ export async function bootstrapFirstLightComparison(
     for (const building of generated?.buildings ?? []) {
       building.dispose();
     }
+    generated?.streetContext.dispose();
+    generated?.urbanSurfaces.dispose();
     generated?.materialLibrary.dispose();
     generated?.scene.dispose();
     generated?.engine.dispose();
