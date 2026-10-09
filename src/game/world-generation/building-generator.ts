@@ -108,6 +108,10 @@ export function generateBuilding(
     register(mesh, kind);
   };
   const makeBatches = (parts: readonly BoxPrimitive[]): void => {
+    if (!scene.getEngine().getCaps().instancedArrays) {
+      for (const part of parts) makeIndividual(part, renderClass(part));
+      return;
+    }
     const buckets = new Map<string, BoxPrimitive[]>();
     for (const part of parts) {
       const kind = renderClass(part);
