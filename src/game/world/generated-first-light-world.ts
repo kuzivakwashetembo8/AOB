@@ -1,10 +1,7 @@
 import {
   Color3,
-  DirectionalLight,
-  HemisphericLight,
   Mesh,
   MeshBuilder,
-  ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
@@ -29,6 +26,16 @@ import type {
   GeneratedStreetContext,
   GeneratedUrbanSurfaces,
 } from "../world-generation";
+import {
+  createMeridianEnvironment,
+  type InteriorVisibilityState,
+  type MeridianEnvironmentController,
+  type MeridianEnvironmentSnapshot,
+} from "./environment-controller";
+import {
+  createSouthWardGarageInterior,
+  type GeneratedGarageInterior,
+} from "./hero-garage-interior";
 
 export interface GeneratedFirstLightWorld {
   readonly spawn: Vector3;
@@ -39,7 +46,14 @@ export interface GeneratedFirstLightWorld {
   readonly urbanSurfaces: GeneratedUrbanSurfaces;
   readonly streetContext: GeneratedStreetContext;
   readonly materialLibrary: BuildingMaterialLibrary;
-  readonly shadowGenerator: ShadowGenerator | null;
+  readonly environment: MeridianEnvironmentController;
+  readonly garageInterior: GeneratedGarageInterior | null;
+  readonly shadowGenerator: MeridianEnvironmentController["shadowGenerator"];
+  readonly interiorState: InteriorVisibilityState;
+  readonly environmentSnapshot: MeridianEnvironmentSnapshot;
+  update(realSeconds: number, playerPosition: { x: number; y: number; z: number }): void;
+  setTimeMinutes(minutes: number): MeridianEnvironmentSnapshot;
+  setTimeScale(scale: number): MeridianEnvironmentSnapshot;
   dispose(): void;
 }
 
@@ -83,57 +97,6 @@ function createGround(
   return { mesh, material, collision };
 }
 
-function createLighting(
-  scene: Scene,
-  enableShadows: boolean,
-): {
-  sky: HemisphericLight;
-  sun: DirectionalLight;
-  shadows: ShadowGenerator | null;
-} {
-  const sky = new HemisphericLight(
-    "generated-first-light-sky",
-    new Vector3(0.2, 1, -0.15),
-    scene,
-  );
-  sky.intensity = 0.82;
-  sky.diffuse = new Color3(0.72, 0.77, 0.78);
-  sky.groundColor = new Color3(0.15, 0.14, 0.13);
-
-  const sun = new DirectionalLight(
-    "generated-first-light-sun",
-    new Vector3(-0.5, -1, 0.38),
-    scene,
-  );
-  sun.position = new Vector3(24, 34, -18);
-  sun.intensity = 1.05;
-  sun.diffuse = new Color3(1, 0.83, 0.66);
-  sun.shadowMinZ = 0.1;
-  sun.shadowMaxZ = 140;
-  sun.autoUpdateExtends = true;
-
-  const engine = scene.getEngine() as {
-    getClassName?: () => string;
-    constructor?: { name?: string };
-  };
-  const headless =
-    engine.getClassName?.() === "NullEngine" ||
-    engine.constructor?.name === "NullEngine";
-
-  if (!enableShadows || headless) {
-    return { sky, sun, shadows: null };
-  }
-
-  const shadows = new ShadowGenerator(2048, sun);
-  shadows.usePercentageCloserFiltering = true;
-  shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
-  shadows.bias = 0.0005;
-  shadows.normalBias = 0.025;
-  shadows.transparencyShadow = true;
-
-  return { sky, sun, shadows };
-}
-
 function registerStreetContextCollision(
   physics: MeridianPhysics,
 ): StaticCollisionHandle[] {
@@ -162,6 +125,46 @@ function registerStreetContextCollision(
   return handles;
 }
 
+function classifyGarageInterior(
+  building: GeneratedBuilding,
+  playerPosition: { x: number; y: number; z: number },
+): InteriorVisibilityState {
+  const interior = building.interior;
+  if (!interior) return "outside";
+
+  const yaw = building.spatial.yawRadians;
+  const dx = playerPosition.x - building.spatial.origin.x;
+  const dz = playerPosition.z - building.spatial.origin.z;
+  const cos = Math.cos(yaw);
+  const sin = Math.sin(yaw);
+  const localX = dx * cos + dz * sin;
+  const localZ = -dx * sin + dz * cos;
+  const localY = playerPosition.y - building.spatial.origin.y;
+
+  const inside =
+    localX >= interior.localMin.x &&
+    localX <= interior.localMax.x &&
+    localZ >= interior.localMin.z &&
+    localZ <= interior.localMax.z &&
+    localY >= interior.localMin.y - 0.2 &&
+    localY <= interior.localMax.y + 0.5;
+  if (inside) return "inside";
+
+  const portal = building.portals[0];
+  if (!portal) return "outside";
+  const exteriorDistance = Math.hypot(
+    playerPosition.x - portal.exterior.x,
+    playerPosition.z - portal.exterior.z,
+  );
+  const interiorDistance = Math.hypot(
+    playerPosition.x - portal.interior.x,
+    playerPosition.z - portal.interior.z,
+  );
+  return Math.min(exteriorDistance, interiorDistance) <= 1.45
+    ? "threshold"
+    : "outside";
+}
+
 export function createGeneratedFirstLightWorld(
   scene: Scene,
   physics: MeridianPhysics,
@@ -170,7 +173,6 @@ export function createGeneratedFirstLightWorld(
   const enableCameraBlockers = options.enableCameraBlockers ?? true;
   const enableShadows = options.enableShadows ?? true;
 
-  const { sky, sun, shadows } = createLighting(scene, enableShadows);
   const ground = createGround(scene, physics);
   const urbanSurfaces = createGeneratedUrbanSurfaces(
     scene,
@@ -190,31 +192,49 @@ export function createGeneratedFirstLightWorld(
       enableCameraBlockers,
     }),
   );
+  const heroGarage =
+    buildings.find((building) => building.buildingId === "sw-fl-garage") ??
+    null;
+  const garageInterior = heroGarage
+    ? createSouthWardGarageInterior(scene, heroGarage)
+    : null;
+  const environment = createMeridianEnvironment(scene, {
+    enableShadows,
+    initialMinuteOfDay: 14 * 60 + 30,
+    // FL-3 development uses the 24-real-minute validation cycle. 1x remains
+    // the canonical 48-real-minute Meridian day.
+    initialTimeScale: 2,
+  });
   const contextCollision = registerStreetContextCollision(physics);
 
   for (const mesh of urbanSurfaces.meshes) {
     mesh.receiveShadows = true;
   }
 
-  if (shadows) {
-    for (const building of buildings) {
-      for (const mesh of building.meshes) {
-        shadows.addShadowCaster(mesh);
-      }
-    }
-
-    for (const mesh of streetContext.meshes) {
-      mesh.receiveShadows = true;
-      if (
-        !mesh.name.startsWith("generated-public-space:") &&
-        !mesh.name.startsWith("generated-grass-variation:")
-      ) {
-        shadows.addShadowCaster(mesh);
-      }
+  for (const building of buildings) {
+    for (const mesh of building.meshes) {
+      environment.addShadowCaster(mesh);
     }
   }
 
+  for (const mesh of streetContext.meshes) {
+    mesh.receiveShadows = true;
+    if (
+      !mesh.name.startsWith("generated-public-space:") &&
+      !mesh.name.startsWith("generated-grass-variation:")
+    ) {
+      environment.addShadowCaster(mesh);
+    }
+  }
+
+  for (const mesh of garageInterior?.meshes ?? []) {
+    environment.addShadowCaster(mesh);
+  }
+
   let disposed = false;
+  let interiorState: InteriorVisibilityState = "outside";
+  let environmentSnapshot = environment.snapshot();
+
   return {
     spawn: new Vector3(
       FIRST_LIGHT_PLAYER_SPAWN.position.x,
@@ -227,27 +247,48 @@ export function createGeneratedFirstLightWorld(
       FIRST_LIGHT_CAMERA_FOCUS.position.z,
     ),
     location: "South Ward // First Light",
-    objective: "Walk the generated South Ward garage corner",
+    objective: "Enter the South Ward garage and return to the street",
     buildings,
     urbanSurfaces,
     streetContext,
     materialLibrary,
-    shadowGenerator: shadows,
+    environment,
+    garageInterior,
+    shadowGenerator: environment.shadowGenerator,
+    get interiorState() {
+      return interiorState;
+    },
+    get environmentSnapshot() {
+      return environmentSnapshot;
+    },
+    update(realSeconds, playerPosition) {
+      environmentSnapshot = environment.update(realSeconds);
+      interiorState = heroGarage
+        ? classifyGarageInterior(heroGarage, playerPosition)
+        : "outside";
+    },
+    setTimeMinutes(minutes) {
+      environmentSnapshot = environment.setTimeMinutes(minutes);
+      return environmentSnapshot;
+    },
+    setTimeScale(scale) {
+      environmentSnapshot = environment.setTimeScale(scale);
+      return environmentSnapshot;
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
 
       for (const handle of contextCollision) handle.dispose();
+      garageInterior?.dispose();
+      environment.dispose();
       for (const building of buildings) building.dispose();
       streetContext.dispose();
       urbanSurfaces.dispose();
       materialLibrary.dispose();
       ground.collision.dispose();
-      shadows?.dispose();
       ground.mesh.dispose();
       ground.material.dispose();
-      sun.dispose();
-      sky.dispose();
     },
   };
 }
