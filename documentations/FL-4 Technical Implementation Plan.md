@@ -189,6 +189,14 @@ The user-reviewed tree-canopy, window/storey and parked-vehicle observations, th
 
 This addendum is a subordinate, separately gated visual-fidelity refinement. It does **not** replace canonical FL4-01–FL4-06 performance/device requirements, authorize new vehicle gameplay, or override the First Light Source of Truth. The visual batches are documented for future review; implementation requires explicit authorization. The non-blocking sky-banding issue remains independently tracked in `documentations/Issues/`.
 
+## Current-production mobile image-quality finding — GTD-VIS-002 (2026-10-10)
+
+The user has now **successfully tested the latest main/production build on a real mobile PWA** (release SHA `af1adcdd8efaa53cc6c666079f3ff7613fd86bc5`) and reported correct-feeling movement/physics but significantly softer Babylon 3D scene presentation compared with desktop. Four landscape screenshots substantiate the *perceptual* image-quality difference; no device pixel ratio, render-buffer size or frame-time data has yet been supplied.
+
+Read [Mobile PWA 3D Sharpness - Production Baseline](./Issues/Mobile%20PWA%203D%20Sharpness%20-%20Production%20Baseline.md) for full observation, source-level `devicePixelRatio` scaling hypothesis, unresolved alternatives, measurement protocol, acceptance gates and ownership. The issue belongs under **existing FL4-01/02/03/04/05/06**, not under the separate visual-realism art batches. The 04:00 performance/regression schedule may investigate it within that task; the 05:00 audit must carry the status and missing evidence into its report. The 01:00 architectural, 02:00 foliage and 03:00 vehicle scopes are **unchanged**.
+
+Do not conflate this issue with separately accepted **low-severity cosmetic sky banding GTD-VIS-001**. Do not declare framebuffer undersampling a confirmed cause without phone metrics. Preserve the approved desktop baseline and gameplay and avoid unmeasured resolution changes.
+
 ## 7. Definition of Done
 
 FL-4 is complete only when all six ordered packages have auditable evidence, required acceptance checks are satisfied or specifically approved as limitations, rendering sharpness and device-dependent performance are validated without compromising the FL-3 art and gameplay contract, and the user explicitly accepts both visuals and responsiveness/stability. The canonical Source of Truth must then be updated, and **only then** is the First Light milestone closed. Production/main promotion remains a distinct decision.
