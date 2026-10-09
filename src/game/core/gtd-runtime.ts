@@ -77,6 +77,7 @@ export class GTDGameRuntime implements GameRuntime {
 
   async bootstrap(host: HTMLCanvasElement): Promise<void> {
     if (this.lifecycle !== "idle") return;
+    const bootStartedAt = performance.now();
     this.lifecycle = "bootstrapping";
     this.publishSnapshot();
     this.emit({ type: "progress", progress: 8, detail: "Initializing renderer" });
@@ -177,7 +178,9 @@ export class GTDGameRuntime implements GameRuntime {
     this.lifecycle = "ready";
     this.emit({ type: "progress", progress: 100, detail: "First Light ready" });
     this.publishSnapshot();
+    const firstRenderStartedAt = performance.now();
     scene.render();
+    this.fl4Diagnostics?.recordStartup(firstRenderStartedAt - bootStartedAt, performance.now() - firstRenderStartedAt);
   }
 
   start(): void {
