@@ -12,4 +12,6 @@ export function updateBlockStreaming<T extends BlockAsset>(
   if (!(policy.activateWithin > 0 && policy.discardBeyond > policy.activateWithin)) {
     throw new Error("Invalid streaming hysteresis radii");
   }
+  const blocks = runtime.city.city.districts.flatMap((district) =>
+    district.neighborhoods.flatMap((neighborhood) => neighborhood.blocks));
 }
