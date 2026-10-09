@@ -3,15 +3,18 @@ import {
   Mesh,
   MeshBuilder,
   StandardMaterial,
-  Texture,
   VertexData,
 } from "@babylonjs/core";
 import type { Material, Scene } from "@babylonjs/core";
 import type { CitySpec, WorldPosition } from "./schema";
 import { planRoadGraph } from "./road-graph";
+import type { JunctionEdge, RoadJunctionPlan } from "./road-graph";
 import { MATERIAL_FAMILIES } from "./representation-materials";
 import { createSurfaceTexture } from "./surface-textures";
-import type { MaterialRecipe, MaterialFamilyId } from "./representation-materials";
+import type {
+  MaterialFamilyId,
+  MaterialRecipe,
+} from "./representation-materials";
 
 export interface RoadMarkingPlan {
   readonly id: string;
@@ -45,9 +48,9 @@ function urbanRecipe(
     textureScale: family.textureScale,
     variation: {
       tintBucket: 0,
-      weathering: 0.56,
-      grime: 0.48,
-      patching: 0.34,
+      weathering: 0.64,
+      grime: 0.58,
+      patching: 0.48,
       uvOffset: { u: 0.17, v: 0.39 },
     },
   };
@@ -140,8 +143,29 @@ function average(a: WorldPosition, b: WorldPosition, y = 0): WorldPosition {
   return { x: (a.x + b.x) / 2, y, z: (a.z + b.z) / 2 };
 }
 
+const oppositeEdge = (edge: JunctionEdge): JunctionEdge =>
+  edge === "negative-x"
+    ? "positive-x"
+    : edge === "positive-x"
+      ? "negative-x"
+      : edge === "negative-z"
+        ? "positive-z"
+        : "negative-z";
+
+function tStemSegment(junction: RoadJunctionPlan): string | null {
+  if (junction.kind !== "t") return null;
+  const edges = new Set(junction.roadMouths.map((mouth) => mouth.edge));
+  const stem = junction.roadMouths.find(
+    (mouth) => !edges.has(oppositeEdge(mouth.edge)),
+  );
+  return stem?.segmentId ?? null;
+}
+
 export function planRoadMarkings(city: CitySpec): readonly RoadMarkingPlan[] {
   const roadPlan = planRoadGraph(city.roads);
+  const junctionByNode = new Map(
+    roadPlan.junctions.map((junction) => [junction.nodeId, junction] as const),
+  );
   const markings: RoadMarkingPlan[] = [];
 
   for (const surface of roadPlan.surfaces) {
@@ -159,11 +183,10 @@ export function planRoadMarkings(city: CitySpec): readonly RoadMarkingPlan[] {
 
     const dashLength = 3.1;
     const gap = 4.2;
-    const period = dashLength + gap;
     for (
       let distance = 1.8;
       distance + dashLength <= length - 1.4;
-      distance += period
+      distance += dashLength + gap
     ) {
       markings.push({
         id: surface.segmentId + ":center:" + distance.toFixed(1),
@@ -179,7 +202,19 @@ export function planRoadMarkings(city: CitySpec): readonly RoadMarkingPlan[] {
       });
     }
 
-    if (surface.startCut > 0.01) {
+    const segment = city.roads.segments.find(
+      (candidate) => candidate.id === surface.segmentId,
+    );
+    if (!segment) continue;
+
+    const startJunction = junctionByNode.get(segment.startNodeId);
+    const endJunction = junctionByNode.get(segment.endNodeId);
+
+    if (
+      surface.startCut > 0.01 &&
+      startJunction &&
+      tStemSegment(startJunction) === surface.segmentId
+    ) {
       markings.push({
         id: surface.segmentId + ":start-stop",
         center: {
@@ -187,13 +222,18 @@ export function planRoadMarkings(city: CitySpec): readonly RoadMarkingPlan[] {
           y: 0.088,
           z: start.z + uz * 0.7,
         },
-        length: Math.max(2.6, city.roads.segments.find((item) => item.id === surface.segmentId)?.width ?? 5),
+        length: segment.width - 0.8,
         width: 0.16,
         yawRadians: yawRadians + Math.PI / 2,
         kind: "stop-line",
       });
     }
-    if (surface.endCut > 0.01) {
+
+    if (
+      surface.endCut > 0.01 &&
+      endJunction &&
+      tStemSegment(endJunction) === surface.segmentId
+    ) {
       markings.push({
         id: surface.segmentId + ":end-stop",
         center: {
@@ -201,7 +241,7 @@ export function planRoadMarkings(city: CitySpec): readonly RoadMarkingPlan[] {
           y: 0.088,
           z: end.z - uz * 0.7,
         },
-        length: Math.max(2.6, city.roads.segments.find((item) => item.id === surface.segmentId)?.width ?? 5),
+        length: segment.width - 0.8,
         width: 0.16,
         yawRadians: yawRadians + Math.PI / 2,
         kind: "stop-line",
@@ -210,6 +250,104 @@ export function planRoadMarkings(city: CitySpec): readonly RoadMarkingPlan[] {
   }
 
   return markings;
+}
+
+function createRoadNaturalism(
+  scene: Scene,
+  city: CitySpec,
+  materials: {
+    readonly patch: Material;
+    readonly drain: Material;
+    readonly gutter: Material;
+  },
+): Mesh[] {
+  const meshes: Mesh[] = [];
+  const nodes = new Map(
+    city.roads.nodes.map((node) => [node.id, node.position] as const),
+  );
+
+  for (const segment of city.roads.segments) {
+    const start = nodes.get(segment.startNodeId);
+    const end = nodes.get(segment.endNodeId);
+    if (!start || !end) continue;
+
+    const dx = end.x - start.x;
+    const dz = end.z - start.z;
+    const length = Math.hypot(dx, dz);
+    if (length < 16) continue;
+    const ux = dx / length;
+    const uz = dz / length;
+    const nx = -uz;
+    const nz = ux;
+    const yaw = Math.atan2(dx, dz);
+
+    const gutterOffset = segment.width / 2 - 0.18;
+    for (const side of [-1, 1] as const) {
+      const gutter = createStrip(
+        scene,
+        "generated-gutter:" + segment.id + ":" + side,
+        {
+          x: start.x + nx * gutterOffset * side,
+          y: 0,
+          z: start.z + nz * gutterOffset * side,
+        },
+        {
+          x: end.x + nx * gutterOffset * side,
+          y: 0,
+          z: end.z + nz * gutterOffset * side,
+        },
+        0.24,
+        0.012,
+        0.058,
+        materials.gutter,
+      );
+      meshes.push(gutter);
+    }
+
+    for (
+      let distance = Math.min(9, length * 0.18);
+      distance < length - Math.min(9, length * 0.18);
+      distance += 22
+    ) {
+      const side = Math.floor(distance / 22) % 2 === 0 ? 1 : -1;
+      const drain = MeshBuilder.CreateBox(
+        "generated-drain:" + segment.id + ":" + distance.toFixed(1),
+        { width: 0.95, height: 0.018, depth: 0.18 },
+        scene,
+      );
+      drain.position.set(
+        start.x + ux * distance + nx * (segment.width / 2 - 0.1) * side,
+        0.087,
+        start.z + uz * distance + nz * (segment.width / 2 - 0.1) * side,
+      );
+      drain.rotation.y = yaw;
+      drain.material = materials.drain;
+      drain.isPickable = false;
+      meshes.push(drain);
+    }
+
+    const patchDistance = length * 0.36;
+    const patch = MeshBuilder.CreateBox(
+      "generated-asphalt-repair:" + segment.id,
+      {
+        width: Math.min(2.2, Math.max(1.2, segment.width * 0.22)),
+        height: 0.012,
+        depth: Math.min(5.5, Math.max(3.2, length * 0.09)),
+      },
+      scene,
+    );
+    patch.position.set(
+      start.x + ux * patchDistance + nx * segment.width * 0.12,
+      0.072,
+      start.z + uz * patchDistance + nz * segment.width * 0.12,
+    );
+    patch.rotation.y = yaw;
+    patch.material = materials.patch;
+    patch.isPickable = false;
+    meshes.push(patch);
+  }
+
+  return meshes;
 }
 
 export function createGeneratedUrbanSurfaces(
@@ -229,11 +367,26 @@ export function createGeneratedUrbanSurfaces(
   const curb = new StandardMaterial("generated-curb", scene);
   curb.diffuseColor = new Color3(0.47, 0.45, 0.41);
   curb.specularColor = Color3.Black();
+
   const marking = new StandardMaterial("generated-road-marking", scene);
   marking.diffuseColor = new Color3(0.84, 0.8, 0.65);
   marking.emissiveColor = new Color3(0.04, 0.035, 0.02);
   marking.specularColor = Color3.Black();
-  materials.push(asphalt, sidewalk, curb, marking);
+
+  const drain = new StandardMaterial("generated-road-drain", scene);
+  drain.diffuseColor = new Color3(0.12, 0.13, 0.13);
+  drain.specularColor = Color3.Black();
+
+  const gutter = new StandardMaterial("generated-road-gutter-wear", scene);
+  gutter.diffuseColor = new Color3(0.14, 0.145, 0.14);
+  gutter.alpha = 0.7;
+  gutter.specularColor = Color3.Black();
+
+  const patch = new StandardMaterial("generated-road-repair", scene);
+  patch.diffuseColor = new Color3(0.145, 0.15, 0.145);
+  patch.specularColor = Color3.Black();
+
+  materials.push(asphalt, sidewalk, curb, marking, drain, gutter, patch);
 
   for (const surface of roadPlan.surfaces) {
     meshes.push(
@@ -259,6 +412,7 @@ export function createGeneratedUrbanSurfaces(
         sidewalk,
       ),
     );
+
     meshes.push(
       createStrip(
         scene,
@@ -294,72 +448,41 @@ export function createGeneratedUrbanSurfaces(
       ),
     );
 
-    const connected = city.roads.segments.filter((segment) =>
-      junction.connectedSegmentIds.includes(segment.id),
-    );
-    const sidewalkWidth =
-      connected.reduce((total, segment) => total + segment.sidewalkWidth, 0) /
-      Math.max(1, connected.length);
+    junction.sidewalkCorners.forEach((corner, index) => {
+      meshes.push(
+        createConvexSurface(
+          scene,
+          "generated-junction-walk:" + junction.nodeId + ":" + index,
+          corner,
+          0.095,
+          sidewalk,
+        ),
+      );
+    });
 
-    for (let arcIndex = 0; arcIndex < junction.curbArcs.length; arcIndex += 1) {
-      const arc = junction.curbArcs[arcIndex]!;
-      for (let index = 0; index < arc.length - 1; index += 1) {
-        const start = arc[index]!;
-        const end = arc[index + 1]!;
-        meshes.push(
-          createStrip(
-            scene,
-            "generated-junction-curb:" +
-              junction.nodeId +
-              ":" +
-              arcIndex +
-              ":" +
-              index,
-            start,
-            end,
-            0.2,
-            0.17,
-            0.055,
-            curb,
-          ),
-        );
-
-        const mid = average(start, end, 0.095);
-        const node = city.roads.nodes.find((item) => item.id === junction.nodeId);
-        if (!node) continue;
-        const radialX = mid.x - node.position.x;
-        const radialZ = mid.z - node.position.z;
-        const radialLength = Math.hypot(radialX, radialZ) || 1;
-        const offsetX = (radialX / radialLength) * (sidewalkWidth / 2);
-        const offsetZ = (radialZ / radialLength) * (sidewalkWidth / 2);
-        meshes.push(
-          createStrip(
-            scene,
-            "generated-junction-walk:" +
-              junction.nodeId +
-              ":" +
-              arcIndex +
-              ":" +
-              index,
-            {
-              x: start.x + offsetX,
-              y: 0,
-              z: start.z + offsetZ,
-            },
-            {
-              x: end.x + offsetX,
-              y: 0,
-              z: end.z + offsetZ,
-            },
-            sidewalkWidth,
-            0.08,
-            0.055,
-            sidewalk,
-          ),
-        );
-      }
-    }
+    junction.curbSegments.forEach(([start, end], index) => {
+      meshes.push(
+        createStrip(
+          scene,
+          "generated-junction-curb:" + junction.nodeId + ":" + index,
+          start,
+          end,
+          0.2,
+          0.17,
+          0.055,
+          curb,
+        ),
+      );
+    });
   }
+
+  meshes.push(
+    ...createRoadNaturalism(scene, city, {
+      patch,
+      drain,
+      gutter,
+    }),
+  );
 
   const markingPlan = planRoadMarkings(city);
   for (const item of markingPlan) {
