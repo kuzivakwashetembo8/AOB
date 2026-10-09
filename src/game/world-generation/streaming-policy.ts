@@ -17,5 +17,6 @@ export function updateBlockStreaming<T extends BlockAsset>(
   for (const block of blocks) {
     const distance = blockDistanceTo(runtime.city, block.id, position);
     if (distance <= policy.activateWithin) runtime.acquire(block.id);
+    if (distance >= policy.discardBeyond) runtime.discard(block.id);
   }
 }
