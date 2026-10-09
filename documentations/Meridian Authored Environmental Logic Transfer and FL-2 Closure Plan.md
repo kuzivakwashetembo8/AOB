@@ -1,9 +1,42 @@
 # Meridian Authored Environmental Logic Transfer and FL-2 Closure Plan
 
-Status: APPROVED TECHNICAL PLAN — IMPLEMENTATION PENDING GREENLIGHT  
+Status: IMPLEMENTED THROUGH ENVIRONMENTAL COMPARISON GATE — AWAITING LIVE VISUAL ACCEPTANCE  
 Date: 2026-10-09  
 Project: GTD — Grand Theft Division  
 Repository: `interlinkglobal/GTD`
+
+## Implementation status — 2026-10-09
+
+The approved authored-environmental-logic transfer has now been implemented on `development/meridian-first-light-fidelity` through the live comparison gate.
+
+Implemented:
+- Generated building architecture frozen as the accepted stronger architectural reference.
+- Circular/radial ordinary junction planning replaced by orthogonal authored-style junction ownership.
+- Asphalt now owns a rectilinear junction box; road mouths remain open.
+- Curbs are split around connected road mouths instead of forming radial fans.
+- Sidewalks use rectilinear corner patches instead of spoke/fan geometry.
+- T-junction stop lines are limited to the terminating stem road.
+- Garage frontage produces a deterministic curb cut and shallow driveway transition.
+- Road naturalism now includes restrained gutter wear, drainage grates, and asphalt repair patches.
+- Generated trees now use the authored lower/upper segmented trunk, root flares, ten broad foliage clusters, and deterministic asymmetry.
+- No branch cylinders were reintroduced.
+- Pocket-green trees receive broader deterministic canopies.
+- Pocket green uses an irregular perimeter, textured grass variation, and deterministic low shrub context.
+- Street-context spacing/clearance was refined while remaining data-driven and deterministic.
+- Regression tests now cover First Light T-junctions, a synthetic four-way intersection, T-stem marking behavior, garage curb cuts, vegetation determinism, broader canopy policy, shrubs, NullEngine rendering, disposal, and existing Rapier lifecycle behavior.
+
+Verification candidate:
+- branch: `development/meridian-first-light-fidelity`
+- implementation commit: `99e2533421740183dae282ec7450301bdd69f700`
+- verification deployment: `dpl_CSfcpJvM1GhXY5nJBcAqmobUz3tE`
+- preview: `https://gtd-o0hijyby3-interlinkglobaltech.vercel.app/first-light-comparison`
+- strict TypeScript: passed
+- Vitest: 8 files / 54 tests passed
+- 50-cycle Rapier collider/body reclamation: passed
+- production build: passed
+- deployment: READY
+
+No promotion to `main` is authorized until the live interface is visually reviewed and accepted.
 
 ## Purpose
 
