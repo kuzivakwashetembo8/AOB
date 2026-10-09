@@ -41,3 +41,7 @@ Near/medium use the structural shell, while far/skyline switch to mass proxies. 
 Surface variation includes deterministic tint buckets and future hooks for grime, patching, weathering and UV offsets. Without authored textures/atlases these hooks do not yet produce visible dirt or unique facade imagery. Decal hooks are metadata only, not projected decal meshes. The StandardMaterial library approximates roughness/metal response rather than implementing a complete PBR pipeline.
 
 All dimensions are in metres, with local geometry under the building ground-centre/yaw transform. Physical cutouts remain fixed across visual LOD changes. The generator does not create Rapier colliders, camera blockers, interior portals or navigation, and it is not connected to the live First Light renderer. No automatic deployment.
+
+## Step 5 handoff
+
+See `documentations/Meridian City Generation Step 5 Implementation and Handoff.md`. Road geometry, neighborhood composition, semantic city queries, block resource ownership, proximity policy and Rapier reclamation are opt-in foundations. First Light remains unchanged. Build, tests and visual parity are not yet verified.
