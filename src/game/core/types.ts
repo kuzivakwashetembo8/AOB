@@ -1,5 +1,7 @@
 export type HudContext = "walking" | "driving" | "combat";
 export type InputMode = "keyboard" | "touch" | "controller";
+export type InteriorVisibilityState = "outside" | "threshold" | "inside";
+
 export type GameSnapshot = Readonly<{
   lifecycle: "idle" | "bootstrapping" | "ready" | "running" | "paused" | "destroyed";
   context: HudContext;
@@ -10,17 +12,33 @@ export type GameSnapshot = Readonly<{
   heat: number;
   speed: number;
   vehicle: string | null;
+  meridianTime: string;
+  meridianMinuteOfDay: number;
+  meridianTimeScale: number;
+  interiorState: InteriorVisibilityState;
 }>;
-export type GameAction = "interact" | "jump" | "combat" | "sprint" | "vehicle" | "context";
+
+export type GameAction =
+  | "interact"
+  | "jump"
+  | "combat"
+  | "sprint"
+  | "vehicle"
+  | "context";
+
 export type GameCommand =
   | { type: "move" | "look"; x: number; y: number }
   | { type: "action"; action: GameAction; pressed: boolean }
   | { type: "set-context"; context: HudContext }
-  | { type: "input-mode"; mode: InputMode };
+  | { type: "input-mode"; mode: InputMode }
+  | { type: "set-meridian-time"; minuteOfDay: number }
+  | { type: "set-meridian-time-scale"; scale: number };
+
 export type GameEvent =
   | { type: "progress"; progress: number; detail: string }
   | { type: "interaction"; label: string | null }
   | { type: "error"; message: string };
+
 export interface GameRuntime {
   bootstrap(host: HTMLCanvasElement): Promise<void>;
   start(): void;
