@@ -17,6 +17,7 @@ import type {
   InputMode,
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
+import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
   ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
   createFirstLightRuntimeWorld,
@@ -36,6 +37,7 @@ type Lifecycle = GameSnapshot["lifecycle"];
 export class GTDGameRuntime implements GameRuntime {
   private host: HTMLCanvasElement | null = null;
   private engine: Engine | null = null;
+  private fl4Diagnostics: FL4Diagnostics | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
@@ -67,10 +69,15 @@ export class GTDGameRuntime implements GameRuntime {
     heat: 0,
     speed: 0,
     vehicle: null,
+    meridianTime: "14:30",
+    meridianMinuteOfDay: 14 * 60 + 30,
+    meridianTimeScale: 2,
+    interiorState: "outside",
   };
 
   async bootstrap(host: HTMLCanvasElement): Promise<void> {
     if (this.lifecycle !== "idle") return;
+    const bootStartedAt = performance.now();
     this.lifecycle = "bootstrapping";
     this.publishSnapshot();
     this.emit({ type: "progress", progress: 8, detail: "Initializing renderer" });
@@ -81,7 +88,20 @@ export class GTDGameRuntime implements GameRuntime {
       { preserveDrawingBuffer: false, stencil: true },
       true,
     );
-    engine.setHardwareScalingLevel(Math.max(1, window.devicePixelRatio / 1.5));
+    const baselineScaling = Math.max(1, window.devicePixelRatio / 1.5);
+    // Controlled FL-4 A/B experiment only. The ordinary game retains its
+    // accepted baseline scale; trial values must be explicitly requested.
+    const diagnosticParams = new URLSearchParams(window.location.search);
+    const requestedScale = diagnosticParams.get("fl4Scale");
+    const trialScale =
+      diagnosticParams.get("fl4Diagnostics") === "1" && requestedScale !== null
+        ? Number(requestedScale)
+        : Number.NaN;
+    const hardwareScale =
+      Number.isFinite(trialScale) && trialScale >= 0.75 && trialScale <= 2
+        ? trialScale
+        : baselineScaling;
+    engine.setHardwareScalingLevel(hardwareScale);
     const scene = new Scene(engine);
     scene.clearColor = new Color4(0.055, 0.075, 0.09, 1);
     scene.fogMode = Scene.FOGMODE_EXP2;
@@ -100,6 +120,20 @@ export class GTDGameRuntime implements GameRuntime {
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
     );
+    // FL-4 isolation probes are strictly opt-in, never regular gameplay.
+    // noSky tests the sky layer; noShadows tests shadow-pass overhead.
+    if (diagnosticParams.get("fl4Diagnostics") === "1") {
+      const probe = diagnosticParams.get("fl4Probe");
+      if (probe === "noSky") {
+        for (const mesh of scene.meshes) {
+          if (mesh.name === "meridian-sky-dome" || mesh.name === "meridian-star-dome") {
+            mesh.setEnabled(false);
+          }
+        }
+      } else if (probe === "noShadows") {
+        scene.shadowsEnabled = false;
+      }
+    }
     physics.setPlayerPosition({
       x: firstLight.spawn.x,
       y: firstLight.spawn.y,
@@ -129,6 +163,13 @@ export class GTDGameRuntime implements GameRuntime {
 
     this.engine = engine;
     this.scene = scene;
+    // FL-4 is opt-in: production players incur no instrumentation cost.
+    if (new URLSearchParams(window.location.search).get("fl4Diagnostics") === "1") {
+      const diagnostics = new FL4Diagnostics(engine, scene, host);
+      this.fl4Diagnostics = diagnostics;
+      (window as Window & { __GTD_FL4_REPORT__?: () => ReturnType<FL4Diagnostics["report"]> })
+        .__GTD_FL4_REPORT__ = () => diagnostics.report();
+    }
     this.physics = physics;
     this.camera = camera;
     this.voight = voight;
@@ -137,7 +178,9 @@ export class GTDGameRuntime implements GameRuntime {
     this.lifecycle = "ready";
     this.emit({ type: "progress", progress: 100, detail: "First Light ready" });
     this.publishSnapshot();
+    const firstRenderStartedAt = performance.now();
     scene.render();
+    this.fl4Diagnostics?.recordStartup(firstRenderStartedAt - bootStartedAt, performance.now() - firstRenderStartedAt);
   }
 
   start(): void {
@@ -170,6 +213,9 @@ export class GTDGameRuntime implements GameRuntime {
     this.frameHandle = null;
     window.removeEventListener("resize", this.resize);
     this.world?.dispose();
+    this.fl4Diagnostics?.dispose();
+    this.fl4Diagnostics = null;
+    delete (window as Window & { __GTD_FL4_REPORT__?: unknown }).__GTD_FL4_REPORT__;
     this.scene?.dispose();
     this.engine?.dispose();
     this.physics?.destroy();
@@ -209,6 +255,18 @@ export class GTDGameRuntime implements GameRuntime {
     }
     if (command.type === "input-mode") {
       this.inputMode = command.mode;
+      return;
+    }
+    if (command.type === "set-meridian-time") {
+      this.world?.setTimeMinutes(command.minuteOfDay);
+      this.publishSnapshot();
+      this.scene?.render();
+      return;
+    }
+    if (command.type === "set-meridian-time-scale") {
+      this.world?.setTimeScale(command.scale);
+      this.publishSnapshot();
+      return;
     }
   }
 
@@ -236,7 +294,9 @@ export class GTDGameRuntime implements GameRuntime {
         this.fixedUpdate(FIXED_STEP);
         this.accumulator -= FIXED_STEP;
       }
+      const renderStart = performance.now();
       this.scene?.render();
+      this.fl4Diagnostics?.recordFrame(time, performance.now() - renderStart);
       this.schedule();
     });
   }
@@ -279,6 +339,11 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.grounded && this.verticalVelocity < 0) this.verticalVelocity = 0;
 
     const position = physics.playerPosition();
+    this.world?.update(dt, position);
+    const interiorState = this.world?.interiorState ?? "outside";
+    this.preferredCameraRadius =
+      interiorState === "inside" ? 3.35 : interiorState === "threshold" ? 4.5 : 6.2;
+
     voight.root.position.set(position.x, position.y, position.z);
     if (desired.lengthSquared() > 0.001) {
       voight.root.rotation.y = Math.atan2(desired.x, desired.z);
@@ -351,6 +416,14 @@ export class GTDGameRuntime implements GameRuntime {
       heat: 0,
       speed: Math.round(speed * 3.6),
       vehicle: null,
+      meridianTime:
+        this.world?.environmentSnapshot.formattedTime ?? this.snapshot.meridianTime,
+      meridianMinuteOfDay:
+        this.world?.environmentSnapshot.minuteOfDay ??
+        this.snapshot.meridianMinuteOfDay,
+      meridianTimeScale:
+        this.world?.environmentSnapshot.timeScale ?? this.snapshot.meridianTimeScale,
+      interiorState: this.world?.interiorState ?? "outside",
     };
     this.snapshotListeners.forEach((listener) => listener(this.snapshot));
   }

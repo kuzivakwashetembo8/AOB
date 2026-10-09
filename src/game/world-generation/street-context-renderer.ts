@@ -368,40 +368,24 @@ function addTree(
   root.rotation.y = item.yawRadians;
   root.scaling.setAll(item.scale);
 
-  const lowerTrunk = MeshBuilder.CreateCylinder(
-    "generated-tree-trunk-lower:" + item.id,
+  // One continuous tapered trunk avoids the broken-stick joint produced by
+  // independently rotated upper and lower cylinders. Root flares retain
+  // understated silhouette irregularity without compromising the main shaft.
+  const trunk = MeshBuilder.CreateCylinder(
+    "generated-tree-trunk:" + item.id,
     {
-      height: 2.9,
-      diameterTop: 0.5,
-      diameterBottom: 0.78,
+      height: 5.05,
+      diameterTop: 0.66,
+      diameterBottom: 0.7,
       tessellation: 10,
     },
     scene,
   );
-  lowerTrunk.position.set(0, 1.45, 0);
-  lowerTrunk.rotation.z = -0.025;
-  lowerTrunk.parent = root;
-  lowerTrunk.material = trunkMaterial;
-  lowerTrunk.receiveShadows = true;
-  meshes.push(lowerTrunk);
-
-  const upperTrunk = MeshBuilder.CreateCylinder(
-    "generated-tree-trunk-upper:" + item.id,
-    {
-      height: 2.15,
-      diameterTop: 0.34,
-      diameterBottom: 0.52,
-      tessellation: 10,
-    },
-    scene,
-  );
-  upperTrunk.position.set(0.08, 3.86, 0.02);
-  upperTrunk.rotation.z = 0.075;
-  upperTrunk.rotation.x = -0.025;
-  upperTrunk.parent = root;
-  upperTrunk.material = trunkMaterial;
-  upperTrunk.receiveShadows = true;
-  meshes.push(upperTrunk);
+  trunk.position.set(0, 2.525, 0);
+  trunk.parent = root;
+  trunk.material = trunkMaterial;
+  trunk.receiveShadows = true;
+  meshes.push(trunk);
 
   const flareData = [
     { x: -0.28, z: 0, rz: -0.38 },

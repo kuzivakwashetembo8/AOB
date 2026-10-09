@@ -1,9 +1,58 @@
 # Meridian First Light FL-3 Interaction and Atmosphere Technical Plan
 
-Status: APPROVED TECHNICAL PLAN — IMPLEMENTATION PENDING GREENLIGHT  
+Status: IMPLEMENTED — VERIFIED VISUAL REVIEW CANDIDATE; USER ACCEPTANCE PENDING
 Date: 2026-10-09  
 Project: GTD — Grand Theft Division  
 Repository: `interlinkglobal/GTD`
+
+## Implementation checkpoint — 2026-10-09
+
+Implemented on `development/meridian-fl3-interaction-atmosphere`.
+
+Verified implementation head:
+
+`ec81e6d0a6a8cc06455cc84f3ae0a2136b8efc63`
+
+Implemented:
+
+- authoritative `MeridianClock` with a 48-real-minute canonical day;
+- 24-real-minute FL-3 accelerated validation cycle by default;
+- direct developer time editing in the game HUD;
+- Dawn / Noon / Dusk / Night presets;
+- Paused / 48m / 24m / 6m cycle-speed controls;
+- one runtime-owned `MeridianEnvironmentController`;
+- time-driven sun direction, color, and intensity;
+- time-driven ambient fill;
+- basic sky dome;
+- horizon/fog atmospheric response;
+- streetlight illumination activated by night state;
+- two local garage interior lights;
+- retained single shadowed directional sun;
+- generated South Ward garage interior representation;
+- workshop bench, drawers, cupboard, shelving, lockers, fridge, desk, monitor, chair, tire stacks, wall tool board, and ceiling light fixtures;
+- Rapier fixture collision for major interior objects;
+- deterministic outside / threshold / inside classification from semantic garage bounds and portal data;
+- interior camera-radius adaptation;
+- selective roof visibility treatment while preserving semantic camera blockers;
+- direct world/environment metadata surfaced through runtime snapshots;
+- lifecycle disposal for environment, lights, sky, interior geometry, and interior collision.
+
+Verification deployment:
+
+- deployment: `dpl_6oDCRuWRDtssn6e1tbjeDjReCrCX`
+- preview: `https://gtd-3iyzrye2b-interlinkglobaltech.vercel.app/game`
+- source: `ec81e6d0a6a8cc06455cc84f3ae0a2136b8efc63`
+- state: READY
+- strict TypeScript: passed
+- Vitest: **10 files / 63 tests passed**
+- targeted substantive ESLint: passed
+- production Vite/Nitro build: passed
+- `/game`: HTTP 200
+- `/first-light-comparison`: HTTP 200
+- grouped runtime errors in verification window: none
+- Vercel automatic-deployment guard restored to `exit 0`
+
+The candidate is intentionally not promoted to `main` yet. FL-3 requires live review of the exterior/interior journey, time controls, atmosphere, night lighting, camera behavior, and visual credibility before acceptance and promotion.
 
 ## Purpose
 
@@ -26,7 +75,7 @@ The governing player experience is:
 
 > **Voight approaches the South Ward garage, enters it through a physically valid opening, remains visually and mechanically stable inside, and exits back to the street without the illusion collapsing.**
 
-This plan does not authorize implementation. Implementation begins only after explicit greenlight.
+Implementation was explicitly authorized on 2026-10-09. The first comprehensive FL-3 candidate is implemented and verified on the development branch; user visual/gameplay acceptance remains pending.
 
 ---
 

@@ -28,15 +28,89 @@ describe("Generated First Light live-runtime world", () => {
         [world.spawn.x, world.spawn.y, world.spawn.z].every(Number.isFinite),
       ).toBe(true);
       expect(world.location).toBe("South Ward // First Light");
-      expect(world.objective).toContain("generated South Ward");
+      expect(world.objective).toContain("South Ward garage");
       expect(world.buildings).toHaveLength(10);
       expect(world.shadowGenerator).toBeNull();
+      expect(world.garageInterior).not.toBeNull();
+      expect(world.garageInterior?.meshes.length ?? 0).toBeGreaterThan(20);
+      expect(
+        world.garageInterior?.meshes.some((mesh) => mesh.name === "garage-fridge"),
+      ).toBe(true);
+      expect(
+        world.garageInterior?.meshes.some((mesh) => mesh.name === "garage-drawer-chest"),
+      ).toBe(true);
+      expect(
+        world.garageInterior?.meshes.some(
+          (mesh) => mesh.name === "garage-interior-ceiling",
+        ),
+      ).toBe(true);
+      const heroGarage = world.buildings.find(
+        (building) => building.buildingId === "sw-fl-garage",
+      );
+      expect(heroGarage?.portals).toHaveLength(1);
+      expect(heroGarage?.portals[0]?.width ?? 0).toBeGreaterThan(0.9);
+      expect(heroGarage?.portals[0]?.height ?? 0).toBeGreaterThan(1.8);
+
+      const rearWindowTop = Math.max(
+        0,
+        ...(heroGarage?.plan.openings ?? [])
+          .filter(
+            (opening) =>
+              opening.facade === "rear" && opening.kind === "window",
+          )
+          .map((opening) => opening.sillHeight + opening.height),
+      );
+      const toolBoard = world.garageInterior?.meshes.find(
+        (mesh) => mesh.name === "garage-wall-tool-board",
+      );
+      const shelf = world.garageInterior?.meshes.find(
+        (mesh) => mesh.name === "garage-shelf-0",
+      );
+      expect(toolBoard).toBeDefined();
+      expect(
+        (toolBoard?.position.y ?? 0) -
+          (toolBoard?.getBoundingInfo().boundingBox.extendSize.y ?? 0),
+      ).toBeGreaterThan(rearWindowTop);
+      expect(shelf?.position.x ?? 0).toBeGreaterThan(5);
+      expect(shelf?.rotation.y ?? 0).toBeCloseTo(Math.PI / 2);
+
+      expect(world.environmentSnapshot.formattedTime).toBe("14:30");
+      expect(world.environmentSnapshot.timeScale).toBe(2);
       expect(
         world.buildings.some((building) => building.cameraBlockers.length > 0),
       ).toBe(true);
       const ground = scene.getMeshByName("generated-first-light-ground");
       expect(ground?.metadata?.cameraBlocker).toBe(true);
       expect(ground?.metadata?.cameraGround).toBe(true);
+      world.dispose();
+    } finally {
+      physics.destroy();
+      scene.dispose();
+      engine.dispose();
+    }
+  });
+
+  it("classifies the hero garage interior and supports direct time controls", async () => {
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    const physics = await MeridianPhysics.create();
+    try {
+      const world = createGeneratedFirstLightWorld(scene, physics, {
+        enableCameraBlockers: true,
+        enableShadows: false,
+      });
+      world.update(0, { x: -7.5, y: 0.92, z: -5.15 });
+      expect(world.interiorState).toBe("inside");
+
+      world.update(0, { x: -7.5, y: 0.92, z: -0.2 });
+      expect(["inside", "threshold"]).toContain(world.interiorState);
+
+      world.update(0, { x: -7.5, y: 0.92, z: 3.2 });
+      expect(world.interiorState).toBe("outside");
+
+      expect(world.setTimeMinutes(0).formattedTime).toBe("00:00");
+      expect(world.environment.streetlights.every((light) => light.intensity > 1)).toBe(true);
+      expect(world.setTimeScale(8).timeScale).toBe(8);
       world.dispose();
     } finally {
       physics.destroy();
