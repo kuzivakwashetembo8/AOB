@@ -150,6 +150,19 @@ Results:
 - Vercel deployment reached READY
 - intentional deployment guard restored to `exit 0`
 
+## Targeted lint verification
+
+A targeted substantive ESLint run was executed against the world-generation modules and `urban-generation.test.ts` with the repository's historical Prettier rule disabled for this gate.
+
+- deployment: `dpl_GHPvY7U6BfY6SQedzWiDHAUngM26`
+- source commit: `99e2533421740183dae282ec7450301bdd69f700`
+- ESLint findings: none reported
+- terminal Vercel state: expected `STATIC_BUILD_NO_OUT_DIR`
+
+The Vercel terminal error is not a lint failure: the lint-only build command completed without emitting ESLint diagnostics, then Vercel rejected the deployment because a lint command intentionally produces no `dist` output.
+
+Repository-wide historical formatting debt remains separate from this candidate.
+
 ## Review focus
 
 The next action is live review of the comparison interface.
