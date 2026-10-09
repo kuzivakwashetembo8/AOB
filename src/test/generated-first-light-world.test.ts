@@ -33,6 +33,18 @@ describe("Generated First Light live-runtime world", () => {
       expect(world.shadowGenerator).toBeNull();
       expect(world.garageInterior).not.toBeNull();
       expect(world.garageInterior?.meshes.length ?? 0).toBeGreaterThan(20);
+      expect(
+        world.garageInterior?.meshes.some((mesh) => mesh.name === "garage-fridge"),
+      ).toBe(true);
+      expect(
+        world.garageInterior?.meshes.some((mesh) => mesh.name === "garage-drawer-chest"),
+      ).toBe(true);
+      const heroGarage = world.buildings.find(
+        (building) => building.buildingId === "sw-fl-garage",
+      );
+      expect(heroGarage?.portals).toHaveLength(1);
+      expect(heroGarage?.portals[0]?.width ?? 0).toBeGreaterThan(0.9);
+      expect(heroGarage?.portals[0]?.height ?? 0).toBeGreaterThan(1.8);
       expect(world.environmentSnapshot.formattedTime).toBe("14:30");
       expect(world.environmentSnapshot.timeScale).toBe(2);
       expect(
