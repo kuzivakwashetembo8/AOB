@@ -2,11 +2,14 @@ import {
   Color3,
   DirectionalLight,
   HemisphericLight,
+  Material,
   MeshBuilder,
   PointLight,
+  RawTexture,
   Scene,
   ShadowGenerator,
   StandardMaterial,
+  Texture,
   Vector3,
 } from "@babylonjs/core";
 import type { AbstractMesh, Mesh } from "@babylonjs/core";
@@ -27,7 +30,11 @@ export interface MeridianEnvironmentSnapshot {
   readonly formattedTime: string;
   readonly timeScale: number;
   readonly daylight: number;
+  readonly twilight: number;
   readonly night: number;
+  readonly starVisibility: number;
+  readonly streetlightIntensity: number;
+  readonly horizonGlow: number;
 }
 
 export class MeridianClock {
@@ -139,14 +146,72 @@ function headless(scene: Scene): boolean {
 
 function daylightForMinutes(minutes: number): number {
   const hour = wrapMinutes(minutes) / 60;
-  const sunrise = smoothstep(5.45, 7.15, hour);
-  const sunset = 1 - smoothstep(17.15, 19.15, hour);
+  const sunrise = smoothstep(5.35, 7.25, hour);
+  const sunset = 1 - smoothstep(17.0, 19.35, hour);
   return clamp01(sunrise * sunset);
+}
+
+function twilightForDaylight(daylight: number): number {
+  return clamp01(1 - Math.abs(daylight - 0.5) * 2);
+}
+
+function createStarTexture(scene: Scene): RawTexture {
+  const width = 512;
+  const height = 256;
+  const pixels = new Uint8Array(width * height * 4);
+  let seed = 0x47544431;
+  const random = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+
+  const write = (x: number, y: number, value: number, alpha: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const index = (y * width + x) * 4;
+    pixels[index] = value;
+    pixels[index + 1] = Math.min(255, value + 4);
+    pixels[index + 2] = Math.min(255, value + 14);
+    pixels[index + 3] = Math.max(pixels[index + 3]!, alpha);
+  };
+
+  for (let index = 0; index < 680; index += 1) {
+    const x = Math.floor(random() * width);
+    // Keep the densest stars away from the lowest horizon band.
+    const y = Math.floor(random() * height * 0.84);
+    const bright = random() > 0.91;
+    const value = Math.round(bright ? 220 + random() * 35 : 125 + random() * 95);
+    const alpha = Math.round(bright ? 210 + random() * 45 : 115 + random() * 110);
+    write(x, y, value, alpha);
+    if (bright) {
+      write(x - 1, y, Math.round(value * 0.55), Math.round(alpha * 0.42));
+      write(x + 1, y, Math.round(value * 0.55), Math.round(alpha * 0.42));
+      write(x, y - 1, Math.round(value * 0.55), Math.round(alpha * 0.42));
+      write(x, y + 1, Math.round(value * 0.55), Math.round(alpha * 0.42));
+    }
+  }
+
+  const texture = RawTexture.CreateRGBATexture(
+    pixels,
+    width,
+    height,
+    scene,
+    true,
+    false,
+    Texture.BILINEAR_SAMPLINGMODE,
+  );
+  texture.name = "meridian-procedural-star-field";
+  texture.hasAlpha = true;
+  texture.wrapU = Texture.WRAP_ADDRESSMODE;
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+  return texture;
 }
 
 function createSky(scene: Scene): {
   mesh: Mesh;
   material: StandardMaterial;
+  starMesh: Mesh;
+  starMaterial: StandardMaterial;
+  starTexture: RawTexture;
 } {
   const material = new StandardMaterial("meridian-sky-material", scene);
   material.backFaceCulling = false;
@@ -156,13 +221,37 @@ function createSky(scene: Scene): {
 
   const mesh = MeshBuilder.CreateSphere(
     "meridian-sky-dome",
-    { diameter: 280, segments: 16 },
+    { diameter: 280, segments: 20 },
     scene,
   );
   mesh.infiniteDistance = true;
   mesh.isPickable = false;
   mesh.material = material;
-  return { mesh, material };
+
+  const starTexture = createStarTexture(scene);
+  const starMaterial = new StandardMaterial("meridian-star-material", scene);
+  starMaterial.backFaceCulling = false;
+  starMaterial.disableLighting = true;
+  starMaterial.diffuseColor = Color3.White();
+  starMaterial.emissiveColor = Color3.White();
+  starMaterial.specularColor = Color3.Black();
+  starMaterial.diffuseTexture = starTexture;
+  starMaterial.emissiveTexture = starTexture;
+  starMaterial.opacityTexture = starTexture;
+  starMaterial.useAlphaFromDiffuseTexture = true;
+  starMaterial.transparencyMode = Material.MATERIAL_ALPHABLEND;
+
+  const starMesh = MeshBuilder.CreateSphere(
+    "meridian-star-dome",
+    { diameter: 276, segments: 20 },
+    scene,
+  );
+  starMesh.infiniteDistance = true;
+  starMesh.isPickable = false;
+  starMesh.material = starMaterial;
+  starMesh.visibility = 0;
+
+  return { mesh, material, starMesh, starMaterial, starTexture };
 }
 
 export function createMeridianEnvironment(
@@ -212,15 +301,27 @@ export function createMeridianEnvironment(
     .map((item) => {
       const light = new PointLight(
         "meridian-streetlight:" + item.id,
-        new Vector3(item.position.x, item.position.y + 5.55 * item.scale, item.position.z),
+        new Vector3(
+          item.position.x,
+          item.position.y + 5.05 * item.scale,
+          item.position.z,
+        ),
         scene,
       );
-      light.diffuse = new Color3(1, 0.78, 0.48);
-      light.specular = new Color3(0.6, 0.42, 0.24);
-      light.range = 10.5 * item.scale;
+      light.diffuse = new Color3(1, 0.8, 0.52);
+      light.specular = new Color3(0.68, 0.48, 0.28);
+      light.range = 17.5 * item.scale;
       light.intensity = 0;
       return light;
     });
+
+  const streetlightGlowMaterial = scene.getMaterialByName(
+    "generated-streetlight-glow",
+  );
+  const streetlightGlow =
+    streetlightGlowMaterial instanceof StandardMaterial
+      ? streetlightGlowMaterial
+      : null;
 
   const interiorLights = [
     new PointLight(
@@ -237,7 +338,7 @@ export function createMeridianEnvironment(
   for (const light of interiorLights) {
     light.diffuse = new Color3(1, 0.88, 0.68);
     light.specular = new Color3(0.42, 0.32, 0.2);
-    light.range = 7.2;
+    light.range = 8.2;
     light.intensity = 0.55;
   }
 
@@ -245,12 +346,18 @@ export function createMeridianEnvironment(
     const minutes = clock.minuteOfDay;
     const hour = minutes / 60;
     const daylight = daylightForMinutes(minutes);
+    const twilight = twilightForDaylight(daylight);
     const night = 1 - daylight;
+    const starVisibility = smoothstep(0.58, 0.92, night);
+    const horizonGlow = clamp01(0.16 + twilight * 0.72 + night * 0.2);
 
     const solarPhase = clamp01((hour - 5.5) / 13.5);
     const elevation = Math.max(0.04, Math.sin(solarPhase * Math.PI));
     const azimuth = -Math.PI * 0.18 + solarPhase * Math.PI * 1.08;
-    const horizontal = Math.max(0.15, Math.cos(Math.asin(Math.min(0.99, elevation))));
+    const horizontal = Math.max(
+      0.15,
+      Math.cos(Math.asin(Math.min(0.99, elevation))),
+    );
     sun.direction.set(
       -Math.cos(azimuth) * horizontal,
       -Math.max(0.12, elevation),
@@ -261,31 +368,79 @@ export function createMeridianEnvironment(
       Math.max(12, -sun.direction.y * 42),
       -sun.direction.z * 42,
     );
-    sun.intensity = 0.06 + daylight * 1.02;
+    sun.intensity = 0.04 + daylight * 1.04;
 
-    const horizonWarmth = 1 - Math.abs(daylight * 2 - 1);
+    const dusk = hour >= 12 ? twilight : 0;
+    const dawn = hour < 12 ? twilight : 0;
     sun.diffuse = new Color3(
-      0.55 + daylight * 0.45,
-      0.48 + daylight * 0.37 - horizonWarmth * 0.05,
-      0.5 + daylight * 0.28 - horizonWarmth * 0.12,
+      0.52 + daylight * 0.48 + (dawn + dusk) * 0.08,
+      0.45 + daylight * 0.39 + dawn * 0.06,
+      0.48 + daylight * 0.3 - dusk * 0.13,
     );
 
-    ambient.intensity = 0.16 + daylight * 0.68;
-    ambient.diffuse = color([0.66, 0.75, 0.86], [0.11, 0.15, 0.25], daylight);
-    ambient.groundColor = color([0.17, 0.15, 0.13], [0.035, 0.04, 0.06], daylight);
+    // City night is dark, not unlit. Preserve enough cool ambient fill for
+    // silhouettes/materials while local lights provide the warm contrast.
+    ambient.intensity = 0.27 + daylight * 0.58 + twilight * 0.08;
+    ambient.diffuse = color(
+      [0.66, 0.75, 0.86],
+      [0.18, 0.24, 0.38],
+      daylight,
+    );
+    ambient.groundColor = color(
+      [0.17, 0.15, 0.13],
+      [0.07, 0.065, 0.075],
+      daylight,
+    );
 
-    const skyColor = color([0.34, 0.56, 0.78], [0.012, 0.022, 0.065], daylight);
-    const horizon = color([0.68, 0.72, 0.73], [0.055, 0.07, 0.11], daylight);
+    const skyColor = color(
+      [0.34, 0.56, 0.78],
+      [0.03, 0.065, 0.15],
+      daylight,
+    );
+    if (twilight > 0) {
+      skyColor.r += dusk * 0.07 + dawn * 0.035;
+      skyColor.g += dusk * 0.025 + dawn * 0.045;
+      skyColor.b += dawn * 0.04;
+    }
+
+    const horizon = color(
+      [0.68, 0.72, 0.73],
+      [0.14, 0.115, 0.12],
+      daylight,
+    );
+    horizon.r += twilight * 0.2;
+    horizon.g += twilight * 0.09;
+    horizon.b += dawn * 0.05;
+
     sky.material.emissiveColor = skyColor;
-    scene.clearColor.set(skyColor.r * 0.55, skyColor.g * 0.65, skyColor.b * 0.78, 1);
+    sky.starMesh.visibility = starVisibility;
+    sky.starMaterial.alpha = 0.28 + starVisibility * 0.72;
+    scene.clearColor.set(
+      Math.max(0.022, skyColor.r * 0.72),
+      Math.max(0.04, skyColor.g * 0.76),
+      Math.max(0.09, skyColor.b * 0.84),
+      1,
+    );
     scene.fogMode = Scene.FOGMODE_EXP2;
-    scene.fogDensity = 0.0025 + night * 0.0017;
+    scene.fogDensity = 0.0021 + night * 0.0012;
     scene.fogColor = horizon;
 
-    const streetlightIntensity = smoothstep(0.28, 0.72, night) * 1.45;
-    for (const light of streetlights) light.intensity = streetlightIntensity;
+    const streetlightIntensity =
+      smoothstep(0.16, 0.68, night) * (2.65 + twilight * 0.45);
+    for (const light of streetlights) {
+      light.intensity = streetlightIntensity;
+    }
+    if (streetlightGlow) {
+      const glowStrength = clamp01(streetlightIntensity / 2.65);
+      streetlightGlow.emissiveColor = new Color3(
+        0.17 + glowStrength * 1.05,
+        0.1 + glowStrength * 0.62,
+        0.035 + glowStrength * 0.18,
+      );
+    }
+
     for (const light of interiorLights) {
-      light.intensity = 0.48 + night * 0.58;
+      light.intensity = 0.5 + night * 0.82;
     }
 
     return {
@@ -293,7 +448,11 @@ export function createMeridianEnvironment(
       formattedTime: clock.format(),
       timeScale: clock.timeScale,
       daylight,
+      twilight,
       night,
+      starVisibility,
+      streetlightIntensity,
+      horizonGlow,
     };
   };
 
@@ -341,7 +500,13 @@ export function createMeridianEnvironment(
       for (const light of interiorLights) light.dispose();
       sun.dispose();
       ambient.dispose();
+      sky.starMesh.dispose();
       sky.mesh.dispose();
+      sky.starMaterial.diffuseTexture = null;
+      sky.starMaterial.emissiveTexture = null;
+      sky.starMaterial.opacityTexture = null;
+      sky.starTexture.dispose();
+      sky.starMaterial.dispose();
       sky.material.dispose();
     },
   };
