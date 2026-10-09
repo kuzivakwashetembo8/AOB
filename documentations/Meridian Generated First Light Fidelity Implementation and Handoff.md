@@ -208,6 +208,18 @@ Verified:
 
 The Vercel intentional-deploy guard was restored to `exit 0` immediately after the verification deployment was created.
 
+## Targeted lint verification
+
+A targeted substantive ESLint run was executed against the generated-world modules, comparison runtime/route, and generation tests with the repository's historical Prettier rule disabled for this gate.
+
+The ESLint command completed without reporting a lint violation. The Vercel validation deployment then failed only because a lint-only command does not create the project's expected `dist` output. That terminal Vercel error is therefore not an ESLint failure.
+
+- Lint validation deployment: `dpl_6CSL4Jk95sU3wKaMSVe42QcWAg2s`
+- ESLint findings: none reported
+- Terminal deployment result: expected `STATIC_BUILD_NO_OUT_DIR` after successful lint command
+
+Repository-wide historical formatting debt remains separate from this fidelity candidate.
+
 ## New/expanded regression coverage
 
 The fidelity tests now cover:
