@@ -68,6 +68,12 @@ function createGround(
   mesh.position.z = 20;
   mesh.material = material;
   mesh.receiveShadows = true;
+  mesh.isPickable = true;
+  mesh.metadata = {
+    spatialRole: "terrain",
+    cameraBlocker: true,
+    cameraGround: true,
+  };
 
   const collision = physics.addStaticBox(
     { x: 0, y: -0.12, z: 20 },
