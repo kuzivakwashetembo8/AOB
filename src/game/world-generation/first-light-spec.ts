@@ -1,5 +1,30 @@
-import type { BuildingArchetype, BuildingSpec, CitySpec, FacadeMaterial, LotSpec } from "./schema";
+import type {
+  BuildingArchetype,
+  BuildingSpec,
+  CitySpec,
+  FacadeMaterial,
+  LotSpec,
+  WorldPosition,
+} from "./schema";
 import { CITY_SCHEMA_VERSION } from "./schema";
+
+export interface FirstLightRuntimeAnchor {
+  readonly id: string;
+  readonly position: WorldPosition;
+  readonly facing: WorldPosition;
+}
+
+export const FIRST_LIGHT_PLAYER_SPAWN: FirstLightRuntimeAnchor = {
+  id: "south-ward-first-light-player-spawn",
+  position: { x: -7.5, y: 0.92, z: 2.45 },
+  facing: { x: 0, y: 0, z: -1 },
+};
+
+export const FIRST_LIGHT_CAMERA_FOCUS: FirstLightRuntimeAnchor = {
+  id: "south-ward-first-light-camera-focus",
+  position: { x: -7.5, y: 1.25, z: -1.5 },
+  facing: { x: 0, y: 0, z: -1 },
+};
 
 /** Semantic inventory only. The existing First Light Babylon scene remains authoritative. */
 type Row = {
