@@ -214,6 +214,12 @@ function GamePage() {
             setPanel("pause");
           }}
           showObjective={settings.objective}
+          setMeridianTime={(minuteOfDay) =>
+            bridge.command({ type: "set-meridian-time", minuteOfDay })
+          }
+          setMeridianTimeScale={(scale) =>
+            bridge.command({ type: "set-meridian-time-scale", scale })
+          }
         />
       )}
       {loaded && !settings.hud && (
