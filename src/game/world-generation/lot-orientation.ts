@@ -5,5 +5,7 @@ export function planLotOrientation(city: CitySpec, lot: LotSpec) {
   if (!road) throw new Error("Unknown road");
   const dx = road.position.x - lot.position.x;
   const dz = road.position.z - lot.position.z;
-  return { roadSegmentId: road.segmentId, frontageDistance: road.distance, dx, dz, roadwardDistance: Math.hypot(dx, dz) };
+  if (Math.hypot(dx, dz) < 1e-5) throw new Error("Ambiguous lot frontage");
+  const heading = Math.acos(Math.max(-1, Math.min(1, dz / Math.hypot(dx, dz)))) * (dx >= 0 ? 1 : -1);
+  return { heading, roadSegmentId: road.segmentId, frontageDistance: road.distance, dx, dz, roadwardDistance: Math.hypot(dx, dz) };
 }
