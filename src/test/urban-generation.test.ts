@@ -6,6 +6,12 @@ describe("Meridian Step 5 roads", () => {
     expect(registry.getBuilding("sw-fl-garage")?.archetype).toBe("garage");
     expect(registry.getBuildingsInBlock("sw-fl-main-north")).toHaveLength(3);
   });
+  it("orients First Light lots toward their assigned streets", () => {
+    const blocks = FIRST_LIGHT_CITY_SPEC.districts[0]!.neighborhoods[0]!.blocks;
+    expect(planLotOrientation(FIRST_LIGHT_CITY_SPEC, blocks[0]!.lots[1]!).yawRadians).toBeCloseTo(0);
+    expect(Math.abs(planLotOrientation(FIRST_LIGHT_CITY_SPEC, blocks[1]!.lots[0]!).yawRadians))
+      .toBeCloseTo(Math.PI);
+  });
   it("plans First Light roads", () => {
     const plan = planRoadGraph(FIRST_LIGHT_CITY_SPEC.roads);
     expect(plan.surfaces).toHaveLength(5);
