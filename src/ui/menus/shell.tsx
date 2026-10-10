@@ -16,7 +16,8 @@ export function Scene({ game = false }: { game?: boolean }) {
         />
       </div>
       <div className="scene-edges" />
-      <div className="scene-grid" />
+      {/* The menu grid is cosmetic; scanline styling must never overlay Babylon gameplay. */}
+      {!game && <div className="scene-grid" />}
     </>
   );
 }
