@@ -33,8 +33,9 @@ export const VEHICLE_PROBE_SOURCES = [
     // Ferrari 458 Italia class approximate published exterior length,
     // not an approval to reproduce a licensed branded asset.
     targetLengthMeters: 4.53,
-    // Iteration 3 visual experiment: increase height by the requested ~10%.
-    widthMultiplier: 1,
+    // Iteration 3 established +10% height. Iteration 4 tests +5% width
+    // relative to that accepted sports-car baseline, without changing length.
+    widthMultiplier: 1.05,
     heightMultiplier: 1.10,
   },
 ] as const;
