@@ -18,6 +18,7 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
+import { renderHardwareScale, normalizeRenderClarity, type RenderClarityMode } from "../renderer/render-clarity";
 import {
   DEFAULT_TOUCH_CAMERA_SENSITIVITY,
   normalizeTouchCameraSensitivity,
@@ -68,6 +69,8 @@ export class GTDGameRuntime implements GameRuntime {
   private pendingTouchLook = { x: 0, y: 0 };
   private touchCameraSensitivity = DEFAULT_TOUCH_CAMERA_SENSITIVITY;
   private invertLookY = false;
+  private renderClarity: RenderClarityMode = "Auto";
+  private diagnosticHardwareScale: number | null = null;
   private actions = new Set<GameAction>();
   private verticalVelocity = 0;
   private grounded = true;
@@ -78,7 +81,20 @@ export class GTDGameRuntime implements GameRuntime {
   private frameHandle: number | null = null;
   private snapshotListeners = new Set<(snapshot: GameSnapshot) => void>();
   private eventListeners = new Set<(event: GameEvent) => void>();
-  private resize = () => this.engine?.resize();
+  private resize = () => {
+    if (!this.engine) return;
+    if (this.diagnosticHardwareScale === null) {
+      const next = renderHardwareScale({
+        mode: this.renderClarity,
+        devicePixelRatio: window.devicePixelRatio,
+        coarsePointer: window.matchMedia?.("(pointer: coarse)")?.matches ?? false,
+      });
+      if (Math.abs(next - this.engine.getHardwareScalingLevel()) > 0.0001) {
+        this.engine.setHardwareScalingLevel(next);
+      }
+    }
+    this.engine.resize();
+  };
   private snapshot: GameSnapshot = {
     lifecycle: "idle",
     context: "walking",
@@ -108,19 +124,26 @@ export class GTDGameRuntime implements GameRuntime {
       { preserveDrawingBuffer: false, stencil: true },
       true,
     );
-    const baselineScaling = Math.max(1, window.devicePixelRatio / 1.5);
-    // Controlled FL-4 A/B experiment only. The ordinary game retains its
-    // accepted baseline scale; trial values must be explicitly requested.
+    // Existing FL4-02 user evidence showed broad mobile softness. The old
+    // devicePixelRatio/1.5 policy rasterized at only ~1.5 CSS px per side and
+    // stretched that image across high-DPR mobile displays. Auto now uses
+    // a measured, bounded 1.75 CSS px on touch screens while Native remains
+    // an explicit (potentially costly) user setting.
     const diagnosticParams = new URLSearchParams(window.location.search);
     const requestedScale = diagnosticParams.get("fl4Scale");
     const trialScale =
       diagnosticParams.get("fl4Diagnostics") === "1" && requestedScale !== null
         ? Number(requestedScale)
         : Number.NaN;
-    const hardwareScale =
+    this.diagnosticHardwareScale =
       Number.isFinite(trialScale) && trialScale >= 0.75 && trialScale <= 2
         ? trialScale
-        : baselineScaling;
+        : null;
+    const hardwareScale = this.diagnosticHardwareScale ?? renderHardwareScale({
+      mode: this.renderClarity,
+      devicePixelRatio: window.devicePixelRatio,
+      coarsePointer: window.matchMedia?.("(pointer: coarse)")?.matches ?? false,
+    });
     engine.setHardwareScalingLevel(hardwareScale);
     const scene = new Scene(engine);
     scene.clearColor = new Color4(0.055, 0.075, 0.09, 1);
@@ -306,6 +329,13 @@ export class GTDGameRuntime implements GameRuntime {
     }
     if (command.type === "look") {
       this.look = { x: command.x, y: command.y };
+      return;
+    }
+    if (command.type === "render-clarity") {
+      this.renderClarity = normalizeRenderClarity(command.mode);
+      // A deliberate FL-4 diagnostics hardware-scale override must remain
+      // fixed, regardless of persisted graphics settings.
+      if (this.engine && this.diagnosticHardwareScale === null) this.resize();
       return;
     }
     if (command.type === "camera-settings") {
