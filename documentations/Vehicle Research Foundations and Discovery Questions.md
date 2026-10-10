@@ -69,3 +69,11 @@ Only after that decision should we settle, in order:
 ## 6. Explicit decision gate
 
 **Next interaction is a conversation**, starting with the sedan's intended role. No more external research, screenshots generated, code commits, deployment or asset authoring unless separately requested/authorized. Record the user's selected research question and then commission narrowly scoped evidence gathering.
+
+## 7. Decision recorded — foundational GTD sedan (2026-10-10)
+
+**User choice: B — Foundational reusable vehicle.** This resolves the primary scoping question in section 4. The first original Meridian sedan will initially be shown as a parked vehicle, but its **asset organization, semantic part boundaries, pivots and dimensions should be suitable for future extension into driving, steering, wheel/door animation and vehicle-family reuse**. This is a forward-compatibility obligation, **not authorization to implement driving mechanics, interiors, doors, traffic or full vehicle physics during FL-4**.
+
+**Why this matters:** The current recognizable-only proxy is insufficient as the long-term master asset. Architecture research must compare ways of making a model reusable without prematurely implementing later gameplay systems. The actual modeling method, geometry budget, LOD, vehicle silhouette/style, and which parts require independent meshes **remain undecided** until the user clarifies the intended quality/recognition benchmark.
+
+**Next conversation gate (before further external research):** Decide whether the user-supplied Drive Quest sedan visuals are (1) a minimum visible quality target, (2) an aspirational reference, or (3) only evidence of shape/context-independent vehicle recognition. Then formulate narrow research questions about reproducible vehicle modeling and Babylon/Rapier integration. Do not launch new research or alter the game until those questions are established.
