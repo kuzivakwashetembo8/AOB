@@ -26,7 +26,6 @@ import {
   sourceForExistingSlot,
 } from "./vehicle-probe-plan";
 import {
-  resolveVehicleOptimizationMode,
   selectVehicleShadowCasterIds,
   usesSelectiveVehicleShadows,
   usesVehicleDistanceLOD,
