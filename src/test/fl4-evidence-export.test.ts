@@ -33,6 +33,7 @@ describe("FL4 development device evidence export", () => {
       experiment: "EXP-VEH-001",
       state: "running",
       copyright: "unverified third-party specimens — evaluation only",
+      pipeline: { stage: "settled", elapsedMs: 500, loaderInitializationMs: 170 },
       slots: [{
         id: "parked:0",
         source: "sports",
@@ -55,5 +56,38 @@ describe("FL4 development device evidence export", () => {
     expect(evidence.importedVehicles?.slots[0]?.status).toBe("imported");
     expect(evidence.metrics.render.hardwareScalingLevel).toBe(1);
     expect(Object.keys(evidence)).not.toContain("gpuMemory");
+  });
+
+  it("preserves loader bootstrap versus pending remote-model stages in export", () => {
+    const base = {
+      experiment: "EXP-VEH-001",
+      state: "running",
+      copyright: "unverified third-party specimens — evaluation only",
+      slots: [],
+    } as const;
+    const awaiting: ImportedCarProbeReport = {
+      ...base,
+      pipeline: {
+        stage: "initializing-gltf-loader",
+        elapsedMs: 52000,
+        loaderInitializationMs: null,
+      },
+      assetSources: [{
+        id: "sports",
+        url: "https://example.test/ferrari.glb",
+        bytes: 100,
+        status: "loading",
+        stage: "awaiting-loader",
+        pendingMs: 52000,
+        loadMs: null,
+        error: null,
+      }],
+    };
+    const report = composeFL4EvidenceSnapshot(metric, awaiting, "https://preview.example/game", capturedAt);
+    const serialized = JSON.parse(JSON.stringify(report)) as typeof report;
+    expect(serialized.importedVehicles?.pipeline.stage).toBe("initializing-gltf-loader");
+    expect(serialized.importedVehicles?.pipeline.elapsedMs).toBe(52000);
+    expect(serialized.importedVehicles?.assetSources[0]?.stage).toBe("awaiting-loader");
+    expect(serialized.importedVehicles?.assetSources[0]?.pendingMs).toBe(52000);
   });
 });
