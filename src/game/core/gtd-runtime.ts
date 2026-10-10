@@ -19,7 +19,10 @@ import type {
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import { mountFL4EvidenceExport } from "../debug/fl4-evidence-export";
-import { resolveVehicleOptimizationMode } from "../experiments/fl4-vehicle-optimization";
+import {
+  resolveVehicleOptimizationMode,
+  shouldRenderAcceptedImportedVehicles,
+} from "../experiments/fl4-vehicle-optimization";
 import {
   beginImportedCarEvaluation,
   type ImportedCarProbe,
@@ -129,28 +132,32 @@ export class GTDGameRuntime implements GameRuntime {
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
     );
-    // Development-only vehicle representation: user accepted both imported
-    // reference GLBs for the evolving noncommercial GTD development game.
-    // Development previews render imported vehicles by default; baseline query
-    // restores the prior procedural parked cars for comparable measurements.
-    // STRICT RELEASE GATE: source assets have unresolved commercial licenses.
-    // Do not merge this default into main / public production without separate
-    // clearance and explicit release authorization.
-    // ?gtdVehicleProbe=baseline  -> previous procedural parked cars
-    // ?gtdVehicleProbe=imports   -> imported development references
+    // Explicit main-branch mobile validation authorized 2026-10-10.
+    // Accepted imported buggy and sports-car GLBs now replace ALL old parked
+    // car graphics in default gameplay, including the public production host.
+    // The importer hides old cars and removes their colliders synchronously;
+    // loading/failure leaves an empty slot, never a procedural stand-in.
+    // A historical procedural comparison is available ONLY by combining
+    // gtdVehicleProbe=baseline and fl4Diagnostics=1 on a NONPRODUCTION host.
+    // Third-party commercial/redistribution rights remain unverified:
+    // production access for mobile QA is NOT a licensing determination.
     const vehicleMode = diagnosticParams.get("gtdVehicleProbe");
     const productionHostname = window.location.hostname === "grand-theft-division.vercel.app";
-    const allowDevelopmentAssets =
-      !productionHostname && vehicleMode !== "baseline";
-    if (allowDevelopmentAssets && isGeneratedFirstLightWorld(firstLight)) {
+    const diagnosticsEnabled = diagnosticParams.get("fl4Diagnostics") === "1";
+    const useAcceptedImportedVehicles = shouldRenderAcceptedImportedVehicles(
+      vehicleMode,
+      diagnosticsEnabled,
+      productionHostname,
+    );
+    if (useAcceptedImportedVehicles && isGeneratedFirstLightWorld(firstLight)) {
       const importedCarProbe = beginImportedCarEvaluation(scene, firstLight, {
         optimizationMode: resolveVehicleOptimizationMode(
           diagnosticParams.get("fl4VehicleOptimization"),
-          diagnosticParams.get("fl4Diagnostics") === "1",
-          // FL-4 final review is opt-in and unavailable on production.
-          // It enables the proven reduced-caster candidate in ordinary play,
-          // without enabling costly diagnostic capture by default.
-          !productionHostname && diagnosticParams.get("fl4FinalReview") === "1",
+          diagnosticsEnabled,
+          // Approved selective-shadow FL-4 closeout renderer is also the
+          // default in the main mobile-validation build, with full detail
+          // available via explicit diagnostics for reversible comparison.
+          productionHostname || diagnosticParams.get("fl4FinalReview") === "1",
         ),
       });
       this.importedCarProbe = importedCarProbe;
