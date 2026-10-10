@@ -126,13 +126,20 @@ export class GTDGameRuntime implements GameRuntime {
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
     );
-    // EXP-VEH-001: explicit opt-in only on the temporary evaluation branch.
-    // Comparison baseline: ?gtdVehicleProbe=baseline&fl4Diagnostics=1
-    // Imported specimens: ?gtdVehicleProbe=imports&fl4Diagnostics=1
-    if (
-      diagnosticParams.get("gtdVehicleProbe") === "imports" &&
-      isGeneratedFirstLightWorld(firstLight)
-    ) {
+    // Development-only vehicle representation: user accepted both imported
+    // reference GLBs for the evolving noncommercial GTD development game.
+    // Development previews render imported vehicles by default; baseline query
+    // restores the prior procedural parked cars for comparable measurements.
+    // STRICT RELEASE GATE: source assets have unresolved commercial licenses.
+    // Do not merge this default into main / public production without separate
+    // clearance and explicit release authorization.
+    // ?gtdVehicleProbe=baseline  -> previous procedural parked cars
+    // ?gtdVehicleProbe=imports   -> imported development references
+    const vehicleMode = diagnosticParams.get("gtdVehicleProbe");
+    const productionHostname = window.location.hostname === "grand-theft-division.vercel.app";
+    const allowDevelopmentAssets =
+      !productionHostname && vehicleMode !== "baseline";
+    if (allowDevelopmentAssets && isGeneratedFirstLightWorld(firstLight)) {
       const importedCarProbe = beginImportedCarEvaluation(scene, firstLight);
       this.importedCarProbe = importedCarProbe;
       (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: () => ReturnType<ImportedCarProbe["report"]> })
