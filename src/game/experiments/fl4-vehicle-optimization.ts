@@ -15,8 +15,16 @@ export const MAX_VEHICLE_SHADOW_MESHES = 4;
 export function resolveVehicleOptimizationMode(
   requested: string | null,
   diagnosticsEnabled: boolean,
+  finalReviewEnabled = false,
 ): FL4VehicleOptimizationMode {
-  if (!diagnosticsEnabled) return "full";
+  // FL-4 closeout candidate only: allow the measured shadow simplification in
+  // *normal* gameplay, without the diagnostic sample collector being active.
+  // Outside the explicit final-review flag, development remains full fidelity
+  // until the user visually accepts this change. On a review, the explicit
+  // diagnostics "full" mode is still available for rollback/A-B comparison.
+  if (!diagnosticsEnabled && !finalReviewEnabled) return "full";
+  if (finalReviewEnabled && requested === null) return "selectiveShadows";
+  if (!diagnosticsEnabled) return "selectiveShadows";
   switch (requested) {
     case "selectiveShadows":
     case "distanceLOD":
