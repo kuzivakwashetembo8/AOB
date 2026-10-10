@@ -1,0 +1,3 @@
+# FL-4 Task 4 Performance and Regression Audit
+
+Status: PARTIAL. Verified preview source SHA 76e9522e1a064be4edf9e1a6efb8c1d9f35076db. Strict TypeScript, 14 Vitest files/70 tests and production build passed. Repo-wide lint failed with 870 findings (864 errors and 6 warnings). No performance optimization applied without same-device evidence. Real mobile framebuffer/DPR/FPS unavailable. See GTD-VIS-002 for mobile sharpness. Babylon hardware-scaling level divides CSS canvas dimensions, so prior DPR2/DPR3 area-coverage estimates in that record require correction. Windows, canopy and vehicle visual integrations remain blocked. Preview: https://gtd-os2bwr70x-interlinkglobaltech.vercel.app/game . No main merge or production deployment.

@@ -18,9 +18,19 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
+import { mountFL4EvidenceExport } from "../debug/fl4-evidence-export";
+import {
+  resolveVehicleOptimizationMode,
+  shouldRenderAcceptedImportedVehicles,
+} from "../experiments/fl4-vehicle-optimization";
+import {
+  beginImportedCarEvaluation,
+  type ImportedCarProbe,
+} from "../experiments/imported-car-evaluation";
 import {
   ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
   createFirstLightRuntimeWorld,
+  isGeneratedFirstLightWorld,
   type RuntimeFirstLightWorld,
 } from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
@@ -38,6 +48,8 @@ export class GTDGameRuntime implements GameRuntime {
   private host: HTMLCanvasElement | null = null;
   private engine: Engine | null = null;
   private fl4Diagnostics: FL4Diagnostics | null = null;
+  private removeFL4EvidenceExport: (() => void) | null = null;
+  private importedCarProbe: ImportedCarProbe | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
@@ -120,6 +132,38 @@ export class GTDGameRuntime implements GameRuntime {
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
     );
+    // Explicit main-branch mobile validation authorized 2026-10-10.
+    // Accepted imported buggy and sports-car GLBs now replace ALL old parked
+    // car graphics in default gameplay, including the public production host.
+    // The importer hides old cars and removes their colliders synchronously;
+    // loading/failure leaves an empty slot, never a procedural stand-in.
+    // A historical procedural comparison is available ONLY by combining
+    // gtdVehicleProbe=baseline and fl4Diagnostics=1 on a NONPRODUCTION host.
+    // Third-party commercial/redistribution rights remain unverified:
+    // production access for mobile QA is NOT a licensing determination.
+    const vehicleMode = diagnosticParams.get("gtdVehicleProbe");
+    const productionHostname = window.location.hostname === "grand-theft-division.vercel.app";
+    const diagnosticsEnabled = diagnosticParams.get("fl4Diagnostics") === "1";
+    const useAcceptedImportedVehicles = shouldRenderAcceptedImportedVehicles(
+      vehicleMode,
+      diagnosticsEnabled,
+      productionHostname,
+    );
+    if (useAcceptedImportedVehicles && isGeneratedFirstLightWorld(firstLight)) {
+      const importedCarProbe = beginImportedCarEvaluation(scene, firstLight, {
+        optimizationMode: resolveVehicleOptimizationMode(
+          diagnosticParams.get("fl4VehicleOptimization"),
+          diagnosticsEnabled,
+          // Approved selective-shadow FL-4 closeout renderer is also the
+          // default in the main mobile-validation build, with full detail
+          // available via explicit diagnostics for reversible comparison.
+          productionHostname || diagnosticParams.get("fl4FinalReview") === "1",
+        ),
+      });
+      this.importedCarProbe = importedCarProbe;
+      (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: () => ReturnType<ImportedCarProbe["report"]> })
+        .__GTD_VEHICLE_PROBE_REPORT__ = () => importedCarProbe.report();
+    }
     // FL-4 isolation probes are strictly opt-in, never regular gameplay.
     // noSky tests the sky layer; noShadows tests shadow-pass overhead.
     if (diagnosticParams.get("fl4Diagnostics") === "1") {
@@ -169,6 +213,12 @@ export class GTDGameRuntime implements GameRuntime {
       this.fl4Diagnostics = diagnostics;
       (window as Window & { __GTD_FL4_REPORT__?: () => ReturnType<FL4Diagnostics["report"]> })
         .__GTD_FL4_REPORT__ = () => diagnostics.report();
+      // Opt-in local JSON download, including mobile PWA where a DevTools
+      // console is generally unavailable; no reports are uploaded.
+      this.removeFL4EvidenceExport = mountFL4EvidenceExport(
+        () => diagnostics.report(),
+        () => this.importedCarProbe?.report() ?? null,
+      );
     }
     this.physics = physics;
     this.camera = camera;
@@ -212,6 +262,11 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
     this.frameHandle = null;
     window.removeEventListener("resize", this.resize);
+    this.importedCarProbe?.dispose();
+    this.importedCarProbe = null;
+    delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
+    this.removeFL4EvidenceExport?.();
+    this.removeFL4EvidenceExport = null;
     this.world?.dispose();
     this.fl4Diagnostics?.dispose();
     this.fl4Diagnostics = null;

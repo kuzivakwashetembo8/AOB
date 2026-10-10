@@ -13,6 +13,8 @@ import {
 import type { Scene } from "@babylonjs/core";
 import type { CitySpec, PublicSpaceSpec } from "./schema";
 import { planStreetContext } from "./street-context";
+import { planTreeCanopy } from "./tree-canopy";
+import { planVehicleProxyGeometry } from "./vehicle-proxy-geometry";
 import type { StreetContextItem } from "./street-context";
 
 export interface GeneratedStreetContext {
@@ -361,6 +363,7 @@ function addTree(
   nodes: TransformNode[],
   trunkMaterial: Material,
   foliageMaterial: Material,
+  generatorVersion: number,
 ): void {
   const root = new TransformNode("generated-tree:" + item.id, scene);
   nodes.push(root);
@@ -412,44 +415,25 @@ function addTree(
     meshes.push(rootFlare);
   });
 
-  const clusters = [
-    [0, 5.45, 0],
-    [-1.75, 5.15, 0.05],
-    [1.8, 5.12, 0.1],
-    [-1.15, 5.85, -0.55],
-    [1.2, 5.82, -0.48],
-    [-0.75, 5.35, 1.15],
-    [0.8, 5.28, 1.12],
-    [0, 6.15, 0.12],
-    [-2.05, 5.0, -0.85],
-    [2.05, 5.0, -0.75],
-  ] as const;
-
-  clusters.forEach(([x, y, z], clusterIndex) => {
-    [0, Math.PI / 3, (2 * Math.PI) / 3].forEach((yaw, planeIndex) => {
-      const card = MeshBuilder.CreatePlane(
-        "generated-tree-foliage:" +
-          item.id +
-          ":" +
-          clusterIndex +
-          ":" +
-          planeIndex,
-        {
-          width: 3.45,
-          height: 1.85,
-          sideOrientation: Mesh.DOUBLESIDE,
-        },
-        scene,
-      );
-      card.position.set(x, y, z);
-      card.rotation.y = yaw;
-      card.rotation.x = planeIndex === 1 ? 0.08 : -0.04;
-      card.parent = root;
-      card.material = foliageMaterial;
-      card.receiveShadows = false;
-      card.isPickable = false;
-      meshes.push(card);
-    });
+  const crown = planTreeCanopy(item, generatorVersion);
+  crown.cards.forEach((placement, index) => {
+    const card = MeshBuilder.CreatePlane(
+      "generated-tree-foliage:" + item.id + ":" + Math.floor(index / 3) + ":" + index % 3,
+      {
+        width: placement.width,
+        height: placement.height,
+        sideOrientation: Mesh.DOUBLESIDE,
+      },
+      scene,
+    );
+    card.position.set(placement.x, placement.y, placement.z);
+    card.rotation.y = placement.yaw;
+    card.rotation.x = placement.pitch;
+    card.parent = root;
+    card.material = foliageMaterial;
+    card.receiveShadows = false;
+    card.isPickable = false;
+    meshes.push(card);
   });
 }
 
@@ -544,25 +528,28 @@ function addParkedCar(
   root.rotation.y = item.yawRadians;
   root.scaling.setAll(item.scale);
 
-  const body = MeshBuilder.CreateBox(
-    "generated-car-body:" + item.id,
-    { width: 1.75, height: 0.62, depth: 4.0 },
-    scene,
-  );
-  body.position.y = 0.62;
-  body.parent = root;
-  body.material = paint;
-  meshes.push(body);
-
-  const cabin = MeshBuilder.CreateBox(
-    "generated-car-cabin:" + item.id,
-    { width: 1.55, height: 0.68, depth: 1.95 },
-    scene,
-  );
-  cabin.position.set(0, 1.18, -0.15);
-  cabin.parent = root;
-  cabin.material = glass;
-  meshes.push(cabin);
+  // The two painted/cabin boxes are replaced by two articulated visual
+  // meshes. Wheel count, material families and Rapier collider stay intact.
+  const visual = planVehicleProxyGeometry();
+  const surfaces = [
+    { name: "generated-car-body:", geometry: visual.body, material: paint },
+    { name: "generated-car-cabin:", geometry: visual.glass, material: glass },
+  ] as const;
+  for (const surface of surfaces) {
+    const mesh = new Mesh(surface.name + item.id, scene);
+    const vertexData = new VertexData();
+    const positions = [...surface.geometry.positions];
+    const indices = [...surface.geometry.indices];
+    const normals: number[] = [];
+    VertexData.ComputeNormals(positions, indices, normals);
+    vertexData.positions = positions;
+    vertexData.indices = indices;
+    vertexData.normals = normals;
+    vertexData.applyToMesh(mesh);
+    mesh.parent = root;
+    mesh.material = surface.material;
+    meshes.push(mesh);
+  }
 
   const wheelPositions: ReadonlyArray<readonly [number, number, number]> = [
     [-0.88, 0.42, -1.25],
@@ -822,7 +809,7 @@ export function createGeneratedStreetContext(
 
   for (const item of plan.items) {
     if (item.kind === "tree") {
-      addTree(scene, item, meshes, nodes, trunk, foliage);
+      addTree(scene, item, meshes, nodes, trunk, foliage, city.generatorVersion);
     } else if (item.kind === "shrub") {
       addShrub(scene, item, meshes, nodes, foliage);
     } else if (item.kind === "streetlight") {

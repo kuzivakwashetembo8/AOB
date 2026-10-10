@@ -51,6 +51,17 @@ export interface GeneratedFirstLightWorld {
   readonly shadowGenerator: MeridianEnvironmentController["shadowGenerator"];
   readonly interiorState: InteriorVisibilityState;
   readonly environmentSnapshot: MeridianEnvironmentSnapshot;
+  /**
+   * EXP-VEH-001 only: substitute the collision box of an already-existing
+   * parked-car slot after its imported visual succeeds. The world retains
+   * ownership of both legacy and replacement Rapier handles.
+   */
+  replaceParkedCarCollider(
+    itemId: string,
+    dimensions: { readonly x: number; readonly y: number; readonly z: number },
+  ): void;
+  /** Imported-only game: remove invisible legacy collision until GLB is ready. */
+  suspendParkedCarColliders(): void;
   update(realSeconds: number, playerPosition: { x: number; y: number; z: number }): void;
   setTimeMinutes(minutes: number): MeridianEnvironmentSnapshot;
   setTimeScale(scale: number): MeridianEnvironmentSnapshot;
@@ -99,25 +110,27 @@ function createGround(
 
 function registerStreetContextCollision(
   physics: MeridianPhysics,
+  parkedHandles?: Map<string, StaticCollisionHandle>,
 ): StaticCollisionHandle[] {
   const handles: StaticCollisionHandle[] = [];
   const plan = planStreetContext(FIRST_LIGHT_CITY_SPEC);
 
   for (const item of plan.items) {
     switch (item.kind) {
-      case "parked-car":
-        handles.push(
-          physics.addStaticBox(
-            { x: item.position.x, y: 0.76, z: item.position.z },
-            {
-              x: 0.88 * item.scale,
-              y: 0.76 * item.scale,
-              z: 2.0 * item.scale,
-            },
-            item.yawRadians,
-          ),
+      case "parked-car": {
+        const parkedHandle = physics.addStaticBox(
+          { x: item.position.x, y: 0.76, z: item.position.z },
+          {
+            x: 0.88 * item.scale,
+            y: 0.76 * item.scale,
+            z: 2.0 * item.scale,
+          },
+          item.yawRadians,
         );
+        handles.push(parkedHandle);
+        parkedHandles?.set(item.id, parkedHandle);
         break;
+      }
       case "streetlight":
         handles.push(
           physics.addStaticCylinder(
@@ -388,7 +401,13 @@ export function createGeneratedFirstLightWorld(
     // the canonical 48-real-minute Meridian day.
     initialTimeScale: 2,
   });
-  const contextCollision = registerStreetContextCollision(physics);
+  const parkedCollisionHandles = new Map<string, StaticCollisionHandle>();
+  const parkedById = new Map(
+    planStreetContext(FIRST_LIGHT_CITY_SPEC).items
+      .filter((item) => item.kind === "parked-car")
+      .map((item) => [item.id, item] as const),
+  );
+  const contextCollision = registerStreetContextCollision(physics, parkedCollisionHandles);
   const urbanNavigationCollision = registerUrbanNavigationCollision(
     physics,
     urbanSurfaces,
@@ -452,6 +471,41 @@ export function createGeneratedFirstLightWorld(
     environment,
     garageInterior,
     shadowGenerator: environment.shadowGenerator,
+    suspendParkedCarColliders() {
+      if (disposed) throw new Error("Cannot suspend car colliders after world disposal");
+      for (const [itemId, handle] of parkedCollisionHandles) {
+        handle.dispose();
+        const index = contextCollision.indexOf(handle);
+        if (index !== -1) contextCollision.splice(index, 1);
+        parkedCollisionHandles.delete(itemId);
+      }
+    },
+    replaceParkedCarCollider(itemId, dimensions) {
+      if (disposed) throw new Error("Cannot update parked-car collision after world disposal");
+      if (![dimensions.x, dimensions.y, dimensions.z].every(
+        (value) => Number.isFinite(value) && value > 0,
+      )) throw new Error("Invalid imported parked-car dimensions");
+      const item = parkedById.get(itemId);
+      const prior = parkedCollisionHandles.get(itemId);
+      if (!item) throw new Error("Unknown parked-car collider: " + itemId);
+      // Allocate the new collider first; if allocation fails the old one remains.
+      const replacement = physics.addStaticBox(
+        {
+          x: item.position.x,
+          y: item.position.y + dimensions.y / 2,
+          z: item.position.z,
+        },
+        { x: dimensions.x / 2, y: dimensions.y / 2, z: dimensions.z / 2 },
+        item.yawRadians,
+      );
+      if (prior) {
+        prior.dispose();
+        const index = contextCollision.indexOf(prior);
+        if (index !== -1) contextCollision.splice(index, 1);
+      }
+      parkedCollisionHandles.set(itemId, replacement);
+      contextCollision.push(replacement);
+    },
     get interiorState() {
       return interiorState;
     },

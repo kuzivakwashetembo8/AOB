@@ -218,3 +218,12 @@ Recommended review order (not an override of FL-4 optimization requirements):
 **Current state at documentation:** FL-4 in progress; single-piece trunk accepted; near-uniform diameter refinement under review; canopy, window and vehicle batches **specified but not implemented or accepted**. Existing FL-4 completion estimate ~50% is subjective and must not be mechanically increased by writing this document.
 
 **Deployment:** No merge into `main` or production deployment is authorized by this record. Follow the previously requested deliberate sequence after development validation: review/merge approved changes, intentionally deploy the verified `main` commit, test the current mobile PWA, then close FL-4 only after final user approval.
+
+
+## 9. Execution supersession — 2026-10-10 morning
+
+The earlier draft status saying A/B/C were unimplemented is a historical snapshot. The user subsequently authorized integration of the overnight plans. Standard authorized GitHub source edits succeeded. The precise active implementation, source commits, verification and known limitations are documented in `documentations/FL-4 Evidence/Morning Integration and Pre-Continuation Patch - 2026-10-10.md`.
+
+**A:** Generated windows scale proportionally in storeys taller than 3.8 m; ordinary windows, authored garage and low storefront exceptions retain established logic. **B:** The existing proportional canopy planner is now actually invoked by the active renderer for exactly 30 cards/tree, retaining continuous near-uniform trunks. **C:** Parked cars now use a shaped body mesh, combined six-pane window mesh and original four wheels, preserving six meshes and the Rapier collider semantics.
+
+The combined revision passed TypeScript, tests and build and has a READY non-production preview at `https://gtd-279m2a0ke-interlinkglobaltech.vercel.app/game` (source SHA `e31a6a2f930bb9cad89d0a2b6c609e9563356d8c`). **A04, B03, C03 and VIS-10 still require matched user visual review; performance/device validation is not complete.** No subsequent change to main/production was authorized or made. The canonical SOT retains authority.

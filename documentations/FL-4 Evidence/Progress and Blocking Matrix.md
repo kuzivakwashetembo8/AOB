@@ -192,3 +192,31 @@ User visually accepted the single-piece tree trunk patch after reviewing preview
 On development branch, commit `7f64cfc49d0fec4705888362be34955507c0a880` adjusts the generated main tree shaft from a strong 0.78-to-0.34 diameter taper to an approximately uniform 0.70-to-0.66 diameter. The root flares and canopy remain. This tiny proportional refinement is **awaiting separate visual review**, though the preceding one-piece trunk implementation is accepted. FL-4 remains in progress; progress percentages are subjective planning estimates, not test-derived output.
 
 **Remaining FL-4 truth conditions:** No instrumented before/after performance optimization is verified yet. No current-build mobile PWA hardware run has been supplied. The accepted baseline graphics settings remain unchanged. Horizontal banding stays a non-blocking cosmetic issue (GTD-VIS-001). Do not close FL-4 without the prescribed stability, device and user acceptance evidence.
+
+## Real mobile production baseline — user-validated 2026-10-10 (supersedes stale-PWA statements)
+
+**Confirmed production:** `main` merge commit `af1adcdd8efaa53cc6c666079f3ff7613fd86bc5` deployed as Vercel production `dpl_DDkyZVyCpBCiNMDN9ApHmXWVf6BZ` (READY). The user opened the now-current mobile PWA and supplied four landscape screenshots. They report Voight movement/physics work similarly to laptop/desktop. This replaces earlier *pre-release* claims that the installed mobile PWA had not received latest development work.
+
+**Open finding:** The mobile Babylon 3D environment looks markedly less sharp than desktop: softer masonry/windows/road geometry and foliage, with comparatively legible HTML controls/HUD. The subtle, separately documented sky banding co-occurs but remains cosmetic/non-blocking `GTD-VIS-001`. User's 720p/old-TV vs 4K-cartoon comparison is a visual analogy, not measured pixel dimensions.
+
+**Source hypothesis, NOT confirmed root cause:** Babylon baseline hardware scale `Math.max(1, devicePixelRatio / 1.5)` may cap physical-pixel coverage on high-DPI mobile. No phone DPR, actual canvas/backing/render pixel dimensions, GPU timer or mobile frame-time samples were provided. Do not infer them from screenshot file resolution.
+
+**New dedicated record:** `documentations/Issues/Mobile PWA 3D Sharpness - Production Baseline.md` (`GTD-VIS-002`). The real-device visual observation provides **partial evidence** toward FL4-03/A06, but mobile performance, pixel sharpness and full lifecycle acceptance remain OPEN/BLOCKED pending measurements. This is a high-priority mobile image-quality finding, **not** a reason to reallocate every overnight art task or stop their independent work.
+
+**Task ownership:** Existing FL4-02/03/04 diagnostics/performance work at 04:00 should incorporate this as one measured concern; FL4-05/06 final audit at 05:00 must disclose the unresolved mobile clarity trade-off. Windows 01:00, canopy 02:00, vehicle proxy 03:00 retain their agreed tasks. User approval still gates FL-4 closure; do not claim quality resolution or mobile FPS progress on visual observations alone.
+
+**Release-reference caution:** The user-requested merge and production release already occurred on 2026-10-10. Historical progress sections above that say `main` and production are unchanged now describe the earlier checkpoint only; they **do not** represent the current release state.
+
+
+## Morning takeover supersession — 2026-10-10
+
+**The previous source-write blockers for window, canopy and vehicle integration are now cleared for these specific edits.** Normal GitHub file updates (not a bypass) succeeded in the development branch. Operational changes are recorded comprehensively at `documentations/FL-4 Evidence/Morning Integration and Pre-Continuation Patch - 2026-10-10.md`. A separately restored `documentations/FL-4 Evidence/Final Acceptance Report.md` reconciles actual FL4-01–06 and VIS-01–10 gates.
+
+* Window grammar (FL4-VIS-A03) is **IMPLEMENTED**, with geometry tests; A04 visual approval pending.
+* Foliage planner (FL4-VIS-B02) is **WIRED INTO THE ACTIVE RENDERER**, preserving 30 cards per tree; B03 visual approval pending.
+* Vehicle proxy (FL4-VIS-C02) is **WIRED INTO THE ACTIVE RENDERER**, two custom visual meshes plus four existing wheels; C03 gameplay/visual approval pending.
+* Initial integrated candidate `4d08273dff950c3dc8d2f60c83db457989c5af2e` passed TypeScript/full Vitest/build and preview became READY. Later visual glass-offset adjustment requires its own verification.
+* User-confirmed mobile PWA gameplay and visually softer Babylon canvas remain separate GTD-VIS-002; DPR hardware-scale examples corrected in the dedicated issue. Desktop baseline remains unchanged.
+* Cosmetic sky banding GTD-VIS-001 remains low/non-blocking. No measured before/after performance gain, representative device p50/p95 or final visual acceptance has been obtained.
+
+**Do not treat the task 1–5 overnight previews as proof of the three new visuals**: these appeared only after morning implementation.
