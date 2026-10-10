@@ -8,6 +8,24 @@ export type FL4VehicleOptimizationMode = "full" | "selectiveShadows";
 // Only select/deselect shadow participation; always render accepted GLBs.
 export const MAX_VEHICLE_SHADOW_MESHES = 4;
 
+/**
+ * Accepted imported vehicles are the normal GTD development and mobile-review
+ * representation, including the public main build. The rejected procedural
+ * comparison requires BOTH diagnostics and an explicitly nonproduction host.
+ * There is never an automatic visual fallback during GLB loading or failure.
+ */
+export function shouldRenderAcceptedImportedVehicles(
+  requestedVehicleMode: string | null,
+  diagnosticsEnabled: boolean,
+  productionHostname: boolean,
+): boolean {
+  return !(
+    requestedVehicleMode === "baseline" &&
+    diagnosticsEnabled &&
+    !productionHostname
+  );
+}
+
 export function resolveVehicleOptimizationMode(
   requested: string | null,
   diagnosticsEnabled: boolean,
