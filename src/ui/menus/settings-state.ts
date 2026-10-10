@@ -9,6 +9,7 @@ export type Settings = {
   effects: number;
   muted: boolean;
   sensitivity: number;
+  touchSensitivity: number;
   invertY: boolean;
   vibration: boolean;
   reducedMotion: boolean;
@@ -36,6 +37,7 @@ export const defaults: Settings = {
   effects: 85,
   muted: false,
   sensitivity: 50,
+  touchSensitivity: 60,
   invertY: false,
   vibration: true,
   reducedMotion: false,
