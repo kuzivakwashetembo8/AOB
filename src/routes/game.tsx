@@ -17,6 +17,7 @@ import { TouchControls } from "@/ui/hud/touch-controls";
 import { DesktopControls } from "@/ui/hud/desktop-controls";
 import { BootstrapOverlay } from "@/ui/menus/bootstrap";
 import type { GameAction } from "@/game/core/types";
+import { initialStartupChecklist, applyStartupCheckpoint } from "@/game/core/loading-checklist";
 export const Route = createFileRoute("/game")({
   head: () =>
     pageHead(
@@ -34,7 +35,8 @@ function GamePage() {
   const context = snapshot.context;
   const [paused, setPaused] = useState(false);
   const [panel, setPanel] = useState<"pause" | "objectives" | "save">("pause");
-  const [progress, setProgress] = useState(0);
+  const [checklist, setChecklist] = useState(initialStartupChecklist);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
   const [interaction, setInteraction] = useState("");
@@ -50,9 +52,9 @@ function GamePage() {
     let cancelled = false;
     const unsubscribe = bridge.subscribeEvent((event) => {
       if (event.type === "interaction") setInteraction(event.label ?? "");
-      if (event.type === "progress") {
-        setProgress(event.progress);
-        setRuntimeDetail(event.detail.toUpperCase());
+      if (event.type === "load-checkpoint") {
+        setChecklist((entries) => applyStartupCheckpoint(entries, event));
+        setRuntimeDetail(event.detail?.toUpperCase() ?? event.id.replace(/-/g, " ").toUpperCase());
       }
       if (event.type === "error") {
         setRuntimeDetail(event.message.toUpperCase());
@@ -73,6 +75,7 @@ function GamePage() {
       } catch (error) {
         console.error("GTD runtime bootstrap failed", error);
         setRuntimeDetail("RUNTIME BOOT FAILED");
+        setBootstrapError(error instanceof Error ? error.message : String(error));
       }
     })();
     return () => {
@@ -278,7 +281,7 @@ function GamePage() {
           onAction={action}
         />
       )}
-      {!loaded && <BootstrapOverlay progress={progress} />}
+      {!loaded && <BootstrapOverlay entries={checklist} error={bootstrapError} />}
       {paused && (
         <div
           className="overlay"
