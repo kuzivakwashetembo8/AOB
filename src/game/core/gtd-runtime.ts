@@ -246,12 +246,7 @@ export class GTDGameRuntime implements GameRuntime {
       this.fl4Diagnostics = diagnostics;
       (window as Window & { __GTD_FL4_REPORT__?: () => ReturnType<FL4Diagnostics["report"]> })
         .__GTD_FL4_REPORT__ = () => diagnostics.report();
-      // Opt-in local JSON download, including mobile PWA where a DevTools
-      // console is generally unavailable; no reports are uploaded.
-      this.removeFL4EvidenceExport = mountFL4EvidenceExport(
-        () => diagnostics.report(),
-        () => this.importedCarProbe?.report() ?? null,
-      );
+      // Mount the user export only AFTER actual vehicle and first-frame readiness.
     }
     this.physics = physics;
     this.camera = camera;
@@ -271,6 +266,14 @@ export class GTDGameRuntime implements GameRuntime {
     this.emit({ type: "load-checkpoint", id: "first-frame", status: "done" });
     this.lifecycle = "ready";
     this.publishSnapshot();
+    if (this.fl4Diagnostics) {
+      // Local-only, user-initiated export. Avoid capturing misleading partial
+      // "loaded" reports during GLB import or first-frame shader preparation.
+      this.removeFL4EvidenceExport = mountFL4EvidenceExport(
+        () => this.fl4Diagnostics!.report(),
+        () => this.importedCarProbe?.report() ?? null,
+      );
+    }
   }
 
   start(): void {
