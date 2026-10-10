@@ -23,7 +23,6 @@ import type { GeneratedFirstLightWorld } from "../world/generated-first-light-wo
 import {
   planImportedVehicleFit,
   sourceForExistingSlot,
-  VEHICLE_CLASS_TARGET_LENGTH_METRES,
 } from "./vehicle-probe-plan";
 
 export interface ImportedCarProbe {
@@ -41,6 +40,7 @@ interface SlotResult {
   fit: ReturnType<typeof planImportedVehicleFit> | null;
   finalVisualMetres: { width: number; height: number; length: number } | null;
   failure: string | null;
+  colliderCalibrated: boolean;
 }
 
 interface MutableAssetStatus {
@@ -107,6 +107,7 @@ export function beginImportedCarEvaluation(
     fit: null,
     finalVisualMetres: null,
     failure: null,
+    colliderCalibrated: false,
   }));
   const assetSources: MutableAssetStatus[] = Array.from(new Map(
     parked.map((_, index) => {
@@ -185,7 +186,8 @@ export function beginImportedCarEvaluation(
             const bounds = modelBounds(visuals);
             const fit = planImportedVehicleFit(
               bounds.size,
-              VEHICLE_CLASS_TARGET_LENGTH_METRES[source.id],
+              source.targetLengthMeters,
+              item.scale,
             );
             slot.fit = fit;
             centerOffset.position.set(-bounds.center.x, -bounds.floorY, -bounds.center.z);
@@ -195,15 +197,20 @@ export function beginImportedCarEvaluation(
             anchor.rotation.y = item.yawRadians;
             anchor.scaling.setAll(item.scale);
             slot.finalVisualMetres = {
-              width: fit.originalWidth * fit.uniformScale * item.scale,
-              height: fit.originalHeight * fit.uniformScale * item.scale,
-              length: fit.originalLength * fit.uniformScale * item.scale,
+              width: fit.worldDimensions.x,
+              height: fit.worldDimensions.y,
+              length: fit.worldDimensions.z,
             };
 
             for (const mesh of visuals) {
               mesh.receiveShadows = true;
               world.environment.addShadowCaster(mesh);
             }
+            // Convert only this successfully imported vehicle's static Rapier
+            // box to its actual rendered dimensions; failure slots preserve
+            // the old visual and original collider without modification.
+            world.replaceParkedCarCollider(item.id, fit.worldDimensions);
+            slot.colliderCalibrated = true;
             // Fallback meshes remain owned by the generated street context
             // and will be disposed by it. Disabled proxies do not render.
             for (const mesh of world.streetContext.meshes) {
@@ -215,6 +222,9 @@ export function beginImportedCarEvaluation(
             }
             slot.status = "imported";
             slot.loadMs = asset.loadMs;
+            if (fit.warnings.length > 0) {
+              console.warn("[EXP-VEH-001] Check vehicle class dimensions against Meridian roads", item.id, fit.worldDimensions, fit.warnings);
+            }
           } catch (slotError) {
             current.dispose();
             slot.status = "fallback";
