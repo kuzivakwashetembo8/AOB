@@ -2,14 +2,10 @@
  * FL4-04: diagnostic-only vehicle optimizations. Preserve accepted GLB assets,
  * calibrated shapes and Rapier colliders. Nothing here is a release policy.
  */
-export type FL4VehicleOptimizationMode =
-  | "full"
-  | "selectiveShadows"
-  | "distanceLOD"
-  | "combined";
+export type FL4VehicleOptimizationMode = "full" | "selectiveShadows";
 
-export const VEHICLE_LOD_ENTER_METRES = 36;
-export const VEHICLE_LOD_RETURN_METRES = 28;
+// FL4-06 accepted direction: old procedural car graphics are NOT future LOD.
+// Only select/deselect shadow participation; always render accepted GLBs.
 export const MAX_VEHICLE_SHADOW_MESHES = 4;
 
 export function resolveVehicleOptimizationMode(
@@ -27,8 +23,6 @@ export function resolveVehicleOptimizationMode(
   if (!diagnosticsEnabled) return "selectiveShadows";
   switch (requested) {
     case "selectiveShadows":
-    case "distanceLOD":
-    case "combined":
       return requested;
     default:
       return "full";
@@ -36,11 +30,7 @@ export function resolveVehicleOptimizationMode(
 }
 
 export function usesSelectiveVehicleShadows(mode: FL4VehicleOptimizationMode): boolean {
-  return mode === "selectiveShadows" || mode === "combined";
-}
-
-export function usesVehicleDistanceLOD(mode: FL4VehicleOptimizationMode): boolean {
-  return mode === "distanceLOD" || mode === "combined";
+  return mode === "selectiveShadows";
 }
 
 export interface VehicleShadowCandidate {
@@ -77,15 +67,3 @@ export function selectVehicleShadowCasterIds(
     .map((part) => part.id);
 }
 
-/** Separate enter/return radii prevent rapid flicker near the threshold. */
-export function wantsFullVehicleDetail(
-  previouslyDetailed: boolean,
-  cameraDistanceMetres: number,
-): boolean {
-  if (!Number.isFinite(cameraDistanceMetres) || cameraDistanceMetres < 0) {
-    return previouslyDetailed;
-  }
-  return previouslyDetailed
-    ? cameraDistanceMetres <= VEHICLE_LOD_ENTER_METRES
-    : cameraDistanceMetres < VEHICLE_LOD_RETURN_METRES;
-}
