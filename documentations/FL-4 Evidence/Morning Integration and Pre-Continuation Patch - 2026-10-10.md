@@ -106,3 +106,16 @@ GTD-VIS-001 horizontal blue-sky banding remains documented as a minor, non-block
 6. **No automatic merge or production promotion:** `main` remains the deliberately released pre-overnight comparison baseline until the user explicitly authorizes the next release.
 
 **Final finding:** The previously disconnected three overnight implementations have been converted into **active generator/renderer code**, and the source-edit blocker is removed for this morning patch. This is substantive FL-4 progress, but it must not be confused with completed user-facing or mobile-performance acceptance.
+
+
+## 9. Final revised candidate verification — confirmed
+
+**Latest tested app-code source:** `e31a6a2f930bb9cad89d0a2b6c609e9563356d8c` (includes the visible side-glazing offset and corrected mobile issue documentation).  
+**Non-production Vercel deployment:** `dpl_C5gR2gZNAqZpDh5MTxCWkdWbm16H`  
+**Verified preview:** `https://gtd-279m2a0ke-interlinkglobaltech.vercel.app/game`  
+**Status:** **READY**; deployment log includes `Build Completed in /vercel/output [3m]` and `Deployment completed`.  
+**Verification command:** `npx tsc --noEmit && npm run test && npm run build`. Because the chain completed and deployed, TypeScript, test suite and Vite/Nitro build ran successfully in sequence; individual test count was not retrievable from the latest limited log window and is not asserted here.  
+**Post-preview commits:** Documentation reconciliation only (no subsequent changes to active renderer/game code). The above preview therefore represents the final patched gameplay code for user comparison with frozen production.  
+**Unverified:** User's actual visual review, live game/browser rendering, FPS/draw-call measurements, mobile native-pixel coverage, repository-wide lint and final milestone acceptance.
+
+The morning source/connector editing problem was operationally cleared for this patch. Preview delivery is complete; **FL-4 remains open** pending the additional validation in sections 6–8.
