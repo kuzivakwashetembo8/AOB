@@ -65,6 +65,39 @@ describe("EXP-VEH-001 imported parked-car experiment contract", () => {
     expect(() => planImportedVehicleFit(original, 4.53, 0)).toThrow();
   });
 
+  it("tests 10% buggy width and 10% sports height independently while preserving both class lengths", () => {
+    const sourceBounds = { x: 1.94, y: 1.35, z: 4.2 };
+    const buggy = sourceForExistingSlot(0);
+    const sports = sourceForExistingSlot(1);
+    expect(buggy.widthMultiplier).toBeCloseTo(1.1);
+    expect(buggy.heightMultiplier).toBe(1);
+    expect(sports.widthMultiplier).toBe(1);
+    expect(sports.heightMultiplier).toBeCloseTo(1.1);
+
+    for (const slotScale of [0.92, 1, 1.04]) {
+      for (const specimen of [buggy, sports]) {
+        const before = planImportedVehicleFit(sourceBounds, specimen.targetLengthMeters, slotScale);
+        const fitted = planImportedVehicleFit(sourceBounds, specimen.targetLengthMeters, slotScale, {
+          widthMultiplier: specimen.widthMultiplier,
+          heightMultiplier: specimen.heightMultiplier,
+        });
+        expect(fitted.worldDimensions.z).toBeCloseTo(before.worldDimensions.z);
+        expect(fitted.worldDimensions.z).toBeCloseTo(specimen.targetLengthMeters);
+        expect(fitted.worldDimensions.x).toBeCloseTo(before.worldDimensions.x * specimen.widthMultiplier);
+        expect(fitted.worldDimensions.y).toBeCloseTo(before.worldDimensions.y * specimen.heightMultiplier);
+        expect(fitted.uniformScale).toBeCloseTo(before.uniformScale);
+        expect(fitted.shapeAdjustment).toEqual({
+          widthMultiplier: specimen.widthMultiplier,
+          heightMultiplier: specimen.heightMultiplier,
+        });
+      }
+    }
+    expect(() => planImportedVehicleFit(sourceBounds, 4.5, 1,
+      { widthMultiplier: 0, heightMultiplier: 1 })).toThrow();
+    expect(() => planImportedVehicleFit(sourceBounds, 4.5, 1,
+      { widthMultiplier: 1, heightMultiplier: Number.NaN })).toThrow();
+  });
+
   it("replaces only existing car colliders without leaks or affecting other world physics", async () => {
     const engine = new NullEngine();
     const scene = new Scene(engine);
