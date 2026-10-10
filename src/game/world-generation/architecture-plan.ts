@@ -210,10 +210,15 @@ function createFacadeLayout(
               role === "garage" || role === "entrance") continue;
           // Generated storefronts are facade *panels*, not unregistered traversable entrances.
           const kind = role === "storefront" ? "storefront" : "window";
-          const sillHeight = round(floorBase + (kind === "storefront" ? 0.22 : Math.min(1.05, floorHeight * 0.30)));
+          // Taller storeys need taller, proportionally raised openings; the
+          // ordinary-height grammar and authored garage geometry are unchanged.
+          const tallStorey = floorHeight > 3.8;
+          const sillHeight = round(floorBase + (kind === "storefront"
+            ? 0.22
+            : tallStorey ? Math.min(1.32, floorHeight * 0.30) : Math.min(1.05, floorHeight * 0.30)));
           const height = round(kind === "storefront"
-            ? Math.min(floorHeight - 0.58, 2.7)
-            : Math.min(1.65, floorHeight * 0.47));
+            ? Math.min(3.1, floorHeight - 0.22 - 0.62)
+            : tallStorey ? Math.min(2.05, floorHeight * 0.46) : Math.min(1.65, floorHeight * 0.47));
           const width = round(Math.min(bayWidth * (kind === "storefront" ? 0.84 : 0.64), kind === "storefront" ? 3 : 1.9));
           if (width <= 0 || height <= 0) continue;
           const candidate: FacadeOpeningSpec = {
