@@ -60,6 +60,8 @@ export interface GeneratedFirstLightWorld {
     itemId: string,
     dimensions: { readonly x: number; readonly y: number; readonly z: number },
   ): void;
+  /** Imported-only game: remove invisible legacy collision until GLB is ready. */
+  suspendParkedCarColliders(): void;
   update(realSeconds: number, playerPosition: { x: number; y: number; z: number }): void;
   setTimeMinutes(minutes: number): MeridianEnvironmentSnapshot;
   setTimeScale(scale: number): MeridianEnvironmentSnapshot;
@@ -469,6 +471,15 @@ export function createGeneratedFirstLightWorld(
     environment,
     garageInterior,
     shadowGenerator: environment.shadowGenerator,
+    suspendParkedCarColliders() {
+      if (disposed) throw new Error("Cannot suspend car colliders after world disposal");
+      for (const [itemId, handle] of parkedCollisionHandles) {
+        handle.dispose();
+        const index = contextCollision.indexOf(handle);
+        if (index !== -1) contextCollision.splice(index, 1);
+        parkedCollisionHandles.delete(itemId);
+      }
+    },
     replaceParkedCarCollider(itemId, dimensions) {
       if (disposed) throw new Error("Cannot update parked-car collision after world disposal");
       if (![dimensions.x, dimensions.y, dimensions.z].every(
@@ -476,7 +487,7 @@ export function createGeneratedFirstLightWorld(
       )) throw new Error("Invalid imported parked-car dimensions");
       const item = parkedById.get(itemId);
       const prior = parkedCollisionHandles.get(itemId);
-      if (!item || !prior) throw new Error("Unknown parked-car collider: " + itemId);
+      if (!item) throw new Error("Unknown parked-car collider: " + itemId);
       // Allocate the new collider first; if allocation fails the old one remains.
       const replacement = physics.addStaticBox(
         {
@@ -487,7 +498,11 @@ export function createGeneratedFirstLightWorld(
         { x: dimensions.x / 2, y: dimensions.y / 2, z: dimensions.z / 2 },
         item.yawRadians,
       );
-      prior.dispose();
+      if (prior) {
+        prior.dispose();
+        const index = contextCollision.indexOf(prior);
+        if (index !== -1) contextCollision.splice(index, 1);
+      }
       parkedCollisionHandles.set(itemId, replacement);
       contextCollision.push(replacement);
     },
