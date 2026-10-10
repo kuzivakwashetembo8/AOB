@@ -26,6 +26,20 @@ describe("FL4-04 isolated vehicle optimization controls", () => {
     expect(usesVehicleDistanceLOD("combined")).toBe(true);
   });
 
+  it("keeps the closeout candidate opt-in and preserves full-detail rollback", () => {
+    // Final review is never an implicit global replacement for accepted cars.
+    expect(resolveVehicleOptimizationMode(null, false, false)).toBe("full");
+    expect(resolveVehicleOptimizationMode(null, true, false)).toBe("full");
+    // The explicit QA review provides a normal-play performance candidate.
+    expect(resolveVehicleOptimizationMode(null, false, true)).toBe("selectiveShadows");
+    expect(resolveVehicleOptimizationMode(null, true, true)).toBe("selectiveShadows");
+    // Reversion and independent existing experiments remain possible.
+    expect(resolveVehicleOptimizationMode("full", true, true)).toBe("full");
+    expect(resolveVehicleOptimizationMode("distanceLOD", true, true)).toBe("distanceLOD");
+    expect(resolveVehicleOptimizationMode("combined", true, true)).toBe("combined");
+    expect(resolveVehicleOptimizationMode("full", false, true)).toBe("selectiveShadows");
+  });
+
   it("selects at most four substantial body submeshes with stable ties", () => {
     const candidates = [
       { id: "tiny", vertices: 1000, width: 0.1, height: 0.1, length: 0.1 },
