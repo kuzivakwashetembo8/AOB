@@ -84,6 +84,14 @@ function GamePage() {
   useEffect(() => {
     bridge.command({ type: "input-mode", mode });
   }, [bridge, mode]);
+  useEffect(() => {
+    if (!loaded) return;
+    bridge.command({
+      type: "camera-settings",
+      touchSensitivity: settings.touchSensitivity,
+      invertY: settings.invertY,
+    });
+  }, [bridge, loaded, settings.touchSensitivity, settings.invertY]);
 
   useEffect(() => {
     const host = canvas.current;
@@ -100,10 +108,13 @@ function GamePage() {
     };
     const mouseLook = (event: MouseEvent) => {
       if (document.pointerLockElement !== host || paused) return;
+      // Desktop look slider remains independent of the mobile camera slider.
+      const mouseGain = Math.max(0.2, Math.min(2, settings.sensitivity / 50));
       bridge.command({
         type: "look",
-        x: Math.max(-1, Math.min(1, event.movementX / 18)),
-        y: Math.max(-1, Math.min(1, event.movementY / 18)),
+        x: Math.max(-1, Math.min(1, (event.movementX / 18) * mouseGain)),
+        y: Math.max(-1, Math.min(1, (event.movementY / 18) * mouseGain)) *
+          (settings.invertY ? -1 : 1),
       });
       requestAnimationFrame(() => bridge.command({ type: "look", x: 0, y: 0 }));
     };
@@ -116,7 +127,7 @@ function GamePage() {
       document.removeEventListener("mousemove", mouseLook);
       if (document.pointerLockElement === host) document.exitPointerLock?.();
     };
-  }, [bridge, loaded, mode, paused]);
+  }, [bridge, loaded, mode, paused, settings.sensitivity, settings.invertY]);
   // One finger swipes the visible world to orbit Voight, while a second
   // finger can operate movement or action controls independently.
   useEffect(() => {
