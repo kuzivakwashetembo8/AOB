@@ -5,8 +5,9 @@
  *
  * The initial legacy proxy stays intact while an import is pending or fails.
  * Successful imports disable ONLY matching visible proxy meshes. The existing
- * fixed Rapier collider, seeded street plan, world coordinates and garage
- * remain untouched. No GLB is copied into this repository.
+ * seeded street plan, world coordinates and garage remain untouched. Each
+ * successfully imported car receives a matching static Rapier cuboid; a failed
+ * import keeps its original collider. No GLB is copied into this repository.
  */
 import {
   AbstractMesh,
@@ -188,6 +189,7 @@ export function beginImportedCarEvaluation(
               bounds.size,
               source.targetLengthMeters,
               item.scale,
+              { widthMultiplier: source.widthMultiplier, heightMultiplier: source.heightMultiplier },
             );
             slot.fit = fit;
             centerOffset.position.set(-bounds.center.x, -bounds.floorY, -bounds.center.z);
@@ -195,7 +197,14 @@ export function beginImportedCarEvaluation(
             orientation.rotation.y = fit.rotateYRadians;
             anchor.position.set(item.position.x, item.position.y, item.position.z);
             anchor.rotation.y = item.yawRadians;
-            anchor.scaling.setAll(item.scale);
+            // Width and height are calibrated in parked-car LOCAL/world
+            // transverse/vertical axes AFTER source-long-axis rotation.
+            // Length remains controlled by the original uniform fit.
+            anchor.scaling.set(
+              item.scale * fit.shapeAdjustment.widthMultiplier,
+              item.scale * fit.shapeAdjustment.heightMultiplier,
+              item.scale,
+            );
             slot.finalVisualMetres = {
               width: fit.worldDimensions.x,
               height: fit.worldDimensions.y,
