@@ -1,6 +1,6 @@
 # EXP-VEH-001 — Iteration 2: Real-Scale Calibration
 
-**Status:** Experiment-only calibration implemented; preview validation in progress. **No final vehicle adoption.**
+**Status:** Experiment-only calibration IMPLEMENTED; STRICT TYPESCRIPT, 77 AUTOMATED TESTS, AND BUILD VERIFIED; NON-PRODUCTION PREVIEW READY. Real in-world visuals/interaction/benchmark comparison remain to be measured. **No final vehicle adoption.**
 
 ## Decision and rationale
 
@@ -38,6 +38,15 @@ The earlier small-car preview remains available as an immutable historical compa
 
 ## Revision control for calibrated-collider experiment
 
-**Implementation baseline:** `b1147110de6e6a4e47b1b3383ede70397901a67a` (experiment branch; production `main` untouched). **Pinned verification deployment:** `dpl_9Ai7mu64hqLRHDmD5zP78AQSHHDo` — do not classify as READY until checked. This iteration supersedes the initial small-car visual-envelope normalization for the experiment **only**, without revising the historical evidence record. Because the imported vehicle uses external, rights-unverified third-party models, any acceptance is limited to a controlled technical experiment.
+**Implementation baseline:** `b1147110de6e6a4e47b1b3383ede70397901a67a` (experiment branch; production `main` untouched). **Pinned verification deployment:** `dpl_9Ai7mu64hqLRHDmD5zP78AQSHHDo` — **READY** at game-code SHA `b1147110de6e6a4e47b1b3383ede70397901a67a`. `npx tsc --noEmit && npm run test && npm run build` passed; **16 test files and 77 tests passed**, including the new static-collider replacement and disposal regression. Vercel preview: `https://gtd-gn2raagb1-interlinkglobaltech.vercel.app`. This iteration supersedes the initial small-car visual-envelope normalization for the experiment **only**, without revising the historical evidence record. Because the imported vehicle uses external, rights-unverified third-party models, any acceptance is limited to a controlled technical experiment.
 
 **Repeatable evidence capture**: open the same SHA with `?gtdVehicleProbe=imports&fl4Diagnostics=1` and `?gtdVehicleProbe=baseline&fl4Diagnostics=1`; compare the same car count and camera/time conditions, inspect `window.__GTD_VEHICLE_PROBE_REPORT__?.()` for `fit.worldDimensions`, `finalVisualMetres`, `colliderCalibrated` and slot errors; then inspect `window.__GTD_FL4_REPORT__?.()` for p50/p95 frame/render times, draw calls and active indices. Record mobile and desktop separately. Without exported numbers, no frame-rate or collision outcome should be declared proved.
+
+## Verified preview comparison (2026-10-10)
+
+- **Real-scale imports:** `https://gtd-gn2raagb1-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=imports&fl4Diagnostics=1`
+- **Same-build original proxy control:** `https://gtd-gn2raagb1-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=baseline&fl4Diagnostics=1`
+
+**Demonstrated by build/automated tests:** source compiles; 77 tests pass; replacement collider allocations/disposals retain the expected physics body/collider count. **Not yet demonstrated:** rendered final measured width/height from actual GLBs, full-size alignment and curb clearance in the browser, real user interaction with replacement colliders, p50/p95 rendering cost in matching conditions, loading/presentation behavior, mobile performance or IP/license suitability. The source asset images and quality are NOT a committed GTD art choice.
+
+In-browser experiment telemetry: `window.__GTD_VEHICLE_PROBE_REPORT__?.()` — check each successful slot's `status`, `finalVisualMetres`, `fit.worldDimensions`, `colliderCalibrated`, `warnings` and `failure`. Rendering telemetry: `window.__GTD_FL4_REPORT__?.()` — retain raw JSON for the identical device, clock time, viewpoint and hardware scale. The original source-fork assets are referenced remotely and have not been copied into GTD.
