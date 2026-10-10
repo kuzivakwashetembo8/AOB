@@ -58,3 +58,15 @@ Run separately because each copy overwrites the clipboard. Mobile debugging may 
 A01 PARTIAL; A02 PARTIAL; A03 PARTIAL; A04 PARTIAL; A05 OPEN; A06 PARTIAL/BLOCKED; A07 FL-3 ACCEPTED/POST-IMPORT CHECK OPEN; A08 FL-3 ACCEPTED/REGRESSION OPEN; A09 OPEN; A10 OPEN; A11 experiment 78/78 PASS/development default PENDING; A12 BLOCKED.
 
 **Verdict:** FL-4 is still active. The newly adopted vehicles raise GTD's visible art baseline and justify continuing the game-development asset pipeline, but the next FL-4 action must be measurement and regression rather than inventing a completion claim or automatically remodeling unrelated assets.
+
+## Post-promotion verification evidence — 2026-10-10
+
+**Development game source:** e107d86fa1f824a486727385e5bc0f7a9da71ca1. **Vercel deployment:** dpl_C9HCRZLbXx85tF99kVo6fnWzxHSU, READY, at https://gtd-12vxak3am-interlinkglobaltech.vercel.app. The sequential verification command was npx tsc --noEmit && npm run test && npm run build. Result: **PASS**, 16 Vitest files and **78/78 tests passed**. The Vite/Nitro build completed and the deployment status is READY.
+
+**Default developmental imported cars:** https://gtd-12vxak3am-interlinkglobaltech.vercel.app/game?fl4Diagnostics=1
+
+**Same SHA, legacy procedural-car control:** https://gtd-12vxak3am-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=baseline&fl4Diagnostics=1
+
+Development-source policy selects imported GLBs on nonproduction hosts by default; the latter URL expressly overrides to the previous procedural renderer. The imported off-road and sports models remain source-pinned remote technical-development references, without commercial licensing clearance. Source-code tests and READY deployment do **not** verify actual browser default/override operation, real-device FPS or GPU utilization; those remain live-review requirements.
+
+**Next FL4-01/02 acquisition:** matched hardware/viewport/game-time 90–120-second runs of both URLs, saving browser diagnostics before performing resolution experiments on real landscape mobile. The old production baseline remains unchanged. FL-4 NOT ACCEPTED.
