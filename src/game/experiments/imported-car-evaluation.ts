@@ -33,12 +33,19 @@ import {
 
 export interface ImportedCarProbe {
   report(): ImportedCarProbeReport;
+  /** Resolves after real downloads, instantiation and collider work settle (including failures). */
+  readonly settled: Promise<void>;
   dispose(): void;
 }
 
 export interface ImportedCarProbeOptions {
   /** Diagnostic-only. The accepted development visual is unchanged by default. */
   readonly optimizationMode?: FL4VehicleOptimizationMode;
+  readonly onCheckpoint?: (
+    checkpoint: "vehicle-loader" | "vehicle-offroad" | "vehicle-sports",
+    status: "running" | "done" | "failed",
+    detail?: string,
+  ) => void;
 }
 
 type SlotStatus = "loading" | "imported" | "failed";
@@ -193,6 +200,13 @@ export function beginImportedCarEvaluation(
   const pipelineStart = performance.now();
   let pipelineStage: ImportPipelineStage = "initializing-gltf-loader";
   let loaderInitializationMs: number | null = null;
+  const notify = (
+    checkpoint: "vehicle-loader" | "vehicle-offroad" | "vehicle-sports",
+    status: "running" | "done" | "failed",
+    detail?: string,
+  ) => {
+    if (!disposed) options.onCheckpoint?.(checkpoint, status, detail);
+  };
   function report(): ImportedCarProbeReport {
     const now = performance.now();
     return {
@@ -226,9 +240,11 @@ export function beginImportedCarEvaluation(
   suppressLegacyParkedCarPlaceholders(world);
 
   async function loadModels(): Promise<void> {
-    // Only code-split/download the GLB loader for explicitly requested probe.
+    // A real readiness gate: loader module is not ready until its dynamic import resolves.
+    notify("vehicle-loader", "running");
     await import("@babylonjs/loaders/glTF");
     loaderInitializationMs = Math.round(performance.now() - pipelineStart);
+    notify("vehicle-loader", "done");
     if (disposed) return;
     pipelineStage = "loading-models";
     const grouped = new Map(
@@ -239,6 +255,8 @@ export function beginImportedCarEvaluation(
       const started = performance.now();
       asset.startedAtMs = started;
       asset.stage = "loading-model";
+      const checkpoint = asset.id === "offroad" ? "vehicle-offroad" : "vehicle-sports";
+      notify(checkpoint, "running");
       let container: AssetContainer | null = null;
       try {
         container = await loadAssetContainerAsync(source.rootUrl + source.fileName, scene);
@@ -354,11 +372,16 @@ export function beginImportedCarEvaluation(
           }
         }
         asset.stage = "complete";
+        const failedSlots = slotResults.filter((slot) =>
+          slot.source === asset.id && slot.status !== "imported");
+        notify(checkpoint, failedSlots.length ? "failed" : "done",
+          failedSlots.length ? failedSlots.length + " vehicle placement(s) unavailable" : undefined);
       } catch (error) {
         asset.status = "failed";
         asset.stage = "failed";
         asset.error = String(error);
         asset.loadMs = performance.now() - started;
+        notify(checkpoint, "failed", "Model download or import unavailable");
         for (const slot of slotResults) {
           if (slot.source !== asset.id) continue;
           slot.status = "failed";
@@ -371,8 +394,12 @@ export function beginImportedCarEvaluation(
     pipelineStage = "settled";
   }
 
-  void loadModels().catch((error) => {
+  const settled = loadModels().catch((error) => {
+    if (disposed) return;
     pipelineStage = "failed";
+    notify("vehicle-loader", "failed", "GLTF loader unavailable");
+    notify("vehicle-offroad", "failed", "Loader unavailable");
+    notify("vehicle-sports", "failed", "Loader unavailable");
     for (const slot of slotResults) {
       if (slot.status !== "loading") continue;
       slot.status = "failed";
@@ -389,6 +416,7 @@ export function beginImportedCarEvaluation(
 
   return {
     report,
+    settled,
     dispose() {
       if (disposed) return;
       disposed = true;

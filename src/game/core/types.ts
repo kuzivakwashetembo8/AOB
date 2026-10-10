@@ -1,3 +1,5 @@
+import type { StartupCheckpointId, StartupCheckpointState } from "./loading-checklist";
+
 export type HudContext = "walking" | "driving" | "combat";
 export type InputMode = "keyboard" | "touch" | "controller";
 export type InteriorVisibilityState = "outside" | "threshold" | "inside";
@@ -39,6 +41,7 @@ export type GameCommand =
 
 export type GameEvent =
   | { type: "progress"; progress: number; detail: string }
+  | { type: "load-checkpoint"; id: StartupCheckpointId; status: Exclude<StartupCheckpointState, "pending">; detail?: string }
   | { type: "interaction"; label: string | null }
   | { type: "error"; message: string };
 

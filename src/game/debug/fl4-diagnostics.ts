@@ -17,10 +17,31 @@ export type FL4Report = Readonly<{
   viewport: { width: number; height: number; dpr: number };
   canvas: { cssWidth: number; cssHeight: number; backingWidth: number; backingHeight: number };
   render: { width: number; height: number; hardwareScalingLevel: number };
+  webglLimits: {
+    maxTextureSize: number | null;
+    maxRenderbufferSize: number | null;
+    maxViewportWidth: number | null;
+    maxViewportHeight: number | null;
+  };
   scene: { meshCount: number; materialCount: number; textureCount: number; shadowCasterCount: number; shadowMapSize: number | null };
   pixelCoverage: { expectedNativePixels: number; actualPixels: number; nativeCoveragePercent: number | null };
   timing: { bootToReadyMs: number | null; firstFrameMs: number | null };
-  samples: { count: number; frameMsP50: number | null; frameMsP95: number | null; renderMsP50: number | null; renderMsP95: number | null; fpsApprox: number | null; drawCallsP50: number | null; activeMeshesP50: number | null; activeIndicesP50: number | null };
+  samples: {
+    count: number;
+    frameMsP50: number | null;
+    frameMsP95: number | null;
+    frameMsMax: number | null;
+    renderMsP50: number | null;
+    renderMsP95: number | null;
+    renderMsMax: number | null;
+    frameGapsOver50Ms: number;
+    frameGapsOver100Ms: number;
+    frameGapsOver250Ms: number;
+    fpsApprox: number | null;
+    drawCallsP50: number | null;
+    activeMeshesP50: number | null;
+    activeIndicesP50: number | null;
+  };
   unavailable: string[];
 }>;
 
@@ -72,6 +93,10 @@ export class FL4Diagnostics {
     const bounds = this.canvas.getBoundingClientRect();
     const frames = this.samples.map((v) => v.frameMs);
     const p50 = percentile(frames, 0.5);
+    // Same WebGL context Babylon already owns; query hard capability limits,
+    // not inferred GPU throughput or memory. Null means the query is unavailable.
+    const gl = this.canvas.getContext("webgl2") ?? this.canvas.getContext("webgl");
+    const maxViewport = gl?.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array | undefined;
     const shadowGenerators = this.scene.lights.map((light) => light.getShadowGenerator()).filter((generator) => generator !== null);
     const mainShadow = shadowGenerators[0];
     const shadowMap = mainShadow?.getShadowMap();
@@ -91,6 +116,12 @@ export class FL4Diagnostics {
         height: this.engine.getRenderHeight(),
         hardwareScalingLevel: this.engine.getHardwareScalingLevel(),
       },
+      webglLimits: {
+        maxTextureSize: gl ? gl.getParameter(gl.MAX_TEXTURE_SIZE) as number : null,
+        maxRenderbufferSize: gl ? gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) as number : null,
+        maxViewportWidth: maxViewport?.[0] ?? null,
+        maxViewportHeight: maxViewport?.[1] ?? null,
+      },
       scene: {
         meshCount: this.scene.meshes.length,
         materialCount: this.scene.materials.length,
@@ -104,8 +135,15 @@ export class FL4Diagnostics {
         count: frames.length,
         frameMsP50: p50,
         frameMsP95: percentile(frames, 0.95),
+        frameMsMax: frames.length ? Math.round(Math.max(...frames) * 100) / 100 : null,
         renderMsP50: percentile(this.samples.map((v) => v.renderMs), 0.5),
         renderMsP95: percentile(this.samples.map((v) => v.renderMs), 0.95),
+        renderMsMax: this.samples.length
+          ? Math.round(Math.max(...this.samples.map((v) => v.renderMs)) * 100) / 100
+          : null,
+        frameGapsOver50Ms: frames.filter((ms) => ms > 50).length,
+        frameGapsOver100Ms: frames.filter((ms) => ms > 100).length,
+        frameGapsOver250Ms: frames.filter((ms) => ms > 250).length,
         fpsApprox: approximateFps(p50),
         drawCallsP50: percentile(this.samples.map((v) => v.drawCalls).filter((v): v is number => v !== null), 0.5),
         activeMeshesP50: percentile(this.samples.map((v) => v.activeMeshes), 0.5),

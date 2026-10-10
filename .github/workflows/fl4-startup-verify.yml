@@ -1,0 +1,28 @@
+name: FL-4 startup and maximum raster verification
+
+on:
+  push:
+    branches:
+      - fix/fl4-real-startup-and-mobile-max-quality
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Regression tests
+        run: npm run test
+      - name: Build
+        run: npm run build
