@@ -29,12 +29,22 @@ describe("FL4 development device evidence export", () => {
   });
 
   it("includes imported-car loading/fit details without inventing GPU measures", () => {
-    const imported = {
+    const imported: ImportedCarProbeReport = {
       experiment: "EXP-VEH-001",
       state: "running",
-      slots: [{ id: "parked:0", source: "sports", status: "imported" }],
+      copyright: "unverified third-party specimens — evaluation only",
+      slots: [{
+        id: "parked:0",
+        source: "sports",
+        status: "imported",
+        loadMs: 144,
+        fit: null,
+        finalVisualMetres: { width: 2, height: 1.4, length: 4.53 },
+        failure: null,
+        colliderCalibrated: true,
+      }],
       assetSources: [],
-    } as ImportedCarProbeReport;
+    };
     const evidence = composeFL4EvidenceSnapshot(
       metric,
       imported,
