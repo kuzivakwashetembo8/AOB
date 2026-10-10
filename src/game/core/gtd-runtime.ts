@@ -185,7 +185,9 @@ export class GTDGameRuntime implements GameRuntime {
           productionHostname || diagnosticParams.get("fl4FinalReview") === "1",
         ),
         onCheckpoint: (id, status, detail) =>
-          this.emit({ type: "load-checkpoint", id, status, detail }),
+          this.emit(detail === undefined
+            ? { type: "load-checkpoint", id, status }
+            : { type: "load-checkpoint", id, status, detail }),
       });
       this.importedCarProbe = importedCarProbe;
       (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: () => ReturnType<ImportedCarProbe["report"]> })
