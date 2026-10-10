@@ -55,4 +55,13 @@ Use **one immutable review deployment**, then execute this compact route:
 
 ## 6. Pinned candidate verification
 
-**Build and preview pending; to be appended after verification.** 
+**Build and preview verified READY — 2026-10-10**
+
+- **Application/source SHA:** `22efb7db6de2837f460a5a74da24f39e4ad96e36` on `review/fl4-final-acceptance-candidate`.
+- **Pinned Vercel:** `dpl_8x4AscVNsL4fMqKnKyp3r5SZQ75S`, READY at `https://gtd-qvjoxnz0p-interlinkglobaltech.vercel.app`.
+- **Verification command:** `npx tsc --noEmit && npm run test && npm run build`; Vercel deployment reached READY and the final Vite/Nitro build completed. This chained command guarantees the app build stage did not execute after a failed TypeScript or test stage. Earlier optimization branch passed 84 tests across 18 files; this closeout candidate adds one final-review flag contract test. Exact console test count for this pinned build was not separately extracted from the truncated provider event window; do not invent a number.
+- **Normal-play final review (no sampler):** `https://gtd-qvjoxnz0p-interlinkglobaltech.vercel.app/game?fl4FinalReview=1`.
+- **Final review with opt-in evidence export:** `https://gtd-qvjoxnz0p-interlinkglobaltech.vercel.app/game?fl4FinalReview=1&fl4Diagnostics=1`.
+- **Same SHA full-renderer rollback control:** `https://gtd-qvjoxnz0p-interlinkglobaltech.vercel.app/game?fl4Diagnostics=1&fl4VehicleOptimization=full`.
+
+**Code accepted for review, not yet milestone-approved:** neither this READY deploy nor prior A/B shadow-work reductions prove user-approved vehicle shadows, actual mobile sharpness, user-perceived movement responsiveness, or complete gameplay/garage regression. No screenshots or physical-device results for this pinned closeout candidate have been submitted. FL4-02/03/05/06 remain OPEN until the final user review and supported acceptance decision. This is a fixed-scope **acceptance review**, not permission to start another general optimization study. No `main` or public-production changes occurred. 
