@@ -32,3 +32,10 @@ On the same landscape Android device in comparable camera/time/vehicle-loaded co
 5. Recheck garage enter/exit, pointer drag, two-finger movement, pause/resume, vehicle collision and no procedural car fallback.
 
 **Release gate:** separate user approval before Vercel preview or production. Source changes should pass `npx tsc --noEmit && npm run test && npm run build` in a suitable Node/dependency environment; if no runner is available, record that limitation. Full FL4-06 final acceptance remains open pending real device evidence.
+
+## Implementation and verification ledger
+
+- Branch source contains the real checkpoint event/UI, importer `settled` promise, asset-source terminal callbacks, first-frame material-readiness wait, and local-only maximum raster trial. The normal saved Graphics presets are unchanged.
+- Source-side unit contracts: `src/test/fl4-real-startup-and-max-quality.test.ts`. **Not yet executed successfully.**
+- GitHub Actions verification workflow run [38091980845](https://github.com/interlinkglobal/GTD/actions/runs/38091980845) returned `failure` within seconds, with **zero executed job steps and no runner assigned** (`steps: []`, `runner_id: 0`). This is an automation infrastructure failure, **not** evidence that TypeScript/tests/build ran and failed. Underlying cause unconfirmed.
+- No Vercel preview or production deployment has been created for this branch. All mobile Native/Supernative quality outcomes remain **UNMEASURED**. A capable CI runner or authorized preview build is required before any acceptance decision.
