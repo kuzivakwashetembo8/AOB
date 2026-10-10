@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { GameAction, GameCommand } from "@/game/core/types";
 import type { Settings } from "@/ui/menus/settings-state";
 type Send = (command: GameCommand) => void;
-export function Joystick({ type, send }: { type: "move" | "look"; send: Send }) {
+export function Joystick({ send }: { send: Send }) {
   const thumb = useRef<HTMLDivElement>(null);
   const active = useRef<number | null>(null);
   const move = (event: PointerEvent<HTMLDivElement>) => {
@@ -20,19 +20,19 @@ export function Joystick({ type, send }: { type: "move" | "look"; send: Send }) 
     }
     if (thumb.current)
       thumb.current.style.transform = `translate(${x * radius}px, ${y * radius}px)`;
-    send({ type, x, y });
+    send({ type: "move", x, y });
   };
   const release = (event: PointerEvent<HTMLDivElement>) => {
     if (active.current !== event.pointerId) return;
     active.current = null;
     if (thumb.current) thumb.current.style.transform = "translate(0, 0)";
-    send({ type, x: 0, y: 0 });
+    send({ type: "move", x: 0, y: 0 });
   };
   return (
     <div
-      className={`joystick joystick-${type === "move" ? "left" : "right"}`}
+      className="joystick joystick-left"
       role="group"
-      aria-label={type === "move" ? "Movement joystick" : "Camera joystick"}
+      aria-label="Movement joystick"
       onPointerDown={(event) => {
         if (active.current !== null) return;
         active.current = event.pointerId;
@@ -45,7 +45,7 @@ export function Joystick({ type, send }: { type: "move" | "look"; send: Send }) 
       onLostPointerCapture={release}
     >
       <div ref={thumb} className="joystick-thumb" />
-      <span className="joystick-label">{type === "move" ? "MOVE" : "LOOK"}</span>
+      <span className="joystick-label">MOVE</span>
     </div>
   );
 }
@@ -76,8 +76,7 @@ export function TouchControls({
       className={`touch-controls positions-${settings.position.toLowerCase()} ${settings.handedness === "Left-handed" ? "left-handed" : ""}`}
       style={style}
     >
-      <Joystick type="move" send={send} />
-      <Joystick type="look" send={send} />
+      <Joystick send={send} />
       <div className="touch-actions">
         {actions.map(({ action, label, icon: Icon }) => (
           <Button
