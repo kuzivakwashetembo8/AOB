@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-10  
 **Authorization:** User replied **"Yes with one exception"** to the FL-4 closeout candidate: there is no reason to render older procedural car templates while waiting for accepted off-road buggy and sports-car GLBs; future car designs must be derived from editing accepted vehicles or importing additional suitable 3D assets. This is a binding GTD **development art policy**, not permission to distribute the two third-party models commercially.  
-**Branch:** `review/fl4-final-acceptance-candidate`; **source app SHA:** `1125249db71dcdcd85cd10e055f6f565c16ae689`; **verification state:** build submitted, final result to be recorded in the closeout ledger.  
+**Branch:** `review/fl4-final-acceptance-candidate`; **source app SHA:** `1125249db71dcdcd85cd10e055f6f565c16ae689`; **verification state:** VERIFIED — Vercel `dpl_DYUR4hFCRpxR4r1SjwNHmKjAadwt` READY; TypeScript, 83/83 tests across 18 files, and application build passed.  
 **Release boundary:** technical development only. `main` and production remain unchanged.
 
 ## 1. Approved vehicle representation policy
@@ -48,3 +48,7 @@ On a READY preview:
 5. Update the First Light canonical milestone register only after supported acceptance gates have been dispositioned; **do not automatically promote to public production**.
 
 The intent is to close FL-4 efficiently without additional speculative research or unrelated art tasks.
+
+## Verified immutable closeout test build
+
+The exact code SHA `1125249db71dcdcd85cd10e055f6f565c16ae689` successfully completed the chained `npx tsc --noEmit && npm run test && npm run build` command; **83 tests passed across 18 test files**. Nonproduction Vercel preview `dpl_DYUR4hFCRpxR4r1SjwNHmKjAadwt` is **READY** at `https://gtd-9r7dn47x2-interlinkglobaltech.vercel.app/game?fl4FinalReview=1`. This verifies code compilation, correct unit/integration acceptance policies and deployment readiness, not real-device visual loading, mobile sharpness or acceptable frame time. The accepted imported-only vehicle presentation should be validated once in a real browser at this exact SHA; FL4-02 mobile issue GTD-VIS-002 and performance concerns remain disclosed and open until evidenced or deliberately dispositioned.
