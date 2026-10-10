@@ -17,6 +17,12 @@ export type FL4Report = Readonly<{
   viewport: { width: number; height: number; dpr: number };
   canvas: { cssWidth: number; cssHeight: number; backingWidth: number; backingHeight: number };
   render: { width: number; height: number; hardwareScalingLevel: number };
+  webglLimits: {
+    maxTextureSize: number | null;
+    maxRenderbufferSize: number | null;
+    maxViewportWidth: number | null;
+    maxViewportHeight: number | null;
+  };
   scene: { meshCount: number; materialCount: number; textureCount: number; shadowCasterCount: number; shadowMapSize: number | null };
   pixelCoverage: { expectedNativePixels: number; actualPixels: number; nativeCoveragePercent: number | null };
   timing: { bootToReadyMs: number | null; firstFrameMs: number | null };
@@ -87,6 +93,10 @@ export class FL4Diagnostics {
     const bounds = this.canvas.getBoundingClientRect();
     const frames = this.samples.map((v) => v.frameMs);
     const p50 = percentile(frames, 0.5);
+    // Same WebGL context Babylon already owns; query hard capability limits,
+    // not inferred GPU throughput or memory. Null means the query is unavailable.
+    const gl = this.canvas.getContext("webgl2") ?? this.canvas.getContext("webgl");
+    const maxViewport = gl?.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array | undefined;
     const shadowGenerators = this.scene.lights.map((light) => light.getShadowGenerator()).filter((generator) => generator !== null);
     const mainShadow = shadowGenerators[0];
     const shadowMap = mainShadow?.getShadowMap();
@@ -105,6 +115,12 @@ export class FL4Diagnostics {
         width: this.engine.getRenderWidth(),
         height: this.engine.getRenderHeight(),
         hardwareScalingLevel: this.engine.getHardwareScalingLevel(),
+      },
+      webglLimits: {
+        maxTextureSize: gl ? gl.getParameter(gl.MAX_TEXTURE_SIZE) as number : null,
+        maxRenderbufferSize: gl ? gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) as number : null,
+        maxViewportWidth: maxViewport?.[0] ?? null,
+        maxViewportHeight: maxViewport?.[1] ?? null,
       },
       scene: {
         meshCount: this.scene.meshes.length,
