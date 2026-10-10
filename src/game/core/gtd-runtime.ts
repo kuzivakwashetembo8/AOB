@@ -60,6 +60,7 @@ export class GTDGameRuntime implements GameRuntime {
   private inputMode: InputMode = "keyboard";
   private move = { x: 0, y: 0 };
   private look = { x: 0, y: 0 };
+  private pendingTouchLook = { x: 0, y: 0 };
   private actions = new Set<GameAction>();
   private verticalVelocity = 0;
   private grounded = true;
@@ -246,6 +247,7 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.lifecycle !== "running") return;
     this.lifecycle = "paused";
     this.accumulator = 0;
+    this.pendingTouchLook = { x: 0, y: 0 };
     if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
     this.frameHandle = null;
     this.scene?.render();
@@ -282,6 +284,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.voight = null;
     this.world = null;
     this.actions.clear();
+    this.pendingTouchLook = { x: 0, y: 0 };
     this.lifecycle = "destroyed";
     this.publishSnapshot();
     this.snapshotListeners.clear();
@@ -296,6 +299,15 @@ export class GTDGameRuntime implements GameRuntime {
     }
     if (command.type === "look") {
       this.look = { x: command.x, y: command.y };
+      return;
+    }
+    if (command.type === "look-delta") {
+      // Touch gestures express displacement, not a held joystick velocity.
+      // Consume once in the fixed simulation, independent of display FPS.
+      if (Number.isFinite(command.x) && Number.isFinite(command.y)) {
+        this.pendingTouchLook.x += command.x;
+        this.pendingTouchLook.y += command.y;
+      }
       return;
     }
     if (command.type === "action") {
@@ -362,12 +374,18 @@ export class GTDGameRuntime implements GameRuntime {
     const voight = this.voight;
     if (!physics || !camera || !voight) return;
 
-    camera.alpha -= this.look.x * (this.inputMode === "touch" ? 1.8 : 0.035) * dt * 60;
+    // Screen-drag displacement is applied once; it must never keep rotating
+    // after the finger lifts or multiply with low mobile frame rates.
+    const touchDrag = this.pendingTouchLook;
+    this.pendingTouchLook = { x: 0, y: 0 };
+    camera.alpha -= this.look.x * (this.inputMode === "touch" ? 1.8 : 0.035) * dt * 60
+      + touchDrag.x * 0.002;
     camera.beta = Math.max(
       0.38,
       Math.min(
         2.22,
-        camera.beta + this.look.y * (this.inputMode === "touch" ? 1.25 : 0.028) * dt * 60,
+        camera.beta + this.look.y * (this.inputMode === "touch" ? 1.25 : 0.028) * dt * 60
+          + touchDrag.y * 0.0016,
       ),
     );
 

@@ -589,6 +589,8 @@ input[type="checkbox"] {
   width: 100%;
   height: 100%;
   z-index: -2;
+  /* Finger-drag turns the camera rather than scrolling/zooming the page. */
+  touch-action: none;
 }
 .hud {
   position: absolute;
@@ -972,12 +974,6 @@ input[type="checkbox"] {
   left: max(36px, env(safe-area-inset-left));
   bottom: 10px;
 }
-.joystick-right {
-  right: max(160px, calc(env(safe-area-inset-right) + 130px));
-  bottom: 5px;
-  width: 105px;
-  height: 105px;
-}
 .joystick-thumb {
   width: 45%;
   height: 45%;
@@ -1248,10 +1244,6 @@ input[type="checkbox"] {
   .joystick {
     width: min(var(--joystick-size, 110px), 120px);
     height: min(var(--joystick-size, 110px), 120px);
-  }
-  .joystick-right {
-    width: 90px;
-    height: 90px;
   }
   .touch-actions {
     gap: 7px;
