@@ -88,10 +88,10 @@ export function planVehicleProxyGeometry(): {
     for (const [z0, z1] of [[-0.60, -0.10], [0.02, 0.45]] as const) {
       glassFaces.push({
         quad: [
-          [side * 0.733, 0.97, z0],
-          [side * 0.733, 0.97, z1],
-          [side * 0.663, 1.40, z1],
-          [side * 0.663, 1.40, z0],
+          [side * 0.755, 0.97, z0],
+          [side * 0.755, 0.97, z1],
+          [side * 0.68, 1.40, z1],
+          [side * 0.68, 1.40, z0],
         ],
         outward: [side, 0, 0],
       });
