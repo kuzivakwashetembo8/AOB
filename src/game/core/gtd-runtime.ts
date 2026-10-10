@@ -18,6 +18,7 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
+import { resolveFL4RasterOverride } from "../debug/fl4-quality-trial";
 import { renderHardwareScale, normalizeRenderClarity, type RenderClarityMode } from "../renderer/render-clarity";
 import {
   DEFAULT_TOUCH_CAMERA_SENSITIVITY,
@@ -116,7 +117,7 @@ export class GTDGameRuntime implements GameRuntime {
     const bootStartedAt = performance.now();
     this.lifecycle = "bootstrapping";
     this.publishSnapshot();
-    this.emit({ type: "progress", progress: 8, detail: "Initializing renderer" });
+    this.emit({ type: "load-checkpoint", id: "renderer", status: "running" });
     this.host = host;
     const engine = new Engine(
       host,
@@ -130,15 +131,9 @@ export class GTDGameRuntime implements GameRuntime {
     // a measured, bounded 1.75 CSS px on touch screens while Native remains
     // an explicit (potentially costly) user setting.
     const diagnosticParams = new URLSearchParams(window.location.search);
-    const requestedScale = diagnosticParams.get("fl4Scale");
-    const trialScale =
-      diagnosticParams.get("fl4Diagnostics") === "1" && requestedScale !== null
-        ? Number(requestedScale)
-        : Number.NaN;
-    this.diagnosticHardwareScale =
-      Number.isFinite(trialScale) && trialScale >= 0.75 && trialScale <= 2
-        ? trialScale
-        : null;
+    // Only explicit FL-4 diagnostics may exceed native device pixels.
+    // Never override ordinary players' saved graphics preferences.
+    this.diagnosticHardwareScale = resolveFL4RasterOverride(diagnosticParams).hardwareScale;
     const hardwareScale = this.diagnosticHardwareScale ?? renderHardwareScale({
       mode: this.renderClarity,
       devicePixelRatio: window.devicePixelRatio,
@@ -151,18 +146,17 @@ export class GTDGameRuntime implements GameRuntime {
     scene.fogDensity = 0.006;
     scene.fogColor = new Color3(0.09, 0.12, 0.14);
 
-    this.emit({ type: "progress", progress: 28, detail: "Initializing Rapier" });
+    this.emit({ type: "load-checkpoint", id: "renderer", status: "done" });
+    this.emit({ type: "load-checkpoint", id: "physics", status: "running" });
     const physics = await MeridianPhysics.create();
-    this.emit({
-      type: "progress",
-      progress: 52,
-      detail: "Generating South Ward First Light",
-    });
+    this.emit({ type: "load-checkpoint", id: "physics", status: "done" });
+    this.emit({ type: "load-checkpoint", id: "world", status: "running" });
     const firstLight = createFirstLightRuntimeWorld(
       scene,
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
     );
+    this.emit({ type: "load-checkpoint", id: "world", status: "done" });
     // Explicit main-branch mobile validation authorized 2026-10-10.
     // Accepted imported buggy and sports-car GLBs now replace ALL old parked
     // car graphics in default gameplay, including the public production host.
@@ -190,10 +184,17 @@ export class GTDGameRuntime implements GameRuntime {
           // available via explicit diagnostics for reversible comparison.
           productionHostname || diagnosticParams.get("fl4FinalReview") === "1",
         ),
+        onCheckpoint: (id, status, detail) =>
+          this.emit({ type: "load-checkpoint", id, status, detail }),
       });
       this.importedCarProbe = importedCarProbe;
       (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: () => ReturnType<ImportedCarProbe["report"]> })
         .__GTD_VEHICLE_PROBE_REPORT__ = () => importedCarProbe.report();
+    } else {
+      // The historical non-production baseline does not import GLBs.
+      for (const id of ["vehicle-loader", "vehicle-offroad", "vehicle-sports"] as const) {
+        this.emit({ type: "load-checkpoint", id, status: "skipped", detail: "No GLB requested" });
+      }
     }
     // FL-4 isolation probes are strictly opt-in, never regular gameplay.
     // noSky tests the sky layer; noShadows tests shadow-pass overhead.
@@ -231,10 +232,11 @@ export class GTDGameRuntime implements GameRuntime {
     camera.fov = 0.9;
     scene.activeCamera = camera;
 
-    this.emit({ type: "progress", progress: 76, detail: "Placing Voight in South Ward" });
+    this.emit({ type: "load-checkpoint", id: "voight", status: "running" });
     const voight = createVoightPrototype(scene);
     const spawn = physics.playerPosition();
     voight.root.position.set(spawn.x, spawn.y, spawn.z);
+    this.emit({ type: "load-checkpoint", id: "voight", status: "done" });
 
     this.engine = engine;
     this.scene = scene;
@@ -256,12 +258,19 @@ export class GTDGameRuntime implements GameRuntime {
     this.voight = voight;
     this.world = firstLight;
     window.addEventListener("resize", this.resize);
-    this.lifecycle = "ready";
-    this.emit({ type: "progress", progress: 100, detail: "First Light ready" });
-    this.publishSnapshot();
+
+    // The old bootstrap returned while external GLB downloads and mesh/collider
+    // instantiation continued, causing a visibly "loaded" game to stall during
+    // the first movements. Await real source/slot terminal outcomes instead.
+    if (this.importedCarProbe) await this.importedCarProbe.settled;
+    if (this.host !== host || this.engine !== engine) return; // route disposed during load
+    this.emit({ type: "load-checkpoint", id: "first-frame", status: "running" });
     const firstRenderStartedAt = performance.now();
     scene.render();
     this.fl4Diagnostics?.recordStartup(firstRenderStartedAt - bootStartedAt, performance.now() - firstRenderStartedAt);
+    this.emit({ type: "load-checkpoint", id: "first-frame", status: "done" });
+    this.lifecycle = "ready";
+    this.publishSnapshot();
   }
 
   start(): void {
