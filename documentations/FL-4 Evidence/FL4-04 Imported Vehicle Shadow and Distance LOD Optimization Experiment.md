@@ -82,3 +82,48 @@ Babylon's documentation distinguishes GPU instancing from ordinary scene meshes 
 **First recommended A/B:** full vs `selectiveShadows` with *normal* shadows enabled. Match same street, view, Meridian daytime and warm scene. Capture screenshots including roadway contact shadows and export JSON `Save FL-4 data` in each mode. Confirm `importedVehicles.optimization.mode`, `selectedVehicleShadowCasters`, `originalImportedSubmeshes`, `fullDetailSlots` and `distantProxySlots` plus `pipeline.stage=settled` and each slot's `status=imported`. Do not declare success if models only report loaded but remain visually absent. The second A/B (full vs `distanceLOD`) should include a near and far test to check proxy switching. The `combined` mode is exploratory only until isolated contributions and artistic side effects are known.
 
 **Important distinction from prior reports:** This deployment proves source and automated-test compatibility; **no desktop/mobile screenshot or FL-4 metrics JSON for these optimization modes has yet been captured**. In particular, reduced casters / distant proxies are hypotheses, not measured improved FPS or accepted final rendering. No changes to the approved `development/meridian-fl4-optimization` branch, production `main`, accepted model source files or vehicle dimensions were made by the feature branch.
+
+## First same-build user evidence: selectiveShadows vs full (2026-10-10, UTC 18:04–18:05)
+
+**Status: SOURCE-REPORTED SUBSTANTIAL SHADOW-PASS WORK REDUCTION — FRAME-TIME ACCEPTANCE AND VISUAL QA NOT YET ESTABLISHED.** This section supersedes the earlier statement that no optimization data had been captured. The user provided two source-generated `gtd.fl4.evidence.v1` JSON exports from the same pinned app `bb06dad14a9d3efd8cc6a0119ff540070acef75a` at `gtd-j8uiuoj8g-interlinkglobaltech.vercel.app`:
+- `gtd-fl4-imports-2026-10-10T18-04-53-082Z.json`: `?fl4Diagnostics=1&fl4VehicleOptimization=selectiveShadows`.
+- `gtd-fl4-imports-2026-10-10T18-05-49-684Z.json`: `?fl4Diagnostics=1` (full original imported-shadow baseline).
+
+These files were supplied in conversation and are **not embedded in this repository**. Both exports identify Windows x64, Chrome 155, 1366×633 CSS/backing/render pixels, DPR 1, scaling 1, native pixel coverage 100%, shadow-map size 2048; `importedVehicles.pipeline.stage=settled`; both asset sources `loaded`; all **nine** existing slots `status=imported`, `colliderCalibrated=true`, `fullDetailSlots=9`, `distantProxySlots=0`. This establishes code-path and telemetry consistency; **no accompanying screenshot for this A/B pair** verifies GLB visibility or shadow/contact fidelity. The prior user reported invisible vehicles in an earlier `full` session despite `imported` statuses; do not repeat that mistake.
+
+### Static and per-frame diagnostic comparison
+
+| Metric | Full shadows | Selective vehicle shadows | Observed reduction |
+|---|---:|---:|---:|
+| Selected vehicle shadow-casting geometric submeshes | 509 | **36** | **92.9%** |
+| Registered shadow casters, entire scene | 834 | **352** | **57.8%** |
+| Original geometric submeshes in all imported assets | 509 | **509** | none |
+| Total scene meshes | 1103 | **1103** | none |
+| Scene materials / textures | 127 / 58 | **127 / 58** | none |
+| Median draw calls | 932 | **465** | **50.1%** |
+| Median active indices | 8,112,825 | **3,713,475** | **54.2%** |
+| Median active meshes | 241 | **170** | **29.5%** |
+| Recent frame sample count | **41** | **1800** | **not comparable** |
+| Frame p50 / p95 | 583.1 / 9549.8 ms | **66.8 / 83.6 ms** | indicative only |
+| Render p50 / p95 | 502.9 / 3585.5 ms | **62.6 / 70.4 ms** | indicative only |
+| Approximate FPS from median frame | 1.71 | **14.97** | indicative only, NOT an attributable fixed speedup |
+
+The **482 fewer registered casters** align with the vehicle policy selecting 36 rather than 518 imported registered mesh entries: full scene shadow list 834 = 316 baseline context casters + 518 vehicle entries; selective 352 = 316 + 36. Its `originalImportedSubmeshes=509` counts geometric submeshes only and is not equal to the former 518 total imported registrations; parent nodes and recursive registration explain why the counts must not be conflated. Main-camera geometry **was not decimated**; the submitted draw-call/index declines indicate that shadow participation was a major part of the previous render work. Draw calls and active indices are counters across the sampled frame/render state, not unique triangle budgets or verified GPU time.
+
+### Critical confounder: severe full-session stalls and asymmetric sample windows
+
+The `full` report has **only 41 recent frames**, a **58,331 ms** glTF-loader initialization and a **335,415.7 ms** sports model source load, compared with the selective report's **1800 frames**, **3414 ms** loader initialization and **41,757.7 ms** sports load. Off-road loads were 6267 vs 10009.3 ms. Total pipeline elapsed at capture was ~479.4s (full) vs ~418.3s (selective), which is pipeline age, **not cumulative download duration**.
+
+Consequently, do **not** state that selective shadows make GTD exactly 8.7x faster, cure all stalls, or cause quicker GLB source downloads. The two runs have demonstrably different loader behavior, sample counts, cache/network/browser timing and potentially player position/visibility. Median shadow/render counters supply a strong engineering optimization signal, but full-mode `frameMsP95=9549.8ms` is not a steady-state benchmark with 41 frames. The selective trial still reports 66.8ms p50 frame (~15 median-derived FPS), so it does **not** yet satisfy a smooth action-game performance objective.
+
+### Decision and next tests
+
+**Provisional decision:** selective vehicle shadow participation passes the **mechanism/counter-reduction gate** for FL4-04. It does **NOT** pass final visual shadow fidelity, responsive gameplay, platform-wide stability, or production promotion.
+
+1. **Visual gate:** obtain side-by-side same-position screenshots from these same-commit `full` and `selectiveShadows` routes, with both GLB vehicle classes clearly visible, shadows enabled, same time-of-day and sunlight angle; inspect silhouette, tires, wheel-to-ground contact, buggy roll cage and proximity to other geometry. A caster-ranking heuristic may omit indispensable narrow but tall components, so visual QA is necessary.
+2. **Repeat sample gate:** capture `full` after both models visibly appear and gameplay has stabilized, allowing the diagnostics ring to record at least ~1000 or ideally 1800 recent frames. Repeat selective in the same camera position/route with comparable sample counts; if full mode remains too slow to collect them, record a reproducible blocker rather than fabricate an equal-sample benchmark.
+3. **Independent geometry gate:** next run `distanceLOD` at far and near viewpoints using `importedVehicles.optimization.fullDetailSlots` and `distantProxySlots` to validate transitions. Do not add results from combined mode until single-variable visual QA passes.
+4. **Loading gate:** compare browser Network/Performance logs for the large sports-model loading variance independently from shadow-pass cost. `loadMs` source fields are duplicated per slot, not separate network requests.
+5. **Rendering gate:** if selective shadows retain acceptable imagery and the follow-up controlled delta persists, consider staged improvement of cast-shadow representation and asset LOD with no changes to accepted calibration or collisions; future modified behavior still requires user approval.
+
+**Release gate:** `optimization/fl4-vehicle-shadow-lod` remains isolated; no merge to `development/meridian-fl4-optimization` or `main`, no default behavior change, no commercial rights assertion. FL4-04 experiment remains **IN PROGRESS**, FL-4 remains **IN PROGRESS**.
