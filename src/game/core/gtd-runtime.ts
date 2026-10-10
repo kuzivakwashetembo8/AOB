@@ -18,6 +18,11 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
+import {
+  DEFAULT_TOUCH_CAMERA_SENSITIVITY,
+  normalizeTouchCameraSensitivity,
+  mapTouchCameraDrag,
+} from "../input/touch-camera-sensitivity";
 import { mountFL4EvidenceExport } from "../debug/fl4-evidence-export";
 import {
   resolveVehicleOptimizationMode,
@@ -61,6 +66,8 @@ export class GTDGameRuntime implements GameRuntime {
   private move = { x: 0, y: 0 };
   private look = { x: 0, y: 0 };
   private pendingTouchLook = { x: 0, y: 0 };
+  private touchCameraSensitivity = DEFAULT_TOUCH_CAMERA_SENSITIVITY;
+  private invertLookY = false;
   private actions = new Set<GameAction>();
   private verticalVelocity = 0;
   private grounded = true;
@@ -301,6 +308,11 @@ export class GTDGameRuntime implements GameRuntime {
       this.look = { x: command.x, y: command.y };
       return;
     }
+    if (command.type === "camera-settings") {
+      this.touchCameraSensitivity = normalizeTouchCameraSensitivity(command.touchSensitivity);
+      this.invertLookY = command.invertY;
+      return;
+    }
     if (command.type === "look-delta") {
       // Touch gestures express displacement, not a held joystick velocity.
       // Consume once in the fixed simulation, independent of display FPS.
@@ -378,14 +390,20 @@ export class GTDGameRuntime implements GameRuntime {
     // after the finger lifts or multiply with low mobile frame rates.
     const touchDrag = this.pendingTouchLook;
     this.pendingTouchLook = { x: 0, y: 0 };
-    camera.alpha -= this.look.x * (this.inputMode === "touch" ? 1.8 : 0.035) * dt * 60
-      + touchDrag.x * 0.002;
+    const swipe = mapTouchCameraDrag(
+      touchDrag.x,
+      touchDrag.y,
+      this.touchCameraSensitivity,
+      this.invertLookY,
+    );
+    camera.alpha -= this.look.x * (this.inputMode === "touch" ? 1.8 : 0.035) * dt * 60;
+    camera.alpha += swipe.alpha;
     camera.beta = Math.max(
       0.38,
       Math.min(
         2.22,
         camera.beta + this.look.y * (this.inputMode === "touch" ? 1.25 : 0.028) * dt * 60
-          + touchDrag.y * 0.0016,
+          + swipe.beta,
       ),
     );
 

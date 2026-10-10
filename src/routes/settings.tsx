@@ -131,7 +131,7 @@ function SettingsPage() {
             )}
             {category === "Controls" && (
               <>
-                {range("sensitivity", "Look sensitivity")}
+                {range("sensitivity", "Mouse look sensitivity", 100, 10)}
                 {toggle("invertY", "Invert look Y axis")}
                 {toggle("vibration", "Controller vibration")}
                 {toggle("desktopControls", "Show desktop on-screen controls")}
@@ -162,6 +162,8 @@ function SettingsPage() {
             )}
             {category === "Mobile Controls" && (
               <>
+                {range("touchSensitivity", "Touch camera sensitivity", 100, 10)}
+                {toggle("invertY", "Invert vertical camera swipe")}
                 {range("opacity", "Control opacity", 100, 20)}
                 {range("scale", "Control scale", 120, 80)}
                 {range("joystickSize", "Joystick size", 150, 80, "")}
