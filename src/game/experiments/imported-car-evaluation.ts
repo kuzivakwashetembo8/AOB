@@ -126,6 +126,29 @@ function modelBounds(meshes: readonly AbstractMesh[]): {
   };
 }
 
+/**
+ * Accepted GTD development vehicle policy: no old procedural cars in the
+ * loading, failed, or distant slots. Keep shapes in memory only for an explicit
+ * baseline diagnostic route; never display them while importing.
+ */
+export function suppressLegacyParkedCarPlaceholders(
+  world: GeneratedFirstLightWorld,
+): number {
+  let hidden = 0;
+  for (const mesh of world.streetContext.meshes) {
+    if (
+      mesh.name.startsWith("generated-car-body:") ||
+      mesh.name.startsWith("generated-car-cabin:") ||
+      mesh.name.startsWith("generated-car-wheel:")
+    ) {
+      mesh.setEnabled(false);
+      hidden++;
+    }
+  }
+  world.suspendParkedCarColliders();
+  return hidden;
+}
+
 export function beginImportedCarEvaluation(
   scene: Scene,
   world: GeneratedFirstLightWorld,
@@ -199,16 +222,8 @@ export function beginImportedCarEvaluation(
     };
   }
 
-  // No legacy rendering or invisible legacy collision even on the first
-  // frame. Model-loading failures leave an empty spot and a reported error.
-  for (const mesh of world.streetContext.meshes) {
-    if (
-      mesh.name.startsWith("generated-car-body:") ||
-      mesh.name.startsWith("generated-car-cabin:") ||
-      mesh.name.startsWith("generated-car-wheel:")
-    ) mesh.setEnabled(false);
-  }
-  world.suspendParkedCarColliders();
+  // No placeholder appears even on the first frame.
+  suppressLegacyParkedCarPlaceholders(world);
 
   async function loadModels(): Promise<void> {
     // Only code-split/download the GLB loader for explicitly requested probe.
