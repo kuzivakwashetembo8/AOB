@@ -49,3 +49,17 @@ Capture similar front, side, rear and elevated views at comparable distance from
 5. Runtime GPU cost, full-world interactions and final automotive art selection remain **OPEN** pending recorded browser/device evidence.
 
 **Rollback:** Existing accepted Iteration 3 deployment remains pinned and unmodified; drop the iteration-4 commit or use that exact preview if the new trial produces an inferior result. No production promotion is authorized by this experiment.
+
+## Verified deployment and automated evidence — 2026-10-10
+
+**Pinned application SHA:** `d6692aa989286ee9b49628057aa3a9323e6e9068` on `experiment/meridian-imported-car-probe`. **Vercel:** `dpl_2jmyF5VqAYPTcoRAiNoc3S3fEQnR`, **READY** at `https://gtd-4y3ikfozk-interlinkglobaltech.vercel.app`.
+
+The deployment used `npx tsc --noEmit && npm run test && npm run build`. **Result: PASS** for TypeScript, **78 of 78 tests across 16 files**, and the final Vite/Nitro application build. The new test verifies that the width-only intervention produces +5% transverse width at multiple parked-slot scales while height and longitudinal length stay identical to the previously accepted Iteration 3 proportions. Both builds remain immutable and separately accessible.
+
+- **Iteration 4 imports, experiment:** `https://gtd-4y3ikfozk-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=imports&fl4Diagnostics=1`
+- **Iteration 4 source-identical procedural controls:** `https://gtd-4y3ikfozk-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=baseline&fl4Diagnostics=1`
+- **Iteration 3 accepted GLB model comparator:** `https://gtd-o8ycdj9vh-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=imports&fl4Diagnostics=1`
+
+**Important qualification:** These gates establish that the implementation compiles, automated geometry math and collision lifecycle tests pass, and an isolated Vercel preview is ready. They **do not** establish acceptable lane presence, in-world absence of body/tire stretching artifacts, complete user-device physics or performance cost. Visual and telemetry findings must be recorded from a real browser before deciding whether to retain the additional width.
+
+**Production** `main` is untouched. Vehicle files are still externally sourced, rights-unverified technical specimens; no final vehicle/GLB pipeline has been adopted.
