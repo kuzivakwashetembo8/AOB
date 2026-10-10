@@ -206,3 +206,17 @@ On development branch, commit `7f64cfc49d0fec4705888362be34955507c0a880` adjusts
 **Task ownership:** Existing FL4-02/03/04 diagnostics/performance work at 04:00 should incorporate this as one measured concern; FL4-05/06 final audit at 05:00 must disclose the unresolved mobile clarity trade-off. Windows 01:00, canopy 02:00, vehicle proxy 03:00 retain their agreed tasks. User approval still gates FL-4 closure; do not claim quality resolution or mobile FPS progress on visual observations alone.
 
 **Release-reference caution:** The user-requested merge and production release already occurred on 2026-10-10. Historical progress sections above that say `main` and production are unchanged now describe the earlier checkpoint only; they **do not** represent the current release state.
+
+
+## Morning takeover supersession — 2026-10-10
+
+**The previous source-write blockers for window, canopy and vehicle integration are now cleared for these specific edits.** Normal GitHub file updates (not a bypass) succeeded in the development branch. Operational changes are recorded comprehensively at `documentations/FL-4 Evidence/Morning Integration and Pre-Continuation Patch - 2026-10-10.md`. A separately restored `documentations/FL-4 Evidence/Final Acceptance Report.md` reconciles actual FL4-01–06 and VIS-01–10 gates.
+
+* Window grammar (FL4-VIS-A03) is **IMPLEMENTED**, with geometry tests; A04 visual approval pending.
+* Foliage planner (FL4-VIS-B02) is **WIRED INTO THE ACTIVE RENDERER**, preserving 30 cards per tree; B03 visual approval pending.
+* Vehicle proxy (FL4-VIS-C02) is **WIRED INTO THE ACTIVE RENDERER**, two custom visual meshes plus four existing wheels; C03 gameplay/visual approval pending.
+* Initial integrated candidate `4d08273dff950c3dc8d2f60c83db457989c5af2e` passed TypeScript/full Vitest/build and preview became READY. Later visual glass-offset adjustment requires its own verification.
+* User-confirmed mobile PWA gameplay and visually softer Babylon canvas remain separate GTD-VIS-002; DPR hardware-scale examples corrected in the dedicated issue. Desktop baseline remains unchanged.
+* Cosmetic sky banding GTD-VIS-001 remains low/non-blocking. No measured before/after performance gain, representative device p50/p95 or final visual acceptance has been obtained.
+
+**Do not treat the task 1–5 overnight previews as proof of the three new visuals**: these appeared only after morning implementation.
