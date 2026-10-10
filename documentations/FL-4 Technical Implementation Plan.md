@@ -200,3 +200,10 @@ Do not conflate this issue with separately accepted **low-severity cosmetic sky 
 ## 7. Definition of Done
 
 FL-4 is complete only when all six ordered packages have auditable evidence, required acceptance checks are satisfied or specifically approved as limitations, rendering sharpness and device-dependent performance are validated without compromising the FL-3 art and gameplay contract, and the user explicitly accepts both visuals and responsiveness/stability. The canonical Source of Truth must then be updated, and **only then** is the First Light milestone closed. Production/main promotion remains a distinct decision.
+
+
+## Morning integrated renderer patch — 2026-10-10
+
+The user authorized taking over the previously blocked overnight visual refinements. See `documentations/FL-4 Evidence/Morning Integration and Pre-Continuation Patch - 2026-10-10.md` and `documentations/FL-4 Evidence/Final Acceptance Report.md`. The authorized GitHub source-write workflow **successfully committed** all three active changes: storey-proportional windows in `architecture-plan.ts`, size-scaled canopy cards actually used by `street-context-renderer.ts`, and a shaped six-mesh car proxy in the same renderer. The older task handoffs describing these source edits as BLOCKED remain historical. Targeted automated regression tests were added.
+
+These improvements are **integrated**, not automatically **visually accepted**. The first integrated candidate passed strict TypeScript, tests and build; later revisions must be verified on their own pinned deployment. Keep FL4-01–06 measurement, live-device and explicit final approval gates unchanged. Production `main` remains `af1adcdd8efaa53cc6c666079f3ff7613fd86bc5` as the pre-overnight comparison baseline. No automatic merge, production promotion or user acceptance follows from a passing build.
