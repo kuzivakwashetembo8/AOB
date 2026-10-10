@@ -28,6 +28,7 @@ export type GameAction =
 
 export type GameCommand =
   | { type: "move" | "look"; x: number; y: number }
+  | { type: "look-delta"; x: number; y: number }
   | { type: "action"; action: GameAction; pressed: boolean }
   | { type: "set-context"; context: HudContext }
   | { type: "input-mode"; mode: InputMode }
