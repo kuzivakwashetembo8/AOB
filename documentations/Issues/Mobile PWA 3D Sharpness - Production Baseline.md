@@ -49,15 +49,15 @@ const baselineScaling = Math.max(1, window.devicePixelRatio / 1.5);
 engine.setHardwareScalingLevel(hardwareScale);
 ```
 
-Babylon hardware scaling > 1 reduces the rendering buffer relative to the physical pixel dimensions implied by CSS size × devicePixelRatio, after rounding and engine-specific constraints. For devices with DPR above 1.5, the baseline expression tends to target around **1.5 rendered pixels per CSS pixel**, rather than full native DPR.
+**Correction (2026-10-10, following the Task 4 source audit):** Babylon 9's hardware-scaling level is an inverse render-size factor. Although GTD creates the Engine with adaptive pixel-ratio support enabled, it immediately **overrides** Babylon's device-ratio scaling with `Math.max(1, DPR / 1.5)`. The resulting framebuffer width is approximately **CSS canvas width divided by hardware scale**, not CSS width × DPR divided by hardware scale. Accordingly, the current policy can render **less than one pixel per CSS pixel** on DPR 2–3 devices. This supersedes the earlier numbers in this issue and is detailed in `documentations/FL-4 Evidence/Babylon Scaling Correction - Task 4.md`.
 
 **Mathematical illustrations only, not observed phone metrics:**
 
 | Example DPR | Baseline hardware scale | Approx rendered linear pixels / CSS pixel | Approx total rendered pixels relative to native |
 | ---: | ---: | ---: | ---: |
 | 1 | 1 | 1 | 100% |
-| 2 | 1.333… | 1.5 | 56.25% |
-| 3 | 2 | 1.5 | 25% |
+| 2 | 1.333… | 0.75 | ~14.1% |
+| 3 | 2 | 0.5 | ~2.8% |
 
 These examples make **sub-native 3D rendering a credible leading hypothesis**, and help explain why desktop DPR 1 comparisons cannot settle high-DPI mobile fidelity. However, the user’s phone DPR and buffer sizes have **not** been measured, so do not call the hypothesis a proven root cause. Raising render resolution without a frame-time budget could compromise interactivity and thermals.
 
