@@ -147,6 +147,10 @@ export class GTDGameRuntime implements GameRuntime {
         optimizationMode: resolveVehicleOptimizationMode(
           diagnosticParams.get("fl4VehicleOptimization"),
           diagnosticParams.get("fl4Diagnostics") === "1",
+          // FL-4 final review is opt-in and unavailable on production.
+          // It enables the proven reduced-caster candidate in ordinary play,
+          // without enabling costly diagnostic capture by default.
+          !productionHostname && diagnosticParams.get("fl4FinalReview") === "1",
         ),
       });
       this.importedCarProbe = importedCarProbe;
