@@ -325,17 +325,19 @@ export function beginImportedCarEvaluation(
               : null;
             for (const mesh of visuals) {
               mesh.receiveShadows = true;
-              if (!mesh.getTotalVertices()) continue;
-              originalImportedSubmeshes++;
-              if (shadowIds && !shadowIds.has(mesh.uniqueId.toString())) continue;
+              const geometric = mesh.getTotalVertices() > 0;
+              if (geometric) originalImportedSubmeshes++;
               if (shadowIds) {
-                // Do NOT recurse through children; that would re-add all
-                // fine-detail meshes and invalidate this isolation probe.
+                // Only actual selected geometry participates in this test;
+                // no descendant recursion that would defeat the isolation.
+                if (!geometric || !shadowIds.has(mesh.uniqueId.toString())) continue;
                 world.shadowGenerator?.addShadowCaster(mesh, false);
               } else {
+                // EXACT pre-experiment shadow path: keep root/parent nodes and
+                // Babylon descendant registration unchanged for the A/B control.
                 world.environment.addShadowCaster(mesh);
               }
-              selectedVehicleShadowCasters++;
+              if (geometric) selectedVehicleShadowCasters++;
             }
             // Convert only this successfully imported vehicle's static Rapier
             // box to its actual rendered dimensions; failure slots preserve
