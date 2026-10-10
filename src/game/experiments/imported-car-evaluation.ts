@@ -44,11 +44,17 @@ interface SlotResult {
   colliderCalibrated: boolean;
 }
 
+type AssetLoadStage = "awaiting-loader" | "loading-model" | "instantiating" | "complete" | "failed";
+type ImportPipelineStage = "initializing-gltf-loader" | "loading-models" | "settled" | "failed";
+
 interface MutableAssetStatus {
   id: string;
   url: string;
   bytes: number;
   status: "loading" | "loaded" | "failed";
+  stage: AssetLoadStage;
+  // Timestamp used only to calculate elapsed pending time in report().
+  startedAtMs: number | null;
   loadMs: number | null;
   error: string | null;
 }
@@ -57,12 +63,21 @@ export interface ImportedCarProbeReport {
   readonly experiment: "EXP-VEH-001";
   readonly state: "running" | "disposed";
   readonly copyright: "unverified third-party specimens — evaluation only";
+  /** Diagnostic-only: separates module initialization from remote asset work. */
+  readonly pipeline: {
+    stage: ImportPipelineStage;
+    elapsedMs: number;
+    loaderInitializationMs: number | null;
+  };
   readonly slots: readonly SlotResult[];
   readonly assetSources: readonly {
     id: string;
     url: string;
     bytes: number;
     status: "loading" | "loaded" | "failed";
+    stage: AssetLoadStage;
+    /** Ongoing elapsed wall time, or null once a terminal result is reached. */
+    pendingMs: number | null;
     loadMs: number | null;
     error: string | null;
   }[];
@@ -118,6 +133,8 @@ export function beginImportedCarEvaluation(
         url: source.rootUrl + source.fileName,
         bytes: source.bytes,
         status: "loading" as "loading" | "loaded" | "failed",
+        stage: "awaiting-loader" as AssetLoadStage,
+        startedAtMs: null as number | null,
         loadMs: null as number | null,
         error: null as string | null,
       } as MutableAssetStatus] as const;
@@ -127,27 +144,45 @@ export function beginImportedCarEvaluation(
   const liveEntries: Array<ReturnType<AssetContainer["instantiateModelsToScene"]>> = [];
   const roots: TransformNode[] = [];
   let disposed = false;
+  const pipelineStart = performance.now();
+  let pipelineStage: ImportPipelineStage = "initializing-gltf-loader";
+  let loaderInitializationMs: number | null = null;
 
   function report(): ImportedCarProbeReport {
+    const now = performance.now();
     return {
       experiment: "EXP-VEH-001",
       state: disposed ? "disposed" : "running",
       copyright: "unverified third-party specimens — evaluation only",
+      pipeline: {
+        stage: pipelineStage,
+        elapsedMs: Math.round(now - pipelineStart),
+        loaderInitializationMs,
+      },
       slots: slotResults.map((slot) => ({ ...slot })),
-      assetSources: assetSources.map((source) => ({ ...source })),
+      assetSources: assetSources.map(({ startedAtMs, ...source }) => ({
+        ...source,
+        pendingMs: source.status === "loading"
+          ? Math.round(now - (startedAtMs ?? pipelineStart))
+          : null,
+      })),
     };
   }
 
   async function loadModels(): Promise<void> {
     // Only code-split/download the GLB loader for explicitly requested probe.
     await import("@babylonjs/loaders/glTF");
+    loaderInitializationMs = Math.round(performance.now() - pipelineStart);
     if (disposed) return;
+    pipelineStage = "loading-models";
     const grouped = new Map(
       parked.map((item, index) => [item.id, sourceForExistingSlot(index)] as const),
     );
     await Promise.all(assetSources.map(async (asset) => {
       const source = Array.from(grouped.values()).find((entry) => entry.id === asset.id)!;
       const started = performance.now();
+      asset.startedAtMs = started;
+      asset.stage = "loading-model";
       let container: AssetContainer | null = null;
       try {
         container = await loadAssetContainerAsync(source.rootUrl + source.fileName, scene);
@@ -158,6 +193,7 @@ export function beginImportedCarEvaluation(
         }
         templates.push(container);
         asset.status = "loaded";
+        asset.stage = "instantiating";
 
         const matching = parked.filter((item) => grouped.get(item.id)?.id === source.id);
         for (const item of matching) {
@@ -240,8 +276,10 @@ export function beginImportedCarEvaluation(
             slot.failure = String(slotError);
           }
         }
+        asset.stage = "complete";
       } catch (error) {
         asset.status = "failed";
+        asset.stage = "failed";
         asset.error = String(error);
         asset.loadMs = performance.now() - started;
         for (const slot of slotResults) {
@@ -253,9 +291,11 @@ export function beginImportedCarEvaluation(
         if (container && !templates.includes(container)) container.dispose();
       }
     }));
+    pipelineStage = "settled";
   }
 
   void loadModels().catch((error) => {
+    pipelineStage = "failed";
     for (const slot of slotResults) {
       if (slot.status !== "loading") continue;
       slot.status = "fallback";
@@ -264,6 +304,7 @@ export function beginImportedCarEvaluation(
     for (const asset of assetSources) {
       if (asset.status !== "loading") continue;
       asset.status = "failed";
+      asset.stage = "failed";
       asset.error = String(error);
     }
     console.warn("[EXP-VEH-001] Importer failed; preserving original parked cars.", error);
