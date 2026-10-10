@@ -65,14 +65,31 @@ describe("EXP-VEH-001 imported parked-car experiment contract", () => {
     expect(() => planImportedVehicleFit(original, 4.53, 0)).toThrow();
   });
 
-  it("tests 10% buggy width and 10% sports height independently while preserving both class lengths", () => {
+  it("tests buggy width, sports height and the iteration-4 sports width independently", () => {
     const sourceBounds = { x: 1.94, y: 1.35, z: 4.2 };
     const buggy = sourceForExistingSlot(0);
     const sports = sourceForExistingSlot(1);
     expect(buggy.widthMultiplier).toBeCloseTo(1.1);
     expect(buggy.heightMultiplier).toBe(1);
-    expect(sports.widthMultiplier).toBe(1);
+    expect(sports.widthMultiplier).toBeCloseTo(1.05);
     expect(sports.heightMultiplier).toBeCloseTo(1.1);
+    // User-approved iteration 3 is the exact comparator; only sports width
+    // may change in iteration 4. Buggy stance and both lengths are locked.
+    const specimenBounds = { x: 1.94, y: 1.35, z: 4.2 };
+    for (const slotScale of [0.92, 1, 1.04]) {
+      const iteration3 = planImportedVehicleFit(specimenBounds, sports.targetLengthMeters, slotScale, {
+        widthMultiplier: 1,
+        heightMultiplier: 1.10,
+      });
+      const iteration4 = planImportedVehicleFit(specimenBounds, sports.targetLengthMeters, slotScale, {
+        widthMultiplier: sports.widthMultiplier,
+        heightMultiplier: sports.heightMultiplier,
+      });
+      expect(iteration4.worldDimensions.x).toBeCloseTo(iteration3.worldDimensions.x * 1.05);
+      expect(iteration4.worldDimensions.y).toBeCloseTo(iteration3.worldDimensions.y);
+      expect(iteration4.worldDimensions.z).toBeCloseTo(iteration3.worldDimensions.z);
+      expect(iteration4.worldDimensions.z).toBeCloseTo(4.53);
+    }
 
     for (const slotScale of [0.92, 1, 1.04]) {
       for (const specimen of [buggy, sports]) {
