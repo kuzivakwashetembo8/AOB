@@ -3,7 +3,9 @@
  *
  * Source specimens are NOT the first GTD sedan and their usage rights are
  * unverified. Target lengths are explicit, reviewable calibration hypotheses.
- * Fit is UNIFORM; actual width/height are derived from each original asset.
+ * Length is normalized with a uniform fit. Optional per-class X/Y corrective
+ * factors are then separately tested as experimental adjustments, never as
+ * immutable specs for the eventual first GTD sedan.
  */
 export const VEHICLE_PROBE_SOURCES = [
   {
@@ -16,6 +18,10 @@ export const VEHICLE_PROBE_SOURCES = [
     // Trial size of a compact short-wheelbase off-road vehicle, not the
     // maker's certified dimensions for this stylized model.
     targetLengthMeters: 4.05,
+    // Iteration 3 visual experiment: slightly widen the overall stance.
+    // This is a proportional X-axis deformation, NOT a new source model.
+    widthMultiplier: 1.10,
+    heightMultiplier: 1,
   },
   {
     id: "sports" as const,
@@ -27,6 +33,9 @@ export const VEHICLE_PROBE_SOURCES = [
     // Ferrari 458 Italia class approximate published exterior length,
     // not an approval to reproduce a licensed branded asset.
     targetLengthMeters: 4.53,
+    // Iteration 3 visual experiment: increase height by the requested ~10%.
+    widthMultiplier: 1,
+    heightMultiplier: 1.10,
   },
 ] as const;
 
@@ -37,6 +46,10 @@ export interface ProbeBounds {
   readonly y: number;
   readonly z: number;
 }
+export interface ProbeShapeAdjustment {
+  readonly widthMultiplier: number;
+  readonly heightMultiplier: number;
+}
 export interface ImportedVehicleFit {
   readonly rotateYRadians: number;
   readonly uniformScale: number;
@@ -44,6 +57,7 @@ export interface ImportedVehicleFit {
   readonly originalLength: number;
   readonly originalHeight: number;
   readonly worldDimensions: ProbeBounds;
+  readonly shapeAdjustment: ProbeShapeAdjustment;
   readonly targetLengthMeters: number;
   readonly warnings: readonly string[];
 }
@@ -58,14 +72,18 @@ export function sourceForExistingSlot(slotIndex: number): VehicleProbeSource {
  * intrinsically proportional. The seeded original item's scaling is
  * cancelled so *every* specimen of the same class reaches the target length.
  *
+ * The first fit is uniform and fixes world length; width/height adjustment
+ * is a separate, opt-in correction for this experiment's visual studies.
  * The existing road, yaw, car ID and placement are never modified.
  */
 export function planImportedVehicleFit(
   bounds: ProbeBounds,
   targetLengthMeters: number,
   parkedSlotScale = 1,
+  shapeAdjustment: ProbeShapeAdjustment = { widthMultiplier: 1, heightMultiplier: 1 },
 ): ImportedVehicleFit {
-  if (![bounds.x, bounds.y, bounds.z, targetLengthMeters, parkedSlotScale]
+  if (![bounds.x, bounds.y, bounds.z, targetLengthMeters, parkedSlotScale,
+    shapeAdjustment.widthMultiplier, shapeAdjustment.heightMultiplier]
     .every((v) => Number.isFinite(v) && v > 0)) {
     throw new Error("Vehicle specimen dimensions, target length and parking scale must be positive and finite");
   }
@@ -76,8 +94,8 @@ export function planImportedVehicleFit(
   const uniformScale = targetLengthMeters / (originalLength * parkedSlotScale);
   const worldScale = uniformScale * parkedSlotScale;
   const worldDimensions: ProbeBounds = {
-    x: originalWidth * worldScale,
-    y: bounds.y * worldScale,
+    x: originalWidth * worldScale * shapeAdjustment.widthMultiplier,
+    y: bounds.y * worldScale * shapeAdjustment.heightMultiplier,
     z: originalLength * worldScale,
   };
   const warnings: string[] = [];
@@ -99,6 +117,7 @@ export function planImportedVehicleFit(
     originalLength,
     originalHeight: bounds.y,
     worldDimensions,
+    shapeAdjustment: { ...shapeAdjustment },
     targetLengthMeters,
     warnings,
   };
