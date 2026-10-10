@@ -19,8 +19,13 @@ import type {
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
+  beginImportedCarEvaluation,
+  type ImportedCarProbe,
+} from "../experiments/imported-car-evaluation";
+import {
   ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
   createFirstLightRuntimeWorld,
+  isGeneratedFirstLightWorld,
   type RuntimeFirstLightWorld,
 } from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
@@ -38,6 +43,7 @@ export class GTDGameRuntime implements GameRuntime {
   private host: HTMLCanvasElement | null = null;
   private engine: Engine | null = null;
   private fl4Diagnostics: FL4Diagnostics | null = null;
+  private importedCarProbe: ImportedCarProbe | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
@@ -120,6 +126,18 @@ export class GTDGameRuntime implements GameRuntime {
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
     );
+    // EXP-VEH-001: explicit opt-in only on the temporary evaluation branch.
+    // Comparison baseline: ?gtdVehicleProbe=baseline&fl4Diagnostics=1
+    // Imported specimens: ?gtdVehicleProbe=imports&fl4Diagnostics=1
+    if (
+      diagnosticParams.get("gtdVehicleProbe") === "imports" &&
+      isGeneratedFirstLightWorld(firstLight)
+    ) {
+      const importedCarProbe = beginImportedCarEvaluation(scene, firstLight);
+      this.importedCarProbe = importedCarProbe;
+      (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: () => ReturnType<ImportedCarProbe["report"]> })
+        .__GTD_VEHICLE_PROBE_REPORT__ = () => importedCarProbe.report();
+    }
     // FL-4 isolation probes are strictly opt-in, never regular gameplay.
     // noSky tests the sky layer; noShadows tests shadow-pass overhead.
     if (diagnosticParams.get("fl4Diagnostics") === "1") {
@@ -212,6 +230,9 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
     this.frameHandle = null;
     window.removeEventListener("resize", this.resize);
+    this.importedCarProbe?.dispose();
+    this.importedCarProbe = null;
+    delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
     this.world?.dispose();
     this.fl4Diagnostics?.dispose();
     this.fl4Diagnostics = null;
