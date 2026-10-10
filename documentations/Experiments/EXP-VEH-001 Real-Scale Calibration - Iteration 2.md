@@ -10,20 +10,21 @@ The user inspected six actual Meridian City preview screenshots on 2026-10-10 an
 
 ## Class target choices — trial assumptions, not measured source specifications
 
-| Specimen | Trial target length before item-scale variation | Meaning |
+| Specimen | Trial target final in-world length | Meaning |
 | --- | ---: | --- |
-| Forked high-clearance buggy | 3.80 metres | Plausible compact off-road vehicle length; class approximation, not a manufacturer-certified dimension |
+| Forked high-clearance buggy | 4.05 metres | Plausible compact off-road vehicle length; class approximation, not a manufacturer-certified dimension |
 | Forked sports car | 4.53 metres | Plausible midsize two-seat sports car length; trial approximation, not a manufacturer-certified model dimension |
 
-A car's effective length also retains the already existing street-context scale factor (0.92–1.04), so final length can vary. The debug report now provides `finalVisualMetres` for each successful parking slot (width, height, length), making this explicit. Actual GLB bounds and the resulting dimensions must be captured from the browser rather than inferred from screenshots.
+The procedural street item still records its original 0.92–1.04 scale value, but the imported visual fit explicitly compensates for that value. Therefore each successful imported specimen reaches its class-length target in world metres regardless of which existing slot it occupies. Width and height remain authored-model proportions, so they can be inspected in `finalVisualMetres` rather than being independently stretched. Exact world dimensions must still be captured from the running browser probe report.
 
 ## Technical implementation
 
 - `src/game/experiments/vehicle-probe-plan.ts`: replaces universal fixed-envelope fit with class-specific target-length uniform scaling. Rotates models whose dominant authored axis is X to align with Meridian's longitudinal Z. Validates finite positive bounds/target.
-- `src/game/experiments/imported-car-evaluation.ts`: passes the selected class length into the fitting function; records final world dimensions in `window.__GTD_VEHICLE_PROBE_REPORT__?.()`.
-- `src/test/imported-vehicle-experiment.test.ts`: verifies length-target equality, no geometric distortion, consistent X-vs-Z orientation handling and validation errors.
+- `src/game/experiments/imported-car-evaluation.ts`: passes the selected class target length and existing parking-slot scale into the fitter; records real final world dimensions and `colliderCalibrated` in `window.__GTD_VEHICLE_PROBE_REPORT__?.()`; replaces that slot's collider only after the import succeeds. On model load/fit failure the original proxy and collider remain available.
+- `src/game/world/generated-first-light-world.ts`: adds a bounded experimental `replaceParkedCarCollider` operation; creates a Rapier static cuboid matching each successful imported model's derived width/height/length and existing position/yaw, removes the prior car collider and retains disposal ownership. No new car spawns or changes to original other world collisions.
+- `src/test/imported-vehicle-experiment.test.ts`: verifies class target world length independent of parked seed scale, unchanged shape ratios, X-versus-Z orientation and invalid dimensions; exercises repeated Rapier parked-collider replacement and scene disposal without increasing collider/body counts.
 
-**Consciously unchanged:** existing parked-car source assets, count, IDs, coordinates, yaw, random item scales, materials, world geometry, Voight, Rapier static colliders, and baseline URL mode. The original static physics collider (1.76 m wide × 1.52 m tall × 4.0 m long, before item scaling) **will not match every corrected GLB**. This iteration is a visual-scale and graphics-cost experiment; **do not claim realistic collision correctness** until a separately instrumented matched-collider run is authorized and verified. Road-edge encroachment or sidewalk clearance differences should be documented, not hidden by repositioning.
+**Consciously unchanged:** source assets, parked-car count, IDs, coordinates and yaw, seeded item scale values, materials, streets/curbs, buildings, Voight, garage physics, non-car colliders, and baseline URL mode. **Deliberately changed for imported cars only:** upon confirmed import, a replacement Rapier static cuboid now follows the final visual footprint. It remains a deliberately coarse cuboid, not wheel-accurate automotive collision. Unknown/failed imported specimens retain both old visuals and old colliders. Automated collision-count and disposal assertions are included, but physically walking around/into a size-correct car is still a separate **unverified browser acceptance gate**. Document any curb/road overlap without relocating the spawned vehicle.
 
 ## Evidence and next checks
 
@@ -31,6 +32,12 @@ A car's effective length also retains the already existing street-context scale 
 2. Capture source bounds, trial target length, calculated uniform scale, final width/height/length from the per-slot browser probe report; inspect four camera directions with a nearby Voight reference and road marking.
 3. Inspect wheels on road, roof heights, curb overlaps, high buggy clearances, and shifts from proxy to imported geometry. Do not assume real-world fit simply because length is plausible.
 4. Compare `?gtdVehicleProbe=baseline&fl4Diagnostics=1` and `?gtdVehicleProbe=imports&fl4Diagnostics=1` on the **same new preview deployment**. Collect `window.__GTD_FL4_REPORT__?.()`, noting screen resolution, GPU, p50/p95 frame/render time, active indices, draw calls, load times and source caching. Repeat on landscape mobile.
-5. Treat visual/physical collider mismatch as a known temporary limitation, not a passing physics result. The final sedan and material rights are outside this trial.
+5. Assert `colliderCalibrated: true` only after a successful import; validate the enlarged collider against Voight and the curb with actual gameplay traversal. A matching static box does not prove accurate wheel/body physics, and a fallback uses its original collision. The final sedan and material rights are outside this trial.
 
 The earlier small-car preview remains available as an immutable historical comparator; never overwrite its findings with new measurements or imply that the renderer got more detailed when only world scale changed.
+
+## Revision control for calibrated-collider experiment
+
+**Implementation baseline:** `b1147110de6e6a4e47b1b3383ede70397901a67a` (experiment branch; production `main` untouched). **Pinned verification deployment:** `dpl_9Ai7mu64hqLRHDmD5zP78AQSHHDo` — do not classify as READY until checked. This iteration supersedes the initial small-car visual-envelope normalization for the experiment **only**, without revising the historical evidence record. Because the imported vehicle uses external, rights-unverified third-party models, any acceptance is limited to a controlled technical experiment.
+
+**Repeatable evidence capture**: open the same SHA with `?gtdVehicleProbe=imports&fl4Diagnostics=1` and `?gtdVehicleProbe=baseline&fl4Diagnostics=1`; compare the same car count and camera/time conditions, inspect `window.__GTD_VEHICLE_PROBE_REPORT__?.()` for `fit.worldDimensions`, `finalVisualMetres`, `colliderCalibrated` and slot errors; then inspect `window.__GTD_FL4_REPORT__?.()` for p50/p95 frame/render times, draw calls and active indices. Record mobile and desktop separately. Without exported numbers, no frame-rate or collision outcome should be declared proved.
