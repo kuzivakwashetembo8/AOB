@@ -25,10 +25,23 @@ import {
   planImportedVehicleFit,
   sourceForExistingSlot,
 } from "./vehicle-probe-plan";
+import {
+  resolveVehicleOptimizationMode,
+  selectVehicleShadowCasterIds,
+  usesSelectiveVehicleShadows,
+  usesVehicleDistanceLOD,
+  wantsFullVehicleDetail,
+  type FL4VehicleOptimizationMode,
+} from "./fl4-vehicle-optimization";
 
 export interface ImportedCarProbe {
   report(): ImportedCarProbeReport;
   dispose(): void;
+}
+
+export interface ImportedCarProbeOptions {
+  /** Diagnostic-only. The accepted development visual is unchanged by default. */
+  readonly optimizationMode?: FL4VehicleOptimizationMode;
 }
 
 type SlotStatus = "loading" | "imported" | "fallback";
@@ -68,6 +81,13 @@ export interface ImportedCarProbeReport {
     stage: ImportPipelineStage;
     elapsedMs: number;
     loaderInitializationMs: number | null;
+  };
+  readonly optimization?: {
+    readonly mode: FL4VehicleOptimizationMode;
+    readonly selectedVehicleShadowCasters: number;
+    readonly originalImportedSubmeshes: number;
+    readonly fullDetailSlots: number;
+    readonly distantProxySlots: number;
   };
   readonly slots: readonly SlotResult[];
   readonly assetSources: readonly {
@@ -111,6 +131,7 @@ function modelBounds(meshes: readonly AbstractMesh[]): {
 export function beginImportedCarEvaluation(
   scene: Scene,
   world: GeneratedFirstLightWorld,
+  options: ImportedCarProbeOptions = {},
 ): ImportedCarProbe {
   const parked = planStreetContext(FIRST_LIGHT_CITY_SPEC).items
     .filter((item) => item.kind === "parked-car")
@@ -140,6 +161,19 @@ export function beginImportedCarEvaluation(
       } as MutableAssetStatus] as const;
     }),
   ).values());
+  const optimizationMode = options.optimizationMode ?? "full";
+  const selectiveShadows = usesSelectiveVehicleShadows(optimizationMode);
+  const distanceLOD = usesVehicleDistanceLOD(optimizationMode);
+  const distanceSlots: Array<{
+    readonly id: string;
+    readonly x: number;
+    readonly z: number;
+    readonly detailedRoot: TransformNode;
+    readonly fallbackMeshes: AbstractMesh[];
+    fullDetail: boolean;
+  }> = [];
+  let selectedVehicleShadowCasters = 0;
+  let originalImportedSubmeshes = 0;
   const templates: AssetContainer[] = [];
   const liveEntries: Array<ReturnType<AssetContainer["instantiateModelsToScene"]>> = [];
   const roots: TransformNode[] = [];
@@ -147,6 +181,22 @@ export function beginImportedCarEvaluation(
   const pipelineStart = performance.now();
   let pipelineStage: ImportPipelineStage = "initializing-gltf-loader";
   let loaderInitializationMs: number | null = null;
+  // Updating enabled states, not geometry buffers or colliders. When the
+  // camera is far away we reuse the original already-created proxy as LOD.
+  const beforeRenderObserver = distanceLOD
+    ? scene.onBeforeRenderObservable.add(() => {
+      const camera = scene.activeCamera;
+      if (!camera) return;
+      for (const slot of distanceSlots) {
+        const distance = Math.hypot(camera.position.x - slot.x, camera.position.z - slot.z);
+        const detailed = wantsFullVehicleDetail(slot.fullDetail, distance);
+        if (detailed === slot.fullDetail) continue;
+        slot.fullDetail = detailed;
+        slot.detailedRoot.setEnabled(detailed);
+        for (const fallback of slot.fallbackMeshes) fallback.setEnabled(!detailed);
+      }
+    })
+    : null;
 
   function report(): ImportedCarProbeReport {
     const now = performance.now();
@@ -158,6 +208,17 @@ export function beginImportedCarEvaluation(
         stage: pipelineStage,
         elapsedMs: Math.round(now - pipelineStart),
         loaderInitializationMs,
+      },
+      optimization: {
+        mode: optimizationMode,
+        selectedVehicleShadowCasters,
+        originalImportedSubmeshes,
+        fullDetailSlots: distanceLOD
+          ? distanceSlots.filter((slot) => slot.fullDetail).length
+          : slotResults.filter((slot) => slot.status === "imported").length,
+        distantProxySlots: distanceLOD
+          ? distanceSlots.filter((slot) => !slot.fullDetail).length
+          : 0,
       },
       slots: slotResults.map((slot) => ({ ...slot })),
       assetSources: assetSources.map(({ startedAtMs, ...source }) => ({
@@ -247,23 +308,59 @@ export function beginImportedCarEvaluation(
               length: fit.worldDimensions.z,
             };
 
+            // All imported geometry remains full quality in the main camera
+            // pass. Only shadow-map participation is reduced in the opt-in
+            // selectiveShadows / combined diagnostic variants.
+            const shadowIds = selectiveShadows
+              ? new Set(selectVehicleShadowCasterIds(visuals.map((mesh) => {
+                mesh.computeWorldMatrix(true);
+                const bounds = mesh.getBoundingInfo().boundingBox;
+                return {
+                  id: mesh.uniqueId.toString(),
+                  vertices: mesh.getTotalVertices(),
+                  width: bounds.maximumWorld.x - bounds.minimumWorld.x,
+                  height: bounds.maximumWorld.y - bounds.minimumWorld.y,
+                  length: bounds.maximumWorld.z - bounds.minimumWorld.z,
+                };
+              })))
+              : null;
             for (const mesh of visuals) {
               mesh.receiveShadows = true;
-              world.environment.addShadowCaster(mesh);
+              if (!mesh.getTotalVertices()) continue;
+              originalImportedSubmeshes++;
+              if (shadowIds && !shadowIds.has(mesh.uniqueId.toString())) continue;
+              if (shadowIds) {
+                // Do NOT recurse through children; that would re-add all
+                // fine-detail meshes and invalidate this isolation probe.
+                world.shadowGenerator?.addShadowCaster(mesh, false);
+              } else {
+                world.environment.addShadowCaster(mesh);
+              }
+              selectedVehicleShadowCasters++;
             }
             // Convert only this successfully imported vehicle's static Rapier
             // box to its actual rendered dimensions; failure slots preserve
             // the old visual and original collider without modification.
             world.replaceParkedCarCollider(item.id, fit.worldDimensions);
             slot.colliderCalibrated = true;
-            // Fallback meshes remain owned by the generated street context
-            // and will be disposed by it. Disabled proxies do not render.
-            for (const mesh of world.streetContext.meshes) {
-              if (
-                mesh.name === "generated-car-body:" + item.id ||
-                mesh.name === "generated-car-cabin:" + item.id ||
-                mesh.name.startsWith("generated-car-wheel:" + item.id + ":")
-              ) mesh.setEnabled(false);
+            // Retain the existing procedural visuals as distant visual LOD,
+            // but keep the approved GLB at full quality near Voight.
+            // Full and proxy representations are never active together.
+            const fallbackMeshes = world.streetContext.meshes.filter((mesh) =>
+              mesh.name === "generated-car-body:" + item.id ||
+              mesh.name === "generated-car-cabin:" + item.id ||
+              mesh.name.startsWith("generated-car-wheel:" + item.id + ":"),
+            );
+            for (const mesh of fallbackMeshes) mesh.setEnabled(false);
+            if (distanceLOD) {
+              distanceSlots.push({
+                id: item.id,
+                x: item.position.x,
+                z: item.position.z,
+                detailedRoot: anchor,
+                fallbackMeshes,
+                fullDetail: true,
+              });
             }
             slot.status = "imported";
             slot.loadMs = asset.loadMs;
@@ -315,6 +412,8 @@ export function beginImportedCarEvaluation(
     dispose() {
       if (disposed) return;
       disposed = true;
+      if (beforeRenderObserver) scene.onBeforeRenderObservable.remove(beforeRenderObserver);
+      distanceSlots.length = 0;
       for (const entry of liveEntries) entry.dispose();
       for (const root of roots) root.dispose(false, false);
       for (const template of templates) template.dispose();
