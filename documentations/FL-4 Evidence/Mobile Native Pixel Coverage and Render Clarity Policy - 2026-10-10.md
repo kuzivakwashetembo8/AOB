@@ -1,7 +1,7 @@
 # FL-4 — Mobile native pixel coverage and responsive clarity policy
 
 **Date:** 2026-10-10  
-**Status:** CODE IMPLEMENTED, development benchmark deployment and real-device acceptance pending.  
+**Status:** DOCUMENTED AND PATCHED; pinned production deployment READY, actual mobile image-quality/performance acceptance pending.  
 **Code SHA pinned for verification:** `7fbabdf2574664c1ac97805bd97211a8a4efb303` on `fix/fl4-mobile-render-clarity`.  
 **User source:** Two Android landscape screenshots supplied in conversation, `211250.jpg` and `211246.jpg`, each 1536×691 screenshot pixels. Screenshots show the fixed banding and fast touch-orbit and illustrate softer world geometry/road/facades than laptop rendering. User says screenshot *still images appear sharper than actual running viewport*, subjectively comparable to a smooth 480p–720p video. Intermittent freezes after a few movements are **OBSERVED, NOT YET A REPRODUCIBLE FAILURE**; do not mark as a confirmed recurrent defect or assert a sole cause.
 
@@ -54,3 +54,13 @@ Replace the inert resolution field with a real graphics preset persisted as `ren
 5. If no further user/device confirmation arrives, categorize `FL4-02` as **improvement candidate awaiting verification**, not COMPLETED. FL4-06 mobile and overall acceptance remain conditional.
 
 **Production authorization:** this code is an FL-4 development change; existing explicit approval to deploy to `main` for mobile confirmation should not be construed as licensing/rights clearance for third-party imported models or approval of unrelated game features. Explicitly verify pinned build and the production alias on each release.
+
+## Verified application delivery and final acceptance boundary (2026-10-10)
+
+- **App-code and plan SHA:** `894bcac57e181d93cd5f63a51d73c1331ce89387` on `main` (the complete clarity policy, settings integration, runtime code and four regression tests).
+- **Production Vercel:** `dpl_GmCRG4dtk1Q2kFb7r15iqRb9FpCL` — **READY**, with `grand-theft-division.vercel.app` verified to resolve to this exact code SHA.
+- **Build verification:** the Vercel build completed successfully under the repository's chained TypeScript/test/build command; the four new `fl4-mobile-render-clarity.test.ts` source tests check DPR coverage and preset semantics. Provider logs are truncated, so no unverified exact aggregate Vitest count is asserted here.
+- **User-facing choice:** Settings → Graphics → **3D render clarity**: Auto (default), Balanced (prior raster density), Sharper, or Native (potentially heavy). The baseline production fix is not the same as forcing Native.
+- **Release caveat:** this corrects the principal *source-level* mobile downscaling policy and makes previously inert settings functional. It does **not** establish the individual user's DPR, sustained FPS, thermal behavior, complete elimination of live-view blur, or a fix for sporadic freezes. FL4-02 remains **AWAITING REAL-DEVICE CONFIRMATION**, and the existing third-party 3D-model rights question is unchanged.
+
+When reviewing on mobile, test Auto first and then Sharper at similar camera angles. If stalling increases, return to Balanced; optionally test Native briefly while monitoring responsiveness. Opt-in diagnostics `/game?fl4Diagnostics=1` export DPR, render/backing dimensions, nativeCoveragePercent and p50/p95 frame/render times to support an evidence-based acceptance decision. A screenshot alone cannot certify live frame resolution or performance.
