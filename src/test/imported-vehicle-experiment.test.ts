@@ -6,6 +6,7 @@ import {
   sourceForExistingSlot,
 } from "../game/experiments/vehicle-probe-plan";
 import { MeridianPhysics } from "../game/physics/rapier-world";
+import { suppressLegacyParkedCarPlaceholders } from "../game/experiments/imported-car-evaluation";
 import { createGeneratedFirstLightWorld } from "../game/world/generated-first-light-world";
 import { FIRST_LIGHT_CITY_SPEC, planStreetContext } from "../game/world-generation";
 
@@ -131,7 +132,15 @@ describe("EXP-VEH-001 imported parked-car experiment contract", () => {
       const id = cars[0]!.id;
       // FL4-06: the old models must not leave invisible collisions while
       // approved GLBs are loading or if a download fails.
-      world.suspendParkedCarColliders();
+      const suppressed = suppressLegacyParkedCarPlaceholders(world);
+      expect(suppressed).toBe(cars.length * 6);
+      const legacyMeshes = world.streetContext.meshes.filter((mesh) =>
+        mesh.name.startsWith("generated-car-body:") ||
+        mesh.name.startsWith("generated-car-cabin:") ||
+        mesh.name.startsWith("generated-car-wheel:"),
+      );
+      expect(legacyMeshes).toHaveLength(cars.length * 6);
+      expect(legacyMeshes.every((mesh) => !mesh.isEnabled())).toBe(true);
       expect(physics.world.colliders.len()).toBe(originalColliders - cars.length);
       expect(physics.world.bodies.len()).toBe(originalBodies - cars.length);
       world.suspendParkedCarColliders(); // idempotent
