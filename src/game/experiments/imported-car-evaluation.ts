@@ -23,6 +23,7 @@ import type { GeneratedFirstLightWorld } from "../world/generated-first-light-wo
 import {
   planImportedVehicleFit,
   sourceForExistingSlot,
+  VEHICLE_CLASS_TARGET_LENGTH_METRES,
 } from "./vehicle-probe-plan";
 
 export interface ImportedCarProbe {
@@ -38,6 +39,7 @@ interface SlotResult {
   status: SlotStatus;
   loadMs: number | null;
   fit: ReturnType<typeof planImportedVehicleFit> | null;
+  finalVisualMetres: { width: number; height: number; length: number } | null;
   failure: string | null;
 }
 
@@ -103,6 +105,7 @@ export function beginImportedCarEvaluation(
     status: "loading",
     loadMs: null,
     fit: null,
+    finalVisualMetres: null,
     failure: null,
   }));
   const assetSources: MutableAssetStatus[] = Array.from(new Map(
@@ -180,7 +183,10 @@ export function beginImportedCarEvaluation(
           const visuals = [...modelMeshes];
           try {
             const bounds = modelBounds(visuals);
-            const fit = planImportedVehicleFit(bounds.size);
+            const fit = planImportedVehicleFit(
+              bounds.size,
+              VEHICLE_CLASS_TARGET_LENGTH_METRES[source.id],
+            );
             slot.fit = fit;
             centerOffset.position.set(-bounds.center.x, -bounds.floorY, -bounds.center.z);
             uniformFit.scaling.setAll(fit.uniformScale);
@@ -188,6 +194,11 @@ export function beginImportedCarEvaluation(
             anchor.position.set(item.position.x, item.position.y, item.position.z);
             anchor.rotation.y = item.yawRadians;
             anchor.scaling.setAll(item.scale);
+            slot.finalVisualMetres = {
+              width: fit.originalWidth * fit.uniformScale * item.scale,
+              height: fit.originalHeight * fit.uniformScale * item.scale,
+              length: fit.originalLength * fit.uniformScale * item.scale,
+            };
 
             for (const mesh of visuals) {
               mesh.receiveShadows = true;
