@@ -40,3 +40,16 @@ The user observed the second iteration in Meridian: the off-road buggy now has a
 Record the user's actual screenshots and profiler numbers after the adjusted preview. If widening the buggy or making the sports car taller causes obviously deformed wheels/body shapes, do not silently revise the trial: document that observation and use it to decide whether to adjust the authored asset instead of making further whole-asset deformations. No arbitrary FPS threshold, materials/textures ownership conclusion, traffic/multi-copy acceptance, or production asset choice is authorized. Other methods (original code-generated geometry, GLB authoring with Spline, licensed marketplaces, script-assisted Blender) remain valid candidate approaches.
 
 **Initial experiment runtime import rights:** Source forks are not a commercial license grant; third-party GLBs remain remotely referenced technical examples for a disposable preview, not final GTD assets.
+
+## Verified deployment and automated gates
+
+**Source/application SHA:** `e44d0ca41044effe0bbc74b2606b42a47df7b682` (code modifications in preceding experiment commits, this SHA adds the first iteration-3 evidence record).  
+**Vercel preview:** `dpl_4eKaj7bvPhhTXEE27DGfJhnof8F1` — **READY**, `https://gtd-o8ycdj9vh-interlinkglobaltech.vercel.app`.  
+**Build chain:** `npx tsc --noEmit && npm run test && npm run build` — **PASSED**. **16 test files; 78 of 78 Vitest tests passed.** Application build compiled successfully. TypeScript errors: none.
+
+- **Imported adjustment trial:** `https://gtd-o8ycdj9vh-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=imports&fl4Diagnostics=1`
+- **Matched old-proxy control:** `https://gtd-o8ycdj9vh-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=baseline&fl4Diagnostics=1`
+
+**Evidence not yet collected:** in-browser imported bounds after both adjustments, visual/physics overlap at curbs, player-car contact, frame-time and draw-call comparisons, mobile results, rights status. This deployment validates compilation/test gates only; it does not validate in-world aesthetic acceptance or runtime cost.
+
+**Recommended next user observation:** At similar camera and Voight distance, compare body width relative to lane/curb and tire appearance for the buggy, cabin/body height and tire shape for the sports car. Use `window.__GTD_VEHICLE_PROBE_REPORT__?.()` for exact slot dimensions and `window.__GTD_FL4_REPORT__?.()` for measured rendering counters. Do not treat these screenshots as an adopted sedan specification without additional independent testing.
