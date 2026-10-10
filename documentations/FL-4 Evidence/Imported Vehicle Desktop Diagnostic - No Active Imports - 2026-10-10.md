@@ -45,3 +45,17 @@ Windows NT 10 x64; Chrome 155; viewport/CSS canvas/backing/render buffer each **
 4. Independently profile base-scene shadow/draw-call cost and investigate mobile DPR/softness under GTD-VIS-002. The desktop report at DPR 1 does not close a mobile sharpness issue.
 
 **Release status:** Technical-development acceptance of the two example vehicles remains in force; the *current preview's import availability* is BLOCKED. FL-4 remains IN PROGRESS. Main/production must not change automatically.
+
+## Follow-on diagnostic implementation and verification
+
+**Follow-on source code SHA:** `1337738768dab29eb36f8f17c6bb2b762eb57023`. **Vercel nonproduction:** `dpl_7A5Ba1nibdyFfd7cGc2XJMjLkm8p`, **READY**, `https://gtd-dvxf6vjyw-interlinkglobaltech.vercel.app`. Strict TypeScript, **17 Vitest files / 81 passing tests**, and full application build **PASSED**.
+
+`src/game/experiments/imported-car-evaluation.ts` now records:
+- `importedVehicles.pipeline.stage`: `initializing-gltf-loader`, `loading-models`, `settled` or `failed`.
+- `importedVehicles.pipeline.elapsedMs` and `loaderInitializationMs`.
+- For each source `assetSources[].stage`: `awaiting-loader`, `loading-model`, `instantiating`, `complete` or `failed`, plus ongoing `pendingMs` when still loading, source status and loader error.
+- These fields are included in the existing opt-in **Save FL-4 data** JSON; they do **not** change GLB URLs, dimensions, source licenses, physics, fallback, collision, scene visuals or default resolution. If import never leaves `initializing-gltf-loader`, the bottleneck is **before remote GLB loading**. If it moves to `loading-models` and sources remain in `loading-model`, the bottleneck is somewhere **within GLB load / download / parsing**, and browser Network/Console evidence remains necessary to distinguish those sub-stages.
+
+**Follow-up link:** `https://gtd-dvxf6vjyw-interlinkglobaltech.vercel.app/game?fl4Diagnostics=1`. After allowing a normal gameplay interval, click **Save FL-4 data** and inspect the resulting `importedVehicles.pipeline` and `importedVehicles.assetSources[]`. If the same procedure yields terminal loaded cars, then collect matched same-build procedural baseline at `https://gtd-dvxf6vjyw-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=baseline&fl4Diagnostics=1`. If still pending, upload the JSON to isolate the stage; do **not** claim import vs proxy performance parity. The new field-test outcome itself remains PENDING.
+
+**FL-4 decision remains OPEN:** no proven imported-asset runtime cost yet, despite successful diagnostics export and passing automated tests. User visual development acceptance of the buggy/sports car from earlier successful previews remains valid, and no renewed car scale work is authorized by this issue.
