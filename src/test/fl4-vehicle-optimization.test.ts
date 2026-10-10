@@ -3,6 +3,7 @@ import {
   MAX_VEHICLE_SHADOW_MESHES,
   resolveVehicleOptimizationMode,
   selectVehicleShadowCasterIds,
+  shouldRenderAcceptedImportedVehicles,
   usesSelectiveVehicleShadows,
 } from "../game/experiments/fl4-vehicle-optimization";
 
@@ -23,6 +24,24 @@ describe("FL4-04 approved vehicle-only rendering policy", () => {
     expect(resolveVehicleOptimizationMode("full", false, true)).toBe("selectiveShadows");
     expect(usesSelectiveVehicleShadows("full")).toBe(false);
     expect(usesSelectiveVehicleShadows("selectiveShadows")).toBe(true);
+  });
+
+  it("enables accepted GLBs on the public mobile-review production host by default", () => {
+    for (const isProduction of [true, false]) {
+      for (const diagnostics of [true, false]) {
+        expect(shouldRenderAcceptedImportedVehicles(null, diagnostics, isProduction)).toBe(true);
+        expect(shouldRenderAcceptedImportedVehicles("imports", diagnostics, isProduction)).toBe(true);
+      }
+    }
+    // Production never exposes the rejected cars, even via an old A/B URL.
+    expect(shouldRenderAcceptedImportedVehicles("baseline", false, true)).toBe(true);
+    expect(shouldRenderAcceptedImportedVehicles("baseline", true, true)).toBe(true);
+    // The old cars exist solely for explicit nonproduction diagnostic A/B.
+    expect(shouldRenderAcceptedImportedVehicles("baseline", false, false)).toBe(true);
+    expect(shouldRenderAcceptedImportedVehicles("baseline", true, false)).toBe(false);
+    // Production mobile-review mode selects the tested reduced-caster variant.
+    expect(resolveVehicleOptimizationMode(null, false, true)).toBe("selectiveShadows");
+    expect(resolveVehicleOptimizationMode("full", true, true)).toBe("full");
   });
 
   it("selects bounded substantial shadow geometry with deterministic ties", () => {
