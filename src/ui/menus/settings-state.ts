@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { normalizeRenderClarity, type RenderClarityMode } from "@/game/renderer/render-clarity";
 export type Settings = {
   quality: string;
-  resolution: string;
+  renderClarity: RenderClarityMode;
   fps: string;
   shadows: boolean;
   master: number;
@@ -29,7 +30,7 @@ export type Settings = {
 };
 export const defaults: Settings = {
   quality: "High",
-  resolution: "Native",
+  renderClarity: "Auto",
   fps: "60",
   shadows: true,
   master: 80,
@@ -60,7 +61,17 @@ export function useSettings() {
   useEffect(() => {
     try {
       const value = localStorage.getItem("gtd-interface-settings");
-      if (value) setSettings({ ...defaults, ...JSON.parse(value) });
+      if (value) {
+        const stored = JSON.parse(value) as Partial<Settings>;
+        // The old "resolution: Native" setting had no runtime effect. Do
+        // not silently turn an old user's ignored choice into expensive
+        // physical-DPR rendering during the first upgraded mobile session.
+        setSettings({
+          ...defaults,
+          ...stored,
+          renderClarity: normalizeRenderClarity(stored.renderClarity),
+        });
+      }
     } catch {
       /* Use defaults when settings storage is unavailable. */
     }
