@@ -3,11 +3,11 @@
  * specimens into the *existing* parked-car slots for an isolated cost test.
  * Absolutely not a production-car source or a licensing determination.
  *
- * The initial legacy proxy stays intact while an import is pending or fails.
- * Successful imports disable ONLY matching visible proxy meshes. The existing
- * seeded street plan, world coordinates and garage remain untouched. Each
- * successfully imported car receives a matching static Rapier cuboid; a failed
- * import keeps its original collider. No GLB is copied into this repository.
+ * Legacy vehicle templates are never shown in the approved development path,
+ * whether GLBs are loading or have failed. Empty slots have no parked-car
+ * collider until their accepted GLB is successfully installed. Approved street
+ * layout, GLB calibration, source materials and unrelated physics are preserved.
+ * No third-party GLB is copied into this repository.
  */
 import {
   AbstractMesh,
@@ -25,13 +25,23 @@ import {
   planImportedVehicleFit,
   sourceForExistingSlot,
 } from "./vehicle-probe-plan";
+import {
+  selectVehicleShadowCasterIds,
+  usesSelectiveVehicleShadows,
+  type FL4VehicleOptimizationMode,
+} from "./fl4-vehicle-optimization";
 
 export interface ImportedCarProbe {
   report(): ImportedCarProbeReport;
   dispose(): void;
 }
 
-type SlotStatus = "loading" | "imported" | "fallback";
+export interface ImportedCarProbeOptions {
+  /** Diagnostic-only. The accepted development visual is unchanged by default. */
+  readonly optimizationMode?: FL4VehicleOptimizationMode;
+}
+
+type SlotStatus = "loading" | "imported" | "failed";
 
 interface SlotResult {
   readonly id: string;
@@ -68,6 +78,14 @@ export interface ImportedCarProbeReport {
     stage: ImportPipelineStage;
     elapsedMs: number;
     loaderInitializationMs: number | null;
+  };
+  readonly optimization?: {
+    readonly mode: FL4VehicleOptimizationMode;
+    readonly legacyTemplatesVisible: 0;
+    readonly selectedVehicleShadowCasters: number;
+    readonly originalImportedSubmeshes: number;
+    readonly fullDetailSlots: number;
+    readonly distantProxySlots: number;
   };
   readonly slots: readonly SlotResult[];
   readonly assetSources: readonly {
@@ -108,9 +126,33 @@ function modelBounds(meshes: readonly AbstractMesh[]): {
   };
 }
 
+/**
+ * Accepted GTD development vehicle policy: no old procedural cars in the
+ * loading, failed, or distant slots. Keep shapes in memory only for an explicit
+ * baseline diagnostic route; never display them while importing.
+ */
+export function suppressLegacyParkedCarPlaceholders(
+  world: GeneratedFirstLightWorld,
+): number {
+  let hidden = 0;
+  for (const mesh of world.streetContext.meshes) {
+    if (
+      mesh.name.startsWith("generated-car-body:") ||
+      mesh.name.startsWith("generated-car-cabin:") ||
+      mesh.name.startsWith("generated-car-wheel:")
+    ) {
+      mesh.setEnabled(false);
+      hidden++;
+    }
+  }
+  world.suspendParkedCarColliders();
+  return hidden;
+}
+
 export function beginImportedCarEvaluation(
   scene: Scene,
   world: GeneratedFirstLightWorld,
+  options: ImportedCarProbeOptions = {},
 ): ImportedCarProbe {
   const parked = planStreetContext(FIRST_LIGHT_CITY_SPEC).items
     .filter((item) => item.kind === "parked-car")
@@ -140,6 +182,10 @@ export function beginImportedCarEvaluation(
       } as MutableAssetStatus] as const;
     }),
   ).values());
+  const optimizationMode = options.optimizationMode ?? "full";
+  const selectiveShadows = usesSelectiveVehicleShadows(optimizationMode);
+  let selectedVehicleShadowCasters = 0;
+  let originalImportedSubmeshes = 0;
   const templates: AssetContainer[] = [];
   const liveEntries: Array<ReturnType<AssetContainer["instantiateModelsToScene"]>> = [];
   const roots: TransformNode[] = [];
@@ -147,7 +193,6 @@ export function beginImportedCarEvaluation(
   const pipelineStart = performance.now();
   let pipelineStage: ImportPipelineStage = "initializing-gltf-loader";
   let loaderInitializationMs: number | null = null;
-
   function report(): ImportedCarProbeReport {
     const now = performance.now();
     return {
@@ -159,6 +204,14 @@ export function beginImportedCarEvaluation(
         elapsedMs: Math.round(now - pipelineStart),
         loaderInitializationMs,
       },
+      optimization: {
+        mode: optimizationMode,
+        legacyTemplatesVisible: 0,
+        selectedVehicleShadowCasters,
+        originalImportedSubmeshes,
+        fullDetailSlots: slotResults.filter((slot) => slot.status === "imported").length,
+        distantProxySlots: 0,
+      },
       slots: slotResults.map((slot) => ({ ...slot })),
       assetSources: assetSources.map(({ startedAtMs, ...source }) => ({
         ...source,
@@ -168,6 +221,9 @@ export function beginImportedCarEvaluation(
       })),
     };
   }
+
+  // No placeholder appears even on the first frame.
+  suppressLegacyParkedCarPlaceholders(world);
 
   async function loadModels(): Promise<void> {
     // Only code-split/download the GLB loader for explicitly requested probe.
@@ -247,24 +303,45 @@ export function beginImportedCarEvaluation(
               length: fit.worldDimensions.z,
             };
 
+            // All imported geometry remains full quality in the main camera
+            // pass. Only shadow-map participation is reduced in the opt-in
+            // selectiveShadows / combined diagnostic variants.
+            const shadowIds = selectiveShadows
+              ? new Set(selectVehicleShadowCasterIds(visuals.map((mesh) => {
+                mesh.computeWorldMatrix(true);
+                const bounds = mesh.getBoundingInfo().boundingBox;
+                return {
+                  id: mesh.uniqueId.toString(),
+                  vertices: mesh.getTotalVertices(),
+                  width: bounds.maximumWorld.x - bounds.minimumWorld.x,
+                  height: bounds.maximumWorld.y - bounds.minimumWorld.y,
+                  length: bounds.maximumWorld.z - bounds.minimumWorld.z,
+                };
+              })))
+              : null;
             for (const mesh of visuals) {
               mesh.receiveShadows = true;
-              world.environment.addShadowCaster(mesh);
+              const geometric = mesh.getTotalVertices() > 0;
+              if (geometric) originalImportedSubmeshes++;
+              if (shadowIds) {
+                // Only actual selected geometry participates in this test;
+                // no descendant recursion that would defeat the isolation.
+                if (!geometric || !shadowIds.has(mesh.uniqueId.toString())) continue;
+                world.shadowGenerator?.addShadowCaster(mesh, false);
+              } else {
+                // EXACT pre-experiment shadow path: keep root/parent nodes and
+                // Babylon descendant registration unchanged for the A/B control.
+                world.environment.addShadowCaster(mesh);
+              }
+              if (geometric) selectedVehicleShadowCasters++;
             }
             // Convert only this successfully imported vehicle's static Rapier
             // box to its actual rendered dimensions; failure slots preserve
             // the old visual and original collider without modification.
             world.replaceParkedCarCollider(item.id, fit.worldDimensions);
             slot.colliderCalibrated = true;
-            // Fallback meshes remain owned by the generated street context
-            // and will be disposed by it. Disabled proxies do not render.
-            for (const mesh of world.streetContext.meshes) {
-              if (
-                mesh.name === "generated-car-body:" + item.id ||
-                mesh.name === "generated-car-cabin:" + item.id ||
-                mesh.name.startsWith("generated-car-wheel:" + item.id + ":")
-              ) mesh.setEnabled(false);
-            }
+            // The car becomes visible only as the accepted GLB. No old
+            // templates, proximity proxy, or collision-only placeholder.
             slot.status = "imported";
             slot.loadMs = asset.loadMs;
             if (fit.warnings.length > 0) {
@@ -272,7 +349,7 @@ export function beginImportedCarEvaluation(
             }
           } catch (slotError) {
             current.dispose();
-            slot.status = "fallback";
+            slot.status = "failed";
             slot.failure = String(slotError);
           }
         }
@@ -284,10 +361,10 @@ export function beginImportedCarEvaluation(
         asset.loadMs = performance.now() - started;
         for (const slot of slotResults) {
           if (slot.source !== asset.id) continue;
-          slot.status = "fallback";
+          slot.status = "failed";
           slot.failure = asset.error;
         }
-        console.warn("[EXP-VEH-001] Asset unavailable; using original parked proxies.", asset.id, error);
+        console.warn("[GTD] Accepted imported car unavailable; parked slot remains empty.", asset.id, error);
         if (container && !templates.includes(container)) container.dispose();
       }
     }));
@@ -298,7 +375,7 @@ export function beginImportedCarEvaluation(
     pipelineStage = "failed";
     for (const slot of slotResults) {
       if (slot.status !== "loading") continue;
-      slot.status = "fallback";
+      slot.status = "failed";
       slot.failure = String(error);
     }
     for (const asset of assetSources) {
@@ -307,7 +384,7 @@ export function beginImportedCarEvaluation(
       asset.stage = "failed";
       asset.error = String(error);
     }
-    console.warn("[EXP-VEH-001] Importer failed; preserving original parked cars.", error);
+    console.warn("[GTD] Imported-car loader failed; parked slots remain empty.", error);
   });
 
   return {

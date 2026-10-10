@@ -19,6 +19,7 @@ import type {
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import { mountFL4EvidenceExport } from "../debug/fl4-evidence-export";
+import { resolveVehicleOptimizationMode } from "../experiments/fl4-vehicle-optimization";
 import {
   beginImportedCarEvaluation,
   type ImportedCarProbe,
@@ -142,7 +143,16 @@ export class GTDGameRuntime implements GameRuntime {
     const allowDevelopmentAssets =
       !productionHostname && vehicleMode !== "baseline";
     if (allowDevelopmentAssets && isGeneratedFirstLightWorld(firstLight)) {
-      const importedCarProbe = beginImportedCarEvaluation(scene, firstLight);
+      const importedCarProbe = beginImportedCarEvaluation(scene, firstLight, {
+        optimizationMode: resolveVehicleOptimizationMode(
+          diagnosticParams.get("fl4VehicleOptimization"),
+          diagnosticParams.get("fl4Diagnostics") === "1",
+          // FL-4 final review is opt-in and unavailable on production.
+          // It enables the proven reduced-caster candidate in ordinary play,
+          // without enabling costly diagnostic capture by default.
+          !productionHostname && diagnosticParams.get("fl4FinalReview") === "1",
+        ),
+      });
       this.importedCarProbe = importedCarProbe;
       (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: () => ReturnType<ImportedCarProbe["report"]> })
         .__GTD_VEHICLE_PROBE_REPORT__ = () => importedCarProbe.report();
