@@ -116,7 +116,7 @@ function SettingsPage() {
             {category === "Graphics" && (
               <>
                 {select("quality", "Quality preset", ["Low", "Medium", "High", "Ultra"])}
-                {select("resolution", "Render resolution", ["Native", "75%", "50%"])}
+                {select("renderClarity", "3D render clarity", ["Auto", "Balanced", "Sharper", "Native"])}
                 {select("fps", "Frame-rate limit", ["30", "60", "120", "Uncapped"])}
                 {toggle("shadows", "Dynamic shadows")}
               </>
