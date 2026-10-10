@@ -78,3 +78,39 @@ The noShadows capture reports **769 fewer median draw calls (-77.7%)**, **6,475,
 ## 4. Release and milestone status
 
 This diagnostic experiment does **not** authorize shadows removed from GTD's default renderer; in-world realistic street/night light and shadows remain core FL-4 quality requirements. It also does not authorize dropping high-quality vehicles, rolling back accepted size, copying rights-uncleared GLBs to commercial production, or promoting `main`. **FL-4 remains IN PROGRESS**, with desktop/matched shadows, graphics cost, import reliability, collision, landscape mobile, and final acceptance gates unresolved.
+
+## 5. Procedural noShadows control completed — 2026-10-10T17:09:14.973Z
+
+**Primary captured file:** user-uploaded `gtd-fl4-baseline-2026-10-10T17-09-14-973Z.json`, accompanied by screenshot `image(20261010-170919).png`. These are conversation attachments; do not claim this markdown includes their raw data. **Same pinned Vercel game source/deployment:** `1337738768dab29eb36f8f17c6bb2b762eb57023` / `dpl_7A5Ba1nibdyFfd7cGc2XJMjLkm8p`.
+
+**Important expected behavior:** The user reports that the buggy and sports car are absent, and the screenshot confirms original green procedural proxies. This is **by design**, because the page URL explicitly uses `gtdVehicleProbe=baseline`. The JSON also explicitly reports `vehicleMode="baseline"` and `importedVehicles=null`. This is not a new imported-GLB rendering failure and is a VALID original-proxy control. It says nothing about whether the default imported mode would have succeeded in that same session.
+
+**Matched instrumentation:** Windows/Chrome 155, 1366×633 render and viewport, DPR 1, hardware scale 1, native coverage 100%, 2,048 shadow-map configuration, with **`fl4Probe=noShadows`**. The registered caster count is 316 even though rendering of scene shadows is disabled; the count represents registration, not active passes.
+
+| Metric | Procedural, shadows OFF (new) | Imported GLBs, shadows OFF (prior user-confirmed visible) |
+|---|---:|---:|
+| Recent frame samples | **1,800** | 560 |
+| Frame p50/p95 (ms) | **33.3 / 33.8** | 53.4 / 433.0 |
+| Render p50/p95 (ms) | **10.4 / 20.8** | 42.5 / 237.1 |
+| FPS approximated from p50 (not measured average) | **30.03** | 18.73 |
+| Draw calls p50 | **88** | 221 |
+| Active meshes p50 | **88** | 224 |
+| Active indices p50 | **59,610** | 1,935,591 |
+| Total registered scene meshes | 585 | 1,103 |
+| Materials/textures | 81 / 57 | 127 / 58 |
+| Registered shadow casters | 316 | 834 |
+| Browser-reported GPU timers/memory | UNAVAILABLE | UNAVAILABLE |
+
+**Data-derived comparisons of the two shadow-OFF modes:** median frame duration **1.60×** higher with imports (+20.1ms); median render duration **4.09×** higher (+32.1ms); draw calls **2.51×** (+133); active indices **32.47×** (+1,875,981). The imported p95s are far longer, but **1,800 vs 560 frame histories and uncontrolled route/view/loading** prohibit claiming a precise per-vehicle or isolated stable-state p95 penalty. The baseline's `frameMsP50=33.3` may reflect throttling/frame pacing; median FPS is not throughput measured over the same duration.
+
+### Interpreting both A/B dimensions without overclaiming
+
+**Within baseline procedural cars**, enabling vs disabling all shadows appears consequential: earlier same-build shadow-ON control B had frame p50 **33.3ms**, render p50 **26.7ms**, draw calls **376**, active indices **165,834**; this new shadow-OFF control has frame p50 **33.3ms**, render p50 **10.4ms**, calls **88**, indices **59,610**. The median frame time can remain unchanged even if render work drops, due to pacing and other per-frame costs. Shadow-OFF reduction in render p50 is **16.3ms** descriptively, not camera-matched causal attribution.
+
+**Within imported development cars**, previous shadow-ON report gave frame p50 **100ms**, render p50 **83.3ms**, calls **990**, indices **8,411,016**, though user did NOT visually confirm on-screen GLBs. The subsequent shadow-OFF report with both cars visually verified gave frame p50 **53.4ms**, render p50 **42.5ms**, calls **221**, indices **1,935,591**. This is a strong shadow-work lead, not a rigorously controlled savings estimate.
+
+**Cross-type under shadows OFF:** imported GLBs still have materially higher median render time, draw calls and index load than procedural cars. This shows shadow removal alone is **insufficient** for the accepted vehicles to achieve procedural-like cost; it does NOT establish a permanent defect with high-quality GLBs as a class, nor justify reverting them.
+
+**Primary actionable hypothesis:** diagnose imported submesh/material proliferation and high near-camera triangle counts as **independent** of shadow-pass multiplication, then test selective shadow-caster policy and distance LOD without visually changing the accepted reference at the review distance. Any performance patch should be reversible and run through the same screenshot+JSON tests. Shader compilation, navigation, GPU/CPU bottleneck and off-road vehicle size remain possible contributors requiring further verification. Keep FL4-04 active and do not accept commercial licenses by inference.
+
+**No changes to the two accepted developmental GLBs, their visual dimensions, or actual shadow-enabled production design have been authorized by this evidence.** FL-4 remains open for targeted optimization and mobile regressions.
