@@ -30,22 +30,15 @@ export interface ProbeBounds {
   readonly z: number;
 }
 
-/**
- * Envelopes deliberately stay INSIDE the visual part of the current
- * static collider (full local size = 1.76 x 1.52 x 4.0 metres).
- * Uniform sizing, never axis-by-axis deformation.
- */
-export const PARKED_VEHICLE_VISUAL_ENVELOPE: ProbeBounds = {
-  x: 1.66,
-  y: 1.48,
-  z: 3.84,
-};
+/** Experiment-only approximate real-world visual length by specimen class. */
+export const VEHICLE_CLASS_TARGET_LENGTH_METRES = { offroad: 3.8, sports: 4.53 } as const;
+export const PARKED_VEHICLE_VISUAL_ENVELOPE: ProbeBounds = { x: 1.66, y: 1.48, z: 3.84 };
 
 export function sourceForExistingSlot(slotIndex: number): VehicleProbeSource {
   return VEHICLE_PROBE_SOURCES[slotIndex % VEHICLE_PROBE_SOURCES.length]!;
 }
 
-export function planImportedVehicleFit(bounds: ProbeBounds): {
+export function planImportedVehicleFit(bounds: ProbeBounds, targetLengthMetres = 4.53): {
   readonly rotateYRadians: number;
   readonly uniformScale: number;
   readonly originalWidth: number;
@@ -59,11 +52,9 @@ export function planImportedVehicleFit(bounds: ProbeBounds): {
   const originalWidth = Math.min(bounds.x, bounds.z);
   const originalLength = Math.max(bounds.x, bounds.z);
   const uniformScale = Math.min(
-    PARKED_VEHICLE_VISUAL_ENVELOPE.x / originalWidth,
-    PARKED_VEHICLE_VISUAL_ENVELOPE.y / bounds.y,
-    PARKED_VEHICLE_VISUAL_ENVELOPE.z / originalLength,
+    targetLengthMetres / originalLength,
   );
-  if (!Number.isFinite(uniformScale) || uniformScale <= 0) {
+  if (!Number.isFinite(targetLengthMetres) || targetLengthMetres <= 0 || !Number.isFinite(uniformScale) || uniformScale <= 0) {
     throw new Error("Vehicle specimen cannot be uniformly normalized");
   }
   return {
