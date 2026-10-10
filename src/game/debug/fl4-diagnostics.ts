@@ -20,7 +20,22 @@ export type FL4Report = Readonly<{
   scene: { meshCount: number; materialCount: number; textureCount: number; shadowCasterCount: number; shadowMapSize: number | null };
   pixelCoverage: { expectedNativePixels: number; actualPixels: number; nativeCoveragePercent: number | null };
   timing: { bootToReadyMs: number | null; firstFrameMs: number | null };
-  samples: { count: number; frameMsP50: number | null; frameMsP95: number | null; renderMsP50: number | null; renderMsP95: number | null; fpsApprox: number | null; drawCallsP50: number | null; activeMeshesP50: number | null; activeIndicesP50: number | null };
+  samples: {
+    count: number;
+    frameMsP50: number | null;
+    frameMsP95: number | null;
+    frameMsMax: number | null;
+    renderMsP50: number | null;
+    renderMsP95: number | null;
+    renderMsMax: number | null;
+    frameGapsOver50Ms: number;
+    frameGapsOver100Ms: number;
+    frameGapsOver250Ms: number;
+    fpsApprox: number | null;
+    drawCallsP50: number | null;
+    activeMeshesP50: number | null;
+    activeIndicesP50: number | null;
+  };
   unavailable: string[];
 }>;
 
@@ -104,8 +119,15 @@ export class FL4Diagnostics {
         count: frames.length,
         frameMsP50: p50,
         frameMsP95: percentile(frames, 0.95),
+        frameMsMax: frames.length ? Math.round(Math.max(...frames) * 100) / 100 : null,
         renderMsP50: percentile(this.samples.map((v) => v.renderMs), 0.5),
         renderMsP95: percentile(this.samples.map((v) => v.renderMs), 0.95),
+        renderMsMax: this.samples.length
+          ? Math.round(Math.max(...this.samples.map((v) => v.renderMs)) * 100) / 100
+          : null,
+        frameGapsOver50Ms: frames.filter((ms) => ms > 50).length,
+        frameGapsOver100Ms: frames.filter((ms) => ms > 100).length,
+        frameGapsOver250Ms: frames.filter((ms) => ms > 250).length,
         fpsApprox: approximateFps(p50),
         drawCallsP50: percentile(this.samples.map((v) => v.drawCalls).filter((v): v is number => v !== null), 0.5),
         activeMeshesP50: percentile(this.samples.map((v) => v.activeMeshes), 0.5),
