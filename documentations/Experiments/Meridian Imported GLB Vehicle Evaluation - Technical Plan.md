@@ -82,3 +82,17 @@ Leave `main` and production unchanged. At any point set `gtdVehicleProbe=baselin
 ## 5. Post-experiment decision gate
 
 Report a table of **measured outcomes** vs H1–H6 with exact preview commit, URL and device conditions. Candidate dispositions: `VIABLE AS EXPERIMENT`, `CONDITIONALLY VIABLE`, `BLOCKED BY PROVEN CAUSE`, or `NOT YET MEASURED`. Do not infer final licensing from a public fork or consider external GLB performance equal to the optimized long-term original sedan. All other candidate methods stay under consideration. Await an explicit separate authorization for final sedan implementation, source-asset redistribution, merging into the production branch or increasing parked-car quantity.
+
+## 6. Authorized follow-on amendment — Iteration 2 real-scale vehicles (2026-10-10)
+
+The user's subsequent inspection confirmed both imported GLBs rendered inside Meridian but the original fixed-size normalization made them appear like children's toys. The user explicitly authorized **properly scaling the cars**. This amendment supersedes the **first-iteration-only** requirements above that all imported cars fit the previous small collider envelope and that static parked-car colliders never change. It does **not** supersede stable car IDs/placement/yaw/count, separate model-to-physics ownership, no new vehicle gameplay, licensing limitations, rollback or production isolation.
+
+The active second-iteration implementation:
+
+- Establishes per-specimen **in-world** length targets (buggy 4.05 m; sports car 4.53 m, preliminary class-calibration choices) rather than a universal 3.84 m cap.
+- Uses a single uniform scale, compensating for existing per-slot deterministic random scaling, so no wheel, glass or body surface is disproportionately stretched. Model-derived width and height are recorded, not assigned fictionally.
+- Replaces **only** each successfully imported parked vehicle's Rapier static box with a measured-width/height/length cuboid at the same planned X/Z/yaw and ground elevation. Failed imports keep the previous visuals *and* collider. Physics allocation/disposal regression tests validate unchanged live body/collider totals.
+- Keeps the two control URLs on the same pinned preview build; no extra spawned cars or production code changes.
+- Identifies automotive visual and collision alignment, curb clearance, initial proxy-to-GLB appearance swap, browser loading, device performance and licensing as separate outstanding field-measurement gates. Static cuboids remain intentionally coarse and are not evidence of vehicle-driving simulation correctness.
+
+**Detailed subordinate record:** `documentations/Experiments/EXP-VEH-001 Real-Scale Calibration - Iteration 2.md`. **Ready pinned game build:** `b1147110de6e6a4e47b1b3383ede70397901a67a`, Vercel `dpl_9Ai7mu64hqLRHDmD5zP78AQSHHDo`, strict TypeScript + 77 tests/16 files + build passed. **No in-browser real-scale capture or p50/p95 comparison has yet been submitted for this iteration.**
