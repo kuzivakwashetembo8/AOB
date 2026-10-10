@@ -1,7 +1,9 @@
 /**
- * EXP-VEH-001: deterministic metadata and strictly uniform fit for
- * independently licensed/hosted evaluation-only vehicle specimens.
- * These are NOT final Meridian assets.
+ * EXP-VEH-001 — visual size calibration for evaluation-only imported GLBs.
+ *
+ * Source specimens are NOT the first GTD sedan and their usage rights are
+ * unverified. Target lengths are explicit, reviewable calibration hypotheses.
+ * Fit is UNIFORM; actual width/height are derived from each original asset.
  */
 export const VEHICLE_PROBE_SOURCES = [
   {
@@ -11,6 +13,9 @@ export const VEHICLE_PROBE_SOURCES = [
     fileName: "car.glb",
     repository: "https://github.com/interlinkglobal/Car-Game-ThreeJS",
     bytes: 6062428,
+    // Trial size of a compact short-wheelbase off-road vehicle, not the
+    // maker's certified dimensions for this stylized model.
+    targetLengthMeters: 4.05,
   },
   {
     id: "sports" as const,
@@ -19,6 +24,9 @@ export const VEHICLE_PROBE_SOURCES = [
     fileName: "ferrari.glb",
     repository: "https://github.com/interlinkglobal/JS-3D-Car",
     bytes: 1681572,
+    // Ferrari 458 Italia class approximate published exterior length,
+    // not an approval to reproduce a licensed branded asset.
+    targetLengthMeters: 4.53,
   },
 ] as const;
 
@@ -29,36 +37,69 @@ export interface ProbeBounds {
   readonly y: number;
   readonly z: number;
 }
-
-/** Experiment-only approximate real-world visual length by specimen class. */
-export const VEHICLE_CLASS_TARGET_LENGTH_METRES = { offroad: 3.8, sports: 4.53 } as const;
-
-export function sourceForExistingSlot(slotIndex: number): VehicleProbeSource {
-  return VEHICLE_PROBE_SOURCES[slotIndex % VEHICLE_PROBE_SOURCES.length]!;
-}
-
-export function planImportedVehicleFit(bounds: ProbeBounds, targetLengthMetres = 4.53): {
+export interface ImportedVehicleFit {
   readonly rotateYRadians: number;
   readonly uniformScale: number;
   readonly originalWidth: number;
   readonly originalLength: number;
   readonly originalHeight: number;
-} {
-  if (![bounds.x, bounds.y, bounds.z].every((v) => Number.isFinite(v) && v > 0)) {
-    throw new Error("Vehicle specimen has invalid geometry bounds");
+  readonly worldDimensions: ProbeBounds;
+  readonly targetLengthMeters: number;
+  readonly warnings: readonly string[];
+}
+
+export function sourceForExistingSlot(slotIndex: number): VehicleProbeSource {
+  return VEHICLE_PROBE_SOURCES[slotIndex % VEHICLE_PROBE_SOURCES.length]!;
+}
+
+/**
+ * Choose a single uniform fit from the source's longest horizontal dimension
+ * (the likely longitudinal body axis). Final source widths/heights remain
+ * intrinsically proportional. The seeded original item's scaling is
+ * cancelled so *every* specimen of the same class reaches the target length.
+ *
+ * The existing road, yaw, car ID and placement are never modified.
+ */
+export function planImportedVehicleFit(
+  bounds: ProbeBounds,
+  targetLengthMeters: number,
+  parkedSlotScale = 1,
+): ImportedVehicleFit {
+  if (![bounds.x, bounds.y, bounds.z, targetLengthMeters, parkedSlotScale]
+    .every((v) => Number.isFinite(v) && v > 0)) {
+    throw new Error("Vehicle specimen dimensions, target length and parking scale must be positive and finite");
   }
+
   const xIsLong = bounds.x > bounds.z;
   const originalWidth = Math.min(bounds.x, bounds.z);
   const originalLength = Math.max(bounds.x, bounds.z);
-  const uniformScale = targetLengthMetres / originalLength;
-  if (!Number.isFinite(targetLengthMetres) || targetLengthMetres <= 0 || !Number.isFinite(uniformScale) || uniformScale <= 0) {
-    throw new Error("Vehicle specimen cannot be uniformly normalized");
+  const uniformScale = targetLengthMeters / (originalLength * parkedSlotScale);
+  const worldScale = uniformScale * parkedSlotScale;
+  const worldDimensions: ProbeBounds = {
+    x: originalWidth * worldScale,
+    y: bounds.y * worldScale,
+    z: originalLength * worldScale,
+  };
+  const warnings: string[] = [];
+  // Diagnostic constraints, not automatic nonuniform stretching or shrinking.
+  if (worldDimensions.x < 1.4 || worldDimensions.x > 2.5) {
+    warnings.push("Source proportions yield unusual vehicle width; inspect curb and lane clearance");
   }
+  if (worldDimensions.y < 1.0 || worldDimensions.y > 2.55) {
+    warnings.push("Source proportions yield unusual vehicle height; verify Voight scale and road contact");
+  }
+  if (worldDimensions.x > 3.8 || worldDimensions.y > 3.8) {
+    throw new Error("Vehicle sample proportions exceed the safe single-lane evaluation envelope");
+  }
+
   return {
     rotateYRadians: xIsLong ? Math.PI / 2 : 0,
     uniformScale,
     originalWidth,
     originalLength,
     originalHeight: bounds.y,
+    worldDimensions,
+    targetLengthMeters,
+    warnings,
   };
 }
