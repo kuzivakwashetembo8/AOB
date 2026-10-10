@@ -41,6 +41,15 @@ interface SlotResult {
   failure: string | null;
 }
 
+interface MutableAssetStatus {
+  id: string;
+  url: string;
+  bytes: number;
+  status: "loading" | "loaded" | "failed";
+  loadMs: number | null;
+  error: string | null;
+}
+
 export interface ImportedCarProbeReport {
   readonly experiment: "EXP-VEH-001";
   readonly state: "running" | "disposed";
@@ -96,7 +105,7 @@ export function beginImportedCarEvaluation(
     fit: null,
     failure: null,
   }));
-  const assetSources = Array.from(new Map(
+  const assetSources: MutableAssetStatus[] = Array.from(new Map(
     parked.map((_, index) => {
       const source = sourceForExistingSlot(index);
       return [source.id, {
@@ -106,7 +115,7 @@ export function beginImportedCarEvaluation(
         status: "loading" as "loading" | "loaded" | "failed",
         loadMs: null as number | null,
         error: null as string | null,
-      }] as const;
+      } as MutableAssetStatus] as const;
     }),
   ).values());
   const templates: AssetContainer[] = [];
