@@ -14,6 +14,7 @@ import type { Scene } from "@babylonjs/core";
 import type { CitySpec, PublicSpaceSpec } from "./schema";
 import { planStreetContext } from "./street-context";
 import { planTreeCanopy } from "./tree-canopy";
+import { planVehicleProxyGeometry } from "./vehicle-proxy-geometry";
 import type { StreetContextItem } from "./street-context";
 
 export interface GeneratedStreetContext {
@@ -527,25 +528,28 @@ function addParkedCar(
   root.rotation.y = item.yawRadians;
   root.scaling.setAll(item.scale);
 
-  const body = MeshBuilder.CreateBox(
-    "generated-car-body:" + item.id,
-    { width: 1.75, height: 0.62, depth: 4.0 },
-    scene,
-  );
-  body.position.y = 0.62;
-  body.parent = root;
-  body.material = paint;
-  meshes.push(body);
-
-  const cabin = MeshBuilder.CreateBox(
-    "generated-car-cabin:" + item.id,
-    { width: 1.55, height: 0.68, depth: 1.95 },
-    scene,
-  );
-  cabin.position.set(0, 1.18, -0.15);
-  cabin.parent = root;
-  cabin.material = glass;
-  meshes.push(cabin);
+  // The two painted/cabin boxes are replaced by two articulated visual
+  // meshes. Wheel count, material families and Rapier collider stay intact.
+  const visual = planVehicleProxyGeometry();
+  const surfaces = [
+    { name: "generated-car-body:", geometry: visual.body, material: paint },
+    { name: "generated-car-cabin:", geometry: visual.glass, material: glass },
+  ] as const;
+  for (const surface of surfaces) {
+    const mesh = new Mesh(surface.name + item.id, scene);
+    const vertexData = new VertexData();
+    const positions = [...surface.geometry.positions];
+    const indices = [...surface.geometry.indices];
+    const normals: number[] = [];
+    VertexData.ComputeNormals(positions, indices, normals);
+    vertexData.positions = positions;
+    vertexData.indices = indices;
+    vertexData.normals = normals;
+    vertexData.applyToMesh(mesh);
+    mesh.parent = root;
+    mesh.material = surface.material;
+    meshes.push(mesh);
+  }
 
   const wheelPositions: ReadonlyArray<readonly [number, number, number]> = [
     [-0.88, 0.42, -1.25],
