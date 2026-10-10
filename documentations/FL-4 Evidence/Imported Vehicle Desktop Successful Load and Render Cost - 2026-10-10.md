@@ -71,3 +71,9 @@ The earlier **procedural-car-only** file `gtd-fl4-baseline-2026-10-10T15-57-13-9
 5. **Continue separate mobile FL-4 gates:** DPR/native coverage, touch camera and movement, garage/day-night, collision regression; do not conclude the landscape PWA experience from DPR 1 desktop data.
 
 **Disposition:** The user-approved imported example vehicles remain **DEVELOPMENT ACCEPTED**. Their appearance and scale are not revoked by this report. The asset pipeline and nine-slot physics registration **worked in this captured session**. Render load, slow model availability, mobile testing, and final FL-4 acceptance are **OPEN**. No changes to `main`, production, or accepted mesh scales are authorized by this result alone.
+
+## User observation correction — telemetry success vs actual visual confirmation
+
+Following these reports, the user explicitly clarified that **the imported cars did not visibly render in the preceding shadow-enabled exercise**. Preserve the measured `loaded` source statuses, nine `imported` slot states and costly render/frame timings as **telemetry**. They do **not**, by themselves, establish that those imported models were shown to the user on-screen. Accordingly, previous phrases such as "rendered parked slots" and statements concluding visually successful appearance from status flags alone must be read as **code-level model instantiation**, not user-confirmed rasterized output.
+
+The later noShadows probe on the same pinned build **did** visibly show buggy and sports models in supplied screenshots, and its JSON records completed sources/slots with frame p50 53.4ms, median draw calls 221 and median active indices 1,935,591. This result does not retroactively prove visible import presence under shadows. See `documentations/FL-4 Evidence/Shadow Isolation - Imported Cars Visibly Loaded - 2026-10-10.md` for evidence, limitations and subsequent matched control test. FL-4 performance/visibility gates remain OPEN.
