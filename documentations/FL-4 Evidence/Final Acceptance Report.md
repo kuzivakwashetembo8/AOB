@@ -64,3 +64,10 @@ If a visual fault emerges, patch **only the affected visual component** and re-r
 - **FL-4 is not completed.** Request user feedback on A/B/C, obtain appropriate mobile FPS/DPR/performance evidence, and follow the deliberate merge/production process only on explicit instruction.
 
 **Verdict:** The three previously blocked art implementations have been integrated and the source-write barrier cleared for this patch. The remaining work is evidence, visual QA, real-device performance validation, any targeted correction, and explicit FL-4 acceptance.
+
+
+## Latest implementation preview verified READY
+
+The final revised morning patch preview is **https://gtd-279m2a0ke-interlinkglobaltech.vercel.app/game**, deployment `dpl_C5gR2gZNAqZpDh5MTxCWkdWbm16H`, source SHA `e31a6a2f930bb9cad89d0a2b6c609e9563356d8c`. It passed the chained `npx tsc --noEmit && npm run test && npm run build` Vercel build and reached READY. The earlier note about side-pane verification being pending is superseded: side-pane geometry is now included in the verified deployment.
+
+**This satisfies technical preview availability, not user visual acceptance or measured frame-time targets.** `main`/production remains `af1adcdd8efaa53cc6c666079f3ff7613fd86bc5`; candidate review, cross-device FPS/DPR evidence, artifact visual QA and any patch batches remain open. Do not label FL-4 completed.
