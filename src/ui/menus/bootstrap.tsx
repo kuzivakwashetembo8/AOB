@@ -65,9 +65,17 @@ export function BootstrapOverlay({
           </div>
         )}
         {!error && (
-          <p className="overlay-note">
-            The game opens only after the requested vehicle imports and the first rendered frame settle.
-          </p>
+          <div className="overlay-note">
+            <p>The game opens only after the requested vehicle imports and the first rendered frame settle.</p>
+            <button
+              type="button"
+              className="mt-2 text-primary underline"
+              onClick={() => window.location.reload()}
+              aria-label="Restart game loading"
+            >
+              Restart loading if a network request remains stuck
+            </button>
+          </div>
         )}
       </div>
     </div>
