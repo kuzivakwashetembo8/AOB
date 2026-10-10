@@ -65,3 +65,20 @@ All modes require `?fl4Diagnostics=1`; without it any `fl4VehicleOptimization` q
 ## Background technical basis
 
 Babylon's documentation distinguishes GPU instancing from ordinary scene meshes (see [Babylon.js Instances](https://doc.babylonjs.com/features/featuresDeepDive/mesh/copies/instances)); Babylon maintainers document that `ShadowGenerator.addShadowCaster` populates the shadow render list, so reducing eligible detailed meshes is a targeted way to isolate those extra rendering passes (see [Shadow Generator discussion](https://forum.babylonjs.com/t/problem-with-shadowgenerator/12709) and [GLTF shadow descendants](https://forum.babylonjs.com/t/shadows-from-gltf-models/8847)). These sources support **the mechanism**, not a claim that the current GTD experiment has already achieved particular FPS savings.
+
+## Verified nonproduction preview — ready for in-world evidence
+
+**Pinned game-code SHA:** `bb06dad14a9d3efd8cc6a0119ff540070acef75a`, on `optimization/fl4-vehicle-shadow-lod`.  
+**Pinned deployment:** Vercel `dpl_6e628qkAXrSnruHcNDSSSRwybmnF`, **READY**, host `https://gtd-j8uiuoj8g-interlinkglobaltech.vercel.app`.  
+**Verification:** strict `npx tsc --noEmit` passed; **84/84 Vitest tests across 18 files passed**; Vite client, SSR and Nitro build completed. Prior first build `dpl_GtRPBd9jwc1iHRLoXJRrhYWkVP1h` was also READY but is **superseded for comparisons** by the pinned baseline-preserving build `bb06dad`. Do not combine screenshots or performance exports between the two builds.
+
+**Same-commit diagnostic URLs** (all show high-quality source GLBs near the player; allow both models to visibly finish loading before captures):
+
+- Current accepted **full** control with ordinary shadows: `https://gtd-j8uiuoj8g-interlinkglobaltech.vercel.app/game?fl4Diagnostics=1`
+- Selective vehicle shadow casters only: `https://gtd-j8uiuoj8g-interlinkglobaltech.vercel.app/game?fl4Diagnostics=1&fl4VehicleOptimization=selectiveShadows`
+- Distant six-mesh procedural-vehicle visual LOD only: `https://gtd-j8uiuoj8g-interlinkglobaltech.vercel.app/game?fl4Diagnostics=1&fl4VehicleOptimization=distanceLOD`
+- Both controls together: `https://gtd-j8uiuoj8g-interlinkglobaltech.vercel.app/game?fl4Diagnostics=1&fl4VehicleOptimization=combined`
+
+**First recommended A/B:** full vs `selectiveShadows` with *normal* shadows enabled. Match same street, view, Meridian daytime and warm scene. Capture screenshots including roadway contact shadows and export JSON `Save FL-4 data` in each mode. Confirm `importedVehicles.optimization.mode`, `selectedVehicleShadowCasters`, `originalImportedSubmeshes`, `fullDetailSlots` and `distantProxySlots` plus `pipeline.stage=settled` and each slot's `status=imported`. Do not declare success if models only report loaded but remain visually absent. The second A/B (full vs `distanceLOD`) should include a near and far test to check proxy switching. The `combined` mode is exploratory only until isolated contributions and artistic side effects are known.
+
+**Important distinction from prior reports:** This deployment proves source and automated-test compatibility; **no desktop/mobile screenshot or FL-4 metrics JSON for these optimization modes has yet been captured**. In particular, reduced casters / distant proxies are hypotheses, not measured improved FPS or accepted final rendering. No changes to the approved `development/meridian-fl4-optimization` branch, production `main`, accepted model source files or vehicle dimensions were made by the feature branch.
