@@ -260,6 +260,11 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.importedCarProbe) await this.importedCarProbe.settled;
     if (this.host !== host || this.engine !== engine) return; // route disposed during load
     this.emit({ type: "load-checkpoint", id: "first-frame", status: "running" });
+    // Resolve real scene material, texture and effect readiness before
+    // releasing the overlay; the first visible gameplay frames should not
+    // become a second undisclosed loading phase.
+    await scene.whenReadyAsync();
+    if (this.host !== host || this.engine !== engine) return;
     const firstRenderStartedAt = performance.now();
     scene.render();
     this.fl4Diagnostics?.recordStartup(firstRenderStartedAt - bootStartedAt, performance.now() - firstRenderStartedAt);
