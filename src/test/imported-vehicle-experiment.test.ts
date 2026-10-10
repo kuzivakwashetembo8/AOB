@@ -129,12 +129,20 @@ describe("EXP-VEH-001 imported parked-car experiment contract", () => {
       const originalColliders = physics.world.colliders.len();
       const originalBodies = physics.world.bodies.len();
       const id = cars[0]!.id;
+      // FL4-06: the old models must not leave invisible collisions while
+      // approved GLBs are loading or if a download fails.
+      world.suspendParkedCarColliders();
+      expect(physics.world.colliders.len()).toBe(originalColliders - cars.length);
+      expect(physics.world.bodies.len()).toBe(originalBodies - cars.length);
+      world.suspendParkedCarColliders(); // idempotent
+      expect(physics.world.colliders.len()).toBe(originalColliders - cars.length);
+      // Successful imported slots alone re-register body-sized collision.
       world.replaceParkedCarCollider(id, { x: 1.94, y: 1.21, z: 4.53 });
-      expect(physics.world.colliders.len()).toBe(originalColliders);
-      expect(physics.world.bodies.len()).toBe(originalBodies);
+      expect(physics.world.colliders.len()).toBe(originalColliders - cars.length + 1);
+      expect(physics.world.bodies.len()).toBe(originalBodies - cars.length + 1);
       world.replaceParkedCarCollider(id, { x: 1.85, y: 1.35, z: 4.4 });
-      expect(physics.world.colliders.len()).toBe(originalColliders);
-      expect(physics.world.bodies.len()).toBe(originalBodies);
+      expect(physics.world.colliders.len()).toBe(originalColliders - cars.length + 1);
+      expect(physics.world.bodies.len()).toBe(originalBodies - cars.length + 1);
       expect(() => world.replaceParkedCarCollider("no-such-car", { x: 1.8, y: 1.5, z: 4.5 })).toThrow();
       expect(() => world.replaceParkedCarCollider(id, { x: -1, y: 1.5, z: 4.5 })).toThrow();
       world.dispose();
