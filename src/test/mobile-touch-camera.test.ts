@@ -64,7 +64,8 @@ describe("mobile canvas touch camera", () => {
     expect(send).not.toHaveBeenCalled();
     const dragged = pointer(canvas, "pointermove", 2, 115, 90);
     expect(dragged.defaultPrevented).toBe(true);
-    expect(send).toHaveBeenCalledExactlyOnceWith({
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({
       type: "look-delta",
       x: 15,
       y: -10,
