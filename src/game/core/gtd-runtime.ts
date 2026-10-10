@@ -18,6 +18,7 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
+import { mountFL4EvidenceExport } from "../debug/fl4-evidence-export";
 import {
   beginImportedCarEvaluation,
   type ImportedCarProbe,
@@ -43,6 +44,7 @@ export class GTDGameRuntime implements GameRuntime {
   private host: HTMLCanvasElement | null = null;
   private engine: Engine | null = null;
   private fl4Diagnostics: FL4Diagnostics | null = null;
+  private removeFL4EvidenceExport: (() => void) | null = null;
   private importedCarProbe: ImportedCarProbe | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
@@ -194,6 +196,12 @@ export class GTDGameRuntime implements GameRuntime {
       this.fl4Diagnostics = diagnostics;
       (window as Window & { __GTD_FL4_REPORT__?: () => ReturnType<FL4Diagnostics["report"]> })
         .__GTD_FL4_REPORT__ = () => diagnostics.report();
+      // Opt-in local JSON download, including mobile PWA where a DevTools
+      // console is generally unavailable; no reports are uploaded.
+      this.removeFL4EvidenceExport = mountFL4EvidenceExport(
+        () => diagnostics.report(),
+        () => this.importedCarProbe?.report() ?? null,
+      );
     }
     this.physics = physics;
     this.camera = camera;
@@ -240,6 +248,8 @@ export class GTDGameRuntime implements GameRuntime {
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
+    this.removeFL4EvidenceExport?.();
+    this.removeFL4EvidenceExport = null;
     this.world?.dispose();
     this.fl4Diagnostics?.dispose();
     this.fl4Diagnostics = null;
