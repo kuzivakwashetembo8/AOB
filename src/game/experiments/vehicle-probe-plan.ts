@@ -32,7 +32,6 @@ export interface ProbeBounds {
 
 /** Experiment-only approximate real-world visual length by specimen class. */
 export const VEHICLE_CLASS_TARGET_LENGTH_METRES = { offroad: 3.8, sports: 4.53 } as const;
-export const PARKED_VEHICLE_VISUAL_ENVELOPE: ProbeBounds = { x: 1.66, y: 1.48, z: 3.84 };
 
 export function sourceForExistingSlot(slotIndex: number): VehicleProbeSource {
   return VEHICLE_PROBE_SOURCES[slotIndex % VEHICLE_PROBE_SOURCES.length]!;
@@ -51,9 +50,7 @@ export function planImportedVehicleFit(bounds: ProbeBounds, targetLengthMetres =
   const xIsLong = bounds.x > bounds.z;
   const originalWidth = Math.min(bounds.x, bounds.z);
   const originalLength = Math.max(bounds.x, bounds.z);
-  const uniformScale = Math.min(
-    targetLengthMetres / originalLength,
-  );
+  const uniformScale = targetLengthMetres / originalLength;
   if (!Number.isFinite(targetLengthMetres) || targetLengthMetres <= 0 || !Number.isFinite(uniformScale) || uniformScale <= 0) {
     throw new Error("Vehicle specimen cannot be uniformly normalized");
   }
