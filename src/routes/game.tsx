@@ -10,6 +10,7 @@ import { pageHead } from "@/lib/page-head";
 import { RuntimeBridge } from "@/game/bridge/runtime-bridge";
 import { useGameSnapshot } from "@/game/bridge/use-game-bridge";
 import { useInputMode } from "@/game/input/use-input-mode";
+import { attachCanvasTouchCameraLook } from "@/game/input/touch-camera-drag";
 import { useSettings } from "@/ui/menus/settings-state";
 import { GameHud } from "@/ui/hud/game-hud";
 import { TouchControls } from "@/ui/hud/touch-controls";
@@ -87,8 +88,13 @@ function GamePage() {
   useEffect(() => {
     const host = canvas.current;
     if (!host || !loaded) return;
+    let lastPointerType = "mouse";
+    const rememberPointer = (event: PointerEvent) => {
+      lastPointerType = event.pointerType;
+    };
     const requestLock = () => {
-      if (mode === "keyboard" && document.pointerLockElement !== host) {
+      // Touch taps never acquire desktop pointer lock.
+      if (lastPointerType === "mouse" && mode === "keyboard" && document.pointerLockElement !== host) {
         void host.requestPointerLock?.();
       }
     };
@@ -101,14 +107,24 @@ function GamePage() {
       });
       requestAnimationFrame(() => bridge.command({ type: "look", x: 0, y: 0 }));
     };
+    host.addEventListener("pointerdown", rememberPointer);
     host.addEventListener("click", requestLock);
     document.addEventListener("mousemove", mouseLook);
     return () => {
+      host.removeEventListener("pointerdown", rememberPointer);
       host.removeEventListener("click", requestLock);
       document.removeEventListener("mousemove", mouseLook);
       if (document.pointerLockElement === host) document.exitPointerLock?.();
     };
   }, [bridge, loaded, mode, paused]);
+  // One finger swipes the visible world to orbit Voight, while a second
+  // finger can operate movement or action controls independently.
+  useEffect(() => {
+    const host = canvas.current;
+    if (!host || !loaded || paused) return;
+    return attachCanvasTouchCameraLook(host, (command) => bridge.command(command));
+  }, [bridge, loaded, paused]);
+
   useEffect(() => {
     const held = new Set<string>();
     const actions: Record<string, GameAction> = {
