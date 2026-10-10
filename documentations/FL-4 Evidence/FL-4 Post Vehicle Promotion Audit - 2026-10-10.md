@@ -70,3 +70,21 @@ A01 PARTIAL; A02 PARTIAL; A03 PARTIAL; A04 PARTIAL; A05 OPEN; A06 PARTIAL/BLOCKE
 Development-source policy selects imported GLBs on nonproduction hosts by default; the latter URL expressly overrides to the previous procedural renderer. The imported off-road and sports models remain source-pinned remote technical-development references, without commercial licensing clearance. Source-code tests and READY deployment do **not** verify actual browser default/override operation, real-device FPS or GPU utilization; those remain live-review requirements.
 
 **Next FL4-01/02 acquisition:** matched hardware/viewport/game-time 90–120-second runs of both URLs, saving browser diagnostics before performing resolution experiments on real landscape mobile. The old production baseline remains unchanged. FL-4 NOT ACCEPTED.
+
+## FL-4 resumed: local performance evidence acquisition, 2026-10-10
+
+**Status remains: FL-4 IN PROGRESS.** The user asked to resume FL-4 after formal development promotion and asset-workflow documentation. The next concrete work item is **FL4-01/02/03 data collection**, not relighting, arbitrary vehicle rescaling or marking FL4-04 optimization complete without measurements.
+
+A mobile-friendly, flag-gated diagnostics export is now integrated on the development branch: `src/game/debug/fl4-evidence-export.ts`, `src/game/core/gtd-runtime.ts`, and `src/test/fl4-evidence-export.test.ts`. It exposes a small **Save FL-4 data** button only when `?fl4Diagnostics=1`; on click, the player downloads a local `gtd.fl4.evidence.v1` JSON with existing `gtd.fl4.v1` metrics and imported-car status/fit reports. There is no automatic network upload, no default HUD noise, no normal-path renderer change and no asset geometry/material modification. The old DevTools methods remain available.
+
+**Pinned app SHA:** `f2ae42d0432ea5940dc08d11f480ded4820679e8`. **Vercel:** `dpl_6mqv7tNCxE8W1an56VNY9McyciUh` READY at `https://gtd-qxgrlbdqm-interlinkglobaltech.vercel.app`. Strict TypeScript, **80/80 tests across 17 files**, and Vite/Nitro application build PASSED. One earlier test-fixture typing failure in preview `dpl_DzWzASJeRo4Vuxsx4EaBH6EbTXNH` was corrected; do not cite that failed preview as ready.
+
+**Same-build URLs:**
+- Imported developmental cars: `https://gtd-qxgrlbdqm-interlinkglobaltech.vercel.app/game?fl4Diagnostics=1`
+- Original proxy comparison: `https://gtd-qxgrlbdqm-interlinkglobaltech.vercel.app/game?gtdVehicleProbe=baseline&fl4Diagnostics=1`
+
+**Full measurement protocol:** `documentations/FL-4 Evidence/Development Device Measurement Continuation - Local JSON Export.md`. Compare matching camera/street/garage/daylight routes and consistent viewport/device settings. Save JSON from both modes on desktop and a representative landscape mobile browser/PWA; supplement with perceptual sharpness, frame responsiveness, repeated reentry and physical vehicle/garage interaction. The file contains up to the most recent 1,800 frame samples, so record actual sampling durations rather than assuming each export represents two full minutes.
+
+**Remaining requirements:** actual browser/mobile download functional test; same-device raw desktop/mobile A/B frame and render p50/p95, draw calls, resource and native-pixel coverage evidence; verified user-perceived touch/garage/night/vehicle collision regression; device-specific sharpness diagnosis under GTD-VIS-002; measured bottleneck decision for FL4-04; full FL4-05 visual regression and user FL4-06 acceptance. Existing accepted tree visual geometry should remain unchanged. Window-grammar correction B remains separately discussed and **not authorized for implementation**. Commercial/rights clearance and production/main promotion are independently gated.
+
+**Result:** Development imported vehicles are approved and documented, but a visually convincing new asset is not a substitute for whole-milestone responsiveness/stability evidence. FL-4 cannot be closed until its canonical user-device and acceptance gates are satisfied or explicitly dispositioned.
