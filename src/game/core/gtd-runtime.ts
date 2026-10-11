@@ -47,6 +47,7 @@ import {
 } from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
+import { collectCharacterTrialSceneReport } from "../character/character-trial-diagnostics";
 import {
   capTrialPbrLightUniforms,
   isMeridiaCharacterTrialRequested,
@@ -185,6 +186,18 @@ export class GTDGameRuntime implements GameRuntime {
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
+    // This getter is available even when startup dies at 7/8. No network
+    // telemetry: only a user-initiated download reads its snapshot.
+    let lastTrialWarmup: ReturnType<WorldRenderWarmup["snapshot"]> | null = null;
+    if (isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname)) {
+      window.__GTD_CHAR_DIAGNOSTICS__ = () => ({
+        schema: "gtd.char001.runtime.v1",
+        scene: collectCharacterTrialSceneReport(scene, engine),
+        character: this.characterTrial?.report() ?? null,
+        vehicles: this.importedCarProbe?.report() ?? null,
+        warmup: this.worldRenderWarmup?.snapshot() ?? lastTrialWarmup,
+      });
+    }
     // Explicit main-branch mobile validation authorized 2026-10-10.
     // Accepted imported buggy and sports-car GLBs now replace ALL old parked
     // car graphics in default gameplay, including the public production host.
@@ -369,6 +382,7 @@ export class GTDGameRuntime implements GameRuntime {
       this.lifecycle = "ready";
       this.publishSnapshot();
     } finally {
+      if (this.characterTrial) lastTrialWarmup = warmup.snapshot();
       if (trialLightBudgetObserver) {
         scene.onBeforeRenderObservable.remove(trialLightBudgetObserver);
       }
@@ -421,6 +435,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
     delete (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: unknown }).__GTD_CHARACTER_TRIAL_REPORT__;
+    delete window.__GTD_CHAR_DIAGNOSTICS__;
     this.characterTrial = null;
     this.removeFL4EvidenceExport?.();
     this.removeFL4EvidenceExport = null;
