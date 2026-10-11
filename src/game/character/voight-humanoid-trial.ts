@@ -1,5 +1,6 @@
 import {
   AnimationGroup,
+  Material,
   Mesh,
   Scene,
   SceneLoader,
@@ -38,6 +39,29 @@ export interface CharacterTrialReport {
   readonly notes: string[];
 }
 
+/**
+ * The UAL GLB introduces PBR materials into a city with many streetlights.
+ * On WebGL2, a 16-light PBR variant can exceed the device's 12 vertex
+ * uniform-buffer binding limit and prevent ALL first-frame witnesses.
+ *
+ * Restrict only PBR material shader variants in this opt-in experiment.
+ * Preserve the city lights, shadows, StandardMaterials and imported geometry.
+ * Called after each import and before pre/post-vehicle world-render attempts.
+ */
+export function capTrialPbrLightUniforms(scene: Scene, maxLights = 4): number {
+  let changed = 0;
+  for (const material of scene.materials) {
+    if (!material.getClassName().startsWith("PBR")) continue;
+    const shader = material as Material & { maxSimultaneousLights?: number };
+    if (typeof shader.maxSimultaneousLights !== "number" ||
+        shader.maxSimultaneousLights <= maxLights) continue;
+    shader.maxSimultaneousLights = maxLights;
+    material.markAsDirty(Material.LightDirtyFlag);
+    changed += 1;
+  }
+  return changed;
+}
+
 export function isMeridiaCharacterTrialRequested(search: string, hostname: string): boolean {
   return hostname !== "grand-theft-division.vercel.app" &&
     new URLSearchParams(search).get("gtdCharacterTrial") === "ual";
@@ -66,6 +90,8 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
   const imported = await SceneLoader.ImportMeshAsync(
     "", MERIDIA_TRIAL_SOURCE.rootUrl, MERIDIA_TRIAL_SOURCE.fileName, scene,
   );
+  // Cap excessive PBR shader light variants before the first scene draw.
+  capTrialPbrLightUniforms(scene);
   const meshes = imported.meshes.filter((mesh): mesh is Mesh =>
     mesh instanceof Mesh && mesh.getTotalVertices() > 0,
   );
