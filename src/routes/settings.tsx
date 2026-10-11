@@ -116,7 +116,38 @@ function SettingsPage() {
             {category === "Graphics" && (
               <>
                 {select("quality", "Quality preset", ["Low", "Medium", "High", "Ultra"])}
-                {select("renderClarity", "3D render clarity", ["Auto", "Balanced", "Sharper", "Native"])}
+                {select("renderClarity", "3D render clarity", ["Auto", "Balanced", "Sharper", "Native", "Custom"])}
+                <label className="setting-row" htmlFor="physical-resolution-slider">
+                  <span>
+                    Physical display resolution
+                    <small>
+                      100% targets your screen's physical pixels. Above 100% is
+                      supersampling and may lower frame rate. Move the slider
+                      to choose Custom; Auto keeps the prior safe default.
+                    </small>
+                  </span>
+                  <span className="range-control">
+                    <input
+                      id="physical-resolution-slider"
+                      aria-label="Physical display resolution"
+                      type="range"
+                      min={50}
+                      max={125}
+                      step={5}
+                      value={settings.renderScalePercent}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        setSettings((previous) => ({
+                          ...previous,
+                          renderClarity: "Custom",
+                          renderScalePercent: value,
+                        }));
+                        setSaved(false);
+                      }}
+                    />
+                    <output htmlFor="physical-resolution-slider">{settings.renderScalePercent}%</output>
+                  </span>
+                </label>
                 {select("fps", "Frame-rate limit", ["30", "60", "120", "Uncapped"])}
                 {toggle("shadows", "Dynamic shadows")}
               </>
