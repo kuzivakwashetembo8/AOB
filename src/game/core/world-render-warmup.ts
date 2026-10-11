@@ -69,6 +69,14 @@ export function renderWorldEvidenceFrame(
 export interface WorldRenderWarmup {
   /** Mark external vehicle preparation terminal; resolve on a subsequent complete world frame. */
   awaitWorldAfterVehicleSettlement(): Promise<WorldFrameEvidence>;
+  snapshot(): {
+    frameCount: number;
+    postImportFrameCount: number;
+    postImportElapsedMs: number | null;
+    lastEvidence: WorldFrameEvidence;
+    completed: boolean;
+    cancelled: boolean;
+  };
   cancel(): void;
 }
 
@@ -177,6 +185,16 @@ export function beginWorldRenderWarmup(
   frameHandle = requestAnimationFrame(tick);
 
   return {
+    snapshot() {
+      return {
+        frameCount,
+        postImportFrameCount,
+        postImportElapsedMs: assetsSettledAt === null ? null : Math.round(performance.now() - assetsSettledAt),
+        lastEvidence: { ...lastEvidence },
+        completed,
+        cancelled,
+      };
+    },
     awaitWorldAfterVehicleSettlement() {
       if (assetsSettledAt === null) assetsSettledAt = performance.now();
       return ready;
