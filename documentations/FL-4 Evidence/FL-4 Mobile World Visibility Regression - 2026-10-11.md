@@ -106,6 +106,11 @@ The branch had three verification iterations, **none merged prematurely**:
 
 **User authorization:** document incident, **then merge**. No new production deployment was requested in this instruction. Update this ledger with the merge SHA once the merge succeeds. The code-level root cause is a too-weak startup acceptance contract with render work deferred until after vehicle loading; a specific GPU/material readiness defect remains unproven.
 
-## 9. Subsequent changes
+## 9. Controlled promotion audit trail
 
-This section is reserved for the actual merge commit, merge timestamp (UTC and SAST), any explicitly authorized production deployment, and any further device acceptance. Never backfill speculative timestamps.
+- **2026-10-11 07:17:00Z / 09:17:00 SAST:** [GitHub PR #11](https://github.com/interlinkglobal/GTD/pull/11) created to merge this verified and user-accepted incident branch into `main`. PR records the exact branch head, base, review state, merge commit and actual merge timestamp once completed.
+- **Merge authorization:** User's 2026-10-11 statement: "The error has been patched, document incident then merge." No further production deployment was authorized in that message.
+- **Merge record:** Obtain immutable `merge_commit_sha` and `merged_at` from [PR #11](https://github.com/interlinkglobal/GTD/pull/11) after successful merge; the PR metadata, not an estimated time in this file, is the canonical event audit. **Never backfill speculative timestamps.**
+- **Deployment record:** At the time of writing, production remains `dpl_VCP8H6eWkaqTadBC8xspiLZcw135` at `1b7bba05a048e44c7e8183ef56605e4e8007bc68`. A later, separately authorized production release needs its own deployment ID, exact Git SHA, READY timestamp, and device confirmation.
+
+**Persistent lesson:** Mark an image-composition defect fixed only on a real user's device, and preserve the incident's commit-level chronology and rescue runbook. Never interpret a successful asynchronous task, first-frame callback or server deployment as proof of a complete city scene.
