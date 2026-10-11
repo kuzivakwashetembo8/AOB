@@ -91,8 +91,8 @@ function GamePage() {
     if (!loaded) return;
     // Persisted graphics choices are applied after Babylon is initialized.
     // Auto is also the safe immediate bootstrap policy before hydration.
-    bridge.command({ type: "render-clarity", mode: settings.renderClarity });
-  }, [bridge, loaded, settings.renderClarity]);
+    bridge.command({ type: "render-clarity", mode: settings.renderClarity, scalePercent: settings.renderScalePercent });
+  }, [bridge, loaded, settings.renderClarity, settings.renderScalePercent]);
   useEffect(() => {
     if (!loaded) return;
     bridge.command({
