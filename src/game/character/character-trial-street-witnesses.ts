@@ -1,4 +1,4 @@
-import type { Mesh } from "@babylonjs/core";
+import { Material, StandardMaterial, type Mesh } from "@babylonjs/core";
 import { isGeneratedFirstLightWorld, type RuntimeFirstLightWorld } from "../world/first-light-runtime-source";
 
 /**
@@ -27,4 +27,27 @@ export function classifyCharacterTrialStreetMeshes(surfaces: readonly Mesh[]) {
       material: mesh.material?.name ?? null,
     })),
   };
+}
+
+/**
+ * Emergency trial-only shader simplification, applied ONLY after the real
+ * pre/post-import shader warmup has failed to draw any Meridian street.
+ * Keep actual street geometry and textured diffuse surfaces; remove dynamic
+ * light/shadow permutations on terrain, asphalt, and pavement materials.
+ * Never run on main/production, and never treat a fallback as final fidelity.
+ */
+export function enableTrialGroundShaderFallback(
+  ground: Mesh,
+  streets: { readonly roads: readonly Mesh[]; readonly sidewalks: readonly Mesh[] },
+): readonly string[] {
+  const touched = new Set<StandardMaterial>();
+  for (const mesh of [ground, ...streets.roads, ...streets.sidewalks]) {
+    const material = mesh.material;
+    if (!(material instanceof StandardMaterial) || touched.has(material)) continue;
+    touched.add(material);
+    if (material.disableLighting) continue;
+    material.disableLighting = true;
+    material.markAsDirty(Material.AllDirtyFlag);
+  }
+  return [...touched].map(material => material.name);
 }
