@@ -3,7 +3,7 @@ import { isGeneratedFirstLightWorld, type RuntimeFirstLightWorld } from "../worl
 
 /**
  * In the First Light reference district roads have generated-parity-* names,
- * whereas procedural districts use generated-asphalt:*/generated-sidewalk-*.
+ * whereas procedural districts use asphalt/sidewalk segment identifiers.
  * Both pipelines share the material identities below. Inspect the actual
  * generated urban-surface collection, not guessed names in scene.meshes.
  */
