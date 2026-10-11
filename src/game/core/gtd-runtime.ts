@@ -18,6 +18,7 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
+import { renderFirstPlayableFrame } from "./first-playable-frame";
 import { resolveFL4RasterOverride } from "../debug/fl4-quality-trial";
 import { renderHardwareScale, normalizeRenderClarity, type RenderClarityMode } from "../renderer/render-clarity";
 import {
@@ -262,13 +263,13 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.importedCarProbe) await this.importedCarProbe.settled;
     if (this.host !== host || this.engine !== engine) return; // route disposed during load
     this.emit({ type: "load-checkpoint", id: "first-frame", status: "running" });
-    // Resolve real scene material, texture and effect readiness before
-    // releasing the overlay; the first visible gameplay frames should not
-    // become a second undisclosed loading phase.
-    await scene.whenReadyAsync();
-    if (this.host !== host || this.engine !== engine) return;
+    // Do not await global scene.whenReadyAsync() here: on actual mobile the
+    // scene can remain globally "not ready" forever before a first frame is
+    // rendered, leaving the verified startup checklist stuck at 7/8.
+    // Vehicle imports and placement have already genuinely settled above.
     const firstRenderStartedAt = performance.now();
-    scene.render();
+    renderFirstPlayableFrame(scene);
+    if (this.host !== host || this.engine !== engine) return;
     this.fl4Diagnostics?.recordStartup(firstRenderStartedAt - bootStartedAt, performance.now() - firstRenderStartedAt);
     this.emit({ type: "load-checkpoint", id: "first-frame", status: "done" });
     this.lifecycle = "ready";
