@@ -43,6 +43,38 @@ describe("GTD-CHAR-001 experimental ground shader isolation", () => {
       engine.dispose();
     }
   });
+  it("retains a real building's geometry and alpha-blended facade while isolating shader lighting", () => {
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    const ground = MeshBuilder.CreateGround("real-terrain", { width: 100, height: 100 }, scene);
+    const wall = MeshBuilder.CreateBox("generated-batch:sw-fl-south-apartment:base:wall", {
+      width: 8, height: 9, depth: 2,
+    }, scene);
+    const glass = MeshBuilder.CreateBox("generated-batch:sw-fl-south-apartment:base:window", {
+      width: 5, height: 4, depth: 0.1,
+    }, scene);
+    const surface = new StandardMaterial("real-terrain-source", scene);
+    const masonry = new StandardMaterial("original-masonry", scene);
+    const glazing = new StandardMaterial("original-glass", scene);
+    glazing.alpha = 0.72;
+    ground.material = surface;
+    wall.material = masonry;
+    glass.material = glazing;
+    const originalWallVertices = wall.getTotalVertices();
+    try {
+      const report = isolateCharacterTrialGroundShaders(ground, [], [], [wall, glass]);
+      expect(report.sceneryMeshes).toBe(2);
+      expect(wall.getTotalVertices()).toBe(originalWallVertices);
+      expect(wall.material).toBeInstanceOf(ShaderMaterial);
+      expect(glass.material).toBeInstanceOf(ShaderMaterial);
+      expect(glass.material!.needAlphaBlending()).toBe(true);
+      expect(glazing.alpha).toBe(0.72);
+      expect(report.materials).toHaveLength(3);
+    } finally {
+      scene.dispose();
+      engine.dispose();
+    }
+  });
   it("does not enable the trial for the production host or an ordinary preview", () => {
     expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "grand-theft-division.vercel.app")).toBe(false);
     expect(isMeridiaCharacterTrialRequested("", "gtd-preview.vercel.app")).toBe(false);
