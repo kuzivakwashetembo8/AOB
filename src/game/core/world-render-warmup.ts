@@ -50,6 +50,17 @@ const WARMUP_FRAME_INTERVAL_MS = 32;
 const POST_IMPORT_WORLD_DEADLINE_MS = 12000;
 
 /**
+ * Shader compilation can make the first imported-rig world frame expensive.
+ * The elapsed deadline must not reject a scene after a SINGLE attempt.
+ * Normal gameplay retains its historical timeout; experiments may opt into
+ * a longer, bounded shader warm-up while real draw evidence accumulates.
+ */
+export interface WorldRenderWarmupOptions {
+  readonly postImportDeadlineMs?: number;
+  readonly minimumPostImportRenderAttempts?: number;
+}
+
+/**
  * World shader/material preparation must run while GLBs download, but while
  * gameplay input and simulation remain gated by the genuine startup overlay.
  * A finite real-render deadline prevents a new 7/8 infinite loading screen.
@@ -57,13 +68,21 @@ const POST_IMPORT_WORLD_DEADLINE_MS = 12000;
 export function beginWorldRenderWarmup(
   scene: Scene,
   witnesses: WorldRenderWitnesses,
+  options: WorldRenderWarmupOptions = {},
 ): WorldRenderWarmup {
+  const postImportDeadlineMs = Math.min(90000, Math.max(1000,
+    options.postImportDeadlineMs ?? POST_IMPORT_WORLD_DEADLINE_MS,
+  ));
+  const minimumPostImportRenderAttempts = Math.max(2, Math.min(10,
+    Math.floor(options.minimumPostImportRenderAttempts ?? 2),
+  ));
   let cancelled = false;
   let completed = false;
   let assetsSettledAt: number | null = null;
   let frameHandle: number | null = null;
   let lastFrameTime = -Infinity;
   let frameCount = 0;
+  let postImportFrameCount = 0;
   let lastEvidence: WorldFrameEvidence = {
     groundDrawn: false,
     voightDrawn: false,
@@ -97,6 +116,7 @@ export function beginWorldRenderWarmup(
       try {
         lastEvidence = renderWorldEvidenceFrame(scene, witnesses);
         frameCount += 1;
+        if (assetsSettledAt !== null) postImportFrameCount += 1;
       } catch (error) {
         fail(error instanceof Error ? error : new Error(String(error)));
         return;
@@ -109,10 +129,12 @@ export function beginWorldRenderWarmup(
       }
       if (
         assetsSettledAt !== null &&
-        performance.now() - assetsSettledAt >= POST_IMPORT_WORLD_DEADLINE_MS
+        performance.now() - assetsSettledAt >= postImportDeadlineMs &&
+        postImportFrameCount >= minimumPostImportRenderAttempts
       ) {
         fail(new Error(
-          "World not visible after " + frameCount + " actual render attempts; " +
+          "World not visible after " + frameCount + " actual render attempts (" +
+          postImportFrameCount + " post-import); " +
           "ground drawn=" + lastEvidence.groundDrawn + ", Voight drawn=" + lastEvidence.voightDrawn,
         ));
         return;
