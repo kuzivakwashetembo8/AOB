@@ -1,6 +1,6 @@
 # Meridia: First Light — Milestone 03 Implementation Plan
 
-Status: FL-3 COMPLETED AND ACCEPTED (2026-10-09); FL-4 USER-ACCEPTED WITH IMPLEMENTED VEHICLE EXCEPTION (2026-10-10) — corrected development preview verified, final real-device review and disclosed performance/mobile limits remain. Production promotion is separate.
+Status: FL-3 COMPLETED AND ACCEPTED (2026-10-09); FL-4 FORMALLY CLOSED — USER ACCEPTED (2026-10-11, ~10:54 SAST). Functional mobile controls, garage, lifecycle, day/night and recovered real-world rendering confirmed by user. Remaining device physical-resolution calibration/fidelity experiments are successor GTD-PERF-001, not an open FL-4 milestone. Runtime settings continuity is a subsequent user-experience task. Production promotion remains separately controlled.
 Date: 2026-10-08
 Project: GTD — Grand Theft Division
 Predecessors: 01 GTD Shell (accepted); 02 Meridia Genesis (accepted).
@@ -356,3 +356,16 @@ No complete South Ward district, pedestrian AI system, city traffic system, miss
 Before changing the renderer, asset-loading sequence, scene lifecycle, camera spawn/targeting, GPU/material compilation or game-loading checklist, consult the [timestamped world-visibility incident and runbook](./FL-4%20Evidence/FL-4%20Mobile%20World%20Visibility%20Regression%20-%202026-10-11.md). Preserve these non-negotiable gates: await real vehicle preparation; render/warm the real scene behind the overlay; require a genuine post-import drawn ground **and** Voight; fail visibly instead of opening a sky/car-only scene; capture actual device screenshot evidence of the **whole playable streetscape**. A successful Vercel build, generic `onAfterRender` event or passing NullEngine tests **cannot substitute for visual device acceptance**. The incident contains UTC/SAST timestamps, exact before/after commits and deployments, screenshot evidence hashes, branch and test trail, and stepwise recurrence diagnostics.
 
 **Change-control:** Merge of the user-accepted incident branch is authorized only after the incident document is updated. GitHub `main` promotion does **not** itself authorize a Vercel production deployment; intentional deployment remains separately gated. Do not mark unrelated FL4-03/04/05/06 concerns resolved because this scene regression was corrected.
+
+
+## FL-4 formal closure decision — 2026-10-11 (SAST)
+
+**Authority:** User expressly stated "FL-4 is finally closed" on 2026-10-11 at approximately 10:54 South African Standard Time. This supersedes all historic "IN PROGRESS", provisional acceptance, and older report labels for the **formal FL-4 milestone status**, without rewriting their original contemporaneous evidence.
+
+**Accepted scope:** The user previously confirmed mobile movement/touch turning, stable gameplay after imported vehicles load, South Ward garage round-trip, pause/resume, game re-entry, daylight/nighttime lighting, improved perceived image clarity and a corrected complete world including Voight, buildings/roads and imported cars; the published recovered production scene was visually accepted. An actual Android recovery incident is documented in [FL-4 Mobile World Visibility Regression](./FL-4%20Evidence/FL-4%20Mobile%20World%20Visibility%20Regression%20-%202026-10-11.md). Strict source build and automated tests were reported passed for the accepted production release. No device-specific quantitative FPS, GPU memory, battery temperature or consistent supersampled performance measurements were claimed.
+
+**Explicit closure boundary:** The user now seeks further mobile maximum-fidelity comparison and all-gamer graphics tuning. This is recorded as **GTD-PERF-001** and is *not* a retroactive reopening of FL-4. The current post-FL-4 usability requirement is **GTD-UX-001 — change settings while keeping the active Babylon session mounted**, avoiding gameplay reload from the pause menu. It does not authorize durable saved-game or cross-route world-state persistence. A compact, non-full-height opt-in FL-4 export control is also required; the older production deployment does not yet contain its corrected version.
+
+**Code/deployment discipline:** The last explicit accepted production baseline before these new UX changes was `7157ec415d9d49052da220b218b14c2d9b329446` / `dpl_9oZubtJR9i53wpHQ5GkN1LZMAjwT`. Later main commits and READY preview builds do not imply production has been redeployed. Future rendering/Voight changes retain actual ground + Voight draw witnesses and imported vehicle readiness contracts. FL-4 data capture remains optional and local-only.
+
+**Next direction:** GTD-CHAR-001 Voight advancement may proceed independently of the higher-graphics-density experiment and this separate pause-menu usability correction.
