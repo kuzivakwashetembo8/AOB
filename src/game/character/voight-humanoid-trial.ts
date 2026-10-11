@@ -70,9 +70,10 @@ export function capTrialPbrLightUniforms(scene: Scene, maxLights = 4): number {
   return changed;
 }
 
-export function isMeridiaCharacterTrialRequested(search: string, hostname: string): boolean {
-  return hostname !== "grand-theft-division.vercel.app" &&
-    new URLSearchParams(search).get("gtdCharacterTrial") === "ual";
+export function isMeridiaCharacterTrialRequested(search: string, _hostname: string): boolean {
+  // Explicit trial URL works on the main deployment for mobile confirmation.
+  // The unparameterized game continues to use the original capsule prototype.
+  return new URLSearchParams(search).get("gtdCharacterTrial") === "ual";
 }
 
 function preferredClip(groups: AnimationGroup[], choices: readonly string[]): AnimationGroup | null {
