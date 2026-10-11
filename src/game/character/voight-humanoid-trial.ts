@@ -70,11 +70,9 @@ export function capTrialPbrLightUniforms(scene: Scene, maxLights = 4): number {
   return changed;
 }
 
-export function isMeridiaCharacterTrialRequested(search: string, _hostname: string): boolean {
-  // Explicit trial URL works on the main deployment for mobile confirmation.
-  // The unparameterized game continues to use the original capsule prototype.
-  return new URLSearchParams(search).get("gtdCharacterTrial") === "ual";
-}
+// Shared with game UI: the live/default character must never disagree
+// with the tuning and diagnostic menus on production.
+export { isMeridiaCharacterTrialRequested } from "./character-mode";
 
 function preferredClip(groups: AnimationGroup[], choices: readonly string[]): AnimationGroup | null {
   for (const choice of choices) {
