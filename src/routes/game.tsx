@@ -17,6 +17,7 @@ import { GameHud } from "@/ui/hud/game-hud";
 import { TouchControls } from "@/ui/hud/touch-controls";
 import { DesktopControls } from "@/ui/hud/desktop-controls";
 import { BootstrapOverlay } from "@/ui/menus/bootstrap";
+import { downloadCharacterTrialEvidence } from "@/game/character/character-trial-download";
 import type { GameAction } from "@/game/core/types";
 import { initialStartupChecklist, applyStartupCheckpoint } from "@/game/core/loading-checklist";
 export const Route = createFileRoute("/game")({
@@ -38,6 +39,9 @@ function GamePage() {
   const [panel, setPanel] = useState<"pause" | "objectives" | "save" | "settings">("pause");
   const [checklist, setChecklist] = useState(initialStartupChecklist);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const trialBrowserErrors = useRef<string[]>([]);
+  const trialEnabled = typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("gtdCharacterTrial") === "ual";
   const [loaded, setLoaded] = useState(false);
   const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
   const [interaction, setInteraction] = useState("");
@@ -49,6 +53,25 @@ function GamePage() {
     setLastInput(value.toUpperCase());
     setInteraction("");
   };
+  useEffect(() => {
+    if (!trialEnabled) return;
+    const append = (message: string) => {
+      trialBrowserErrors.current.push(message.slice(0, 1400));
+      if (trialBrowserErrors.current.length > 25) trialBrowserErrors.current.shift();
+    };
+    const onError = (event: ErrorEvent) => append(
+      "window.error: " + event.message + " at " + event.filename + ":" + event.lineno,
+    );
+    const onRejection = (event: PromiseRejectionEvent) => append(
+      "unhandledrejection: " + String(event.reason instanceof Error ? event.reason.stack ?? event.reason.message : event.reason),
+    );
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, [trialEnabled]);
   useEffect(() => {
     let cancelled = false;
     const unsubscribe = bridge.subscribeEvent((event) => {
@@ -282,7 +305,15 @@ function GamePage() {
           onAction={action}
         />
       )}
-      {!loaded && <BootstrapOverlay entries={checklist} error={bootstrapError} />}
+      {!loaded && (
+        <BootstrapOverlay
+          entries={checklist}
+          error={bootstrapError}
+          onDownloadDiagnostics={trialEnabled && bootstrapError
+            ? () => downloadCharacterTrialEvidence(bootstrapError, checklist, trialBrowserErrors.current)
+            : undefined}
+        />
+      )}
       {paused && (
         <div
           className="overlay"
