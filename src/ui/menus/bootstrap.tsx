@@ -8,9 +8,11 @@ import { startupCompletion } from "@/game/core/loading-checklist";
 export function BootstrapOverlay({
   entries,
   error,
+  onDownloadDiagnostics,
 }: {
   entries: readonly StartupCheckEntry[];
   error?: string | null;
+  onDownloadDiagnostics?: () => void;
 }) {
   const completion = startupCompletion(entries);
   return (
@@ -59,6 +61,16 @@ export function BootstrapOverlay({
         {error && (
           <div role="alert" className="overlay-note">
             <p>Meridian could not finish startup: {error}</p>
+            {onDownloadDiagnostics && (
+              <button
+                type="button"
+                data-gtd-character-data-download="true"
+                className="mt-3 mr-5 text-primary underline"
+                onClick={onDownloadDiagnostics}
+              >
+                Download character trial data (JSON)
+              </button>
+            )}
             <button type="button" className="mt-3 text-primary underline" onClick={() => window.location.reload()}>
               Retry loading
             </button>
