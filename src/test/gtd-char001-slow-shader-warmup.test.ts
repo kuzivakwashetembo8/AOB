@@ -47,17 +47,18 @@ describe("GTD-CHAR-001 first-frame shader warmup regression", () => {
     const raf = stubRaf();
     let now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => now);
-    // Emulate a real expensive first shader compilation: a render call
-    // completes but neither required mesh submits a visible draw.
-    vi.spyOn(scene, "render").mockImplementationOnce(() => { now = 12500; });
     const warmup = beginWorldRenderWarmup(scene, { ground, voight }, {
       postImportDeadlineMs: 12000, minimumPostImportRenderAttempts: 2,
     });
     try {
+      raf.tick(20); // Real pre-import warmup, matching the existing runtime sequence.
+      // Emulate expensive post-import shader work: render completes but
+      // neither required mesh submits a visible draw on this particular frame.
+      vi.spyOn(scene, "render").mockImplementationOnce(() => { now = 12500; });
       const ready = warmup.awaitWorldAfterVehicleSettlement();
-      raf.tick(20);
+      raf.tick(60);
       expect(raf.pending.size).toBe(1); // Do not reject after one slow empty frame.
-      raf.tick(60); // Actual NullEngine scene draw; never synthesize callbacks.
+      raf.tick(100); // Subsequent actual NullEngine draw, never synthesized callbacks.
       await expect(ready).resolves.toMatchObject({
         groundDrawn: true, voightDrawn: true, complete: true,
       });
