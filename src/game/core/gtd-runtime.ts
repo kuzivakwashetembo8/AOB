@@ -47,6 +47,7 @@ import {
 } from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
 import {
+  capTrialPbrLightUniforms,
   isMeridiaCharacterTrialRequested,
   loadMeridiaCharacterTrial,
   type LoadedMeridiaCharacter,
@@ -313,6 +314,15 @@ export class GTDGameRuntime implements GameRuntime {
     if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
       throw new Error("Generated ground or Voight render witness was not constructed");
     }
+    // Intercept newly created PBR materials from concurrent vehicle imports
+    // BEFORE each warm-up render. The normal procedural city and its lamps
+    // remain unchanged. Remove the temporary observer at startup completion.
+    if (this.characterTrial) capTrialPbrLightUniforms(scene);
+    const trialLightBudgetObserver = this.characterTrial
+      ? scene.onBeforeRenderObservable.add(() => {
+          capTrialPbrLightUniforms(scene);
+        })
+      : null;
     const warmup = beginWorldRenderWarmup(
       scene,
       { ground, voight: protagonist },
@@ -339,6 +349,9 @@ export class GTDGameRuntime implements GameRuntime {
       this.lifecycle = "ready";
       this.publishSnapshot();
     } finally {
+      if (trialLightBudgetObserver) {
+        scene.onBeforeRenderObservable.remove(trialLightBudgetObserver);
+      }
       warmup.cancel();
       if (this.worldRenderWarmup === warmup) this.worldRenderWarmup = null;
     }
