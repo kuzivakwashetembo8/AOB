@@ -75,8 +75,10 @@ describe("GTD-CHAR-001 experimental ground shader isolation", () => {
       engine.dispose();
     }
   });
-  it("does not enable the trial for the production host or an ordinary preview", () => {
-    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "grand-theft-division.vercel.app")).toBe(false);
+  it("never enables the trial without explicit opt-in, including on production", () => {
+    expect(isMeridiaCharacterTrialRequested("", "grand-theft-division.vercel.app")).toBe(false);
+    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=other", "grand-theft-division.vercel.app")).toBe(false);
+    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "grand-theft-division.vercel.app")).toBe(true);
     expect(isMeridiaCharacterTrialRequested("", "gtd-preview.vercel.app")).toBe(false);
     expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "gtd-preview.vercel.app")).toBe(true);
   });
