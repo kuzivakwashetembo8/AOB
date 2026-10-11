@@ -31,3 +31,14 @@ Each screenshot contains a flat blue daylight/sky field, the HUD (garage objecti
 - Candidate branch: `fix/fl4-visible-world-startup`. **No auto-merge to main.**
 - The Oct-10 accepted last known complete-world scene and visually accepted imported vehicles remain the intended reference. Do not change world objects, materials or the look of the two approved imported car sources while testing.
 - Exact cause and final fix status: **unverified until live WebGL/device observation**.
+
+## Branch implementation and verification ledger
+
+- **Implementation candidate:** GitHub commit `9286070525c938517d60760db7fc4e712d727574` on `fix/fl4-visible-world-startup`. Modifies `src/game/core/gtd-runtime.ts`; introduces `src/game/core/world-render-warmup.ts` and `src/test/fl4-visible-world-startup.test.ts`.
+- **First candidate verification:** strict TS blocked on an `AbstractMesh`/concrete `Mesh` callback type error. Corrected in the branch; no production effect.
+- **Second candidate verification:** 103 passing, one failing test because it required a *synchronous, first-NullEngine-render* witness despite graphics initialization being allowed to require genuine sequential frame attempts. The positive readiness contract is covered by the separate warmup test; the invalid initial-frame assertion was replaced by a negative test that disables ground and confirms the gate refuses incomplete output.
+- **Validated third candidate:** Vercel preview `dpl_6tK916MWEMvEJ4NRuqYNdsBuouSg` built from app commit `9286070525c938517d60760db7fc4e712d727574`: **READY**; `npx tsc --noEmit` passed; **104/104 Vitest tests across 24 files passed**; `npm run build` completed; preview `/game` returned HTTP 200. These are compile/server/build checks, **not proof** of Android visual correctness.
+- **Preview for actual user mobile assessment:** https://gtd-2qw2z6htj-interlinkglobaltech.vercel.app/game — Vercel team authentication may be required. Open in landscape and assess complete world (ground/roads/buildings/trees/Voight), cars, movement, and pause/return. If a startup error occurs, capture its exact text and a screenshot; the error will report ground/Voight draw evidence rather than falsely declaring 8/8.
+- **Production unchanged:** `main` is still `1b7bba05a048e44c7e8183ef56605e4e8007bc68`. No PR merge, production deployment or other world-art modifications authorized or performed. Keep this candidate pending on-device visual confirmation.
+
+**Follow-up if incomplete:** If ground/Voight witnesses never draw, use reported boolean evidence to investigate generated `StandardMaterial` readiness/shader compilation, sky depth/culling and mobile WebGL capabilities; do not bypass the gate a second time or cover scene failure with HUD. If witnesses draw but buildings/trees remain absent, widen the witnesses to representative road/building/tree meshes after inspecting the scene and camera, and confirm visible pixels in the actual device.
