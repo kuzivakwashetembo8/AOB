@@ -1,7 +1,7 @@
 # FL-4 — Optimization and Final Acceptance: Technical Implementation Plan
 
 **Project:** G.T.D — Grand Theft Division / Meridia: First Light  
-**Status:** IMPLEMENTATION AUTHORIZED — FL-4 IN PROGRESS; ACCEPTANCE AND DEPLOYMENT PENDING  
+**Status:** FL-4 FORMALLY CLOSED — USER ACCEPTED 2026-10-11 (~10:54 SAST). Successor tasks GTD-PERF-001 (physical-resolution ceiling) and GTD-UX-001 (in-session settings without reload) are separate. Earlier pending gates below are retained as historical requirements/evidence, not ongoing FL-4 blockers.  
 **Date:** 2026-10-09  
 **Milestone:** FL-4, final First Light phase  
 **Planning branch:** `development/meridian-fl3-interaction-atmosphere`  
