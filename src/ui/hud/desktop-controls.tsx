@@ -45,7 +45,8 @@ function MovementButton({
   icon: typeof ArrowUp;
   send: Send;
 }) {
-  const release = () => send({ type: "move", x: 0, y: 0 });
+  const release = (source: "desktop-pointer-up" | "desktop-pointer-cancel" | "desktop-pointer-lost") =>
+    send({ type: "move", x: 0, y: 0, source });
   return (
     <Button
       variant="control"
@@ -55,11 +56,11 @@ function MovementButton({
       onPointerDown={(event) => {
         event.preventDefault();
         event.currentTarget.setPointerCapture(event.pointerId);
-        send({ type: "move", x, y });
+        send({ type: "move", x, y, source: "desktop-pointer-down" });
       }}
-      onPointerUp={release}
-      onPointerCancel={release}
-      onLostPointerCapture={release}
+      onPointerUp={() => release("desktop-pointer-up")}
+      onPointerCancel={() => release("desktop-pointer-cancel")}
+      onLostPointerCapture={() => release("desktop-pointer-lost")}
     >
       <Icon size={18} />
     </Button>
