@@ -32,9 +32,12 @@ function setup() {
 }
 
 describe("GTD-CHAR-001 genuine street surface draw gate", () => {
-  it("accepts separately rendered road + sidewalk + humanoid even if hidden base terrain never draws", () => {
+  it("accepts separately rendered road + sidewalk + humanoid even if hidden base terrain never draws", async () => {
     const x = setup();
     try {
+      // Babylon's NullEngine needs its async material/scene readiness cycle.
+      // Repeated synchronous render calls alone do not advance that cycle.
+      await x.scene.whenReadyAsync();
       let last = renderWorldEvidenceFrame(x.scene, {
         ground: x.terrain, voight: x.voight,
         roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
@@ -53,10 +56,11 @@ describe("GTD-CHAR-001 genuine street surface draw gate", () => {
       x.scene.dispose(); x.engine.dispose();
     }
   });
-  it("cannot accept the imported human and asphalt alone when sidewalk and terrain are absent", () => {
+  it("cannot accept the imported human and asphalt alone when sidewalk and terrain are absent", async () => {
     const x = setup();
     x.sidewalk.setEnabled(false);
     try {
+      await x.scene.whenReadyAsync();
       for (let i = 0; i < 6; i++) {
         const evidence = renderWorldEvidenceFrame(x.scene, {
           ground: x.terrain, voight: x.voight,
