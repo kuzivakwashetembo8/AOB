@@ -1,7 +1,8 @@
+import { capRenderHardwareScale, renderHardwareScale } from "../renderer/render-clarity";
+
 /**
- * Opt-in FL4 raster stress trial, never used without fl4Diagnostics=1.
- * Native = display DPR; supernative = 1.25 rendered pixels per physical pixel
- * in each dimension, with 56.25% more pixel work than native.
+ * FL4 trials are diagnostics-only and now reference real physical display
+ * density. The reported backing/render sizes remain the final truth.
  */
 export type FL4QualityTrial = "native" | "supernative";
 
@@ -11,7 +12,12 @@ export interface FL4RasterOverride {
   readonly source: "quality-trial" | "explicit-scale" | null;
 }
 
-export function resolveFL4RasterOverride(params: URLSearchParams): FL4RasterOverride {
+export function resolveFL4RasterOverride(
+  params: URLSearchParams,
+  devicePixelRatio = 1,
+  cssWidth?: number,
+  cssHeight?: number,
+): FL4RasterOverride {
   if (params.get("fl4Diagnostics") !== "1") {
     return { trial: null, hardwareScale: null, source: null };
   }
@@ -22,11 +28,26 @@ export function resolveFL4RasterOverride(params: URLSearchParams): FL4RasterOver
   const explicit = params.get("fl4Scale");
   if (explicit !== null && explicit.trim() !== "") {
     const scale = Number(explicit);
-    if (Number.isFinite(scale) && scale >= 0.75 && scale <= 2) {
-      return { trial, hardwareScale: scale, source: "explicit-scale" };
+    if (Number.isFinite(scale) && scale >= 0.2 && scale <= 2) {
+      return {
+        trial,
+        hardwareScale: capRenderHardwareScale(scale, cssWidth, cssHeight),
+        source: "explicit-scale",
+      };
     }
   }
   return trial === null
     ? { trial, hardwareScale: null, source: null }
-    : { trial, hardwareScale: trial === "native" ? 1 : 0.8, source: "quality-trial" };
+    : {
+      trial,
+      hardwareScale: renderHardwareScale({
+        mode: trial === "native" ? "Native" : "Custom",
+        renderScalePercent: trial === "native" ? 100 : 125,
+        devicePixelRatio,
+        coarsePointer: true,
+        cssWidth,
+        cssHeight,
+      }),
+      source: "quality-trial",
+    };
 }
