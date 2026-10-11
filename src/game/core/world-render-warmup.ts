@@ -15,6 +15,8 @@ export interface WorldRenderWitnesses {
   readonly sidewalkSurfaces?: readonly Mesh[];
   /** Trial-only: a genuine building draw is required, not only flat ground. */
   readonly buildingSurfaces?: readonly Mesh[];
+  /** Real generated lane/stop markings, not drawn or faked by the witness. */
+  readonly markingSurfaces?: readonly Mesh[];
 }
 
 export interface WorldFrameEvidence {
@@ -22,6 +24,7 @@ export interface WorldFrameEvidence {
   readonly roadDrawn: boolean;
   readonly sidewalkDrawn: boolean;
   readonly buildingDrawn: boolean;
+  readonly markingDrawn: boolean;
   readonly visibleUrbanSurfaceDrawn: boolean;
   readonly voightDrawn: boolean;
   readonly complete: boolean;
@@ -35,6 +38,7 @@ export function renderWorldEvidenceFrame(
   let roadDrawn = false;
   let sidewalkDrawn = false;
   let buildingDrawn = false;
+  let markingDrawn = false;
   let voightDrawn = false;
   const observers: Array<() => void> = [];
   const observe = (mesh: Mesh, onDraw: () => void) => {
@@ -54,6 +58,9 @@ export function renderWorldEvidenceFrame(
   for (const building of witnesses.buildingSurfaces ?? []) {
     observe(building, () => { buildingDrawn = true; });
   }
+  for (const marking of witnesses.markingSurfaces ?? []) {
+    observe(marking, () => { markingDrawn = true; });
+  }
   try {
     scene.render();
   } finally {
@@ -65,6 +72,7 @@ export function renderWorldEvidenceFrame(
     roadDrawn,
     sidewalkDrawn,
     buildingDrawn,
+    markingDrawn,
     visibleUrbanSurfaceDrawn,
     voightDrawn,
     // A base terrain draw OR independently drawn asphalt and sidewalks
@@ -72,7 +80,8 @@ export function renderWorldEvidenceFrame(
     // actually draw in the SAME frame; sky and cars cannot satisfy this.
     complete: voightDrawn &&
       (groundDrawn || visibleUrbanSurfaceDrawn) &&
-      (witnesses.buildingSurfaces === undefined || buildingDrawn),
+      (witnesses.buildingSurfaces === undefined || buildingDrawn) &&
+      (witnesses.markingSurfaces === undefined || markingDrawn),
   };
 }
 
@@ -132,6 +141,7 @@ export function beginWorldRenderWarmup(
     roadDrawn: false,
     sidewalkDrawn: false,
     buildingDrawn: false,
+    markingDrawn: false,
     visibleUrbanSurfaceDrawn: false,
     voightDrawn: false,
     complete: false,
@@ -187,6 +197,7 @@ export function beginWorldRenderWarmup(
           ", road drawn=" + lastEvidence.roadDrawn +
           ", sidewalk drawn=" + lastEvidence.sidewalkDrawn +
           ", building drawn=" + lastEvidence.buildingDrawn +
+          ", marking drawn=" + lastEvidence.markingDrawn +
           ", Voight drawn=" + lastEvidence.voightDrawn,
         ));
         return;
