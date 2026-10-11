@@ -56,6 +56,42 @@ describe("GTD-CHAR-001 genuine street surface draw gate", () => {
       x.scene.dispose(); x.engine.dispose();
     }
   });
+  it("rejects a sky-cars-human-street frame without an actual generated building draw", async () => {
+    const x = setup();
+    const building = MeshBuilder.CreateBox("generated-batch:sw-fl-south-apartment:base:wall", {
+      width: 2, height: 5, depth: 2,
+    }, x.scene);
+    building.material = new StandardMaterial("building-wall", x.scene);
+    building.position.set(-2, 2.5, 5);
+    x.terrain.setEnabled(false);
+    building.setEnabled(false);
+    try {
+      await x.scene.whenReadyAsync();
+      for (let i = 0; i < 3; i++) {
+        const evidence = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+          buildingSurfaces: [building],
+        });
+        expect(evidence.complete).toBe(false);
+        expect(evidence.buildingDrawn).toBe(false);
+      }
+      building.setEnabled(true);
+      await x.scene.whenReadyAsync();
+      let completed = false;
+      for (let i = 0; i < 6; i++) {
+        const evidence = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+          buildingSurfaces: [building],
+        });
+        if (evidence.complete && evidence.buildingDrawn) completed = true;
+      }
+      expect(completed).toBe(true);
+    } finally {
+      x.scene.dispose(); x.engine.dispose();
+    }
+  });
   it("cannot accept the imported human and asphalt alone when sidewalk and terrain are absent", async () => {
     const x = setup();
     x.sidewalk.setEnabled(false);
