@@ -94,6 +94,18 @@ export class GTDGameRuntime implements GameRuntime {
     travelFactor: number; actualPlanarMps: number;
     actualPlanarX: number; actualPlanarZ: number;
     grounded: boolean; sprint: boolean;
+    visualGait: string | null; rawGait: string | null;
+  }> = [];
+  private movementInputRepeatCount = 0;
+  private movementInputEvents: Array<{
+    atMs: number; x: number; y: number; source: string;
+    released: boolean; changed: boolean;
+  }> = [];
+  private gaitEvents: Array<{
+    atMs: number; rawGrounded: boolean;
+    correctedPlanarMps: number; intentMagnitude: number;
+    rawGait: string; visualGait: string;
+    transition: string | null; briefGroundLoss: boolean; briefSpeedLoss: boolean;
   }> = [];
   private world: RuntimeFirstLightWorld | null = null;
   private lifecycle: Lifecycle = "idle";
@@ -317,14 +329,17 @@ export class GTDGameRuntime implements GameRuntime {
         // This does not upload, log or simulate performance data.
         (window as Window & { __GTD_CHARACTER_LOCOMOTION_REPORT__?: () => unknown })
           .__GTD_CHARACTER_LOCOMOTION_REPORT__ = () => ({
-            schema: "gtd.char001.l1-locomotion.v1",
+            schema: "gtd.char001.l2-gait-continuity.v1",
             generatedAt: new Date().toISOString(),
             trial: true,
             settings: this.headingSettings,
             model: this.characterTrial?.report() ?? null,
             sampleCount: this.locomotionSamples.length,
             samples: this.locomotionSamples.slice(),
-            note: "Real fixed-step movement samples; numeric defaults are provisional until gamer acceptance. No IK is implemented.",
+            inputCommandEvents: this.movementInputEvents.slice(),
+            repeatedIdenticalInputCommands: this.movementInputRepeatCount,
+            gaitEvents: this.gaitEvents.slice(),
+            note: "Real command changes and animation decisions. Isolated one-tick ground/speed glitches may be stabilized visually. Raw Rapier remains authoritative; no IK or synthetic event samples.",
           });
         (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: () => ReturnType<LoadedMeridiaCharacter["report"]> })
           .__GTD_CHARACTER_TRIAL_REPORT__ = () => trial.report();
@@ -516,6 +531,9 @@ export class GTDGameRuntime implements GameRuntime {
       .__GTD_CHARACTER_LOCOMOTION_REPORT__;
     this.locomotionSamples = [];
     this.locomotionTick = 0;
+    this.movementInputEvents = [];
+    this.movementInputRepeatCount = 0;
+    this.gaitEvents = [];
     this.characterTrial = null;
     this.removeFL4EvidenceExport?.();
     this.removeFL4EvidenceExport = null;
@@ -544,7 +562,27 @@ export class GTDGameRuntime implements GameRuntime {
   command(command: GameCommand): void {
     if (command.type === "move") {
       const length = Math.hypot(command.x, command.y);
-      this.move = length > 1 ? { x: command.x / length, y: command.y / length } : { x: command.x, y: command.y };
+      const next = length > 1
+        ? { x: command.x / length, y: command.y / length }
+        : { x: command.x, y: command.y };
+      if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) return;
+      if (this.characterTrial) {
+        const changed = Math.abs(next.x - this.move.x) > 0.0001 ||
+          Math.abs(next.y - this.move.y) > 0.0001;
+        if (!changed) this.movementInputRepeatCount++;
+        // Store true source transitions (including blur, pointer cancellation,
+        // lost capture). Repeated identical keydowns count separately.
+        if (changed || command.source === "desktop-pointer-cancel" ||
+            command.source === "desktop-pointer-lost" || command.source === "keyboard-reset") {
+          this.movementInputEvents.push({
+            atMs: performance.now(), x: next.x, y: next.y,
+            source: command.source ?? "unspecified",
+            changed, released: Math.hypot(next.x, next.y) < 0.05,
+          });
+          if (this.movementInputEvents.length > 180) this.movementInputEvents.shift();
+        }
+      }
+      this.move = next;
       return;
     }
     if (command.type === "look") {
@@ -701,11 +739,29 @@ export class GTDGameRuntime implements GameRuntime {
 
     const position = physics.playerPosition();
     this.world?.update(dt, position);
-    this.characterTrial?.updateAnimation(
-      Math.hypot(movement.movement.x, movement.movement.z) / Math.max(dt, 0.0001),
-      this.grounded,
+    const correctedPlanarMps =
+      Math.hypot(movement.movement.x, movement.movement.z) / Math.max(dt, 0.0001);
+    const gaitDecision = this.characterTrial?.updateAnimation({
+      correctedPlanarSpeed: correctedPlanarMps,
+      rawGrounded: this.grounded,
+      intentMagnitude: desired.length(),
+      sprintRequested: this.actions.has("sprint"),
+      jumpAscending: !this.grounded && this.verticalVelocity > 0.2,
       dt,
-    );
+    });
+    if (gaitDecision?.lastTransition || gaitDecision?.briefGroundLoss ||
+        gaitDecision?.briefSpeedLoss) {
+      this.gaitEvents.push({
+        atMs: performance.now(), rawGrounded: this.grounded,
+        correctedPlanarMps, intentMagnitude: desired.length(),
+        rawGait: gaitDecision.rawCandidate,
+        visualGait: gaitDecision.state,
+        transition: gaitDecision.lastTransition,
+        briefGroundLoss: gaitDecision.briefGroundLoss,
+        briefSpeedLoss: gaitDecision.briefSpeedLoss,
+      });
+      if (this.gaitEvents.length > 240) this.gaitEvents.shift();
+    }
     const interiorState = this.world?.interiorState ?? "outside";
     this.preferredCameraRadius =
       interiorState === "inside" ? 3.35 : interiorState === "threshold" ? 4.5 : 6.2;
@@ -728,6 +784,8 @@ export class GTDGameRuntime implements GameRuntime {
           actualPlanarZ: movement.movement.z / Math.max(dt, 0.0001),
           grounded: this.grounded,
           sprint: this.actions.has("sprint"),
+          visualGait: gaitDecision?.state ?? null,
+          rawGait: gaitDecision?.rawCandidate ?? null,
         });
         if (this.locomotionSamples.length > 900) this.locomotionSamples.shift();
       }
