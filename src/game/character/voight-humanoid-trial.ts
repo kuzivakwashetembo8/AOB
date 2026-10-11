@@ -133,8 +133,10 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     -(boundsMin.z + boundsMax.z) * 0.5 * normalScale,
   );
   // Authoring-forward axis is calibrated separately from physics/root heading.
-  // The reference demo's character has an additional 90-degree Y correction.
-  let visualForwardDeg = 90;
+  // For Meridian, the reference demo's extra +90° visual correction
+  // pointed the model sideways to physics/root travel on all four arrows.
+  // The calibration control stays available for live verification.
+  let visualForwardDeg = 0;
   visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
 
   const clips = {
