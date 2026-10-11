@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FreeCamera, MeshBuilder, NullEngine, Scene, Vector3 } from "@babylonjs/core";
+import { FreeCamera, MeshBuilder, NullEngine, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
 import { beginWorldRenderWarmup } from "../game/core/world-render-warmup";
 
 function makeScene() {
@@ -11,6 +11,8 @@ function makeScene() {
   const ground = MeshBuilder.CreateGround("generated-first-light-ground", { width: 30, height: 30 }, scene);
   const voight = MeshBuilder.CreateBox("trial-real-character-witness", { height: 1.8, width: 0.5, depth: 0.5 }, scene);
   voight.position.y = 0.9;
+  ground.material = new StandardMaterial("trial-ground", scene);
+  voight.material = new StandardMaterial("trial-voight", scene);
   return { engine, scene, ground, voight };
 }
 
