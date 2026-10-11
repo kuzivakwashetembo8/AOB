@@ -192,6 +192,8 @@ Use research's **provisional** relative criteria, with actual trial findings:
 
 ## 5. Stage 5 — Integrate the first playable Voight into Meridian
 
+**2026-10-11 travel-facing clarification (explicit later user decision):** Stage 5 ordinary exploration no longer proposes backward-walk or strafe animation. Keyboard arrows/mobile travel intent must rotate the humanoid toward travel: down turns approximately 180 degrees and travels forward in that direction, and left/right turn toward their camera-relative movement direction. Smooth rotation, gait coordination, ground-contact calibration and reactive Foot IK are specified in the separate [Travel-Facing Locomotion and Foot IK Technical Implementation Plan](./Development/GTD-CHAR-001%20Travel-Facing%20Locomotion%20and%20Foot%20IK%20Implementation%20Plan.md). Its empirical, player-observed acceptance gates refine the provisional Stage 5 movement guidance below; they do not authorize implementation, promotion or production release.
+
 **Purpose:** Replace only the prototype's visible form while preserving accepted game-world systems, delivering an animated person whose body motion corresponds to existing physics and inputs.
 
 ### 5.1 Runtime integration architecture
@@ -210,7 +212,7 @@ Use research's **provisional** relative criteria, with actual trial findings:
 | Stage 5 action | Minimum acceptance |
 | --- | --- |
 | Idle and breathing | Recognizable stable stance, visually grounded feet, no jitter or recurrent pose popping |
-| Forward/back/strafe | Visual orientation and animation match camera-relative input and *corrected* physical movement |
+| Travel-facing movement (↑/↓/←/→, diagonal, touch) | Visual root and animation face camera-relative *travel direction*, including 180-degree reversal on down; no ordinary backward-walk or strafe; coordinate gait with *corrected* physical movement |
 | Walk/run/sprint | Natural acceleration/transition intent, recognizable character gait, controlled foot slip, no unintentional speed changes |
 | Standing/dynamic turning | Consistent heading, no mirrored left/right, no instantaneous skeleton spin on ordinary touch look |
 | Jump/airborne/land | State transitions track actual Rapier grounded status; landing does not penetrate pavement or misalign feet |
