@@ -20,13 +20,13 @@ export function Joystick({ send }: { send: Send }) {
     }
     if (thumb.current)
       thumb.current.style.transform = `translate(${x * radius}px, ${y * radius}px)`;
-    send({ type: "move", x, y });
+    send({ type: "move", x, y, source: "touch-joystick" });
   };
   const release = (event: PointerEvent<HTMLDivElement>) => {
     if (active.current !== event.pointerId) return;
     active.current = null;
     if (thumb.current) thumb.current.style.transform = "translate(0, 0)";
-    send({ type: "move", x: 0, y: 0 });
+    send({ type: "move", x: 0, y: 0, source: "touch-joystick" });
   };
   return (
     <div
