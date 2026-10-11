@@ -50,11 +50,22 @@ export function mountFL4EvidenceExport(
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: "60",
+    boxSizing: "border-box",
+    height: "32px",
+    minHeight: "32px",
+    maxHeight: "32px",
+    width: "auto",
+    maxWidth: "170px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: "1",
+    flexShrink: "0",
     border: "1px solid rgba(255,255,255,.45)",
     borderRadius: "6px",
     background: "rgba(11,18,27,.92)",
     color: "white",
-    padding: "6px 10px",
+    padding: "0 10px",
     fontFamily: "system-ui, sans-serif",
     fontSize: "12px",
     fontWeight: "600",
@@ -91,6 +102,10 @@ export function mountFL4EvidenceExport(
     }
   });
 
-  document.body.appendChild(button);
+  // The standalone PWA styles body > * as 100%-height containers. Appending
+  // a button directly under body produced a full-screen central panel on
+  // Android. Mount inside the existing game viewport instead.
+  const gameViewport = document.querySelector(".game-viewport");
+  (gameViewport ?? document.body).appendChild(button);
   return () => button.remove();
 }
