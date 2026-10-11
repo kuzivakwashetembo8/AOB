@@ -46,6 +46,7 @@ import {
   type RuntimeFirstLightWorld,
 } from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
+import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
 import {
   capTrialPbrLightUniforms,
   isMeridiaCharacterTrialRequested,
@@ -314,23 +315,20 @@ export class GTDGameRuntime implements GameRuntime {
     if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
       throw new Error("Generated ground or Voight render witness was not constructed");
     }
-    // The huge base terrain is often beneath rendered road geometry. The
-    // trial must observe actual traversable asphalt AND pavement submissions
-    // rather than declaring a completely visible city missing solely because
-    // that one terrain material did not submit. Keep independent evidence.
-    const roadSurfaces = this.characterTrial
-      ? scene.meshes.filter((mesh): mesh is Mesh =>
-          mesh instanceof Mesh && mesh.name.startsWith("generated-asphalt:"))
-      : [];
-    const sidewalkSurfaces = this.characterTrial
-      ? scene.meshes.filter((mesh): mesh is Mesh =>
-          mesh instanceof Mesh && (
-            mesh.name.startsWith("generated-sidewalk-left:") ||
-            mesh.name.startsWith("generated-sidewalk-right:")
-          ))
-      : [];
+    // Material families, not mesh-name prefixes, identify First Light streets.
+    // The reference city names these "generated-parity-*" while procedural
+    // districts use "generated-asphalt:*"/"generated-sidewalk-*".
+    const trialStreetWitnesses = this.characterTrial
+      ? resolveCharacterTrialStreetWitnesses(firstLight)
+      : null;
+    const roadSurfaces = trialStreetWitnesses?.roads ?? [];
+    const sidewalkSurfaces = trialStreetWitnesses?.sidewalks ?? [];
     if (this.characterTrial && (!roadSurfaces.length || !sidewalkSurfaces.length)) {
-      throw new Error("GTD character trial: real asphalt/sidewalk witnesses missing");
+      throw new Error(
+        "GTD character trial: actual road/sidewalk materials missing (" +
+        "roads=" + roadSurfaces.length + ", sidewalks=" + sidewalkSurfaces.length +
+        "); samples=" + JSON.stringify(trialStreetWitnesses?.sample ?? []),
+      );
     }
     // Intercept newly created PBR materials from concurrent vehicle imports
     // BEFORE each warm-up render. The normal procedural city and its lamps
