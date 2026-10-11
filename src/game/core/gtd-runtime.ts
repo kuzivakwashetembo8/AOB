@@ -6,6 +6,7 @@ import {
   Mesh,
   Ray,
   Scene,
+  StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
 import type {
@@ -46,6 +47,21 @@ import {
   type RuntimeFirstLightWorld,
 } from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
+import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
+import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
+import {
+  DEFAULT_TRAVEL_HEADING,
+  normalizeHeadingSettings,
+  stepTravelHeading,
+  type TravelHeadingSettings,
+} from "../character/locomotion/travel-heading";
+import { collectCharacterTrialSceneReport } from "../character/character-trial-diagnostics";
+import {
+  capTrialPbrLightUniforms,
+  isMeridiaCharacterTrialRequested,
+  loadMeridiaCharacterTrial,
+  type LoadedMeridiaCharacter,
+} from "../character/voight-humanoid-trial";
 
 const FIXED_STEP = 1 / 60;
 const MAX_FRAME_DELTA = 0.1;
@@ -67,6 +83,30 @@ export class GTDGameRuntime implements GameRuntime {
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
   private voight: VoightPrototype | null = null;
+  private characterTrial: LoadedMeridiaCharacter | null = null;
+  private headingSettings: TravelHeadingSettings = DEFAULT_TRAVEL_HEADING;
+  private headingTurnSign: -1 | 1 = 1;
+  private locomotionTick = 0;
+  private locomotionSamples: Array<{
+    atMs: number; inputX: number; inputZ: number;
+    headingYawRad: number; targetYawRad: number | null;
+    remainingErrorRad: number; turnRateRad: number;
+    travelFactor: number; actualPlanarMps: number;
+    actualPlanarX: number; actualPlanarZ: number;
+    grounded: boolean; sprint: boolean;
+    visualGait: string | null; rawGait: string | null;
+  }> = [];
+  private movementInputRepeatCount = 0;
+  private movementInputEvents: Array<{
+    atMs: number; x: number; y: number; source: string;
+    released: boolean; changed: boolean;
+  }> = [];
+  private gaitEvents: Array<{
+    atMs: number; rawGrounded: boolean;
+    correctedPlanarMps: number; intentMagnitude: number;
+    rawGait: string; visualGait: string;
+    transition: string | null; briefGroundLoss: boolean; briefSpeedLoss: boolean;
+  }> = [];
   private world: RuntimeFirstLightWorld | null = null;
   private lifecycle: Lifecycle = "idle";
   private context: HudContext = "walking";
@@ -175,8 +215,29 @@ export class GTDGameRuntime implements GameRuntime {
       scene,
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
+      {
+        // L1/L3 source-backed support fix: do not apply parity sidewalk
+        // collision changes to the existing no-query baseline or production.
+        enableSidewalkSupportCollision: isMeridiaCharacterTrialRequested(
+          window.location.search, window.location.hostname,
+        ),
+      },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
+    // This getter is available even when startup dies at 7/8. No network
+    // telemetry: only a user-initiated download reads its snapshot.
+    let lastTrialWarmup: ReturnType<WorldRenderWarmup["snapshot"]> | null = null;
+    let groundIsolation: ReturnType<typeof isolateCharacterTrialGroundShaders> | null = null;
+    if (isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname)) {
+      window.__GTD_CHAR_DIAGNOSTICS__ = () => ({
+        schema: "gtd.char001.runtime.v1",
+        scene: collectCharacterTrialSceneReport(scene, engine),
+        character: this.characterTrial?.report() ?? null,
+        vehicles: this.importedCarProbe?.report() ?? null,
+        warmup: this.worldRenderWarmup?.snapshot() ?? lastTrialWarmup,
+        surfaceIsolation: groundIsolation,
+      });
+    }
     // Explicit main-branch mobile validation authorized 2026-10-10.
     // Accepted imported buggy and sports-car GLBs now replace ALL old parked
     // car graphics in default gameplay, including the public production host.
@@ -255,7 +316,41 @@ export class GTDGameRuntime implements GameRuntime {
     scene.activeCamera = camera;
 
     this.emit({ type: "load-checkpoint", id: "voight", status: "running" });
-    const voight = createVoightPrototype(scene);
+    let voight: VoightPrototype;
+    if (isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname)) {
+      // Only the opt-in preview/branch trial uses the external humanoid model.
+      // No silent fallback: unavailable or malformed GLB must not be mistaken
+      // for an accepted Voight or a successfully loaded character.
+      try {
+        const trial = await loadMeridiaCharacterTrial(scene);
+        this.characterTrial = trial;
+        voight = trial;
+        // A real movement trace is exported only when the gamer requests it.
+        // This does not upload, log or simulate performance data.
+        (window as Window & { __GTD_CHARACTER_LOCOMOTION_REPORT__?: () => unknown })
+          .__GTD_CHARACTER_LOCOMOTION_REPORT__ = () => ({
+            schema: "gtd.char001.l2-gait-continuity.v1",
+            generatedAt: new Date().toISOString(),
+            trial: true,
+            settings: this.headingSettings,
+            model: this.characterTrial?.report() ?? null,
+            sampleCount: this.locomotionSamples.length,
+            samples: this.locomotionSamples.slice(),
+            inputCommandEvents: this.movementInputEvents.slice(),
+            repeatedIdenticalInputCommands: this.movementInputRepeatCount,
+            gaitEvents: this.gaitEvents.slice(),
+            note: "Real command changes and animation decisions. Isolated one-tick ground/speed glitches may be stabilized visually. Raw Rapier remains authoritative; no IK or synthetic event samples.",
+          });
+        (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: () => ReturnType<LoadedMeridiaCharacter["report"]> })
+          .__GTD_CHARACTER_TRIAL_REPORT__ = () => trial.report();
+      } catch (error) {
+        this.emit({ type: "load-checkpoint", id: "voight", status: "failed",
+          detail: error instanceof Error ? error.message : String(error) });
+        throw error;
+      }
+    } else {
+      voight = createVoightPrototype(scene);
+    }
     const spawn = physics.playerPosition();
     voight.root.position.set(spawn.x, spawn.y, spawn.z);
     // Match the very first camera view to the actual protagonist position.
@@ -285,11 +380,80 @@ export class GTDGameRuntime implements GameRuntime {
     // cars are installed; the previous onAfterRender-only gate admitted
     // sky-and-cars frames with no ground/streets/Voight on mobile.
     const ground = scene.getMeshByName("generated-first-light-ground");
-    const protagonist = scene.getMeshByName("voight-prototype-body");
+    const protagonist = this.characterTrial?.witness ?? scene.getMeshByName("voight-prototype-body");
     if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
       throw new Error("Generated ground or Voight render witness was not constructed");
     }
-    const warmup = beginWorldRenderWarmup(scene, { ground, voight: protagonist });
+    // Material families, not mesh-name prefixes, identify First Light streets.
+    // The reference city names these "generated-parity-*" while procedural
+    // districts use "generated-asphalt:*"/"generated-sidewalk-*".
+    const trialStreetWitnesses = this.characterTrial
+      ? resolveCharacterTrialStreetWitnesses(firstLight)
+      : null;
+    const roadSurfaces = trialStreetWitnesses?.roads ?? [];
+    const sidewalkSurfaces = trialStreetWitnesses?.sidewalks ?? [];
+    const markingSurfaces = this.characterTrial && isGeneratedFirstLightWorld(firstLight)
+      ? firstLight.urbanSurfaces.meshes.filter(mesh =>
+          mesh.material?.name === "generated-road-marking" && mesh.isEnabled())
+      : [];
+    if (this.characterTrial && (!roadSurfaces.length || !sidewalkSurfaces.length)) {
+      throw new Error(
+        "GTD character trial: actual road/sidewalk materials missing (" +
+        "roads=" + roadSurfaces.length + ", sidewalks=" + sidewalkSurfaces.length +
+        "); samples=" + JSON.stringify(trialStreetWitnesses?.sample ?? []),
+      );
+    }
+    const trialBuildingSurfaces = this.characterTrial && isGeneratedFirstLightWorld(firstLight)
+      ? firstLight.buildings.flatMap(building =>
+          building.meshes.filter(mesh => mesh.isEnabled() && mesh.getTotalVertices() > 0))
+      : [];
+    if (this.characterTrial && !trialBuildingSurfaces.length) {
+      throw new Error("GTD character trial: no generated First Light building geometry available");
+    }
+    if (this.characterTrial && !markingSurfaces.length) {
+      throw new Error("GTD character trial: generated road-marking meshes unavailable");
+    }
+    const trialScenery = this.characterTrial && isGeneratedFirstLightWorld(firstLight)
+      ? [
+          ...trialBuildingSurfaces,
+          ...markingSurfaces,
+          ...firstLight.streetContext.meshes,
+          ...(firstLight.garageInterior?.meshes ?? []),
+        ].filter(mesh => mesh.isEnabled() && mesh.material instanceof StandardMaterial)
+      : [];
+    if (this.characterTrial) {
+      // This explicit fallback tests WHETHER Babylon's original StandardMaterial
+      // effects are starving out all city meshes after UAL PBR import.
+      // Preserve existing city geometry/UVs/textures; do not invent proxies.
+      // No effect on production or the no-query preview baseline.
+      groundIsolation = isolateCharacterTrialGroundShaders(
+        ground, roadSurfaces, sidewalkSurfaces, trialScenery,
+      );
+      scene.shadowsEnabled = false;
+    }
+    // Intercept newly created PBR materials from concurrent vehicle imports
+    // BEFORE each warm-up render. The normal procedural city and its lamps
+    // remain unchanged. Remove the temporary observer at startup completion.
+    if (this.characterTrial) capTrialPbrLightUniforms(scene);
+    const trialLightBudgetObserver = this.characterTrial
+      ? scene.onBeforeRenderObservable.add(() => {
+          capTrialPbrLightUniforms(scene);
+        })
+      : null;
+    const warmup = beginWorldRenderWarmup(
+      scene,
+      {
+        ground,
+        voight: protagonist,
+        ...(this.characterTrial ? {
+          roadSurfaces, sidewalkSurfaces, markingSurfaces,
+          buildingSurfaces: trialBuildingSurfaces,
+        } : {}),
+      },
+      this.characterTrial
+        ? { postImportDeadlineMs: 45000, minimumPostImportRenderAttempts: 4 }
+        : undefined,
+    );
     this.worldRenderWarmup = warmup;
     try {
       // Preserve real GLTF source/parking/collider completion requirements.
@@ -309,6 +473,10 @@ export class GTDGameRuntime implements GameRuntime {
       this.lifecycle = "ready";
       this.publishSnapshot();
     } finally {
+      if (this.characterTrial) lastTrialWarmup = warmup.snapshot();
+      if (trialLightBudgetObserver) {
+        scene.onBeforeRenderObservable.remove(trialLightBudgetObserver);
+      }
       warmup.cancel();
       if (this.worldRenderWarmup === warmup) this.worldRenderWarmup = null;
     }
@@ -357,6 +525,16 @@ export class GTDGameRuntime implements GameRuntime {
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
+    delete (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: unknown }).__GTD_CHARACTER_TRIAL_REPORT__;
+    delete window.__GTD_CHAR_DIAGNOSTICS__;
+    delete (window as Window & { __GTD_CHARACTER_LOCOMOTION_REPORT__?: unknown })
+      .__GTD_CHARACTER_LOCOMOTION_REPORT__;
+    this.locomotionSamples = [];
+    this.locomotionTick = 0;
+    this.movementInputEvents = [];
+    this.movementInputRepeatCount = 0;
+    this.gaitEvents = [];
+    this.characterTrial = null;
     this.removeFL4EvidenceExport?.();
     this.removeFL4EvidenceExport = null;
     this.world?.dispose();
@@ -384,7 +562,27 @@ export class GTDGameRuntime implements GameRuntime {
   command(command: GameCommand): void {
     if (command.type === "move") {
       const length = Math.hypot(command.x, command.y);
-      this.move = length > 1 ? { x: command.x / length, y: command.y / length } : { x: command.x, y: command.y };
+      const next = length > 1
+        ? { x: command.x / length, y: command.y / length }
+        : { x: command.x, y: command.y };
+      if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) return;
+      if (this.characterTrial) {
+        const changed = Math.abs(next.x - this.move.x) > 0.0001 ||
+          Math.abs(next.y - this.move.y) > 0.0001;
+        if (!changed) this.movementInputRepeatCount++;
+        // Store true source transitions (including blur, pointer cancellation,
+        // lost capture). Repeated identical keydowns count separately.
+        if (changed || command.source === "desktop-pointer-cancel" ||
+            command.source === "desktop-pointer-lost" || command.source === "keyboard-reset") {
+          this.movementInputEvents.push({
+            atMs: performance.now(), x: next.x, y: next.y,
+            source: command.source ?? "unspecified",
+            changed, released: Math.hypot(next.x, next.y) < 0.05,
+          });
+          if (this.movementInputEvents.length > 180) this.movementInputEvents.shift();
+        }
+      }
+      this.move = next;
       return;
     }
     if (command.type === "look") {
@@ -425,6 +623,14 @@ export class GTDGameRuntime implements GameRuntime {
     }
     if (command.type === "input-mode") {
       this.inputMode = command.mode;
+      return;
+    }
+    if (command.type === "character-locomotion-tuning") {
+      // Only the opt-in preview's imported humanoid can be tuned.
+      // Baseline capsule physics, world and production remain untouched.
+      if (!this.characterTrial) return;
+      this.headingSettings = normalizeHeadingSettings({ ...this.headingSettings, ...command.settings });
+      this.characterTrial.setVisualForward(this.headingSettings.visualForwardDeg);
       return;
     }
     if (command.type === "set-meridian-time") {
@@ -503,7 +709,18 @@ export class GTDGameRuntime implements GameRuntime {
     const desired = forward.scale(-this.move.y).add(right.scale(this.move.x));
     if (desired.lengthSquared() > 1) desired.normalize();
     const speed = this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
-    const horizontal = desired.scale(speed * dt);
+    const headingStep = this.characterTrial
+      ? stepTravelHeading(
+          voight.root.rotation.y, desired.x, desired.z, dt, this.headingSettings,
+          this.headingTurnSign,
+        )
+      : null;
+    if (headingStep) this.headingTurnSign = headingStep.turnSign;
+    // Travel-facing translation uses the character's actual facing, never a
+    // sideways or backwards vector during turns. Rapier still owns collisions.
+    const horizontal = headingStep
+      ? new Vector3(headingStep.travelX, 0, headingStep.travelZ).scale(speed * dt)
+      : desired.scale(speed * dt);
 
     if (this.actions.has("jump") && this.grounded) {
       this.verticalVelocity = JUMP_SPEED;
@@ -522,12 +739,58 @@ export class GTDGameRuntime implements GameRuntime {
 
     const position = physics.playerPosition();
     this.world?.update(dt, position);
+    const correctedPlanarMps =
+      Math.hypot(movement.movement.x, movement.movement.z) / Math.max(dt, 0.0001);
+    const gaitDecision = this.characterTrial?.updateAnimation({
+      correctedPlanarSpeed: correctedPlanarMps,
+      rawGrounded: this.grounded,
+      intentMagnitude: desired.length(),
+      sprintRequested: this.actions.has("sprint"),
+      jumpAscending: !this.grounded && this.verticalVelocity > 0.2,
+      dt,
+    });
+    if (gaitDecision?.lastTransition || gaitDecision?.briefGroundLoss ||
+        gaitDecision?.briefSpeedLoss) {
+      this.gaitEvents.push({
+        atMs: performance.now(), rawGrounded: this.grounded,
+        correctedPlanarMps, intentMagnitude: desired.length(),
+        rawGait: gaitDecision.rawCandidate,
+        visualGait: gaitDecision.state,
+        transition: gaitDecision.lastTransition,
+        briefGroundLoss: gaitDecision.briefGroundLoss,
+        briefSpeedLoss: gaitDecision.briefSpeedLoss,
+      });
+      if (this.gaitEvents.length > 240) this.gaitEvents.shift();
+    }
     const interiorState = this.world?.interiorState ?? "outside";
     this.preferredCameraRadius =
       interiorState === "inside" ? 3.35 : interiorState === "threshold" ? 4.5 : 6.2;
 
     voight.root.position.set(position.x, position.y, position.z);
-    if (desired.lengthSquared() > 0.001) {
+    if (headingStep) {
+      voight.root.rotation.y = headingStep.yaw;
+      this.locomotionTick++;
+      if (this.locomotionTick % 3 === 0) {
+        this.locomotionSamples.push({
+          atMs: performance.now(),
+          inputX: desired.x, inputZ: desired.z,
+          headingYawRad: headingStep.yaw,
+          targetYawRad: headingStep.targetYaw,
+          remainingErrorRad: headingStep.remainingErrorRad,
+          turnRateRad: headingStep.angularRateRad,
+          travelFactor: headingStep.travelScale,
+          actualPlanarMps: Math.hypot(movement.movement.x, movement.movement.z) / Math.max(dt, 0.0001),
+          actualPlanarX: movement.movement.x / Math.max(dt, 0.0001),
+          actualPlanarZ: movement.movement.z / Math.max(dt, 0.0001),
+          grounded: this.grounded,
+          sprint: this.actions.has("sprint"),
+          visualGait: gaitDecision?.state ?? null,
+          rawGait: gaitDecision?.rawCandidate ?? null,
+        });
+        if (this.locomotionSamples.length > 900) this.locomotionSamples.shift();
+      }
+    } else if (desired.lengthSquared() > 0.001) {
+      // Unmodified main-branch capsule behavior in the non-trial baseline.
       voight.root.rotation.y = Math.atan2(desired.x, desired.z);
     }
     camera.target.set(position.x, position.y + 0.55, position.z);
@@ -536,7 +799,11 @@ export class GTDGameRuntime implements GameRuntime {
     this.snapshotAccumulator += dt;
     if (this.snapshotAccumulator >= SNAPSHOT_INTERVAL) {
       this.snapshotAccumulator = 0;
-      this.publishSnapshot(desired.length() * speed);
+      this.publishSnapshot(
+        headingStep
+          ? Math.hypot(movement.movement.x, movement.movement.z) / Math.max(dt, 0.0001)
+          : desired.length() * speed,
+      );
     }
   }
 

@@ -1,0 +1,148 @@
+import { describe, expect, it } from "vitest";
+import { FreeCamera, MeshBuilder, NullEngine, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
+import { renderWorldEvidenceFrame } from "../game/core/world-render-warmup";
+
+function setup() {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const camera = new FreeCamera("camera", new Vector3(0, 3.5, -8), scene);
+  camera.setTarget(new Vector3(0, 0.8, 0));
+  scene.activeCamera = camera;
+  const terrain = MeshBuilder.CreateGround("generated-first-light-ground", {
+    width: 40, height: 40,
+  }, scene);
+  terrain.material = new StandardMaterial("terrain", scene);
+  terrain.setEnabled(false);
+  const road = MeshBuilder.CreateBox("generated-asphalt:test-road", {
+    width: 4, height: 0.08, depth: 10,
+  }, scene);
+  road.position.y = 0.04;
+  road.material = new StandardMaterial("asphalt", scene);
+  const sidewalk = MeshBuilder.CreateBox("generated-sidewalk-left:test-road", {
+    width: 2, height: 0.15, depth: 10,
+  }, scene);
+  sidewalk.position.set(3, 0.075, 0);
+  sidewalk.material = new StandardMaterial("sidewalk", scene);
+  const voight = MeshBuilder.CreateBox("imported-trial-humanoid", {
+    width: 0.5, height: 1.8, depth: 0.5,
+  }, scene);
+  voight.position.y = 0.9;
+  voight.material = new StandardMaterial("humanoid", scene);
+  return { engine, scene, terrain, road, sidewalk, voight };
+}
+
+describe("GTD-CHAR-001 genuine street surface draw gate", () => {
+  it("accepts separately rendered road + sidewalk + humanoid even if hidden base terrain never draws", async () => {
+    const x = setup();
+    try {
+      // Babylon's NullEngine needs its async material/scene readiness cycle.
+      // Repeated synchronous render calls alone do not advance that cycle.
+      await x.scene.whenReadyAsync();
+      let last = renderWorldEvidenceFrame(x.scene, {
+        ground: x.terrain, voight: x.voight,
+        roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+      });
+      for (let i = 0; i < 6 && !last.complete; i++) {
+        last = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+        });
+      }
+      expect(last).toMatchObject({
+        groundDrawn: false, roadDrawn: true, sidewalkDrawn: true,
+        voightDrawn: true, visibleUrbanSurfaceDrawn: true, complete: true,
+      });
+    } finally {
+      x.scene.dispose(); x.engine.dispose();
+    }
+  });
+  it("rejects a sky-cars-human-street frame without an actual generated building draw", async () => {
+    const x = setup();
+    const building = MeshBuilder.CreateBox("generated-batch:sw-fl-south-apartment:base:wall", {
+      width: 2, height: 5, depth: 2,
+    }, x.scene);
+    building.material = new StandardMaterial("building-wall", x.scene);
+    building.position.set(-2, 2.5, 5);
+    x.terrain.setEnabled(false);
+    building.setEnabled(false);
+    try {
+      await x.scene.whenReadyAsync();
+      for (let i = 0; i < 3; i++) {
+        const evidence = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+          buildingSurfaces: [building],
+        });
+        expect(evidence.complete).toBe(false);
+        expect(evidence.buildingDrawn).toBe(false);
+      }
+      building.setEnabled(true);
+      await x.scene.whenReadyAsync();
+      let completed = false;
+      for (let i = 0; i < 6; i++) {
+        const evidence = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+          buildingSurfaces: [building],
+        });
+        if (evidence.complete && evidence.buildingDrawn) completed = true;
+      }
+      expect(completed).toBe(true);
+    } finally {
+      x.scene.dispose(); x.engine.dispose();
+    }
+  });
+  it("requires real yellow lane markings on the trial before a completed world frame", async () => {
+    const x = setup();
+    const marking = MeshBuilder.CreateBox("generated-parity-main-lane-test", {
+      width: 0.16, height: 0.04, depth: 3.1,
+    }, x.scene);
+    marking.position.set(0, 0.12, 2);
+    marking.material = new StandardMaterial("generated-road-marking", x.scene);
+    marking.setEnabled(false);
+    try {
+      await x.scene.whenReadyAsync();
+      for (let i = 0; i < 4; i++) {
+        const evidence = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+          markingSurfaces: [marking],
+        });
+        expect(evidence.complete).toBe(false);
+        expect(evidence.markingDrawn).toBe(false);
+      }
+      marking.setEnabled(true);
+      await x.scene.whenReadyAsync();
+      let drewRealMarking = false;
+      for (let i = 0; i < 7; i++) {
+        const evidence = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+          markingSurfaces: [marking],
+        });
+        drewRealMarking ||= evidence.complete && evidence.markingDrawn;
+      }
+      expect(drewRealMarking).toBe(true);
+    } finally {
+      x.scene.dispose(); x.engine.dispose();
+    }
+  });
+  it("cannot accept the imported human and asphalt alone when sidewalk and terrain are absent", async () => {
+    const x = setup();
+    x.sidewalk.setEnabled(false);
+    try {
+      await x.scene.whenReadyAsync();
+      for (let i = 0; i < 6; i++) {
+        const evidence = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+        });
+        expect(evidence.complete).toBe(false);
+        expect(evidence.visibleUrbanSurfaceDrawn).toBe(false);
+        expect(evidence.sidewalkDrawn).toBe(false);
+      }
+    } finally {
+      x.scene.dispose(); x.engine.dispose();
+    }
+  });
+});

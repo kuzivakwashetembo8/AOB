@@ -29,7 +29,7 @@ export type GameAction =
   | "context";
 
 export type GameCommand =
-  | { type: "move" | "look"; x: number; y: number }
+  | { type: "move" | "look"; x: number; y: number; source?: "keyboard" | "keyboard-reset" | "desktop-pointer-down" | "desktop-pointer-up" | "desktop-pointer-cancel" | "desktop-pointer-lost" | "touch-joystick" }
   | { type: "look-delta"; x: number; y: number }
   | { type: "camera-settings"; touchSensitivity: number; invertY: boolean }
   | { type: "render-clarity"; mode: import("../renderer/render-clarity").RenderClarityMode; scalePercent: number }
@@ -37,7 +37,8 @@ export type GameCommand =
   | { type: "set-context"; context: HudContext }
   | { type: "input-mode"; mode: InputMode }
   | { type: "set-meridian-time"; minuteOfDay: number }
-  | { type: "set-meridian-time-scale"; scale: number };
+  | { type: "set-meridian-time-scale"; scale: number }
+  | { type: "character-locomotion-tuning"; settings: Partial<import("../character/locomotion/travel-heading").TravelHeadingSettings> };
 
 export type GameEvent =
   | { type: "progress"; progress: number; detail: string }
