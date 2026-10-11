@@ -32,3 +32,15 @@ The imported humanoid now faces its travel direction. During a sustained arrow-b
 ## Investigation protocol if symptom persists
 
 Check exported evidence in this order: (1) raw move-command transition to zero? → inspect keyboard blur/key release vs pointer cancel/lost capture; (2) commanded move continuously nonzero, but Rapier actual velocity/ground drops? → contact/seam and capsule; (3) raw physics stable, but visual clip transitions? → animation controller or authored clip discontinuity; (4) state/velocity/ground stable and no clip transition? → inspect clip looping, root/pelvis curves and renderer frame timing. This prevents guessing based on appearance alone.
+
+## Verified implementation and preview (2026-10-11)
+
+- Separate L2 branch: `experiment/gtd-char001-l2-gait-continuity`; code SHA `4872203171af9d557f00b512669b8c7e641d6bbd`; earlier L1 remains available as control.
+- Vercel deployment `dpl_7SBvzmNvrgRAVUAn46hWuuvV7Lwq`: **READY**; authenticated GET to https://gtd-ftcryk3qr-interlinkglobaltech.vercel.app/game?gtdCharacterTrial=ual returned HTTP 200.
+- Exact validation command: `npx tsc --noEmit && npm run test && npm run build`. **37 test files and 151 tests passed**, production-mode build passed.
+- Added `src/game/character/locomotion/gait-continuity.ts`: transient contact and corrected-speed dropout grace, sprint-request hysteresis and immediate real release/jump response. It only controls visual clips, never changes Rapier position.
+- `src/game/character/voight-humanoid-trial.ts`: UAL animation group transitions now consume the stabilized visual gait state rather than switching instantly on each raw Rapier tick.
+- Extended local report via Pause → Character locomotion (L1) → Download movement trace (JSON): real command-source changes/releases, repeated identical commands count, raw collider-corrected speed/grounding, raw candidate gait, stabilized visual gait, transition events and suppressed transient dropout events. No synthetic samples, network uploads or external telemetry.
+- Browser evidence caveat: HTTP 200 and unit tests do not prove the intermittent stutter is gone. User must compare sustained motion in both identical L1 and new L2 previews; report actual duration and whether a visible trip occurs.
+- Production deployment at verification: `9d5be65176f7711388db03c7ab82fb3500213e55`, untouched.
+- **Gate:** L2 animation continuity remains pending user visual acceptance. If the symptom recurs, export the JSON trace during and immediately after a sustained run to discriminate a real keyboard/pointer release, collision speed/ground anomaly, clip flip, or authored animation-loop defect.
