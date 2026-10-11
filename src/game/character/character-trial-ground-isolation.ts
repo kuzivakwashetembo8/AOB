@@ -13,16 +13,7 @@ import type { Mesh, Scene, Texture } from "@babylonjs/core";
  * This is deliberately NOT GTD's permanent lighting architecture. The same
  * branch without ?gtdCharacterTrial=ual retains all original materials.
  */
-export function isolateCharacterTrialGroundShaders(
-  ground: Mesh,
-  roads: readonly Mesh[],
-  sidewalks: readonly Mesh[],
-  scenery: readonly Mesh[] = [],
-) {
-  const selected = [...new Set([ground, ...roads, ...sidewalks, ...scenery])];
-  const sourceMaterials = new Map<StandardMaterial, ShaderMaterial>();
-  const scene: Scene = ground.getScene();
-  const vertexSource = [
+export const CHAR_TRIAL_WORLD_VERTEX_GLSL = [
     "precision highp float;",
     "attribute vec3 position;",
     "attribute vec2 uv;",
@@ -48,6 +39,21 @@ export function isolateCharacterTrialGroundShaders(
     "}",
   ].join("\n");
 
+/**
+ * Apply instance transforms for Babylon's thin-batched building facades.
+ * ShaderMaterial automatically enables INSTANCES and THIN_INSTANCES defines
+ * and binds world0..world3 when a batch is drawn with GPU instances.
+ */
+export function isolateCharacterTrialGroundShaders(
+  ground: Mesh,
+  roads: readonly Mesh[],
+  sidewalks: readonly Mesh[],
+  scenery: readonly Mesh[] = [],
+) {
+  const selected = [...new Set([ground, ...roads, ...sidewalks, ...scenery])];
+  const sourceMaterials = new Map<StandardMaterial, ShaderMaterial>();
+  const scene: Scene = ground.getScene();
+
   for (const mesh of selected) {
     const source = mesh.material;
     if (!(source instanceof StandardMaterial)) {
@@ -72,7 +78,7 @@ export function isolateCharacterTrialGroundShaders(
       replacement = new ShaderMaterial(
         "gtd-char001-direct-ground:" + source.name,
         scene,
-        { vertexSource, fragmentSource },
+        { vertexSource: CHAR_TRIAL_WORLD_VERTEX_GLSL, fragmentSource },
         {
           attributes: ["position", "uv"],
           // Babylon adds INSTANCES/THIN_INSTANCES and binds world0..world3
