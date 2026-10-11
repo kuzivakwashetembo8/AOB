@@ -1,4 +1,4 @@
-import type { AbstractMesh, Scene } from "@babylonjs/core";
+import type { Mesh, Scene } from "@babylonjs/core";
 
 /**
  * Observable witnesses of actual Babylon scene geometry draw submissions.
@@ -8,8 +8,8 @@ import type { AbstractMesh, Scene } from "@babylonjs/core";
  * casters, so their mesh callbacks represent the ordinary camera render pass.
  */
 export interface WorldRenderWitnesses {
-  readonly ground: AbstractMesh;
-  readonly voight: AbstractMesh;
+  readonly ground: Mesh;
+  readonly voight: Mesh;
 }
 
 export interface WorldFrameEvidence {
