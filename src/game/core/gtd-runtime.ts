@@ -49,6 +49,12 @@ import {
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
+import {
+  DEFAULT_TRAVEL_HEADING,
+  normalizeHeadingSettings,
+  stepTravelHeading,
+  type TravelHeadingSettings,
+} from "../character/locomotion/travel-heading";
 import { collectCharacterTrialSceneReport } from "../character/character-trial-diagnostics";
 import {
   capTrialPbrLightUniforms,
@@ -78,6 +84,17 @@ export class GTDGameRuntime implements GameRuntime {
   private physics: MeridianPhysics | null = null;
   private voight: VoightPrototype | null = null;
   private characterTrial: LoadedMeridiaCharacter | null = null;
+  private headingSettings: TravelHeadingSettings = DEFAULT_TRAVEL_HEADING;
+  private headingTurnSign: -1 | 1 = 1;
+  private locomotionTick = 0;
+  private locomotionSamples: Array<{
+    atMs: number; inputX: number; inputZ: number;
+    headingYawRad: number; targetYawRad: number | null;
+    remainingErrorRad: number; turnRateRad: number;
+    travelFactor: number; actualPlanarMps: number;
+    actualPlanarX: number; actualPlanarZ: number;
+    grounded: boolean; sprint: boolean;
+  }> = [];
   private world: RuntimeFirstLightWorld | null = null;
   private lifecycle: Lifecycle = "idle";
   private context: HudContext = "walking";
@@ -289,6 +306,19 @@ export class GTDGameRuntime implements GameRuntime {
         const trial = await loadMeridiaCharacterTrial(scene);
         this.characterTrial = trial;
         voight = trial;
+        // A real movement trace is exported only when the gamer requests it.
+        // This does not upload, log or simulate performance data.
+        (window as Window & { __GTD_CHARACTER_LOCOMOTION_REPORT__?: () => unknown })
+          .__GTD_CHARACTER_LOCOMOTION_REPORT__ = () => ({
+            schema: "gtd.char001.l1-locomotion.v1",
+            generatedAt: new Date().toISOString(),
+            trial: true,
+            settings: this.headingSettings,
+            model: this.characterTrial?.report() ?? null,
+            sampleCount: this.locomotionSamples.length,
+            samples: this.locomotionSamples.slice(),
+            note: "Real fixed-step movement samples; numeric defaults are provisional until gamer acceptance. No IK is implemented.",
+          });
         (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: () => ReturnType<LoadedMeridiaCharacter["report"]> })
           .__GTD_CHARACTER_TRIAL_REPORT__ = () => trial.report();
       } catch (error) {
@@ -475,6 +505,10 @@ export class GTDGameRuntime implements GameRuntime {
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
     delete (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: unknown }).__GTD_CHARACTER_TRIAL_REPORT__;
     delete window.__GTD_CHAR_DIAGNOSTICS__;
+    delete (window as Window & { __GTD_CHARACTER_LOCOMOTION_REPORT__?: unknown })
+      .__GTD_CHARACTER_LOCOMOTION_REPORT__;
+    this.locomotionSamples = [];
+    this.locomotionTick = 0;
     this.characterTrial = null;
     this.removeFL4EvidenceExport?.();
     this.removeFL4EvidenceExport = null;
@@ -544,6 +578,14 @@ export class GTDGameRuntime implements GameRuntime {
     }
     if (command.type === "input-mode") {
       this.inputMode = command.mode;
+      return;
+    }
+    if (command.type === "character-locomotion-tuning") {
+      // Only the opt-in preview's imported humanoid can be tuned.
+      // Baseline capsule physics, world and production remain untouched.
+      if (!this.characterTrial) return;
+      this.headingSettings = normalizeHeadingSettings({ ...this.headingSettings, ...command.settings });
+      this.characterTrial.setVisualForward(this.headingSettings.visualForwardDeg);
       return;
     }
     if (command.type === "set-meridian-time") {
@@ -622,7 +664,18 @@ export class GTDGameRuntime implements GameRuntime {
     const desired = forward.scale(-this.move.y).add(right.scale(this.move.x));
     if (desired.lengthSquared() > 1) desired.normalize();
     const speed = this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
-    const horizontal = desired.scale(speed * dt);
+    const headingStep = this.characterTrial
+      ? stepTravelHeading(
+          voight.root.rotation.y, desired.x, desired.z, dt, this.headingSettings,
+          this.headingTurnSign,
+        )
+      : null;
+    if (headingStep) this.headingTurnSign = headingStep.turnSign;
+    // Travel-facing translation uses the character's actual facing, never a
+    // sideways or backwards vector during turns. Rapier still owns collisions.
+    const horizontal = headingStep
+      ? new Vector3(headingStep.travelX, 0, headingStep.travelZ).scale(speed * dt)
+      : desired.scale(speed * dt);
 
     if (this.actions.has("jump") && this.grounded) {
       this.verticalVelocity = JUMP_SPEED;
@@ -651,7 +704,28 @@ export class GTDGameRuntime implements GameRuntime {
       interiorState === "inside" ? 3.35 : interiorState === "threshold" ? 4.5 : 6.2;
 
     voight.root.position.set(position.x, position.y, position.z);
-    if (desired.lengthSquared() > 0.001) {
+    if (headingStep) {
+      voight.root.rotation.y = headingStep.yaw;
+      this.locomotionTick++;
+      if (this.locomotionTick % 3 === 0) {
+        this.locomotionSamples.push({
+          atMs: performance.now(),
+          inputX: desired.x, inputZ: desired.z,
+          headingYawRad: headingStep.yaw,
+          targetYawRad: headingStep.targetYaw,
+          remainingErrorRad: headingStep.remainingErrorRad,
+          turnRateRad: headingStep.angularRateRad,
+          travelFactor: headingStep.travelScale,
+          actualPlanarMps: Math.hypot(movement.movement.x, movement.movement.z) / Math.max(dt, 0.0001),
+          actualPlanarX: movement.movement.x / Math.max(dt, 0.0001),
+          actualPlanarZ: movement.movement.z / Math.max(dt, 0.0001),
+          grounded: this.grounded,
+          sprint: this.actions.has("sprint"),
+        });
+        if (this.locomotionSamples.length > 900) this.locomotionSamples.shift();
+      }
+    } else if (desired.lengthSquared() > 0.001) {
+      // Unmodified main-branch capsule behavior in the non-trial baseline.
       voight.root.rotation.y = Math.atan2(desired.x, desired.z);
     }
     camera.target.set(position.x, position.y + 0.55, position.z);
@@ -660,7 +734,11 @@ export class GTDGameRuntime implements GameRuntime {
     this.snapshotAccumulator += dt;
     if (this.snapshotAccumulator >= SNAPSHOT_INTERVAL) {
       this.snapshotAccumulator = 0;
-      this.publishSnapshot(desired.length() * speed);
+      this.publishSnapshot(
+        headingStep
+          ? Math.hypot(movement.movement.x, movement.movement.z) / Math.max(dt, 0.0001)
+          : desired.length() * speed,
+      );
     }
   }
 
