@@ -13,6 +13,10 @@ export function resolveCharacterTrialStreetWitnesses(world: RuntimeFirstLightWor
   readonly sample: readonly { name: string; material: string | null }[];
 } {
   const surfaces = isGeneratedFirstLightWorld(world) ? world.urbanSurfaces.meshes : [];
+  return classifyCharacterTrialStreetMeshes(surfaces);
+}
+
+export function classifyCharacterTrialStreetMeshes(surfaces: readonly Mesh[]) {
   const roads = surfaces.filter(mesh => mesh.material?.name === "generated-asphalt");
   const sidewalks = surfaces.filter(mesh => mesh.material?.name === "generated-sidewalk");
   return {
