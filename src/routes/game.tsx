@@ -205,9 +205,10 @@ function GamePage() {
       KeyC: "combat",
       KeyQ: "context",
     };
-    const movement = () =>
+    const movement = (source: "keyboard" | "keyboard-reset" = "keyboard") =>
       bridge.command({
         type: "move",
+        source,
         x:
           Number(held.has("ArrowRight") || held.has("KeyD")) -
           Number(held.has("ArrowLeft") || held.has("KeyA")),
@@ -253,7 +254,7 @@ function GamePage() {
     };
     const release = () => {
       held.clear();
-      movement();
+      movement("keyboard-reset");
       Object.values(actions).forEach((value) =>
         bridge.command({ type: "action", action: value, pressed: false }),
       );
