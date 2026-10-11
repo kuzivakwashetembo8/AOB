@@ -313,7 +313,13 @@ export class GTDGameRuntime implements GameRuntime {
     if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
       throw new Error("Generated ground or Voight render witness was not constructed");
     }
-    const warmup = beginWorldRenderWarmup(scene, { ground, voight: protagonist });
+    const warmup = beginWorldRenderWarmup(
+      scene,
+      { ground, voight: protagonist },
+      this.characterTrial
+        ? { postImportDeadlineMs: 45000, minimumPostImportRenderAttempts: 4 }
+        : undefined,
+    );
     this.worldRenderWarmup = warmup;
     try {
       // Preserve real GLTF source/parking/collider completion requirements.
