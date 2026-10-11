@@ -48,11 +48,13 @@ export function createFirstLightRuntimeWorld(
   scene: Scene,
   physics: MeridianPhysics,
   source: FirstLightWorldSource = ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
+  options: { readonly enableSidewalkSupportCollision?: boolean } = {},
 ): RuntimeFirstLightWorld {
   if (source === "generated-first-light") {
     return createGeneratedFirstLightWorld(scene, physics, {
       enableCameraBlockers: true,
       enableShadows: true,
+      enableSidewalkSupportCollision: options.enableSidewalkSupportCollision ?? false,
     });
   }
 
