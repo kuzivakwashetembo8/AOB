@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, RotateCcw, Monitor, Volume2, Gamepad2, Eye, PanelsTopLeft, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { defaults, type Settings } from "@/ui/menus/settings-state";
@@ -22,6 +22,9 @@ export function SettingsEditor({
   const [category, setCategory] = useState("Graphics");
   const [saved, setSaved] = useState(false);
   const [settings, setSettings] = useState<Settings>(initialSettings);
+  // The standalone Settings route hydrates saved choices asynchronously.
+  // Reflect that hydration without requiring a route reload.
+  useEffect(() => setSettings(initialSettings), [initialSettings]);
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings((previous) => ({ ...previous, [key]: value }));
     setSaved(false);
