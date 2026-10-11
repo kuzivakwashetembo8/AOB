@@ -12,7 +12,7 @@ export type TravelHeadingSettings = Readonly<{
 export const DEFAULT_TRAVEL_HEADING: TravelHeadingSettings = Object.freeze({
   turnRateDeg: 420,
   turnMobility: 0.65,
-  visualForwardDeg: 90, // Preserve the tested UAL import's existing axis correction.
+  visualForwardDeg: 0, // User screenshots: +90 misaligned the visual rig in every direction.
 });
 
 export type TravelHeadingStep = Readonly<{
@@ -26,7 +26,6 @@ export type TravelHeadingStep = Readonly<{
   travelZ: number;
 }>;
 
-const TAU = Math.PI * 2;
 const RAD = Math.PI / 180;
 
 export function normalizeHeadingSettings(input: Partial<TravelHeadingSettings>): TravelHeadingSettings {
