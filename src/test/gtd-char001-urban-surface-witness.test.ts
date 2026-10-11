@@ -92,6 +92,41 @@ describe("GTD-CHAR-001 genuine street surface draw gate", () => {
       x.scene.dispose(); x.engine.dispose();
     }
   });
+  it("requires real yellow lane markings on the trial before a completed world frame", async () => {
+    const x = setup();
+    const marking = MeshBuilder.CreateBox("generated-parity-main-lane-test", {
+      width: 0.16, height: 0.04, depth: 3.1,
+    }, x.scene);
+    marking.position.set(0, 0.12, 2);
+    marking.material = new StandardMaterial("generated-road-marking", x.scene);
+    marking.setEnabled(false);
+    try {
+      await x.scene.whenReadyAsync();
+      for (let i = 0; i < 4; i++) {
+        const evidence = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+          markingSurfaces: [marking],
+        });
+        expect(evidence.complete).toBe(false);
+        expect(evidence.markingDrawn).toBe(false);
+      }
+      marking.setEnabled(true);
+      await x.scene.whenReadyAsync();
+      let drewRealMarking = false;
+      for (let i = 0; i < 7; i++) {
+        const evidence = renderWorldEvidenceFrame(x.scene, {
+          ground: x.terrain, voight: x.voight,
+          roadSurfaces: [x.road], sidewalkSurfaces: [x.sidewalk],
+          markingSurfaces: [marking],
+        });
+        drewRealMarking ||= evidence.complete && evidence.markingDrawn;
+      }
+      expect(drewRealMarking).toBe(true);
+    } finally {
+      x.scene.dispose(); x.engine.dispose();
+    }
+  });
   it("cannot accept the imported human and asphalt alone when sidewalk and terrain are absent", async () => {
     const x = setup();
     x.sidewalk.setEnabled(false);
