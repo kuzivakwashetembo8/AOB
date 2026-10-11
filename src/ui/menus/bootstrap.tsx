@@ -12,7 +12,7 @@ export function BootstrapOverlay({
 }: {
   entries: readonly StartupCheckEntry[];
   error?: string | null;
-  onDownloadDiagnostics?: () => void;
+  onDownloadDiagnostics?: (() => void) | undefined;
 }) {
   const completion = startupCompletion(entries);
   return (
