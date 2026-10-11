@@ -13,12 +13,15 @@ export interface WorldRenderWitnesses {
   /** Trial-only: asphalt + sidewalk require independent, genuine world draws. */
   readonly roadSurfaces?: readonly Mesh[];
   readonly sidewalkSurfaces?: readonly Mesh[];
+  /** Trial-only: a genuine building draw is required, not only flat ground. */
+  readonly buildingSurfaces?: readonly Mesh[];
 }
 
 export interface WorldFrameEvidence {
   readonly groundDrawn: boolean;
   readonly roadDrawn: boolean;
   readonly sidewalkDrawn: boolean;
+  readonly buildingDrawn: boolean;
   readonly visibleUrbanSurfaceDrawn: boolean;
   readonly voightDrawn: boolean;
   readonly complete: boolean;
@@ -31,6 +34,7 @@ export function renderWorldEvidenceFrame(
   let groundDrawn = false;
   let roadDrawn = false;
   let sidewalkDrawn = false;
+  let buildingDrawn = false;
   let voightDrawn = false;
   const observers: Array<() => void> = [];
   const observe = (mesh: Mesh, onDraw: () => void) => {
@@ -47,6 +51,9 @@ export function renderWorldEvidenceFrame(
   for (const sidewalk of witnesses.sidewalkSurfaces ?? []) {
     observe(sidewalk, () => { sidewalkDrawn = true; });
   }
+  for (const building of witnesses.buildingSurfaces ?? []) {
+    observe(building, () => { buildingDrawn = true; });
+  }
   try {
     scene.render();
   } finally {
@@ -57,12 +64,15 @@ export function renderWorldEvidenceFrame(
     groundDrawn,
     roadDrawn,
     sidewalkDrawn,
+    buildingDrawn,
     visibleUrbanSurfaceDrawn,
     voightDrawn,
     // A base terrain draw OR independently drawn asphalt and sidewalks
     // establishes real ground-level city geometry. The humanoid must
     // actually draw in the SAME frame; sky and cars cannot satisfy this.
-    complete: voightDrawn && (groundDrawn || visibleUrbanSurfaceDrawn),
+    complete: voightDrawn &&
+      (groundDrawn || visibleUrbanSurfaceDrawn) &&
+      (witnesses.buildingSurfaces === undefined || buildingDrawn),
   };
 }
 
@@ -121,6 +131,7 @@ export function beginWorldRenderWarmup(
     groundDrawn: false,
     roadDrawn: false,
     sidewalkDrawn: false,
+    buildingDrawn: false,
     visibleUrbanSurfaceDrawn: false,
     voightDrawn: false,
     complete: false,
@@ -175,6 +186,7 @@ export function beginWorldRenderWarmup(
           "terrain drawn=" + lastEvidence.groundDrawn +
           ", road drawn=" + lastEvidence.roadDrawn +
           ", sidewalk drawn=" + lastEvidence.sidewalkDrawn +
+          ", building drawn=" + lastEvidence.buildingDrawn +
           ", Voight drawn=" + lastEvidence.voightDrawn,
         ));
         return;
