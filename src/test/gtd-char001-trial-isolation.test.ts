@@ -7,10 +7,11 @@ import {
 } from "../game/character/voight-humanoid-trial";
 
 describe("GTD-CHAR-001 controlled Meridian character trial", () => {
-  it("keeps the demo mannequin opt-in, including during explicitly requested mobile production validation", () => {
+  it("shows the merged humanoid on main by default but retains an explicit proxy rollback", () => {
     expect(isMeridiaCharacterTrialRequested("", "gtd-preview.vercel.app")).toBe(false);
-    expect(isMeridiaCharacterTrialRequested("", "grand-theft-division.vercel.app")).toBe(false);
-    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=other", "grand-theft-division.vercel.app")).toBe(false);
+    expect(isMeridiaCharacterTrialRequested("", "grand-theft-division.vercel.app")).toBe(true);
+    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=other", "grand-theft-division.vercel.app")).toBe(true);
+    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=baseline", "grand-theft-division.vercel.app")).toBe(false);
     expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "gtd-preview.vercel.app")).toBe(true);
     expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "grand-theft-division.vercel.app")).toBe(true);
   });
