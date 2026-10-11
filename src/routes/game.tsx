@@ -460,8 +460,8 @@ function GamePage() {
                       ...old, visualForwardDeg: Number(event.target.value),
                     }))}>
                     <option value={-90}>-90°</option>
-                    <option value={0}>0°</option>
-                    <option value={90}>+90° (current baseline)</option>
+                    <option value={0}>0° (corrected trial candidate)</option>
+                    <option value={90}>+90° (previous misalignment)</option>
                     <option value={180}>180°</option>
                   </select>
                 </label>
