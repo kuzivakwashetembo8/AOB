@@ -45,7 +45,6 @@ function GamePage() {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const trialBrowserErrors = useRef<string[]>([]);
   const trialEnabled = typeof window !== "undefined" &&
-    window.location.hostname !== "grand-theft-division.vercel.app" &&
     new URLSearchParams(window.location.search).get("gtdCharacterTrial") === "ual";
   const [loaded, setLoaded] = useState(false);
   const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
