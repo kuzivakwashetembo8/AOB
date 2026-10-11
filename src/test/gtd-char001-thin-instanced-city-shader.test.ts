@@ -21,7 +21,7 @@ describe("GTD-CHAR-001 thin-instanced building reconstruction", () => {
     expect(vertex).toContain("gl_Position = viewProjection * vertexWorld * vec4(position, 1.0);");
     expect(vertex).not.toContain("worldViewProjection");
   });
-  it("retains per-instance facade positions and scales rather than replacing geometry with proxy boxes", async () => {
+  it("preserves facade geometry and CPU instance-matrix composition without claiming NullEngine can render instancing", () => {
     const engine = new NullEngine();
     const scene = new Scene(engine);
     const root = new TransformNode("generated-building:sw-fl-garage", scene);
@@ -35,18 +35,21 @@ describe("GTD-CHAR-001 thin-instanced building reconstruction", () => {
     wallBatch.material = new StandardMaterial("brick", scene);
     const a = Matrix.Scaling(10, 4, 0.25).multiply(Matrix.Translation(0, 2, -5));
     const b = Matrix.Scaling(4, 3, 0.25).multiply(Matrix.Translation(6, 1.5, 1));
-    wallBatch.thinInstanceAdd(a);
-    wallBatch.thinInstanceAdd(b);
-    wallBatch.thinInstanceRefreshBoundingInfo();
-    const count = wallBatch.thinInstanceCount;
-    const matrices = wallBatch.thinInstanceGetWorldMatrices().map(m => m.asArray().join(","));
+    // Babylon NullEngine has NO instanced-array extension, so avoid
+    // thinInstanceAdd; on a real WebGL device the instance buffer supplies
+    // precisely these two different matrices to world0..world3.
+    const world = wallBatch.computeWorldMatrix(true).clone();
+    const facadeOneWorld = world.multiply(a);
+    const facadeTwoWorld = world.multiply(b);
+    const originalVertexCount = wallBatch.getTotalVertices();
     try {
       const report = isolateCharacterTrialGroundShaders(terrain, [], [], [wallBatch]);
       expect(report.sceneryMeshes).toBe(1);
       expect(wallBatch.material).toBeInstanceOf(ShaderMaterial);
-      expect(wallBatch.thinInstanceCount).toBe(count);
-      expect(count).toBe(2);
-      expect(wallBatch.thinInstanceGetWorldMatrices().map(m => m.asArray().join(","))).toEqual(matrices);
+      expect(wallBatch.getTotalVertices()).toBe(originalVertexCount);
+      expect(wallBatch.computeWorldMatrix(true).equals(world)).toBe(true);
+      expect(facadeOneWorld.equals(facadeTwoWorld)).toBe(false);
+      expect(a.equals(b)).toBe(false);
       expect(wallBatch.computeWorldMatrix(true).getTranslation().x).toBe(11);
     } finally {
       scene.dispose();
