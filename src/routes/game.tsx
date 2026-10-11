@@ -18,6 +18,7 @@ import { TouchControls } from "@/ui/hud/touch-controls";
 import { DesktopControls } from "@/ui/hud/desktop-controls";
 import { BootstrapOverlay } from "@/ui/menus/bootstrap";
 import { downloadCharacterTrialEvidence } from "@/game/character/character-trial-download";
+import { isMeridiaCharacterTrialRequested } from "@/game/character/character-mode";
 import {
   DEFAULT_TRAVEL_HEADING, normalizeHeadingSettings,
 } from "@/game/character/locomotion/travel-heading";
@@ -45,7 +46,7 @@ function GamePage() {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const trialBrowserErrors = useRef<string[]>([]);
   const trialEnabled = typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("gtdCharacterTrial") === "ual";
+    isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname);
   const [loaded, setLoaded] = useState(false);
   const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
   const [interaction, setInteraction] = useState("");
