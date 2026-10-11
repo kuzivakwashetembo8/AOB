@@ -37,3 +37,15 @@
 - Deploy to Vercel preview only after TypeScript, tests and build pass. Return build SHA and link; user performs 4-direction orientation and curb crossing verification before L1 acceptance.
 
 **Known limitations:** With no L3 foot calibration and no L4 IK, animated toe/heel positions can still penetrate curbs during swing phases even when capsule support is correct. This trial addresses the incorrect support surface and 90° visual heading; it does NOT claim human-quality gait or finished IK.
+
+## Patch and deployment verification (2026-10-11)
+
+- Branch: `experiment/gtd-char001-l1-travel-facing`; **not merged to main**.
+- Preview: https://gtd-alge6grou-interlinkglobaltech.vercel.app/game?gtdCharacterTrial=ual
+- Vercel deployment: `dpl_AdxqnBK2XniNmcHAmouqTbWV5Rjp`, source commit `97531c1946399157b03857bcb8799dd93e77dd19`.
+- Build gate: `npx tsc --noEmit && npm run test && npm run build`; **36 test files / 143 tests passed**. Vercel READY and authenticated page HTTP 200.
+- Corrected: `DEFAULT_TRAVEL_HEADING.visualForwardDeg = 0`; imported visual-root starts at 0° rather than +90°, with manual forward-axis selector retained.
+- Added: opt-in physical support colliders for the **existing** First Light parity sidewalk meshes. The default world and its curb collisions remain unchanged.
+- Measured Rapier regression: raised-sidewalk standing height > flat road; baseline without opt-in remains lower; both tests pass using actual world meshes and collision-corrected movement.
+- Production at verification remained `9d5be65176f7711388db03c7ab82fb3500213e55` and was untouched.
+- **Outstanding gate:** user must verify actual 4-direction visual orientation and road→curb→sidewalk crossing on browser/mobile; shoe swing-phase toe penetration may still require L3/L4 calibration and Foot IK. Do not infer completion from HTTP 200 or automated tests.
