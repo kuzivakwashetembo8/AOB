@@ -37,7 +37,8 @@ export type GameCommand =
   | { type: "set-context"; context: HudContext }
   | { type: "input-mode"; mode: InputMode }
   | { type: "set-meridian-time"; minuteOfDay: number }
-  | { type: "set-meridian-time-scale"; scale: number };
+  | { type: "set-meridian-time-scale"; scale: number }
+  | { type: "character-locomotion-tuning"; settings: Partial<import("../character/locomotion/travel-heading").TravelHeadingSettings> };
 
 export type GameEvent =
   | { type: "progress"; progress: number; detail: string }
