@@ -6,6 +6,7 @@ import {
   Mesh,
   Ray,
   Scene,
+  StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
 import type {
@@ -346,11 +347,29 @@ export class GTDGameRuntime implements GameRuntime {
         "); samples=" + JSON.stringify(trialStreetWitnesses?.sample ?? []),
       );
     }
+    const trialBuildingSurfaces = this.characterTrial && isGeneratedFirstLightWorld(firstLight)
+      ? firstLight.buildings.flatMap(building =>
+          building.meshes.filter(mesh => mesh.isEnabled() && mesh.getTotalVertices() > 0))
+      : [];
+    if (this.characterTrial && !trialBuildingSurfaces.length) {
+      throw new Error("GTD character trial: no generated First Light building geometry available");
+    }
+    const trialScenery = this.characterTrial && isGeneratedFirstLightWorld(firstLight)
+      ? [
+          ...trialBuildingSurfaces,
+          ...firstLight.streetContext.meshes,
+          ...(firstLight.garageInterior?.meshes ?? []),
+        ].filter(mesh => mesh.isEnabled() && mesh.material instanceof StandardMaterial)
+      : [];
     if (this.characterTrial) {
-      // Trial-only material isolation: no synthetic geometry or readiness bypass.
-      // This controls for Babylon light/shadow shader pressure on the ACTUAL
-      // generated roads, paving and base terrain while retaining their textures.
-      groundIsolation = isolateCharacterTrialGroundShaders(ground, roadSurfaces, sidewalkSurfaces);
+      // This explicit fallback tests WHETHER Babylon's original StandardMaterial
+      // effects are starving out all city meshes after UAL PBR import.
+      // Preserve existing city geometry/UVs/textures; do not invent proxies.
+      // No effect on production or the no-query preview baseline.
+      groundIsolation = isolateCharacterTrialGroundShaders(
+        ground, roadSurfaces, sidewalkSurfaces, trialScenery,
+      );
+      scene.shadowsEnabled = false;
     }
     // Intercept newly created PBR materials from concurrent vehicle imports
     // BEFORE each warm-up render. The normal procedural city and its lamps
@@ -366,7 +385,9 @@ export class GTDGameRuntime implements GameRuntime {
       {
         ground,
         voight: protagonist,
-        ...(this.characterTrial ? { roadSurfaces, sidewalkSurfaces } : {}),
+        ...(this.characterTrial ? {
+          roadSurfaces, sidewalkSurfaces, buildingSurfaces: trialBuildingSurfaces,
+        } : {}),
       },
       this.characterTrial
         ? { postImportDeadlineMs: 45000, minimumPostImportRenderAttempts: 4 }
