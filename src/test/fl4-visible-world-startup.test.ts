@@ -33,7 +33,13 @@ describe("FL4 world-visible startup acceptance on actual Babylon draws", () => {
   it("only accepts an actual render containing ground and Voight", () => {
     const { engine, scene, ground, voight } = worldScene();
     try {
-      const evidence = renderWorldEvidenceFrame(scene, { ground, voight });
+      // Babylon compiles and activates some scene materials across early real
+      // render attempts. Do not require the first render to be complete:
+      // this was precisely the regression when production gated on one frame.
+      let evidence = renderWorldEvidenceFrame(scene, { ground, voight });
+      for (let attempt = 1; !evidence.complete && attempt < 8; attempt++) {
+        evidence = renderWorldEvidenceFrame(scene, { ground, voight });
+      }
       expect(evidence).toEqual({
         groundDrawn: true, voightDrawn: true, complete: true,
       });
