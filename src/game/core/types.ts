@@ -29,7 +29,7 @@ export type GameAction =
   | "context";
 
 export type GameCommand =
-  | { type: "move" | "look"; x: number; y: number }
+  | { type: "move" | "look"; x: number; y: number; source?: "keyboard" | "keyboard-blur" | "desktop-pointer-down" | "desktop-pointer-up" | "desktop-pointer-cancel" | "desktop-pointer-lost" | "touch-joystick" }
   | { type: "look-delta"; x: number; y: number }
   | { type: "camera-settings"; touchSensitivity: number; invertY: boolean }
   | { type: "render-clarity"; mode: import("../renderer/render-clarity").RenderClarityMode; scalePercent: number }
