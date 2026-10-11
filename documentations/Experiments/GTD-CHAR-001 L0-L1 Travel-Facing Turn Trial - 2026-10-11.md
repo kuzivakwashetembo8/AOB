@@ -35,4 +35,13 @@ The user should compare the baseline and new preview on the same laptop/mobile d
 7. Export the JSON trace if steering feels wrong; compare actual heading and corrected distance with input.
 8. Confirm buildings, lane marks, vehicle imports, camera and Apply & Resume remain working.
 
+## Verified build evidence
+
+- Vercel preview: https://gtd-8lifvzrbl-interlinkglobaltech.vercel.app/game?gtdCharacterTrial=ual
+- Deployment ID: `dpl_9mi4zNvQ2RRQWBFAQv5nDk9Meavf`.
+- Deployed source SHA: `bb6e341d691556aebfb08f9164c1fb57a89187ed` (implementation and tests). This subsequent documentation commit is not part of that immutable preview.
+- Build: Vercel reported **READY** and its authenticated HTTP fetch returned **200**. Build logs show the test command and successful production-mode Nitro/Vite build; no command failure was reported.
+- Main/production: unchanged. Production deployment at verification remained `9d5be65176f7711388db03c7ab82fb3500213e55`.
+- **Limit:** Automated verification does not prove the rig visually faces travel or that turning feels natural. No device gameplay acceptance claimed.
+
 **L0 rig-axis calibration and L1 human-visible gate:** PENDING user evidence. Automated TypeScript/tests/build are separate technical gates; record actual results when Vercel finishes. No promotion to main or production.
