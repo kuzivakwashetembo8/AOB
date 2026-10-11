@@ -37,6 +37,7 @@ export interface CharacterTrialReport {
   readonly modelLoadMs: number;
   readonly activeAnimation: string;
   readonly notes: string[];
+  readonly visualForwardDeg: number;
 }
 
 /**
@@ -83,6 +84,7 @@ export type LoadedMeridiaCharacter = VoightPrototype & {
   readonly witness: Mesh;
   readonly report: () => CharacterTrialReport;
   updateAnimation: (speed: number, grounded: boolean, deltaSeconds: number) => void;
+  setVisualForward: (degrees: number) => void;
 };
 
 export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMeridiaCharacter> {
@@ -132,7 +134,8 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
   );
   // Authoring-forward axis is calibrated separately from physics/root heading.
   // The reference demo's character has an additional 90-degree Y correction.
-  visualRoot.rotation.y = Math.PI / 2;
+  let visualForwardDeg = 90;
+  visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
 
   const clips = {
     idle: preferredClip(imported.animationGroups, ["Idle_Loop", "idle"]),
@@ -183,7 +186,14 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
   return {
     root,
     witness,
-    report: (): CharacterTrialReport => ({ ...reportInfo, activeAnimation: activeName }),
+    report: (): CharacterTrialReport => ({ ...reportInfo, activeAnimation: activeName, visualForwardDeg }),
+    setVisualForward(degrees) {
+      // L0 axis calibration: only adjust the imported visual node, never
+      // double-rotate the kinematic physics actor or skeleton.
+      if (!Number.isFinite(degrees)) return;
+      visualForwardDeg = Math.max(-180, Math.min(180, degrees));
+      visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
+    },
     updateAnimation(speed, grounded, dt) {
       const wantedName = !grounded ? "jump" : speed > 5 ? "sprint" : speed > 0.18 ? "walk" : "idle";
       const group = clips[wantedName] ?? clips.idle;
