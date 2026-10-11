@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MeshBuilder, NullEngine, Scene, StandardMaterial, Texture } from "@babylonjs/core";
+import { MeshBuilder, NullEngine, Scene, ShaderMaterial, StandardMaterial, Texture } from "@babylonjs/core";
 import { isolateCharacterTrialGroundShaders } from "../game/character/character-trial-ground-isolation";
 import { isMeridiaCharacterTrialRequested } from "../game/character/voight-humanoid-trial";
 
@@ -24,16 +24,19 @@ describe("GTD-CHAR-001 experimental ground shader isolation", () => {
     const vertices = meshes.map(m => m.getTotalVertices());
     try {
       const summary = isolateCharacterTrialGroundShaders(ground, [road], [sidewalk]);
-      expect(summary).toMatchObject({ strategy: "original-textured-meshes-unlit-no-receive-shadows", meshes: 3 });
+      expect(summary).toMatchObject({ strategy: "original-meshes-direct-uv-shader-no-light-ubos", meshes: 3 });
       expect(summary.materials).toHaveLength(3);
       for (let i = 0; i < meshes.length; i++) {
         expect(meshes[i]!.getTotalIndices()).toBe(indices[i]);
         expect(meshes[i]!.getTotalVertices()).toBe(vertices[i]);
-        expect(meshes[i]!.material).toBe(materials[i]);
+        expect(meshes[i]!.material).toBeInstanceOf(ShaderMaterial);
+        expect(meshes[i]!.material).not.toBe(materials[i]);
         expect(meshes[i]!.receiveShadows).toBe(false);
-        expect(materials[i]!.disableLighting).toBe(true);
-        expect(materials[i]!.maxSimultaneousLights).toBe(1);
+        // The original material and owned texture remain unchanged; the trial
+        // shader borrows its diffuse sampler without destroying the asset.
+        expect(materials[i]!.maxSimultaneousLights).toBe(16);
         expect(materials[i]!.diffuseTexture).toBe(originalTextures[i]);
+        expect((meshes[i]!.material as ShaderMaterial).getActiveTextures()).toContain(originalTextures[i]);
       }
     } finally {
       scene.dispose();
