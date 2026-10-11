@@ -82,6 +82,24 @@ export function collectCharacterTrialSceneReport(scene: Scene, engine: Engine) {
         visible: mesh.isVisible,
       })),
     },
+    renderProbe: {
+      activeMeshes: scene.getActiveMeshes().length,
+      // Active-mesh and frustum checks reveal whether meshes were skipped
+      // before shader submission, rather than silently reporting no draws.
+      witnesses: [scene.getMeshByName("generated-first-light-ground"), ...streetMaterials.slice(0, 12)]
+        .filter((mesh): mesh is Mesh => mesh !== null && mesh.getClassName() === "Mesh")
+        .map(mesh => ({
+          name: mesh.name,
+          material: mesh.material?.name ?? null,
+          materialType: mesh.material?.getClassName() ?? null,
+          materialDisableLighting: mesh.material?.getClassName() === "StandardMaterial"
+            ? (mesh.material as import("@babylonjs/core").StandardMaterial).disableLighting
+            : null,
+          receiveShadows: mesh.receiveShadows,
+          active: scene.getActiveMeshes().data.includes(mesh),
+          inCameraFrustum: camera ? camera.isInFrustum(mesh.getBoundingInfo()) : null,
+        })),
+    },
     limitations: [
       "Scene snapshots do not prove pixels reached the display.",
       "Vertex uniform block limits are browser/WebGL reported; no GPU memory is measured.",
@@ -96,6 +114,7 @@ export type CharacterTrialRuntimeEvidence = {
   readonly character: unknown;
   readonly vehicles: unknown;
   readonly warmup: unknown;
+  readonly surfaceIsolation?: unknown;
 };
 
 declare global {
