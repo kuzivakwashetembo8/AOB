@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { NullEngine, PBRMaterial, Scene, StandardMaterial } from "@babylonjs/core";
 import {
+  capTrialPbrLightUniforms,
   isMeridiaCharacterTrialRequested,
   MERIDIA_TRIAL_SOURCE,
 } from "../game/character/voight-humanoid-trial";
@@ -10,6 +12,23 @@ describe("GTD-CHAR-001 controlled Meridian character trial", () => {
     expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=other", "gtd-preview.vercel.app")).toBe(false);
     expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "gtd-preview.vercel.app")).toBe(true);
     expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "grand-theft-division.vercel.app")).toBe(false);
+  });
+  it("prevents 16-light PBR uniform-buffer overload without changing city StandardMaterials", () => {
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    try {
+      const character = new PBRMaterial("trial-character", scene);
+      character.maxSimultaneousLights = 16;
+      const city = new StandardMaterial("original-city-material", scene);
+      city.maxSimultaneousLights = 16;
+      expect(capTrialPbrLightUniforms(scene)).toBe(1);
+      expect(character.maxSimultaneousLights).toBe(4);
+      expect(city.maxSimultaneousLights).toBe(16);
+      expect(capTrialPbrLightUniforms(scene)).toBe(0);
+    } finally {
+      scene.dispose();
+      engine.dispose();
+    }
   });
   it("uses a pinned documented demonstration asset; never a floating latest URL", () => {
     expect(MERIDIA_TRIAL_SOURCE.sourceBytes).toBe(3749364);
