@@ -56,8 +56,8 @@ export function renderHardwareScale(input: {
   devicePixelRatio: number;
   coarsePointer: boolean;
   renderScalePercent?: number;
-  cssWidth?: number;
-  cssHeight?: number;
+  cssWidth?: number | undefined;
+  cssHeight?: number | undefined;
 }): number {
   const dpr = Number.isFinite(input.devicePixelRatio) && input.devicePixelRatio > 0
     ? input.devicePixelRatio
