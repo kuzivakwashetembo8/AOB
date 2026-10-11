@@ -340,6 +340,10 @@ export class GTDGameRuntime implements GameRuntime {
       : null;
     const roadSurfaces = trialStreetWitnesses?.roads ?? [];
     const sidewalkSurfaces = trialStreetWitnesses?.sidewalks ?? [];
+    const markingSurfaces = this.characterTrial && isGeneratedFirstLightWorld(firstLight)
+      ? firstLight.urbanSurfaces.meshes.filter(mesh =>
+          mesh.material?.name === "generated-road-marking" && mesh.isEnabled())
+      : [];
     if (this.characterTrial && (!roadSurfaces.length || !sidewalkSurfaces.length)) {
       throw new Error(
         "GTD character trial: actual road/sidewalk materials missing (" +
@@ -354,9 +358,13 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.characterTrial && !trialBuildingSurfaces.length) {
       throw new Error("GTD character trial: no generated First Light building geometry available");
     }
+    if (this.characterTrial && !markingSurfaces.length) {
+      throw new Error("GTD character trial: generated road-marking meshes unavailable");
+    }
     const trialScenery = this.characterTrial && isGeneratedFirstLightWorld(firstLight)
       ? [
           ...trialBuildingSurfaces,
+          ...markingSurfaces,
           ...firstLight.streetContext.meshes,
           ...(firstLight.garageInterior?.meshes ?? []),
         ].filter(mesh => mesh.isEnabled() && mesh.material instanceof StandardMaterial)
@@ -386,7 +394,8 @@ export class GTDGameRuntime implements GameRuntime {
         ground,
         voight: protagonist,
         ...(this.characterTrial ? {
-          roadSurfaces, sidewalkSurfaces, buildingSurfaces: trialBuildingSurfaces,
+          roadSurfaces, sidewalkSurfaces, markingSurfaces,
+          buildingSurfaces: trialBuildingSurfaces,
         } : {}),
       },
       this.characterTrial
