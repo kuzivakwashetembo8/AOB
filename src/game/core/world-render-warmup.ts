@@ -10,10 +10,16 @@ import type { Mesh, Scene } from "@babylonjs/core";
 export interface WorldRenderWitnesses {
   readonly ground: Mesh;
   readonly voight: Mesh;
+  /** Trial-only: asphalt + sidewalk require independent, genuine world draws. */
+  readonly roadSurfaces?: readonly Mesh[];
+  readonly sidewalkSurfaces?: readonly Mesh[];
 }
 
 export interface WorldFrameEvidence {
   readonly groundDrawn: boolean;
+  readonly roadDrawn: boolean;
+  readonly sidewalkDrawn: boolean;
+  readonly visibleUrbanSurfaceDrawn: boolean;
   readonly voightDrawn: boolean;
   readonly complete: boolean;
 }
@@ -23,21 +29,41 @@ export function renderWorldEvidenceFrame(
   witnesses: WorldRenderWitnesses,
 ): WorldFrameEvidence {
   let groundDrawn = false;
+  let roadDrawn = false;
+  let sidewalkDrawn = false;
   let voightDrawn = false;
-  const groundObserver = witnesses.ground.onAfterRenderObservable.add(() => {
-    groundDrawn = true;
-  });
-  const voightObserver = witnesses.voight.onAfterRenderObservable.add(() => {
-    voightDrawn = true;
-  });
+  const observers: Array<() => void> = [];
+  const observe = (mesh: Mesh, onDraw: () => void) => {
+    const observer = mesh.onAfterRenderObservable.add(onDraw);
+    if (observer) observers.push(() => mesh.onAfterRenderObservable.remove(observer));
+  };
+  observe(witnesses.ground, () => { groundDrawn = true; });
+  observe(witnesses.voight, () => { voightDrawn = true; });
+  // These meshes represent the actual traversable Meridian surfaces, not a
+  // proxy or synthetic startup marker. Observe submissions in the SAME frame.
+  for (const road of witnesses.roadSurfaces ?? []) {
+    observe(road, () => { roadDrawn = true; });
+  }
+  for (const sidewalk of witnesses.sidewalkSurfaces ?? []) {
+    observe(sidewalk, () => { sidewalkDrawn = true; });
+  }
   try {
-    // Real graphics render; there is no synthetic mesh-completion event.
     scene.render();
   } finally {
-    if (groundObserver) witnesses.ground.onAfterRenderObservable.remove(groundObserver);
-    if (voightObserver) witnesses.voight.onAfterRenderObservable.remove(voightObserver);
+    for (const remove of observers) remove();
   }
-  return { groundDrawn, voightDrawn, complete: groundDrawn && voightDrawn };
+  const visibleUrbanSurfaceDrawn = roadDrawn && sidewalkDrawn;
+  return {
+    groundDrawn,
+    roadDrawn,
+    sidewalkDrawn,
+    visibleUrbanSurfaceDrawn,
+    voightDrawn,
+    // A base terrain draw OR independently drawn asphalt and sidewalks
+    // establishes real ground-level city geometry. The humanoid must
+    // actually draw in the SAME frame; sky and cars cannot satisfy this.
+    complete: voightDrawn && (groundDrawn || visibleUrbanSurfaceDrawn),
+  };
 }
 
 export interface WorldRenderWarmup {
@@ -85,6 +111,9 @@ export function beginWorldRenderWarmup(
   let postImportFrameCount = 0;
   let lastEvidence: WorldFrameEvidence = {
     groundDrawn: false,
+    roadDrawn: false,
+    sidewalkDrawn: false,
+    visibleUrbanSurfaceDrawn: false,
     voightDrawn: false,
     complete: false,
   };
@@ -135,7 +164,10 @@ export function beginWorldRenderWarmup(
         fail(new Error(
           "World not visible after " + frameCount + " actual render attempts (" +
           postImportFrameCount + " post-import); " +
-          "ground drawn=" + lastEvidence.groundDrawn + ", Voight drawn=" + lastEvidence.voightDrawn,
+          "terrain drawn=" + lastEvidence.groundDrawn +
+          ", road drawn=" + lastEvidence.roadDrawn +
+          ", sidewalk drawn=" + lastEvidence.sidewalkDrawn +
+          ", Voight drawn=" + lastEvidence.voightDrawn,
         ));
         return;
       }
