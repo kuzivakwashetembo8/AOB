@@ -12,6 +12,7 @@ import { useGameSnapshot } from "@/game/bridge/use-game-bridge";
 import { useInputMode } from "@/game/input/use-input-mode";
 import { attachCanvasTouchCameraLook } from "@/game/input/touch-camera-drag";
 import { useSettings } from "@/ui/menus/settings-state";
+import { SettingsEditor } from "@/ui/menus/settings-editor";
 import { GameHud } from "@/ui/hud/game-hud";
 import { TouchControls } from "@/ui/hud/touch-controls";
 import { DesktopControls } from "@/ui/hud/desktop-controls";
@@ -31,10 +32,10 @@ function GamePage() {
   const snapshot = useGameSnapshot(bridge);
   const canvas = useRef<HTMLCanvasElement>(null);
   const mode = useInputMode();
-  const { settings } = useSettings();
+  const { settings, save } = useSettings();
   const context = snapshot.context;
   const [paused, setPaused] = useState(false);
-  const [panel, setPanel] = useState<"pause" | "objectives" | "save">("pause");
+  const [panel, setPanel] = useState<"pause" | "objectives" | "save" | "settings">("pause");
   const [checklist, setChecklist] = useState(initialStartupChecklist);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -292,10 +293,12 @@ function GamePage() {
               ? "Pause menu"
               : panel === "objectives"
                 ? "Objectives"
-                : "Save and load"
+                : panel === "settings"
+                  ? "Settings"
+                  : "Save and load"
           }
         >
-          <div className="overlay-content">
+          <div className={panel === "settings" ? "overlay-content game-settings-dialog" : "overlay-content"}>
             <div className="flex justify-between items-center">
               <span className="system-label text-primary">SOUTH WARD // FIRST LIGHT // SESSION PAUSED</span>
               <Button
@@ -311,7 +314,9 @@ function GamePage() {
                 ? "PAUSED."
                 : panel === "objectives"
                   ? "OBJECTIVES."
-                  : "SAVE / LOAD."}
+                  : panel === "settings"
+                    ? "SETTINGS."
+                    : "SAVE / LOAD."}
             </h1>
             {panel === "pause" ? (
               <nav className="pause-list" aria-label="Pause actions">
@@ -326,10 +331,8 @@ function GamePage() {
                 <Button variant="menu" onClick={() => setPanel("objectives")}>
                   Objectives <ArrowRight />
                 </Button>
-                <Button variant="menu" asChild>
-                  <Link to="/settings">
-                    Settings <ArrowRight />
-                  </Link>
+                <Button variant="menu" onClick={() => setPanel("settings")}>
+                  Settings <ArrowRight />
                 </Button>
                 <Button variant="menu" onClick={() => setPanel("save")}>
                   Save / Load <ArrowRight />
@@ -340,6 +343,24 @@ function GamePage() {
                   </Link>
                 </Button>
               </nav>
+            ) : panel === "settings" ? (
+              <>
+                <SettingsEditor
+                  initialSettings={settings}
+                  inGame
+                  onApply={(next) => {
+                    save(next);
+                    // The existing Babylon scene remains mounted. The settings
+                    // effect updates its hardware scale; resume uses the same
+                    // runtime, camera, imports, physics and active position.
+                    setPanel("pause");
+                    setPaused(false);
+                  }}
+                />
+                <Button variant="menu" className="mt-3" onClick={() => setPanel("pause")}>
+                  Back to pause menu <ArrowRight />
+                </Button>
+              </>
             ) : (
               <>
                 <div className="objective">
