@@ -314,6 +314,24 @@ export class GTDGameRuntime implements GameRuntime {
     if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
       throw new Error("Generated ground or Voight render witness was not constructed");
     }
+    // The huge base terrain is often beneath rendered road geometry. The
+    // trial must observe actual traversable asphalt AND pavement submissions
+    // rather than declaring a completely visible city missing solely because
+    // that one terrain material did not submit. Keep independent evidence.
+    const roadSurfaces = this.characterTrial
+      ? scene.meshes.filter((mesh): mesh is Mesh =>
+          mesh instanceof Mesh && mesh.name.startsWith("generated-asphalt:"))
+      : [];
+    const sidewalkSurfaces = this.characterTrial
+      ? scene.meshes.filter((mesh): mesh is Mesh =>
+          mesh instanceof Mesh && (
+            mesh.name.startsWith("generated-sidewalk-left:") ||
+            mesh.name.startsWith("generated-sidewalk-right:")
+          ))
+      : [];
+    if (this.characterTrial && (!roadSurfaces.length || !sidewalkSurfaces.length)) {
+      throw new Error("GTD character trial: real asphalt/sidewalk witnesses missing");
+    }
     // Intercept newly created PBR materials from concurrent vehicle imports
     // BEFORE each warm-up render. The normal procedural city and its lamps
     // remain unchanged. Remove the temporary observer at startup completion.
@@ -325,7 +343,11 @@ export class GTDGameRuntime implements GameRuntime {
       : null;
     const warmup = beginWorldRenderWarmup(
       scene,
-      { ground, voight: protagonist },
+      {
+        ground,
+        voight: protagonist,
+        ...(this.characterTrial ? { roadSurfaces, sidewalkSurfaces } : {}),
+      },
       this.characterTrial
         ? { postImportDeadlineMs: 45000, minimumPostImportRenderAttempts: 4 }
         : undefined,
