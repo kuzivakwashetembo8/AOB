@@ -46,6 +46,11 @@ import {
   type RuntimeFirstLightWorld,
 } from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
+import {
+  isMeridiaCharacterTrialRequested,
+  loadMeridiaCharacterTrial,
+  type LoadedMeridiaCharacter,
+} from "../character/voight-humanoid-trial";
 
 const FIXED_STEP = 1 / 60;
 const MAX_FRAME_DELTA = 0.1;
@@ -67,6 +72,7 @@ export class GTDGameRuntime implements GameRuntime {
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
   private voight: VoightPrototype | null = null;
+  private characterTrial: LoadedMeridiaCharacter | null = null;
   private world: RuntimeFirstLightWorld | null = null;
   private lifecycle: Lifecycle = "idle";
   private context: HudContext = "walking";
@@ -255,7 +261,25 @@ export class GTDGameRuntime implements GameRuntime {
     scene.activeCamera = camera;
 
     this.emit({ type: "load-checkpoint", id: "voight", status: "running" });
-    const voight = createVoightPrototype(scene);
+    let voight: VoightPrototype;
+    if (isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname)) {
+      // Only the opt-in preview/branch trial uses the external humanoid model.
+      // No silent fallback: unavailable or malformed GLB must not be mistaken
+      // for an accepted Voight or a successfully loaded character.
+      try {
+        const trial = await loadMeridiaCharacterTrial(scene);
+        this.characterTrial = trial;
+        voight = trial;
+        (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: () => ReturnType<LoadedMeridiaCharacter["report"]> })
+          .__GTD_CHARACTER_TRIAL_REPORT__ = () => trial.report();
+      } catch (error) {
+        this.emit({ type: "load-checkpoint", id: "voight", status: "failed",
+          detail: error instanceof Error ? error.message : String(error) });
+        throw error;
+      }
+    } else {
+      voight = createVoightPrototype(scene);
+    }
     const spawn = physics.playerPosition();
     voight.root.position.set(spawn.x, spawn.y, spawn.z);
     // Match the very first camera view to the actual protagonist position.
@@ -285,7 +309,7 @@ export class GTDGameRuntime implements GameRuntime {
     // cars are installed; the previous onAfterRender-only gate admitted
     // sky-and-cars frames with no ground/streets/Voight on mobile.
     const ground = scene.getMeshByName("generated-first-light-ground");
-    const protagonist = scene.getMeshByName("voight-prototype-body");
+    const protagonist = this.characterTrial?.witness ?? scene.getMeshByName("voight-prototype-body");
     if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
       throw new Error("Generated ground or Voight render witness was not constructed");
     }
@@ -357,6 +381,8 @@ export class GTDGameRuntime implements GameRuntime {
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
+    delete (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: unknown }).__GTD_CHARACTER_TRIAL_REPORT__;
+    this.characterTrial = null;
     this.removeFL4EvidenceExport?.();
     this.removeFL4EvidenceExport = null;
     this.world?.dispose();
@@ -522,6 +548,11 @@ export class GTDGameRuntime implements GameRuntime {
 
     const position = physics.playerPosition();
     this.world?.update(dt, position);
+    this.characterTrial?.updateAnimation(
+      Math.hypot(movement.movement.x, movement.movement.z) / Math.max(dt, 0.0001),
+      this.grounded,
+      dt,
+    );
     const interiorState = this.world?.interiorState ?? "outside";
     this.preferredCameraRadius =
       interiorState === "inside" ? 3.35 : interiorState === "threshold" ? 4.5 : 6.2;
