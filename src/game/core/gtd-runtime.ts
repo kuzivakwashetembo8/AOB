@@ -3,6 +3,7 @@ import {
   Color3,
   Color4,
   Engine,
+  Mesh,
   Ray,
   Scene,
   Vector3,
@@ -271,7 +272,7 @@ export class GTDGameRuntime implements GameRuntime {
     // sky-and-cars frames with no ground/streets/Voight on mobile.
     const ground = scene.getMeshByName("generated-first-light-ground");
     const protagonist = scene.getMeshByName("voight-prototype-body");
-    if (!ground || !protagonist) {
+    if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
       throw new Error("Generated ground or Voight render witness was not constructed");
     }
     const warmup = beginWorldRenderWarmup(scene, { ground, voight: protagonist });
