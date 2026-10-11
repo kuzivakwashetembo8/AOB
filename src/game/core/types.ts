@@ -32,7 +32,7 @@ export type GameCommand =
   | { type: "move" | "look"; x: number; y: number }
   | { type: "look-delta"; x: number; y: number }
   | { type: "camera-settings"; touchSensitivity: number; invertY: boolean }
-  | { type: "render-clarity"; mode: import("../renderer/render-clarity").RenderClarityMode }
+  | { type: "render-clarity"; mode: import("../renderer/render-clarity").RenderClarityMode; scalePercent: number }
   | { type: "action"; action: GameAction; pressed: boolean }
   | { type: "set-context"; context: HudContext }
   | { type: "input-mode"; mode: InputMode }
