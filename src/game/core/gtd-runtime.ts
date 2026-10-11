@@ -47,6 +47,7 @@ import {
 } from "../world/first-light-runtime-source";
 import { createVoightPrototype, type VoightPrototype } from "../character/voight";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
+import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import { collectCharacterTrialSceneReport } from "../character/character-trial-diagnostics";
 import {
   capTrialPbrLightUniforms,
@@ -189,6 +190,7 @@ export class GTDGameRuntime implements GameRuntime {
     // This getter is available even when startup dies at 7/8. No network
     // telemetry: only a user-initiated download reads its snapshot.
     let lastTrialWarmup: ReturnType<WorldRenderWarmup["snapshot"]> | null = null;
+    let groundIsolation: ReturnType<typeof isolateCharacterTrialGroundShaders> | null = null;
     if (isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname)) {
       window.__GTD_CHAR_DIAGNOSTICS__ = () => ({
         schema: "gtd.char001.runtime.v1",
@@ -196,6 +198,7 @@ export class GTDGameRuntime implements GameRuntime {
         character: this.characterTrial?.report() ?? null,
         vehicles: this.importedCarProbe?.report() ?? null,
         warmup: this.worldRenderWarmup?.snapshot() ?? lastTrialWarmup,
+        surfaceIsolation: groundIsolation,
       });
     }
     // Explicit main-branch mobile validation authorized 2026-10-10.
@@ -342,6 +345,12 @@ export class GTDGameRuntime implements GameRuntime {
         "roads=" + roadSurfaces.length + ", sidewalks=" + sidewalkSurfaces.length +
         "); samples=" + JSON.stringify(trialStreetWitnesses?.sample ?? []),
       );
+    }
+    if (this.characterTrial) {
+      // Trial-only material isolation: no synthetic geometry or readiness bypass.
+      // This controls for Babylon light/shadow shader pressure on the ACTUAL
+      // generated roads, paving and base terrain while retaining their textures.
+      groundIsolation = isolateCharacterTrialGroundShaders(ground, roadSurfaces, sidewalkSurfaces);
     }
     // Intercept newly created PBR materials from concurrent vehicle imports
     // BEFORE each warm-up render. The normal procedural city and its lamps
