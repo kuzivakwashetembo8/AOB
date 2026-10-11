@@ -17,8 +17,9 @@ export function isolateCharacterTrialGroundShaders(
   ground: Mesh,
   roads: readonly Mesh[],
   sidewalks: readonly Mesh[],
+  scenery: readonly Mesh[] = [],
 ) {
-  const selected = [ground, ...roads, ...sidewalks];
+  const selected = [...new Set([ground, ...roads, ...sidewalks, ...scenery])];
   const sourceMaterials = new Map<StandardMaterial, ShaderMaterial>();
   const scene: Scene = ground.getScene();
   const vertexSource = [
@@ -46,11 +47,12 @@ export function isolateCharacterTrialGroundShaders(
         "precision highp float;",
         "varying vec2 vTrialUV;",
         "uniform vec3 trialTint;",
+        "uniform float trialOpacity;",
         ...(textured ? ["uniform sampler2D trialDiffuse;"] : []),
         "void main(void) {",
         ...(textured
-          ? ["  gl_FragColor = vec4(trialTint, 1.0) * texture2D(trialDiffuse, vTrialUV);"]
-          : ["  gl_FragColor = vec4(trialTint, 1.0);"]),
+          ? ["  gl_FragColor = vec4(trialTint, trialOpacity) * texture2D(trialDiffuse, vTrialUV);"]
+          : ["  gl_FragColor = vec4(trialTint, trialOpacity);"]),
         "}",
       ].join("\n");
       replacement = new ShaderMaterial(
@@ -59,12 +61,14 @@ export function isolateCharacterTrialGroundShaders(
         { vertexSource, fragmentSource },
         {
           attributes: ["position", "uv"],
-          uniforms: ["worldViewProjection", "trialTint"],
+          uniforms: ["worldViewProjection", "trialTint", "trialOpacity"],
+          needAlphaBlending: source.alpha < 1 || source.useAlphaFromDiffuseTexture,
           ...(textured ? { samplers: ["trialDiffuse"] } : {}),
         },
       );
       replacement.backFaceCulling = source.backFaceCulling;
       replacement.setColor3("trialTint", source.diffuseColor ?? Color3.White());
+      replacement.setFloat("trialOpacity", source.alpha);
       if (textured && texture) replacement.setTexture("trialDiffuse", texture);
       sourceMaterials.set(source, replacement);
     }
@@ -78,6 +82,7 @@ export function isolateCharacterTrialGroundShaders(
     strategy: "original-meshes-direct-uv-shader-no-light-ubos" as const,
     meshes: selected.length,
     materials: [...sourceMaterials.values()].map(material => material.name),
+    sceneryMeshes: scenery.length,
     sourceMaterials: [...sourceMaterials.keys()].map(material => material.name),
   };
 }
