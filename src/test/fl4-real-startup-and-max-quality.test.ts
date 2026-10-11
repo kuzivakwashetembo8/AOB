@@ -48,7 +48,7 @@ describe("FL4 real first-light startup gate", () => {
 });
 
 describe("FL4 maximum mobile raster stress trial", () => {
-  const trial = (query: string) => resolveFL4RasterOverride(new URLSearchParams(query));
+  const trial = (query: string) => resolveFL4RasterOverride(new URLSearchParams(query), 1.875, 819.2, 384);
 
   it("cannot silently change normal /game or persisted presets", () => {
     expect(trial("fl4QualityTrial=supernative").hardwareScale).toBeNull();
@@ -58,12 +58,12 @@ describe("FL4 maximum mobile raster stress trial", () => {
       .toBeCloseTo(3 / 1.75);
   });
 
-  it("supports explicit real native and 1.25x native opt-in without changing source scene quality", () => {
+  it("supports real full physical native and 1.25x physical supersampling via DPR", () => {
     expect(trial("fl4Diagnostics=1&fl4QualityTrial=native")).toEqual({
-      trial: "native", hardwareScale: 1, source: "quality-trial",
+      trial: "native", hardwareScale: 1 / 1.875, source: "quality-trial",
     });
     expect(trial("fl4Diagnostics=1&fl4QualityTrial=supernative")).toEqual({
-      trial: "supernative", hardwareScale: 0.8, source: "quality-trial",
+      trial: "supernative", hardwareScale: 1 / (1.875 * 1.25), source: "quality-trial",
     });
   });
 
@@ -71,9 +71,11 @@ describe("FL4 maximum mobile raster stress trial", () => {
     expect(trial("fl4Diagnostics=1&fl4QualityTrial=supernative&fl4Scale=1.3")).toMatchObject({
       hardwareScale: 1.3, source: "explicit-scale",
     });
-    expect(trial("fl4Diagnostics=1&fl4QualityTrial=native&fl4Scale=0.2").hardwareScale).toBe(1);
+    expect(trial("fl4Diagnostics=1&fl4QualityTrial=native&fl4Scale=0.19").hardwareScale)
+      .toBeCloseTo(1 / 1.875);
     expect(trial("fl4Diagnostics=1&fl4Scale=").hardwareScale).toBeNull();
     expect(trial("fl4Diagnostics=1&fl4Scale=not-a-number").hardwareScale).toBeNull();
     expect(trial("fl4Diagnostics=1&fl4Scale=0.75").hardwareScale).toBe(0.75);
+    expect(trial("fl4Diagnostics=1&fl4Scale=0.4").hardwareScale).toBe(0.4);
   });
 });
