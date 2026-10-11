@@ -24,7 +24,7 @@ import {
   type WorldRenderWarmup,
 } from "./world-render-warmup";
 import { resolveFL4RasterOverride } from "../debug/fl4-quality-trial";
-import { renderHardwareScale, normalizeRenderClarity, type RenderClarityMode } from "../renderer/render-clarity";
+import { renderHardwareScale, normalizeRenderClarity, normalizeRenderScalePercent, capRenderHardwareScale, type RenderClarityMode } from "../renderer/render-clarity";
 import {
   DEFAULT_TOUCH_CAMERA_SENSITIVITY,
   normalizeTouchCameraSensitivity,
@@ -77,6 +77,7 @@ export class GTDGameRuntime implements GameRuntime {
   private touchCameraSensitivity = DEFAULT_TOUCH_CAMERA_SENSITIVITY;
   private invertLookY = false;
   private renderClarity: RenderClarityMode = "Auto";
+  private renderScalePercent = 100;
   private diagnosticHardwareScale: number | null = null;
   private actions = new Set<GameAction>();
   private verticalVelocity = 0;
@@ -90,15 +91,21 @@ export class GTDGameRuntime implements GameRuntime {
   private eventListeners = new Set<(event: GameEvent) => void>();
   private resize = () => {
     if (!this.engine) return;
-    if (this.diagnosticHardwareScale === null) {
-      const next = renderHardwareScale({
+    const bounds = this.host?.getBoundingClientRect();
+    const cssWidth = bounds?.width;
+    const cssHeight = bounds?.height;
+    const next = this.diagnosticHardwareScale === null
+      ? renderHardwareScale({
         mode: this.renderClarity,
+        renderScalePercent: this.renderScalePercent,
         devicePixelRatio: window.devicePixelRatio,
         coarsePointer: window.matchMedia?.("(pointer: coarse)")?.matches ?? false,
-      });
-      if (Math.abs(next - this.engine.getHardwareScalingLevel()) > 0.0001) {
-        this.engine.setHardwareScalingLevel(next);
-      }
+        cssWidth,
+        cssHeight,
+      })
+      : capRenderHardwareScale(this.diagnosticHardwareScale, cssWidth, cssHeight);
+    if (Math.abs(next - this.engine.getHardwareScalingLevel()) > 0.0001) {
+      this.engine.setHardwareScalingLevel(next);
     }
     this.engine.resize();
   };
@@ -129,21 +136,28 @@ export class GTDGameRuntime implements GameRuntime {
       host,
       true,
       { preserveDrawingBuffer: false, stencil: true },
-      true,
+      false, // Manual hardware-scaling mode; all explicit settings use CSS×DPR.
     );
-    // Existing FL4-02 user evidence showed broad mobile softness. The old
-    // devicePixelRatio/1.5 policy rasterized at only ~1.5 CSS px per side and
-    // stretched that image across high-DPR mobile displays. Auto now uses
-    // a measured, bounded 1.75 CSS px on touch screens while Native remains
-    // an explicit (potentially costly) user setting.
+    // Keep accepted Auto/legacy pixel workloads; Native and Custom are now
+    // calibrated relative to CSS canvas dimensions * devicePixelRatio.
+    // Full physical density increases raster work and is always opt-in.
     const diagnosticParams = new URLSearchParams(window.location.search);
     // Only explicit FL-4 diagnostics may exceed native device pixels.
     // Never override ordinary players' saved graphics preferences.
-    this.diagnosticHardwareScale = resolveFL4RasterOverride(diagnosticParams).hardwareScale;
+    const initialCanvasBounds = host.getBoundingClientRect();
+    this.diagnosticHardwareScale = resolveFL4RasterOverride(
+      diagnosticParams,
+      window.devicePixelRatio,
+      initialCanvasBounds.width,
+      initialCanvasBounds.height,
+    ).hardwareScale;
     const hardwareScale = this.diagnosticHardwareScale ?? renderHardwareScale({
       mode: this.renderClarity,
+      renderScalePercent: this.renderScalePercent,
       devicePixelRatio: window.devicePixelRatio,
       coarsePointer: window.matchMedia?.("(pointer: coarse)")?.matches ?? false,
+      cssWidth: initialCanvasBounds.width,
+      cssHeight: initialCanvasBounds.height,
     });
     engine.setHardwareScalingLevel(hardwareScale);
     const scene = new Scene(engine);
@@ -379,6 +393,7 @@ export class GTDGameRuntime implements GameRuntime {
     }
     if (command.type === "render-clarity") {
       this.renderClarity = normalizeRenderClarity(command.mode);
+      this.renderScalePercent = normalizeRenderScalePercent(command.scalePercent);
       // A deliberate FL-4 diagnostics hardware-scale override must remain
       // fixed, regardless of persisted graphics settings.
       if (this.engine && this.diagnosticHardwareScale === null) this.resize();
