@@ -9,6 +9,11 @@ import {
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import type { VoightPrototype } from "./voight";
+import {
+  GaitContinuityController,
+  type GaitInputs,
+  type GaitDecision,
+} from "./locomotion/gait-continuity";
 
 /**
  * GTD-CHAR-001 isolated model-source trial. The Quaternius UAL demonstration
@@ -38,6 +43,8 @@ export interface CharacterTrialReport {
   readonly activeAnimation: string;
   readonly notes: string[];
   readonly visualForwardDeg: number;
+  readonly gaitState: string;
+  readonly gaitTransitionCount: number;
 }
 
 /**
@@ -83,7 +90,7 @@ function preferredClip(groups: AnimationGroup[], choices: readonly string[]): An
 export type LoadedMeridiaCharacter = VoightPrototype & {
   readonly witness: Mesh;
   readonly report: () => CharacterTrialReport;
-  updateAnimation: (speed: number, grounded: boolean, deltaSeconds: number) => void;
+  updateAnimation: (inputs: GaitInputs) => GaitDecision;
   setVisualForward: (degrees: number) => void;
 };
 
@@ -154,6 +161,8 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
   let outgoing: AnimationGroup | null = null;
   let blend = 1;
   let activeName = "idle";
+  const gaitController = new GaitContinuityController();
+  let lastGait: GaitDecision | null = null;
 
   function switchTo(group: AnimationGroup, name: string) {
     if (group === active) return;
@@ -188,7 +197,11 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
   return {
     root,
     witness,
-    report: (): CharacterTrialReport => ({ ...reportInfo, activeAnimation: activeName, visualForwardDeg }),
+    report: (): CharacterTrialReport => ({
+      ...reportInfo, activeAnimation: activeName, visualForwardDeg,
+      gaitState: lastGait?.state ?? "idle",
+      gaitTransitionCount: lastGait?.transitionCount ?? 0,
+    }),
     setVisualForward(degrees) {
       // L0 axis calibration: only adjust the imported visual node, never
       // double-rotate the kinematic physics actor or skeleton.
@@ -196,12 +209,16 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       visualForwardDeg = Math.max(-180, Math.min(180, degrees));
       visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
     },
-    updateAnimation(speed, grounded, dt) {
-      const wantedName = !grounded ? "jump" : speed > 5 ? "sprint" : speed > 0.18 ? "walk" : "idle";
-      const group = clips[wantedName] ?? clips.idle;
-      if (group) switchTo(group, wantedName);
+    updateAnimation(inputs) {
+      // L2: Visual state follows corrected Rapier travel but rejects
+      // transient one-tick support/speed loss during sustained movement.
+      // This never alters physics translation or collision.
+      const decision = gaitController.update(inputs);
+      lastGait = decision;
+      const group = clips[decision.state] ?? clips.idle;
+      if (group) switchTo(group, decision.state);
       if (active) {
-        blend = Math.min(1, blend + Math.max(0, dt) / 0.18);
+        blend = Math.min(1, blend + Math.max(0, inputs.dt) / 0.18);
         active.setWeightForAllAnimatables(blend);
       }
       if (outgoing) {
@@ -211,6 +228,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
           outgoing = null;
         }
       }
+      return decision;
     },
   };
 }
