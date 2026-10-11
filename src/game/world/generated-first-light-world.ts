@@ -71,6 +71,8 @@ export interface GeneratedFirstLightWorld {
 export interface GeneratedFirstLightWorldOptions {
   readonly enableCameraBlockers?: boolean;
   readonly enableShadows?: boolean;
+  /** GTD-CHAR-001 only: register real First Light raised sidewalk colliders. */
+  readonly enableSidewalkSupportCollision?: boolean;
 }
 
 function createGround(
@@ -187,10 +189,20 @@ function registerStreetContextCollision(
 function registerUrbanNavigationCollision(
   physics: MeridianPhysics,
   urbanSurfaces: GeneratedUrbanSurfaces,
+  enableSidewalkSupportCollision = false,
 ): StaticCollisionHandle[] {
   const handles: StaticCollisionHandle[] = [];
   for (const mesh of urbanSurfaces.meshes) {
-    if (!mesh.name.includes("curb")) continue;
+    const curb = mesh.name.includes("curb");
+    // The original scene only registered curbs. Parity sidewalk tops are
+    // Y=0.11, while the global ground collider tops at Y=0. This left the
+    // player's physical support at the ground height and swallowed boots
+    // into rendered pavement. Match existing sidewalk boxes exactly, trial
+    // only; do NOT use AABBs for rotated procedural sidewalk polygons.
+    const paritySidewalk = enableSidewalkSupportCollision &&
+      mesh.name.startsWith("generated-parity-") &&
+      mesh.material?.name === "generated-sidewalk";
+    if (!curb && !paritySidewalk) continue;
     mesh.computeWorldMatrix(true);
     const box = mesh.getBoundingInfo().boundingBox;
     handles.push(
@@ -411,6 +423,7 @@ export function createGeneratedFirstLightWorld(
   const urbanNavigationCollision = registerUrbanNavigationCollision(
     physics,
     urbanSurfaces,
+    options.enableSidewalkSupportCollision ?? false,
   );
   const garageInteriorCollision = heroGarage
     ? registerGarageInteriorCollision(physics, heroGarage)
