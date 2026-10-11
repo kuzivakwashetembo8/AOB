@@ -203,6 +203,13 @@ export class GTDGameRuntime implements GameRuntime {
       scene,
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
+      {
+        // L1/L3 source-backed support fix: do not apply parity sidewalk
+        // collision changes to the existing no-query baseline or production.
+        enableSidewalkSupportCollision: isMeridiaCharacterTrialRequested(
+          window.location.search, window.location.hostname,
+        ),
+      },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
     // This getter is available even when startup dies at 7/8. No network
