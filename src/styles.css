@@ -1501,3 +1501,47 @@ html[data-display="standalone"] body > * {
   background: var(--veil);
   border: 1px solid var(--border);
 }
+
+
+/* In-session settings is a pause subpanel. Do not navigate away from /game:
+   the mounted Babylon engine, model imports and player position persist. */
+.game-settings-dialog {
+  width: min(960px, 100%);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 8px 8px 0;
+}
+.settings-editor-ingame .settings-layout {
+  margin-top: 0;
+  grid-template-columns: minmax(130px, 170px) minmax(0, 1fr);
+  gap: clamp(12px, 2vw, 28px);
+}
+.settings-editor-ingame .settings-tab { min-height: 36px; height: 40px; }
+.settings-editor-ingame .settings-panel h2 { font-size: 24px; margin-bottom: 8px; }
+.settings-editor-ingame .setting-row {
+  grid-template-columns: minmax(0, 1fr) minmax(128px, 185px);
+  gap: 12px;
+  min-height: 48px;
+}
+.settings-editor-ingame .settings-bottom { margin-top: 12px; }
+.settings-editor-ingame .overlay-note { margin-top: 8px; }
+@media (max-width: 670px) {
+  .settings-editor-ingame .settings-layout {
+    grid-template-columns: 105px minmax(0, 1fr);
+    gap: 10px;
+  }
+  .settings-editor-ingame .settings-tab {
+    font-size: 11px;
+    padding-inline: 4px;
+  }
+  .settings-editor-ingame .setting-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+    padding-block: 7px;
+  }
+  .settings-editor-ingame .setting-row > .range-control {
+    max-width: 230px;
+  }
+  .settings-editor-ingame .settings-bottom { flex-wrap: wrap; }
+}
