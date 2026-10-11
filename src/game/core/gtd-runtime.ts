@@ -3,6 +3,7 @@ import {
   Color3,
   Color4,
   Engine,
+  Mesh,
   Ray,
   Scene,
   Vector3,
@@ -18,7 +19,10 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
-import { renderFirstPlayableFrame } from "./first-playable-frame";
+import {
+  beginWorldRenderWarmup,
+  type WorldRenderWarmup,
+} from "./world-render-warmup";
 import { resolveFL4RasterOverride } from "../debug/fl4-quality-trial";
 import { renderHardwareScale, normalizeRenderClarity, type RenderClarityMode } from "../renderer/render-clarity";
 import {
@@ -58,6 +62,7 @@ export class GTDGameRuntime implements GameRuntime {
   private fl4Diagnostics: FL4Diagnostics | null = null;
   private removeFL4EvidenceExport: (() => void) | null = null;
   private importedCarProbe: ImportedCarProbe | null = null;
+  private worldRenderWarmup: WorldRenderWarmup | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
@@ -239,6 +244,10 @@ export class GTDGameRuntime implements GameRuntime {
     const voight = createVoightPrototype(scene);
     const spawn = physics.playerPosition();
     voight.root.position.set(spawn.x, spawn.y, spawn.z);
+    // Match the very first camera view to the actual protagonist position.
+    // Before this, initial focus was displaced from Voight until the first
+    // simulation tick; the loading gate now validates his visible mesh.
+    camera.target.set(spawn.x, spawn.y + 0.55, spawn.z);
     this.emit({ type: "load-checkpoint", id: "voight", status: "done" });
 
     this.engine = engine;
@@ -257,23 +266,38 @@ export class GTDGameRuntime implements GameRuntime {
     this.world = firstLight;
     window.addEventListener("resize", this.resize);
 
-    // The old bootstrap returned while external GLB downloads and mesh/collider
-    // instantiation continued, causing a visibly "loaded" game to stall during
-    // the first movements. Await real source/slot terminal outcomes instead.
-    if (this.importedCarProbe) await this.importedCarProbe.settled;
-    if (this.host !== host || this.engine !== engine) return; // route disposed during load
-    this.emit({ type: "load-checkpoint", id: "first-frame", status: "running" });
-    // Do not await global scene.whenReadyAsync() here: on actual mobile the
-    // scene can remain globally "not ready" forever before a first frame is
-    // rendered, leaving the verified startup checklist stuck at 7/8.
-    // Vehicle imports and placement have already genuinely settled above.
-    const firstRenderStartedAt = performance.now();
-    renderFirstPlayableFrame(scene);
-    if (this.host !== host || this.engine !== engine) return;
-    this.fl4Diagnostics?.recordStartup(firstRenderStartedAt - bootStartedAt, performance.now() - firstRenderStartedAt);
-    this.emit({ type: "load-checkpoint", id: "first-frame", status: "done" });
-    this.lifecycle = "ready";
-    this.publishSnapshot();
+    // Pre-render the actual world behind the startup overlay WHILE external
+    // GLBs are loading. Otherwise the first scene frame is postponed until
+    // cars are installed; the previous onAfterRender-only gate admitted
+    // sky-and-cars frames with no ground/streets/Voight on mobile.
+    const ground = scene.getMeshByName("generated-first-light-ground");
+    const protagonist = scene.getMeshByName("voight-prototype-body");
+    if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
+      throw new Error("Generated ground or Voight render witness was not constructed");
+    }
+    const warmup = beginWorldRenderWarmup(scene, { ground, voight: protagonist });
+    this.worldRenderWarmup = warmup;
+    try {
+      // Preserve real GLTF source/parking/collider completion requirements.
+      if (this.importedCarProbe) await this.importedCarProbe.settled;
+      if (this.host !== host || this.engine !== engine) return;
+      this.emit({ type: "load-checkpoint", id: "first-frame", status: "running" });
+      const finalRenderStartedAt = performance.now();
+      // Only finish startup after a POST-import frame actually submits
+      // ground and Voight geometry; a sky/car-only render cannot pass.
+      await warmup.awaitWorldAfterVehicleSettlement();
+      if (this.host !== host || this.engine !== engine) return;
+      this.fl4Diagnostics?.recordStartup(
+        finalRenderStartedAt - bootStartedAt,
+        performance.now() - finalRenderStartedAt,
+      );
+      this.emit({ type: "load-checkpoint", id: "first-frame", status: "done" });
+      this.lifecycle = "ready";
+      this.publishSnapshot();
+    } finally {
+      warmup.cancel();
+      if (this.worldRenderWarmup === warmup) this.worldRenderWarmup = null;
+    }
     if (this.fl4Diagnostics) {
       // Local-only, user-initiated export. Avoid capturing misleading partial
       // "loaded" reports during GLB import or first-frame shader preparation.
@@ -314,6 +338,8 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
     this.frameHandle = null;
     window.removeEventListener("resize", this.resize);
+    this.worldRenderWarmup?.cancel();
+    this.worldRenderWarmup = null;
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
