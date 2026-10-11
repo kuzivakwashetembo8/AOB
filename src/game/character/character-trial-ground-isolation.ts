@@ -4,11 +4,11 @@ import type { Mesh, Scene, Texture } from "@babylonjs/core";
 /**
  * Trial-only shader isolation on EXISTING Meridian terrain and streets.
  *
- * The previous StandardMaterial.disableLighting workaround retained Babylon's
- * large standard-material effect pipeline and never produced street witnesses
- * on the trial browser. An isolated, explicit worldViewProjection shader avoids
- * light/shadow/UBO variants entirely. Geometry, scene position, original UV
- * mapping, road texture assets and Rapier collision are unchanged.
+ * A minimal shader avoids the large light/shadow material effect pipeline.
+ * Babylon's generated buildings use thin-instance transforms: this shader
+ * must apply each instance matrix IN ADDITION to the mesh's parent/world
+ * transform or walls, doors and windows collapse into untransformed cubes.
+ * Geometry, original UVs, textures and physics remain unchanged.
  *
  * This is deliberately NOT GTD's permanent lighting architecture. The same
  * branch without ?gtdCharacterTrial=ual retains all original materials.
@@ -26,11 +26,25 @@ export function isolateCharacterTrialGroundShaders(
     "precision highp float;",
     "attribute vec3 position;",
     "attribute vec2 uv;",
-    "uniform mat4 worldViewProjection;",
+    "uniform mat4 world;",
+    "uniform mat4 viewProjection;",
+    "#ifdef INSTANCES",
+    "attribute vec4 world0;",
+    "attribute vec4 world1;",
+    "attribute vec4 world2;",
+    "attribute vec4 world3;",
+    "#endif",
     "varying vec2 vTrialUV;",
     "void main(void) {",
     "  vTrialUV = uv;",
-    "  gl_Position = worldViewProjection * vec4(position, 1.0);",
+    "  mat4 vertexWorld = world;",
+    "#ifdef INSTANCES",
+    "  vertexWorld = mat4(world0, world1, world2, world3);",
+    "  #ifdef THIN_INSTANCES",
+    "    vertexWorld = world * vertexWorld;",
+    "  #endif",
+    "#endif",
+    "  gl_Position = viewProjection * vertexWorld * vec4(position, 1.0);",
     "}",
   ].join("\n");
 
@@ -61,7 +75,10 @@ export function isolateCharacterTrialGroundShaders(
         { vertexSource, fragmentSource },
         {
           attributes: ["position", "uv"],
-          uniforms: ["worldViewProjection", "trialTint", "trialOpacity"],
+          // Babylon adds INSTANCES/THIN_INSTANCES and binds world0..world3
+          // for thin-instanced building batches. A worldViewProjection-only
+          // shader silently collapses entire buildings to their unit source.
+          uniforms: ["world", "viewProjection", "trialTint", "trialOpacity"],
           needAlphaBlending: source.alpha < 1 || source.useAlphaFromDiffuseTexture,
           ...(textured ? { samplers: ["trialDiffuse"] } : {}),
         },
