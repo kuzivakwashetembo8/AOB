@@ -27,6 +27,14 @@ import type {
   GeneratedUrbanSurfaces,
 } from "../world-generation";
 import {
+  planMunicipalStreetObjects,
+  type MunicipalItem,
+} from "../world-generation/municipal-object-plan";
+import {
+  createMunicipalStreetContext,
+  type GeneratedMunicipalContext,
+} from "../world-generation/municipal-object-renderer";
+import {
   createMeridianEnvironment,
   type InteriorVisibilityState,
   type MeridianEnvironmentController,
@@ -45,6 +53,7 @@ export interface GeneratedFirstLightWorld {
   readonly buildings: readonly GeneratedBuilding[];
   readonly urbanSurfaces: GeneratedUrbanSurfaces;
   readonly streetContext: GeneratedStreetContext;
+  readonly municipalContext: GeneratedMunicipalContext;
   readonly materialLibrary: BuildingMaterialLibrary;
   readonly environment: MeridianEnvironmentController;
   readonly garageInterior: GeneratedGarageInterior | null;
@@ -230,6 +239,13 @@ function registerGaragePropCollision(
   garageInterior: GeneratedGarageInterior | null,
 ): StaticCollisionHandle[] {
   const handles: StaticCollisionHandle[] = [];
+  for (const mesh of municipalContext.meshes) {
+    mesh.receiveShadows = true;
+    if (!mesh.name.includes(":lettering") && !mesh.name.includes("shop-board-face")) {
+      environment.addShadowCaster(mesh);
+    }
+  }
+
   for (const mesh of garageInterior?.meshes ?? []) {
     if (!mesh.name.startsWith("garage-tire-")) continue;
     mesh.computeWorldMatrix(true);
@@ -378,6 +394,33 @@ function classifyGarageInterior(
     : "outside";
 }
 
+function registerMunicipalCollision(
+  physics: MeridianPhysics,
+  items: readonly MunicipalItem[],
+): StaticCollisionHandle[] {
+  const handles: StaticCollisionHandle[] = [];
+  for (const item of items) {
+    if (item.collision === "none") continue;
+    const { width, height, depth } = item.dimensionsMeters;
+    if (item.collision === "simple-cylinder") {
+      // Sign text is decorative; only the actual pole gets a collision.
+      const radius = item.kind === "street-name" || item.kind === "stop-sign"
+        ? 0.05 : width / 2;
+      handles.push(physics.addStaticCylinder(
+        { x: item.position.x, y: item.position.y + height / 2, z: item.position.z },
+        height / 2, radius,
+      ));
+    } else {
+      handles.push(physics.addStaticBox(
+        { x: item.position.x, y: item.position.y + height / 2, z: item.position.z },
+        { x: width / 2, y: height / 2, z: depth / 2 },
+        item.yawRadians,
+      ));
+    }
+  }
+  return handles;
+}
+
 export function createGeneratedFirstLightWorld(
   scene: Scene,
   physics: MeridianPhysics,
@@ -395,6 +438,8 @@ export function createGeneratedFirstLightWorld(
     scene,
     FIRST_LIGHT_CITY_SPEC,
   );
+  const municipalItems = planMunicipalStreetObjects(FIRST_LIGHT_CITY_SPEC);
+  const municipalContext = createMunicipalStreetContext(scene, municipalItems);
   const materialLibrary = new BuildingMaterialLibrary(scene);
   const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC).map((spec) =>
     generateBuilding(scene, physics, spec, {
@@ -425,6 +470,7 @@ export function createGeneratedFirstLightWorld(
       .map((item) => [item.id, item] as const),
   );
   const contextCollision = registerStreetContextCollision(physics, parkedCollisionHandles);
+  const municipalCollision = registerMunicipalCollision(physics, municipalItems);
   const urbanNavigationCollision = registerUrbanNavigationCollision(
     physics,
     urbanSurfaces,
@@ -485,6 +531,7 @@ export function createGeneratedFirstLightWorld(
     buildings,
     urbanSurfaces,
     streetContext,
+    municipalContext,
     materialLibrary,
     environment,
     garageInterior,
@@ -560,6 +607,7 @@ export function createGeneratedFirstLightWorld(
       disposed = true;
 
       for (const handle of contextCollision) handle.dispose();
+      for (const handle of municipalCollision) handle.dispose();
       for (const handle of urbanNavigationCollision) handle.dispose();
       for (const handle of garageInteriorCollision) handle.dispose();
       for (const handle of garagePropCollision) handle.dispose();
@@ -568,6 +616,7 @@ export function createGeneratedFirstLightWorld(
       environment.dispose();
       for (const building of buildings) building.dispose();
       streetContext.dispose();
+      municipalContext.dispose();
       urbanSurfaces.dispose();
       materialLibrary.dispose();
       ground.collision.dispose();
