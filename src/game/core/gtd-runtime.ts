@@ -457,10 +457,13 @@ export class GTDGameRuntime implements GameRuntime {
       // Preserve real GLTF source/parking/collider completion requirements.
       if (this.importedCarProbe) await this.importedCarProbe.settled;
       if (this.host !== host || this.engine !== engine) return;
-      // EXP-VEH-002: opt-in branch preview only, never the production baseline.
+      // EXP-VEH-002 / GTD-WORLD-002: owner desktop-accepted Ferrari L0
+      // promoted to main for default production/mobile validation on 2026-10-12.
+      // This is a DEVELOPMENT SPECIMEN, not a commercial-asset rights clearance.
+      // Import/first-frame gates stay authoritative; no procedural fallback.
       // Reuse ONE accepted sports GLB and preserve every parked buggy.
-      if (diagnosticParams.get("gtdVehicleTrial") === "1" && !productionHostname &&
-          this.importedCarProbe && isGeneratedFirstLightWorld(firstLight)) {
+      // Do not require a preview-only query flag or exclude production hosts.
+      if (this.importedCarProbe && isGeneratedFirstLightWorld(firstLight)) {
         const sports = this.importedCarProbe.report().slots.find(slot =>
           slot.source === "sports" && slot.status === "imported" && slot.finalVisualMetres);
         const anchor = sports
