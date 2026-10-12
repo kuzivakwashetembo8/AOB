@@ -91,15 +91,18 @@ export function planMunicipalStreetObjects(city: CitySpec): readonly MunicipalIt
           const template = MUNICIPAL_TEMPLATES[kind];
           const nearestRoad = kind === "street-name"
             ? projectToRoad(city.roads, prop.position) : null;
+          const streetName = nearestRoad
+            ? city.roads.segments.find(road => road.id === nearestRoad.segmentId)?.name
+            : undefined;
           // Sign text always comes from the actual road graph, not an ad hoc
           // fake street-name list. A missing road is a rejected placement.
-          if (kind === "street-name" && !nearestRoad) {
+          if (kind === "street-name" && !streetName) {
             throw new Error("Street-name object lacks a corresponding real road: " + prop.id);
           }
           items.push({
             id: prop.id, kind, anchorType: "authored-ground",
             position: prop.position, yawRadians: prop.yawRadians,
-            ...(kind === "street-name" ? { label: nearestRoad!.segment.name } : {}),
+            ...(kind === "street-name" ? { label: streetName! } : {}),
             dimensionsMeters: { width: template.width, height: template.height, depth: template.depth },
             collision: template.collision,
           });
