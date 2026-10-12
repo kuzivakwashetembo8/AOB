@@ -189,6 +189,30 @@ function createFacadeLayout(
       cutThrough: template.defaultCutThrough,
     });
   }
+  // Every building receives a visible pedestrian entrance. This is a
+  // deliberately NON-traversable door panel unless separately authored as a
+  // physical portal. Prefer the rear/service elevation, never a busy road
+  // frontage or an existing garage bay.
+  if (!openings.some(o => o.kind === "door" && o.floor === 0)) {
+    const groundMass = masses.find(m => m.firstFloor === 0)!;
+    for (const facade of (spec.archetype === "garage"
+      ? ["left", "rear", "right"] : ["rear", "left", "right"]) as FacadeSide[]) {
+      const width = 1.08;
+      const height = Math.min(2.13, spec.parameters.floorHeight - 0.28);
+      const door: FacadeOpeningSpec = {
+        id: "ma:pedestrian-door:" + spec.id,
+        kind: "door", facade, offset: 0, sillHeight: 0, width, height,
+      };
+      if (sideSpan(groundMass, facade) < width + 1.1 ||
+          openings.some(o => o.massId === groundMass.id && o.facade === facade &&
+            overlaps(door, o, 0.20))) continue;
+      openings.push({
+        ...door, massId: groundMass.id, floor: 0, source: "generated",
+        templateId: "door-standard", cutThrough: false,
+      });
+      break;
+    }
+  }
   const bays: FacadeBay[] = [];
   for (const mass of masses) {
     for (const side of SIDES) {
@@ -313,6 +337,17 @@ function openingDetails(mass: BuildingMass, opening: PlannedOpening): BoxPrimiti
     facadeBox(`frame:${opening.id}:bottom`, "trim", mass, opening.facade,
       opening.offset, bottom, opening.width + t, t, t, edge, template.id),
   ];
+  if (opening.kind === "door" && !opening.cutThrough) {
+    // False doors are intentionally cosmetic and stand in front of the
+    // intact wall collider. No doorway or traversable cut is implied.
+    bars.push(facadeBox(`door-panel:${opening.id}`, "metal", mass, opening.facade,
+      opening.offset, (bottom + top) / 2,
+      opening.width - t * 0.7, opening.height - t * 0.7,
+      0.075, edge + 0.035, "door-standard"));
+    bars.push(facadeBox(`door-handle:${opening.id}`, "trim", mass, opening.facade,
+      opening.offset + opening.width * 0.31, bottom + 1.00,
+      0.08, 0.16, 0.09, edge + 0.091, "door-standard"));
+  }
   // Physical doors/garage/loading bays stay open. Decorative storefronts are closed panels.
   if (template.glazing && (opening.kind === "window" || !opening.cutThrough)) {
     bars.push(facadeBox(
