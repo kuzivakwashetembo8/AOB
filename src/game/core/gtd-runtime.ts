@@ -81,7 +81,8 @@ export class GTDGameRuntime implements GameRuntime {
   private removeFL4EvidenceExport: (() => void) | null = null;
   private importedCarProbe: ImportedCarProbe | null = null;
   private drivingTrial: FirstDriveTrial | null = null;
-  private drivingBoardingPosition: { x: number; y: number; z: number } | null = null;
+  /** L0 permits one onboarding entry from the initial garage; later entry requires proximity. */
+  private hasBoardedFerrari = false;
   private worldRenderWarmup: WorldRenderWarmup | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
@@ -557,7 +558,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.worldRenderWarmup = null;
     this.drivingTrial?.dispose();
     this.drivingTrial = null;
-    this.drivingBoardingPosition = null;
+    this.hasBoardedFerrari = false;
     delete (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: unknown }).__GTD_DRIVE_TRIAL_REPORT__;
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
@@ -712,13 +713,16 @@ export class GTDGameRuntime implements GameRuntime {
         this.emit({ type: "interaction", label: "Stop the Ferrari before exiting" });
         return;
       }
-      this.context = "walking";
-      const position = this.drivingBoardingPosition;
-      if (position) {
-        physics.setPlayerPosition(position);
-        voight.root.position.set(position.x, position.y, position.z);
-        this.camera?.target.set(position.x, position.y + 0.55, position.z);
+      const position = trial.findSafeExitPosition();
+      if (!position) {
+        this.emit({ type: "interaction", label: "No clear space beside the Ferrari; reposition before exiting" });
+        return;
       }
+      // Position B is authoritative; never reuse the entry location A.
+      physics.setPlayerPosition(position);
+      voight.root.position.set(position.x, position.y, position.z);
+      this.camera?.target.set(position.x, position.y + 0.55, position.z);
+      this.context = "walking";
       voight.root.setEnabled(true);
       this.move = { x: 0, y: 0 };
       this.preferredCameraRadius = 6.2;
@@ -726,9 +730,16 @@ export class GTDGameRuntime implements GameRuntime {
       this.emit({ type: "interaction", label: "Ferrari trial: press F to drive again" });
       return;
     }
-    // L0 trial possession is deliberately reachable from the spawn point.
-    // Proximity, seat alignment and door animation are later experiments.
-    this.drivingBoardingPosition = { ...physics.playerPosition() };
+    // Preserve the initial garage test entry; after first exit, the
+    // original garage location cannot remotely summon/board a car parked at B.
+    const actorPosition = physics.playerPosition();
+    const carPosition = trial.pose;
+    if (this.hasBoardedFerrari &&
+        Math.hypot(actorPosition.x - carPosition.x, actorPosition.z - carPosition.z) > 3.5) {
+      this.emit({ type: "interaction", label: "Walk to the Ferrari to re-enter it" });
+      return;
+    }
+    this.hasBoardedFerrari = true;
     this.context = "driving";
     voight.root.setEnabled(false);
     this.move = { x: 0, y: 0 };
