@@ -107,17 +107,22 @@ function textureValue(
   }
 }
 
-export function createSurfaceTexture(
-  scene: Scene,
+/**
+ * The generated buffer MUST be fully initialised at its declared dimensions.
+ * MA-FM-07 (2026-10-12): 128px relief textures were only filled for 64 rows,
+ * producing transparent lower halves and revealing the homepage hero layer.
+ * Keeping this CPU builder separate makes coverage testable without WebGL.
+ */
+export function buildSurfaceTexturePixels(
   recipe: MaterialRecipe,
-): RawTexture {
+): { readonly pixels: Uint8Array; readonly size: number } {
   const [red, green, blue] = parseHex(recipe.color);
   const size = recipe.textureKind === "brick-relief" ? 128 : SIZE;
   const pixels = new Uint8Array(size * size * 4);
   const seed = hash(recipe.key);
 
-  for (let y = 0; y < SIZE; y += 1) {
-    for (let x = 0; x < SIZE; x += 1) {
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
       const index = (y * size + x) * 4;
       const { shade, alpha } = textureValue(recipe.textureKind, seed, x, y);
       const grime = recipe.variation.grime * Math.max(0, (y / size - 0.58) * 0.18);
@@ -131,10 +136,17 @@ export function createSurfaceTexture(
       pixels[index] = clamp(red * factor);
       pixels[index + 1] = clamp(green * factor);
       pixels[index + 2] = clamp(blue * factor);
-      pixels[index + 3] = clamp(255 * alpha);
+      pixels[index + 3] = recipe.alpha >= 1 ? 255 : clamp(255 * alpha);
     }
   }
+  return { pixels, size };
+}
 
+export function createSurfaceTexture(
+  scene: Scene,
+  recipe: MaterialRecipe,
+): RawTexture {
+  const { pixels, size } = buildSurfaceTexturePixels(recipe);
   const texture = RawTexture.CreateRGBATexture(
     pixels,
     size,
