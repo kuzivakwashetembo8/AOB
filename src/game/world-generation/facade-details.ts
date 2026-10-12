@@ -201,44 +201,6 @@ function openingTrim(
         ),
       );
     }
-    if (
-      primitives.length < max &&
-      sample(opening.id + ":shutter") > 0.9
-    ) {
-      primitives.push(
-        panel(
-          "shutter:" + opening.id,
-          "shutter",
-          mass,
-          opening.facade,
-          opening.offset - opening.width / 2 - 0.11,
-          (opening.sillHeight + top) / 2,
-          0.16,
-          opening.height,
-          0.1,
-        ),
-      );
-    }
-    if (
-      primitives.length < max &&
-      opening.sillHeight >= 1.1 &&
-      sample(opening.id + ":ac") > 0.89
-    ) {
-      primitives.push(
-        panel(
-          "ac:" + opening.id,
-          "ac-unit",
-          mass,
-          opening.facade,
-          opening.offset,
-          opening.sillHeight - 0.42,
-          0.7,
-          0.46,
-          0.48,
-          0.42,
-        ),
-      );
-    }
     return;
   }
 
@@ -379,73 +341,8 @@ export function planFacadeDetails(
         );
       }
 
-      if (
-        max > 0 &&
-        primitives.length < max &&
-        spec.archetype === "garage" &&
-        side === "front"
-      ) {
-        primitives.push(
-          panel(
-            "utility:" + mass.id,
-            "utility-box",
-            mass,
-            side,
-            -span / 2 + 0.9,
-            mass.baseY + 1.3,
-            0.65,
-            0.85,
-            0.22,
-          ),
-        );
-      }
 
-      if (
-        max > 0 &&
-        primitives.length < max &&
-        (spec.archetype === "warehouse" ||
-          spec.archetype === "industrial") &&
-        sample(mass.id + ":" + side + ":vent") > 0.34
-      ) {
-        primitives.push(
-          panel(
-            "vent:" + mass.id + ":" + side,
-            "vent",
-            mass,
-            side,
-            0,
-            mass.baseY + Math.min(mass.height - 0.8, 2.6),
-            0.72,
-            0.38,
-            0.14,
-          ),
-        );
-      }
 
-      if (
-        max > 0 &&
-        primitives.length < max &&
-        side === "front" &&
-        (spec.archetype === "garage" ||
-          spec.archetype === "commercial" ||
-          spec.archetype === "mixed-use") &&
-        sample(mass.id + ":front:wall-light") > 0.3
-      ) {
-        primitives.push(
-          panel(
-            "wall-light:" + mass.id,
-            "wall-light",
-            mass,
-            side,
-            -Math.min(span * 0.32, 2.4),
-            mass.baseY + Math.min(2.8, mass.height * 0.52),
-            0.18,
-            0.28,
-            0.22,
-            0.26,
-          ),
-        );
-      }
 
       const kind: DecalKind =
         spec.archetype === "commercial" && side === "front"

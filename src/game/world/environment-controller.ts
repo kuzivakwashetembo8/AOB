@@ -14,6 +14,7 @@ import {
 } from "@babylonjs/core";
 import type { AbstractMesh, Mesh } from "@babylonjs/core";
 import { planStreetContext } from "../world-generation/street-context";
+import { resolveCityBuildings } from "../world-generation/defaults";
 import { FIRST_LIGHT_CITY_SPEC } from "../world-generation/first-light-spec";
 
 export const MERIDIAN_DAY_MINUTES = 24 * 60;
@@ -345,13 +346,13 @@ export function createMeridianEnvironment(
       const light = new PointLight(
         "meridian-streetlight:" + item.id,
         new Vector3(
-          item.position.x,
-          item.position.y + 5.05 * item.scale,
-          item.position.z,
+          item.position.x + Math.cos(item.yawRadians) * 1.03 * item.scale,
+          item.position.y + 4.925 * item.scale,
+          item.position.z - Math.sin(item.yawRadians) * 1.03 * item.scale,
         ),
         scene,
       );
-      light.diffuse = new Color3(1, 0.8, 0.52);
+      light.diffuse = new Color3(1, 0.93, 0.76);
       light.specular = new Color3(0.68, 0.48, 0.28);
       light.range = 17.5 * item.scale;
       light.intensity = 0;
@@ -365,6 +366,32 @@ export function createMeridianEnvironment(
     streetlightGlowMaterial instanceof StandardMaterial
       ? streetlightGlowMaterial
       : null;
+
+  // Use the REAL generated facade bands as LED emitters, rather than the
+  // previous detached municipal-object component whose appearance was never
+  // confirmed in browser testing. Only commercial frontages get light sources.
+  const storefrontLedMaterials = scene.materials.filter((m): m is StandardMaterial =>
+    m instanceof StandardMaterial && m.name.startsWith("ma-facade-led:"));
+  const storefrontLights = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC)
+    .filter(building => (building.archetype === "commercial" ||
+      building.archetype === "mixed-use") &&
+      storefrontLedMaterials.some(material =>
+        material.name === "ma-facade-led:" + building.id))
+    .map(building => {
+      const theta = building.yawRadians;
+      const forward = building.parameters.depth / 2 + 0.58;
+      const light = new PointLight("ma-storefront-led:" + building.id,
+        new Vector3(
+          building.position.x + Math.sin(theta) * forward,
+          building.position.y + building.parameters.floorHeight - 0.92,
+          building.position.z + Math.cos(theta) * forward,
+        ), scene);
+      light.diffuse = new Color3(0.96, 0.98, 1);
+      light.specular = new Color3(0.32, 0.34, 0.37);
+      light.range = 7.5;
+      light.intensity = 0;
+      return light;
+    });
 
   const interiorLights = [
     new PointLight(
@@ -479,22 +506,31 @@ export function createMeridianEnvironment(
     scene.fogColor = horizon;
 
     const streetlightIntensity =
-      smoothstep(0.16, 0.68, night) * (2.35 + twilight * 0.38);
+      smoothstep(0.16, 0.68, night) * (2.9 + twilight * 0.32);
     for (const light of streetlights) {
       light.intensity = streetlightIntensity;
     }
     if (streetlightGlow) {
-      const glowStrength = clamp01(streetlightIntensity / 2.35);
+      const glowStrength = clamp01(streetlightIntensity / 2.9);
       streetlightGlow.emissiveColor = new Color3(
-        0.17 + glowStrength * 1.05,
-        0.1 + glowStrength * 0.62,
-        0.035 + glowStrength * 0.18,
+        0.035 + glowStrength * 1.25,
+        0.035 + glowStrength * 1.18,
+        0.03 + glowStrength * 0.96,
       );
     }
 
     for (const light of interiorLights) {
       light.intensity = 0.5 + night * 0.82;
     }
+    const ledIntensity = smoothstep(0.22, 0.68, night);
+    for (const material of storefrontLedMaterials) {
+      material.emissiveColor.set(
+        0.035 + ledIntensity * 1.35,
+        0.035 + ledIntensity * 1.38,
+        0.038 + ledIntensity * 1.48,
+      );
+    }
+    for (const light of storefrontLights) light.intensity = ledIntensity * 1.15;
 
     return {
       minuteOfDay: clock.minuteOfDay,
@@ -551,6 +587,7 @@ export function createMeridianEnvironment(
       disposed = true;
       shadows?.dispose();
       for (const light of streetlights) light.dispose();
+      for (const light of storefrontLights) light.dispose();
       for (const light of interiorLights) light.dispose();
       sun.dispose();
       ambient.dispose();

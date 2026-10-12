@@ -1,4 +1,4 @@
-import { Matrix, MeshBuilder, TransformNode } from "@babylonjs/core";
+import { Color3, Matrix, MeshBuilder, StandardMaterial, TransformNode } from "@babylonjs/core";
 import type { Material, Mesh, Scene } from "@babylonjs/core";
 import type { MeridianPhysics } from "../physics/rapier-world";
 import type { ResolvedBuildingSpec } from "./schema";
@@ -15,6 +15,11 @@ import type { FacadeDetailPlan } from "./facade-details";
 import { BuildingMaterialLibrary } from "./material-library";
 import { materialRecipe } from "./representation-materials";
 import { REPRESENTATION_POLICIES, selectRepresentationTier } from "./representation-lod";
+import {
+  BRICK_SCALE_PRESETS, applyPhysicalBrickUV, brickTrialPresetForBuilding,
+  createExperimentalBrickMaterial,
+} from "./experimental-brick-material";
+import type { ExperimentalBrickMaterial } from "./experimental-brick-material";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
 
 /** Step 4 adds optional physics and camera semantics without changing the live First Light scene. */
@@ -26,6 +31,8 @@ export interface BuildingGenerationContext {
   readonly materialLibrary?: BuildingMaterialLibrary;
   readonly enableFacadeDetails?: boolean;
   readonly batchingMode?: BatchingMode;
+  /** SEC-scoped, opt-in material research: apartment A and garage B only. */
+  readonly enableBrickMaterialTrial?: boolean;
   /** Metres from camera/player to building origin; default 0 preserves Step 2 output. */
   readonly initialDistance?: number;
   /** Defaults to enabled only when a physics world is provided. */
@@ -75,6 +82,12 @@ export function generateBuilding(
   const groups: RenderGroup[] = [];
   const leases = new Map<PrimitiveRole, string>();
   const roleMaterials = new Map<PrimitiveRole, Material>();
+  let downpipeMaterial: StandardMaterial | null = null;
+  let storefrontLedMaterial: StandardMaterial | null = null;
+  const brickPresetId = brickTrialPresetForBuilding(
+    spec.id, context.enableBrickMaterialTrial === true);
+  const brickTrialActive = brickPresetId !== null;
+  let experimentalBrick: ExperimentalBrickMaterial | null = null;
   let tier: RepresentationTier = "near";
   let proxiesBuilt = false;
   let disposed = false;
@@ -82,6 +95,11 @@ export function generateBuilding(
   const materialFor = (role: PrimitiveRole): Material => {
     const supplied = context.materials?.[role];
     if (supplied) return supplied;
+    if (role === "wall" && brickTrialActive) {
+      if (!experimentalBrick) experimentalBrick = createExperimentalBrickMaterial(
+        scene, materialRecipe(spec, context.generatorVersion, "wall"), spec.id);
+      return experimentalBrick.material;
+    }
     const cached = roleMaterials.get(role);
     if (cached) return cached;
     const recipe = materialRecipe(spec, context.generatorVersion, role);
@@ -97,11 +115,73 @@ export function generateBuilding(
     groups.push({ mesh, kind });
   };
   const makeIndividual = (part: BoxPrimitive, kind: RenderClass): void => {
+    if (part.templateId === "facade-sign-band") {
+      // MA-LED: render the existing storefront band as a luminous, physical
+      // diffuser. This is authored by the building facade itself; no separate
+      // street-object planner or invisible detached mounting anchor.
+      if (!storefrontLedMaterial) {
+        storefrontLedMaterial = new StandardMaterial("ma-facade-led:" + spec.id, scene);
+        storefrontLedMaterial.diffuseColor = new Color3(0.82, 0.85, 0.87);
+        storefrontLedMaterial.specularColor = new Color3(0.42, 0.45, 0.47);
+        storefrontLedMaterial.emissiveColor = new Color3(0.035, 0.035, 0.038);
+        storefrontLedMaterial.disableLighting = false;
+      }
+      const housing = MeshBuilder.CreateBox("generated:" + spec.id + ":" + part.id,
+        { width: part.size.x, height: part.size.y, depth: part.size.z }, scene);
+      housing.position.set(part.center.x, part.center.y, part.center.z);
+      housing.material = materialFor("trim");
+      housing.metadata = { buildingId: spec.id, templateId: part.templateId, renderClass: kind };
+      register(housing, kind);
+      const frontBack = part.size.x > part.size.z;
+      const led = MeshBuilder.CreateBox("generated-led:" + spec.id + ":" + part.id,
+        { width: frontBack ? part.size.x * 0.94 : part.size.x + 0.025,
+          height: 0.085,
+          depth: frontBack ? part.size.z + 0.025 : part.size.z * 0.94 }, scene);
+      led.position.set(part.center.x, part.center.y - 0.12, part.center.z);
+      led.material = storefrontLedMaterial;
+      led.metadata = { buildingId: spec.id, templateId: "facade-storefront-led",
+        renderClass: kind, cameraBlocker: false };
+      register(led, kind);
+      return;
+    }
+    if (part.templateId === "facade-downpipe") {
+      // WG/MA: facade downpipes are real round metal cylinders, never
+      // dark rectangular structural sticks. No change to physics shell.
+      if (!downpipeMaterial) {
+        downpipeMaterial = new StandardMaterial("municipal-downpipe-metal:" + spec.id, scene);
+        downpipeMaterial.diffuseColor = new Color3(0.70, 0.73, 0.73);
+        downpipeMaterial.specularColor = new Color3(0.82, 0.85, 0.87);
+        downpipeMaterial.specularPower = 80;
+      }
+      const pipe = MeshBuilder.CreateCylinder(
+        "generated:" + spec.id + ":" + part.id,
+        { height: part.size.y, diameter: 0.1155, tessellation: 12 }, scene);
+      pipe.position.set(part.center.x, part.center.y, part.center.z);
+      pipe.material = downpipeMaterial;
+      pipe.metadata = { buildingId: spec.id, architecturalRole: "metal",
+        primitiveId: part.id, templateId: part.templateId,
+        renderClass: kind, cameraBlocker: false };
+      register(pipe, kind);
+      for (const [name, offset] of [["lower", -1], ["upper", 1]] as const) {
+        const collar = MeshBuilder.CreateCylinder(
+          "generated:" + spec.id + ":" + part.id + ":" + name,
+          { height: 0.11, diameter: 0.16275, tessellation: 12 }, scene);
+        collar.position.set(part.center.x,
+          part.center.y + offset * Math.max(0, part.size.y / 2 - 0.35),
+          part.center.z);
+        collar.material = downpipeMaterial;
+        register(collar, kind);
+      }
+      return;
+    }
     const mesh = MeshBuilder.CreateBox("generated:" + spec.id + ":" + part.id,
       { width: part.size.x, height: part.size.y, depth: part.size.z }, scene);
     mesh.position.set(part.center.x, part.center.y, part.center.z);
     if (part.rotationZ !== undefined) mesh.rotation.z = part.rotationZ;
     mesh.material = materialFor(part.role);
+    if (brickPresetId && part.role === "wall") {
+      applyPhysicalBrickUV(mesh, part, BRICK_SCALE_PRESETS[brickPresetId]);
+    }
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
       primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind,
       cameraBlocker: false };
@@ -114,6 +194,11 @@ export function generateBuilding(
     }
     const buckets = new Map<string, BoxPrimitive[]>();
     for (const part of parts) {
+      if (part.templateId === "facade-downpipe" || part.templateId === "facade-sign-band" ||
+        (brickTrialActive && part.role === "wall")) {
+        makeIndividual(part, "detail");
+        continue;
+      }
       const kind = renderClass(part);
       const key = kind + ":" + part.role;
       const bucket = buckets.get(key) ?? [];
@@ -189,6 +274,9 @@ export function generateBuilding(
     collisionHandle?.dispose();
     for (const mesh of cameraBlockers) mesh.dispose();
     for (const mesh of meshes) mesh.dispose();
+    downpipeMaterial?.dispose();
+    storefrontLedMaterial?.dispose();
+    experimentalBrick?.dispose();
     root.dispose();
     for (const key of leases.values()) library.release(key);
     if (ownsLibrary) library.dispose();

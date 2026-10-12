@@ -1,6 +1,6 @@
-import { featureChoice, featureRandom } from "./seeded-variation";
+
 import { facadeOutward, rotateHorizontal } from "./spatial";
-import { OPENING_TEMPLATES, ROOF_FIXTURE_TEMPLATES, openingTemplateId } from "./architecture-templates";
+import { OPENING_TEMPLATES, openingTemplateId } from "./architecture-templates";
 import type {
   BuildingArchetype, FacadeOpeningSpec, FacadeSide, MassingForm,
   ResolvedBuildingSpec, RoofType, WorldPosition,
@@ -145,14 +145,24 @@ function getMassForOpening(masses: readonly BuildingMass[], opening: FacadeOpeni
   return mass;
 }
 
-function bayRole(archetype: BuildingArchetype, side: FacadeSide, floor: number, index: number): BayRole {
-  if (floor === 0 && (archetype === "commercial" || archetype === "mixed-use" || archetype === "hospitality")) {
-    if (side === "front" || (archetype === "commercial" && side === "right")) return "storefront";
-  }
+/**
+ * Municipal Administration WG-01: resolve a facade cell by architectural intent.
+ * Never suppress independent bays with random thinning or odd/even indexes.
+ * A multistorey building's floor zero has no ordinary generated windows:
+ * explicitly designated commercial storefronts and authored openings are
+ * distinct from generic residence/office window placements.
+ */
+export function defaultFacadeBayRole(
+  archetype: BuildingArchetype, side: FacadeSide, floor: number, storeys: number,
+): BayRole {
   if (archetype === "garage" || archetype === "warehouse" || archetype === "parking") return "service";
   if (floor === 0 && archetype === "industrial") return "service";
-  if (side === "rear" && floor === 0 && archetype === "commercial") return "service";
-  if ((side === "left" || side === "right") && archetype === "residential" && index % 2 === 1) return "wall";
+  if (floor === 0 && (archetype === "commercial" || archetype === "mixed-use")) {
+    if (side === "front" || (archetype === "commercial" && side === "right")) return "storefront";
+    return "wall";
+  }
+  if (floor === 0 && archetype === "hospitality" && side === "front") return "storefront";
+  if (floor === 0 && storeys >= 2) return "wall";
   return "window";
 }
 
@@ -179,6 +189,30 @@ function createFacadeLayout(
       cutThrough: template.defaultCutThrough,
     });
   }
+  // Every building receives a visible pedestrian entrance. This is a
+  // deliberately NON-traversable door panel unless separately authored as a
+  // physical portal. Prefer the rear/service elevation, never a busy road
+  // frontage or an existing garage bay.
+  if (!openings.some(o => o.kind === "door" && o.floor === 0)) {
+    const groundMass = masses.find(m => m.firstFloor === 0)!;
+    for (const facade of (spec.archetype === "garage"
+      ? ["left", "rear", "right"] : ["rear", "left", "right"]) as FacadeSide[]) {
+      const width = 1.08;
+      const height = Math.min(2.13, spec.parameters.floorHeight - 0.28);
+      const door: FacadeOpeningSpec = {
+        id: "ma:pedestrian-door:" + spec.id,
+        kind: "door", facade, offset: 0, sillHeight: 0, width, height,
+      };
+      if (sideSpan(groundMass, facade) < width + 1.1 ||
+          openings.some(o => o.massId === groundMass.id && o.facade === facade &&
+            overlaps(door, o, 0.20))) continue;
+      openings.push({
+        ...door, massId: groundMass.id, floor: 0, source: "generated",
+        templateId: "door-standard", cutThrough: false,
+      });
+      break;
+    }
+  }
   const bays: FacadeBay[] = [];
   for (const mass of masses) {
     for (const side of SIDES) {
@@ -192,7 +226,7 @@ function createFacadeLayout(
         const floorBase = floor * floorHeight;
         for (let index = 0; index < count; index += 1) {
           const offset = round(-usable / 2 + bayWidth * (index + 0.5));
-          let role = bayRole(spec.archetype, side, floor, index);
+          let role = defaultFacadeBayRole(spec.archetype, side, floor, spec.parameters.floors);
           const authored = openings.find((opening) =>
             opening.massId === mass.id && opening.facade === side &&
             Math.abs(opening.offset - offset) < (opening.width + bayWidth) / 2 &&
@@ -225,10 +259,8 @@ function createFacadeLayout(
             id: `auto:${id}`, kind, facade: side, offset, sillHeight, width, height,
           };
           if (openings.some((other) => other.massId === mass.id && overlaps(candidate, other, 0.16))) continue;
-          // Deterministic thinning keeps industrial/side elevations from looking uniform.
-          const keep = featureRandom(spec.seed, generatorVersion, `bay:${id}`) >=
-            (side === "rear" ? 0.18 : side === "left" || side === "right" ? 0.28 : 0.06);
-          if (!keep && kind === "window") continue;
+          // Do not randomly drop individual windows: full bay columns form a
+          // consistent grid across every eligible upper-floor row.
           const templateId = openingTemplateId(kind, windowType);
           openings.push({
             ...candidate, massId: mass.id, floor, source: "generated", templateId,
@@ -305,6 +337,17 @@ function openingDetails(mass: BuildingMass, opening: PlannedOpening): BoxPrimiti
     facadeBox(`frame:${opening.id}:bottom`, "trim", mass, opening.facade,
       opening.offset, bottom, opening.width + t, t, t, edge, template.id),
   ];
+  if (opening.kind === "door" && !opening.cutThrough) {
+    // False doors are intentionally cosmetic and stand in front of the
+    // intact wall collider. No doorway or traversable cut is implied.
+    bars.push(facadeBox(`door-panel:${opening.id}`, "metal", mass, opening.facade,
+      opening.offset, (bottom + top) / 2,
+      opening.width - t * 0.7, opening.height - t * 0.7,
+      0.075, edge + 0.035, "door-standard"));
+    bars.push(facadeBox(`door-handle:${opening.id}`, "trim", mass, opening.facade,
+      opening.offset + opening.width * 0.31, bottom + 1.00,
+      0.08, 0.16, 0.09, edge + 0.091, "door-standard"));
+  }
   // Physical doors/garage/loading bays stay open. Decorative storefronts are closed panels.
   if (template.glazing && (opening.kind === "window" || !opening.cutThrough)) {
     bars.push(facadeBox(
@@ -355,23 +398,9 @@ function roofBoxes(
       });
     }
   }
-  if (!topMass || spec.parameters.lodProfile === "skyline" || mass.width < 4 || mass.depth < 4) return pieces;
-  const count = spec.parameters.floors >= 3 ? 2 : 1;
-  for (let i = 0; i < count; i += 1) {
-    const id = featureChoice(spec.seed, generatorVersion, `roof-fixture:${i}`,
-      ["roof-hvac", "roof-vent", "roof-access-hut", "roof-water-tank", "roof-antenna"] as const);
-    const fixture = ROOF_FIXTURE_TEMPLATES[id];
-    if (fixture.footprintWidth + 1 >= mass.width || fixture.footprintDepth + 1 >= mass.depth) continue;
-    const x = (featureRandom(spec.seed, generatorVersion, `roof-fixture-x:${i}`) - 0.5) *
-      (mass.width - fixture.footprintWidth - 1);
-    const z = (featureRandom(spec.seed, generatorVersion, `roof-fixture-z:${i}`) - 0.5) *
-      (mass.depth - fixture.footprintDepth - 1);
-    pieces.push({
-      id: `roof:${mass.id}:fixture:${i}`, role: "metal", templateId: id,
-      center: { x: mass.centerX + x, y: y + 0.14 + fixture.height / 2, z: mass.centerZ + z },
-      size: { x: fixture.footprintWidth, y: fixture.height, z: fixture.footprintDepth },
-    });
-  }
+  // Rooftop equipment requires an intentionally authored reason and exact
+  // location. Random chimney-like stacks made modern South Ward roofs incoherent.
+  void topMass; void spec; void generatorVersion;
   return pieces;
 }
 

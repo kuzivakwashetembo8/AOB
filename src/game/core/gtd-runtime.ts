@@ -51,6 +51,9 @@ import {
 } from "../world/first-light-runtime-source";
 import type { VoightPrototype } from "../character/voight";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
+import { southWardLocationAt } from "../world-generation/south-ward-location";
+import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-policy";
+import { isCurbAscent } from "../character/locomotion/curb-step";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import {
   DEFAULT_TRAVEL_HEADING,
@@ -127,6 +130,7 @@ export class GTDGameRuntime implements GameRuntime {
   private diagnosticHardwareScale: number | null = null;
   private actions = new Set<GameAction>();
   private verticalVelocity = 0;
+  private curbStepSeconds = 0;
   private grounded = true;
   private accumulator = 0;
   private snapshotAccumulator = 0;
@@ -224,9 +228,12 @@ export class GTDGameRuntime implements GameRuntime {
       {
         // The accepted humanoid requires existing raised-sidewalk support
         // colliders in every preview, matching current main behavior.
-        enableSidewalkSupportCollision: isMeridiaCharacterTrialRequested(
-          window.location.search, window.location.hostname,
-        ),
+        // Canonical Voight always needs physical sidewalk TOP support.
+        // Trial-only support previously allowed feet to clip through paving.
+        enableSidewalkSupportCollision: true,
+        // MAT-003: approved apartment and garage brick surfaces are default-on.
+        // An explicit ?gtdBrickTrial=0 permits reversible field diagnostics.
+        enableBrickMaterialTrial: acceptedBrickSurfaceEnabled(diagnosticParams),
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
@@ -870,12 +877,21 @@ export class GTDGameRuntime implements GameRuntime {
     this.world?.update(dt, position);
     const correctedPlanarMps =
       Math.hypot(movement.movement.x, movement.movement.z) / Math.max(dt, 0.0001);
+    // Autostep is already physics-authorized by Rapier. Briefly play the
+    // imported character's existing jump/step clip on a real curb ascent,
+    // rather than letting running feet slide through a raised curb face.
+    if (isCurbAscent(movement.movement.y, correctedPlanarMps, this.grounded)) {
+      this.curbStepSeconds = 0.16;
+    } else {
+      this.curbStepSeconds = Math.max(0, this.curbStepSeconds - dt);
+    }
     const gaitDecision = this.characterTrial?.updateAnimation({
       correctedPlanarSpeed: correctedPlanarMps,
       rawGrounded: this.grounded,
       intentMagnitude: desired.length(),
       sprintRequested: this.actions.has("sprint"),
-      jumpAscending: !this.grounded && this.verticalVelocity > 0.2,
+      jumpAscending: (!this.grounded && this.verticalVelocity > 0.2) ||
+        this.curbStepSeconds > 0,
       dt,
     });
     if (gaitDecision?.lastTransition || gaitDecision?.briefGroundLoss ||
@@ -986,7 +1002,13 @@ export class GTDGameRuntime implements GameRuntime {
     this.snapshot = {
       lifecycle: this.lifecycle,
       context: this.context,
-      location: this.world?.location ?? "South Ward // First Light",
+      location: this.world && this.physics && isGeneratedFirstLightWorld(this.world)
+        ? southWardLocationAt(
+          this.context === "driving" && this.drivingTrial
+            ? this.drivingTrial.pose
+            : this.physics.playerPosition(),
+        )
+        : this.world?.location ?? "South Ward // First Light",
       objective: this.drivingTrial
         ? this.context === "driving"
           ? "Ferrari trial · Drive with WASD / arrows · F to exit when stopped"

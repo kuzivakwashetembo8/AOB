@@ -95,7 +95,7 @@ function makeLot(row: Row): LotSpec {
 
 const roadNode = (id: string, x: number, z: number) => ({ id, position: { x, y: 0, z } });
 const roadSegment = (id: string, startNodeId: string, endNodeId: string, name: string) => ({
-  id, startNodeId, endNodeId, name, roadClass: "local" as const, width: 8, laneCount: 2, sidewalkWidth: 3.1,
+  id, startNodeId, endNodeId, name, roadClass: "local" as const, width: 8, laneCount: 2, sidewalkWidth: 3.75,
 });
 
 /** Road names are provisional design labels, not established in-game signage. */
@@ -141,6 +141,8 @@ export const FIRST_LIGHT_CITY_SPEC: CitySpec = {
         {
           id: "sw-fl-main-south",
           lots: rows.filter((row) => row.block === "south").map(makeLot),
+          props: [
+          ],
         },
         {
           id: "sw-fl-rear-south",
