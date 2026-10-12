@@ -47,7 +47,7 @@ import {
   isGeneratedFirstLightWorld,
   type RuntimeFirstLightWorld,
 } from "../world/first-light-runtime-source";
-import { createVoightPrototype, type VoightPrototype } from "../character/voight";
+import type { VoightPrototype } from "../character/voight";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import {
@@ -219,8 +219,8 @@ export class GTDGameRuntime implements GameRuntime {
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
       {
-        // L1/L3 source-backed support fix: do not apply parity sidewalk
-        // collision changes to the existing no-query baseline or production.
+        // The accepted humanoid requires existing raised-sidewalk support
+        // colliders in every preview, matching current main behavior.
         enableSidewalkSupportCollision: isMeridiaCharacterTrialRequested(
           window.location.search, window.location.hostname,
         ),
@@ -319,12 +319,10 @@ export class GTDGameRuntime implements GameRuntime {
     scene.activeCamera = camera;
 
     this.emit({ type: "load-checkpoint", id: "voight", status: "running" });
-    let voight: VoightPrototype;
-    if (isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname)) {
-      // Only the opt-in preview/branch trial uses the external humanoid model.
-      // No silent fallback: unavailable or malformed GLB must not be mistaken
-      // for an accepted Voight or a successfully loaded character.
-      try {
+    // The rigged humanoid is the only supported actor. Never fall back to the
+    // obsolete capsule on previews or when an external asset fails to load.
+    let voight: LoadedMeridiaCharacter;
+    try {
         const trial = await loadMeridiaCharacterTrial(scene);
         this.characterTrial = trial;
         voight = trial;
@@ -346,13 +344,10 @@ export class GTDGameRuntime implements GameRuntime {
           });
         (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: () => ReturnType<LoadedMeridiaCharacter["report"]> })
           .__GTD_CHARACTER_TRIAL_REPORT__ = () => trial.report();
-      } catch (error) {
-        this.emit({ type: "load-checkpoint", id: "voight", status: "failed",
-          detail: error instanceof Error ? error.message : String(error) });
-        throw error;
-      }
-    } else {
-      voight = createVoightPrototype(scene);
+    } catch (error) {
+      this.emit({ type: "load-checkpoint", id: "voight", status: "failed",
+        detail: error instanceof Error ? error.message : String(error) });
+      throw error;
     }
     const spawn = physics.playerPosition();
     voight.root.position.set(spawn.x, spawn.y, spawn.z);
@@ -383,7 +378,7 @@ export class GTDGameRuntime implements GameRuntime {
     // cars are installed; the previous onAfterRender-only gate admitted
     // sky-and-cars frames with no ground/streets/Voight on mobile.
     const ground = scene.getMeshByName("generated-first-light-ground");
-    const protagonist = this.characterTrial?.witness ?? scene.getMeshByName("voight-prototype-body");
+    const protagonist = voight.witness;
     if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
       throw new Error("Generated ground or Voight render witness was not constructed");
     }
@@ -425,10 +420,8 @@ export class GTDGameRuntime implements GameRuntime {
         ].filter(mesh => mesh.isEnabled() && mesh.material instanceof StandardMaterial)
       : [];
     if (this.characterTrial) {
-      // This explicit fallback tests WHETHER Babylon's original StandardMaterial
-      // effects are starving out all city meshes after UAL PBR import.
-      // Preserve existing city geometry/UVs/textures; do not invent proxies.
-      // No effect on production or the no-query preview baseline.
+      // Preserve the tested humanoid PBR/world shader integration from main:
+      // real streets and buildings must remain visible after rig import.
       groundIsolation = isolateCharacterTrialGroundShaders(
         ground, roadSurfaces, sidewalkSurfaces, trialScenery,
       );
