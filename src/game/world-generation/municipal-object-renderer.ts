@@ -150,6 +150,8 @@ export function createMunicipalStreetContext(
       texture.wrapV = Texture.CLAMP_ADDRESSMODE;
       texture.hasAlpha = true;
       material.diffuseTexture = texture;
+      material.emissiveTexture = texture;
+      material.emissiveColor = new Color3(0.27, 0.27, 0.27);
       material.useAlphaFromDiffuseTexture = true;
       textures.push(texture);
     }
