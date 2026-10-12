@@ -45,6 +45,24 @@ function textureValue(
         ? { shade: 0.68, alpha: 1 }
         : { shade: 0.88 + n * 0.18, alpha: 1 };
     }
+    case "brick-relief": {
+      const brickRow = Math.floor(y / 12);
+      const stagger = brickRow % 2 === 0 ? 0 : 16;
+      const localX = (x + stagger) % 32;
+      const localY = y % 12;
+      // Consistent running-bond mortar joints plus four-direction bevel:
+      // more convincing stacked hard masonry without 3D geometry per brick.
+      if (localY <= 1 || localX <= 1) return { shade: 0.49 + n * 0.08, alpha: 1 };
+      const brickVariation = noise(seed ^ 0xb12ca957,
+        Math.floor((x + stagger) / 32), brickRow);
+      const raisedEdge = localY === 2 || localX === 2 ? 0.10 : 0;
+      const recessedEdge = localY >= 10 || localX >= 30 ? -0.15 : 0;
+      return {
+        shade: 0.90 + (brickVariation - 0.5) * 0.17 +
+          (n - 0.5) * 0.055 + raisedEdge + recessedEdge,
+        alpha: 1,
+      };
+    }
     case "block": {
       const row = Math.floor(y / 12);
       const offset = row % 2 === 0 ? 0 : 12;
@@ -94,14 +112,15 @@ export function createSurfaceTexture(
   recipe: MaterialRecipe,
 ): RawTexture {
   const [red, green, blue] = parseHex(recipe.color);
-  const pixels = new Uint8Array(SIZE * SIZE * 4);
+  const size = recipe.textureKind === "brick-relief" ? 128 : SIZE;
+  const pixels = new Uint8Array(size * size * 4);
   const seed = hash(recipe.key);
 
   for (let y = 0; y < SIZE; y += 1) {
     for (let x = 0; x < SIZE; x += 1) {
-      const index = (y * SIZE + x) * 4;
+      const index = (y * size + x) * 4;
       const { shade, alpha } = textureValue(recipe.textureKind, seed, x, y);
-      const grime = recipe.variation.grime * Math.max(0, (y / SIZE - 0.58) * 0.18);
+      const grime = recipe.variation.grime * Math.max(0, (y / size - 0.58) * 0.18);
       const weather = (recipe.variation.weathering - 0.5) * 0.07;
       const patch =
         recipe.variation.patching > 0.72 &&
@@ -118,8 +137,8 @@ export function createSurfaceTexture(
 
   const texture = RawTexture.CreateRGBATexture(
     pixels,
-    SIZE,
-    SIZE,
+    size,
+    size,
     scene,
     true,
     false,
