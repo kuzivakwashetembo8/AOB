@@ -1,7 +1,7 @@
 # GTD-WORLD-002 — Ferrari L0 Physics Hardening: Failure Modes, Remedies and Inheritance
 **Date:** 2026-10-12 SAST
 **Scope:** `feat/gtd-world-002-ferrari-l0-20261012` only; neither main nor the parked buggy is modified.
-**Status:** Technical implementation / automated regression pending final verification. Live human/device acceptance remains OPEN.
+**Status:** TypeScript, complete automated test suite and Vercel production-style preview build PASSED on commit `dfd90d9` (deployment `dpl_5FvcRxtQcNWbQ4SejZndPnkjjLWu`). Live human/device acceptance remains OPEN.
 **Asset rights:** External Ferrari/buggy GLBs remain provisional evaluation specimens; not approved for commercial GTD release.
 
 ## Why this patch exists
@@ -40,3 +40,10 @@ The owner confirmed L0 forward, reverse, steering and entry/exit, then identifie
 - No assertion of the user's intermittent float's exact root cause until it is reproduced and its telemetry reviewed.
 - Live glTF wheel hierarchy must be read through actual runtime diagnostics; names provided by the original Ferrari source controller do not prove every instantiated Babylon transform is present.
 - Commercial licensing of the source Ferrari remains unresolved.
+
+## Implementation evidence update (2026-10-12)
+- Focused real-Rapier tests passed for 0.21m road-curb ascent, 0.22m tagged garage-threshold obstruction, 2.2m solid wall, signed steering, chassis descent from raised pavement and safe position-B exit.
+- Quaternion wheel tests passed for four named glTF-style pivots, rolling distance, front steering, missing-pivot reporting and a custom sedan-style actor profile.
+- The full repository test command, TypeScript type-check and production-style Vercel build completed successfully at runtime SHA `dfd90d938c35a76e4c2c81b83b95f328322453c0`.
+- The build is source-code/NullEngine validated; **actual live-world wheel pivot count and occasional floating have not been independently reproduced/visually accepted**. Preview: https://gtd-h7gg535w5-interlinkglobaltech.vercel.app/game?gtdVehicleTrial=1
+- Since only README/documentation changed after the validated runtime commit, the ready preview remains that exact tested runtime.
