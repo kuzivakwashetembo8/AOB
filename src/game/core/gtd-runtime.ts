@@ -20,6 +20,7 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FirstDriveTrial } from "../vehicles/first-drive-trial";
+import { canInitializePlayerVehicle } from "../vehicles/drive-availability";
 import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha } from "../vehicles/ferrari-camera";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
@@ -463,7 +464,9 @@ export class GTDGameRuntime implements GameRuntime {
       // Import/first-frame gates stay authoritative; no procedural fallback.
       // Reuse ONE accepted sports GLB and preserve every parked buggy.
       // Do not require a preview-only query flag or exclude production hosts.
-      if (this.importedCarProbe && isGeneratedFirstLightWorld(firstLight)) {
+      if (canInitializePlayerVehicle(
+        this.importedCarProbe !== null, isGeneratedFirstLightWorld(firstLight),
+      ) && this.importedCarProbe && isGeneratedFirstLightWorld(firstLight)) {
         const sports = this.importedCarProbe.report().slots.find(slot =>
           slot.source === "sports" && slot.status === "imported" && slot.finalVisualMetres);
         const anchor = sports
