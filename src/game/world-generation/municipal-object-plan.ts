@@ -8,7 +8,7 @@ import { resolveCityBuildings } from "./defaults";
 import { projectToRoad } from "./road-graph";
 
 export type MunicipalKind =
-  | "shop-board" | "wheelie-bin" | "hydrant"
+  | "shop-board" | "shop-name" | "storefront-led" | "wheelie-bin" | "hydrant"
   | "bollard" | "utility-cabinet" | "street-name" | "stop-sign";
 
 export interface MunicipalItem {
@@ -31,7 +31,9 @@ export const MUNICIPAL_TEMPLATES = {
   "utility-cabinet": { width: 0.88, height: 1.38, depth: 0.45, collision: "simple-box" },
   "street-name": { width: 1.3, height: 3.12, depth: 0.08, collision: "simple-cylinder" },
   "stop-sign": { width: 0.72, height: 2.65, depth: 0.10, collision: "simple-cylinder" },
-  "shop-board": { width: 1.20, height: 0.56, depth: 0.07, collision: "none" },
+  "shop-board": { width: 1.68, height: 0.80, depth: 0.08, collision: "none" },
+  "shop-name": { width: 3.60, height: 0.52, depth: 0.075, collision: "none" },
+  "storefront-led": { width: 6.60, height: 0.075, depth: 0.10, collision: "none" },
 } as const satisfies Record<MunicipalKind, {
   width: number; height: number; depth: number;
   collision: "none" | "simple-box" | "simple-cylinder";
@@ -78,11 +80,28 @@ export function planMunicipalStreetObjects(city: CitySpec): readonly MunicipalIt
       anchorType: "facade",
       buildingId: building.id,
       assetId: open ? "south-ward-shop-open" : "south-ward-shop-closed",
-      position: facadeFrontAnchor(building, 0, building.parameters.floorHeight - 0.42),
+      // Eye-level on the glazing with real 38cm wall clearance: the first
+      // trial's small, high 8.5cm-offset board was effectively invisible.
+      position: facadeFrontAnchor(building, -1.5, 2.25, 0.38),
       yawRadians: building.yawRadians,
       dimensionsMeters: { width: template.width, height: template.height, depth: template.depth },
       collision: "none",
     });
+    const name = building.id === "sw-fl-corner-commercial"
+      ? "MERCER CORNER STORE" : "FOUNDRY GENERAL STORE";
+    for (const kind of ["shop-name", "storefront-led"] as const) {
+      const description = MUNICIPAL_TEMPLATES[kind];
+      items.push({
+        id: `ma:${building.id}:${kind}`,
+        kind, anchorType: "facade", buildingId: building.id,
+        ...(kind === "shop-name" ? { label: name } : {}),
+        position: facadeFrontAnchor(building, 0,
+          building.parameters.floorHeight - (kind === "shop-name" ? 0.43 : 0.83), 0.37),
+        yawRadians: building.yawRadians,
+        dimensionsMeters: { width: description.width, height: description.height, depth: description.depth },
+        collision: "none",
+      });
+    }
   }
 
   const included = new Set<string>();
@@ -90,10 +109,10 @@ export function planMunicipalStreetObjects(city: CitySpec): readonly MunicipalIt
     for (const neighborhood of district.neighborhoods) {
       for (const block of neighborhood.blocks) {
         for (const prop of block.props ?? []) {
-          if (!validKinds.has(prop.templateId) || prop.templateId === "shop-board") continue;
+          if (!validKinds.has(prop.templateId) || ["shop-board", "shop-name", "storefront-led"].includes(prop.templateId)) continue;
           if (included.has(prop.id)) throw new Error("Duplicate municipal object ID " + prop.id);
           included.add(prop.id);
-          const kind = prop.templateId as Exclude<MunicipalKind, "shop-board">;
+          const kind = prop.templateId as Exclude<MunicipalKind, "shop-board" | "shop-name" | "storefront-led">;
           const template = MUNICIPAL_TEMPLATES[kind];
           const nearestRoad = kind === "street-name"
             ? projectToRoad(city.roads, prop.position) : null;
