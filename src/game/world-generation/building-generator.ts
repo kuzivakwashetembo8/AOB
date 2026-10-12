@@ -76,6 +76,7 @@ export function generateBuilding(
   const leases = new Map<PrimitiveRole, string>();
   const roleMaterials = new Map<PrimitiveRole, Material>();
   let downpipeMaterial: StandardMaterial | null = null;
+  let storefrontLedMaterial: StandardMaterial | null = null;
   let tier: RepresentationTier = "near";
   let proxiesBuilt = false;
   let disposed = false;
@@ -98,6 +99,35 @@ export function generateBuilding(
     groups.push({ mesh, kind });
   };
   const makeIndividual = (part: BoxPrimitive, kind: RenderClass): void => {
+    if (part.templateId === "facade-sign-band") {
+      // MA-LED: render the existing storefront band as a luminous, physical
+      // diffuser. This is authored by the building facade itself; no separate
+      // street-object planner or invisible detached mounting anchor.
+      if (!storefrontLedMaterial) {
+        storefrontLedMaterial = new StandardMaterial("ma-facade-led:" + spec.id, scene);
+        storefrontLedMaterial.diffuseColor = new Color3(0.82, 0.85, 0.87);
+        storefrontLedMaterial.specularColor = new Color3(0.42, 0.45, 0.47);
+        storefrontLedMaterial.emissiveColor = new Color3(0.035, 0.035, 0.038);
+        storefrontLedMaterial.disableLighting = false;
+      }
+      const housing = MeshBuilder.CreateBox("generated:" + spec.id + ":" + part.id,
+        { width: part.size.x, height: part.size.y, depth: part.size.z }, scene);
+      housing.position.set(part.center.x, part.center.y, part.center.z);
+      housing.material = materialFor("trim");
+      housing.metadata = { buildingId: spec.id, templateId: part.templateId, renderClass: kind };
+      register(housing, kind);
+      const frontBack = part.size.x > part.size.z;
+      const led = MeshBuilder.CreateBox("generated-led:" + spec.id + ":" + part.id,
+        { width: frontBack ? part.size.x * 0.94 : part.size.x + 0.025,
+          height: 0.085,
+          depth: frontBack ? part.size.z + 0.025 : part.size.z * 0.94 }, scene);
+      led.position.set(part.center.x, part.center.y - 0.12, part.center.z);
+      led.material = storefrontLedMaterial;
+      led.metadata = { buildingId: spec.id, templateId: "facade-storefront-led",
+        renderClass: kind, cameraBlocker: false };
+      register(led, kind);
+      return;
+    }
     if (part.templateId === "facade-downpipe") {
       // WG/MA: facade downpipes are real round metal cylinders, never
       // dark rectangular structural sticks. No change to physics shell.
@@ -109,7 +139,7 @@ export function generateBuilding(
       }
       const pipe = MeshBuilder.CreateCylinder(
         "generated:" + spec.id + ":" + part.id,
-        { height: part.size.y, diameter: 0.11, tessellation: 12 }, scene);
+        { height: part.size.y, diameter: 0.1155, tessellation: 12 }, scene);
       pipe.position.set(part.center.x, part.center.y, part.center.z);
       pipe.material = downpipeMaterial;
       pipe.metadata = { buildingId: spec.id, architecturalRole: "metal",
@@ -119,7 +149,7 @@ export function generateBuilding(
       for (const [name, offset] of [["lower", -1], ["upper", 1]] as const) {
         const collar = MeshBuilder.CreateCylinder(
           "generated:" + spec.id + ":" + part.id + ":" + name,
-          { height: 0.11, diameter: 0.155, tessellation: 12 }, scene);
+          { height: 0.11, diameter: 0.16275, tessellation: 12 }, scene);
         collar.position.set(part.center.x,
           part.center.y + offset * Math.max(0, part.size.y / 2 - 0.35),
           part.center.z);
@@ -145,7 +175,7 @@ export function generateBuilding(
     }
     const buckets = new Map<string, BoxPrimitive[]>();
     for (const part of parts) {
-      if (part.templateId === "facade-downpipe") {
+      if (part.templateId === "facade-downpipe" || part.templateId === "facade-sign-band") {
         makeIndividual(part, "detail");
         continue;
       }
@@ -225,6 +255,7 @@ export function generateBuilding(
     for (const mesh of cameraBlockers) mesh.dispose();
     for (const mesh of meshes) mesh.dispose();
     downpipeMaterial?.dispose();
+    storefrontLedMaterial?.dispose();
     root.dispose();
     for (const key of leases.values()) library.release(key);
     if (ownsLibrary) library.dispose();
