@@ -1,6 +1,6 @@
-import { featureChoice, featureRandom } from "./seeded-variation";
+
 import { facadeOutward, rotateHorizontal } from "./spatial";
-import { OPENING_TEMPLATES, ROOF_FIXTURE_TEMPLATES, openingTemplateId } from "./architecture-templates";
+import { OPENING_TEMPLATES, openingTemplateId } from "./architecture-templates";
 import type {
   BuildingArchetype, FacadeOpeningSpec, FacadeSide, MassingForm,
   ResolvedBuildingSpec, RoofType, WorldPosition,
@@ -363,23 +363,9 @@ function roofBoxes(
       });
     }
   }
-  if (!topMass || spec.parameters.lodProfile === "skyline" || mass.width < 4 || mass.depth < 4) return pieces;
-  const count = spec.parameters.floors >= 3 ? 2 : 1;
-  for (let i = 0; i < count; i += 1) {
-    const id = featureChoice(spec.seed, generatorVersion, `roof-fixture:${i}`,
-      ["roof-hvac", "roof-vent", "roof-access-hut", "roof-water-tank", "roof-antenna"] as const);
-    const fixture = ROOF_FIXTURE_TEMPLATES[id];
-    if (fixture.footprintWidth + 1 >= mass.width || fixture.footprintDepth + 1 >= mass.depth) continue;
-    const x = (featureRandom(spec.seed, generatorVersion, `roof-fixture-x:${i}`) - 0.5) *
-      (mass.width - fixture.footprintWidth - 1);
-    const z = (featureRandom(spec.seed, generatorVersion, `roof-fixture-z:${i}`) - 0.5) *
-      (mass.depth - fixture.footprintDepth - 1);
-    pieces.push({
-      id: `roof:${mass.id}:fixture:${i}`, role: "metal", templateId: id,
-      center: { x: mass.centerX + x, y: y + 0.14 + fixture.height / 2, z: mass.centerZ + z },
-      size: { x: fixture.footprintWidth, y: fixture.height, z: fixture.footprintDepth },
-    });
-  }
+  // Rooftop equipment requires an intentionally authored reason and exact
+  // location. Random chimney-like stacks made modern South Ward roofs incoherent.
+  void topMass; void spec; void generatorVersion;
   return pieces;
 }
 
