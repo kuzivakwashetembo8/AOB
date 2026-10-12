@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { vehicleFootprintsOverlap } from "../game/vehicles/street-vehicle-barriers";
 import { MeshBuilder, NullEngine, Quaternion, Scene, TransformNode } from "@babylonjs/core";
 import {
   FERRARI_WHEEL_MAPPING, StreetVehicleWheelRig,
@@ -69,6 +70,16 @@ describe("GTD reusable street vehicle wheel/grounding contracts", () => {
       expect(anchor.rotationQuaternion).toBeNull();
     } finally { rig.dispose(); scene.dispose(); engine.dispose(); }
   });
+  it("checks true portal footprints at road level even after curb-induced chassis lift", () => {
+    const sill = { x: 0, z: 0, halfX: 4, halfZ: 0.36, yaw: 0 };
+    const car = { x: 0, z: 4, halfX: 1, halfZ: 2.265, yaw: 0 };
+    expect(vehicleFootprintsOverlap(car, sill)).toBe(false);
+    expect(vehicleFootprintsOverlap({ ...car, z: 2.59 }, sill)).toBe(true);
+    expect(vehicleFootprintsOverlap({ ...car, z: 2.59, yaw: Math.PI / 6 }, sill)).toBe(true);
+    // Detouring around the real doorway remains possible.
+    expect(vehicleFootprintsOverlap({ ...car, x: 8 }, sill)).toBe(false);
+  });
+
   it("permits the next sedan to inherit grounding with a different approved profile", () => {
     const profile = { ...FERRARI_STREET_PROFILE, classId: "meridian-sedan-test",
       maxCurbAutostepMetres: 0.18, wheelRadiusFallbackMetres: 0.36 };
