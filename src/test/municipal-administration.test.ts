@@ -28,12 +28,32 @@ describe("SO-MA municipal administration scene and authored shop boards", () => 
       const building = buildings.find(b => b.id === item.buildingId)!;
       expect(["commercial", "mixed-use"]).toContain(building.archetype);
       expect(item.position).toEqual(facadeFrontAnchor(
-        building, 0, building.parameters.floorHeight - 0.42,
+        building, -1.5, 2.25, 0.38,
       ));
       expect(item.anchorType).toBe("facade");
       expect(item.collision).toBe("none");
       expect(item.position.y - item.dimensionsMeters.height / 2).toBeGreaterThan(2);
     }
+  });
+
+  it("gives each shop a conspicuous name and white LED fixture", () => {
+    const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC)
+      .filter(b => b.archetype === "commercial" || b.archetype === "mixed-use");
+    expect(plan.filter(x => x.kind === "shop-name")).toHaveLength(buildings.length);
+    expect(plan.filter(x => x.kind === "storefront-led")).toHaveLength(buildings.length);
+    const corner = plan.filter(x => x.buildingId === "sw-fl-corner-commercial");
+    expect(corner.some(x => x.kind === "shop-name" && x.label === "MERCER CORNER STORE")).toBe(true);
+    expect(corner.some(x => x.kind === "storefront-led")).toBe(true);
+    expect(corner.some(x => x.kind === "shop-board")).toBe(true);
+  });
+
+  it("places a visible cluster at the Mercer corner, not across the entire district", () => {
+    const nearShop = plan.filter(x =>
+      Math.hypot(x.position.x - 29.2, x.position.z - 14) < 10);
+    expect(nearShop.filter(x => x.kind === "wheelie-bin").length).toBeGreaterThanOrEqual(2);
+    expect(nearShop.some(x => x.kind === "hydrant")).toBe(true);
+    expect(nearShop.some(x => x.kind === "street-name")).toBe(true);
+    expect(nearShop.some(x => x.kind === "utility-cabinet")).toBe(true);
   });
 
   it("keeps authored urban furniture purposeful, unique and outside road lanes", () => {
