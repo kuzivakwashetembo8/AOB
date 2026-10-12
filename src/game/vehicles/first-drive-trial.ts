@@ -10,11 +10,12 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { TransformNode } from "@babylonjs/core";
 import type { MeridianPhysics } from "../physics/rapier-world";
 import { stepDriveControl, type DriveState } from "./drive-kinematics";
-import { ferrariForwardVelocity } from "./ferrari-camera";
-import { vehicleFootprintsOverlap } from "./street-vehicle-barriers";
+ import { vehicleFootprintsOverlap } from "./street-vehicle-barriers";
 import {
   FERRARI_STREET_PROFILE,
   INITIAL_VERTICAL_VEHICLE_STATE,
+  streetVehicleForwardVelocity,
+  type StreetVehiclePhysicsProfile,
   clampVehicleClimb,
   settleVehicleVerticalState,
   stepVehicleVerticalMotion,
@@ -23,6 +24,7 @@ import {
 import {
   FERRARI_WHEEL_MAPPING,
   StreetVehicleWheelRig,
+  type StreetVehicleWheelMapping,
 } from "./street-vehicle-wheels";
 
 export interface DriveTrialDimensions { readonly x: number; readonly y: number; readonly z: number }
@@ -42,7 +44,8 @@ export function ferrariExitOffsets(yaw: number, width: number, length: number) {
   ] as const;
 }
 
-export class FirstDriveTrial {
+/** Reusable Rapier actor with asset-specific profile and wheel mapping. */
+export class StreetVehicleActor {
   private readonly body: RAPIER.RigidBody;
   private readonly collider: RAPIER.Collider;
   private readonly controller: RAPIER.KinematicCharacterController;
@@ -61,6 +64,8 @@ export class FirstDriveTrial {
     private readonly physics: MeridianPhysics,
     readonly anchor: TransformNode,
     readonly dimensions: DriveTrialDimensions,
+    private readonly profile: StreetVehiclePhysicsProfile = FERRARI_STREET_PROFILE,
+    wheelMapping: StreetVehicleWheelMapping = FERRARI_WHEEL_MAPPING,
   ) {
     if (![dimensions.x, dimensions.y, dimensions.z].every(n => Number.isFinite(n) && n > 0)) {
       throw new Error("Ferrari trial requires the imported visual's real calibrated bounds");
@@ -87,9 +92,9 @@ export class FirstDriveTrial {
       // Only shallow, floor-supported ledges are climbable. Tall buildings,
       // bins and parked vehicles are not turned into traversable surfaces.
       this.controller.enableAutostep(
-        FERRARI_CURB_MAX_METRES, FERRARI_STREET_PROFILE.minStepWidthMetres, false,
+        profile.maxCurbAutostepMetres, profile.minStepWidthMetres, false,
       );
-      this.controller.enableSnapToGround(FERRARI_STREET_PROFILE.groundSnapMetres);
+      this.controller.enableSnapToGround(profile.groundSnapMetres);
       this.controller.setApplyImpulsesToDynamicBodies(true);
     } catch (error) {
       physics.world.removeRigidBody(this.body);
@@ -99,7 +104,7 @@ export class FirstDriveTrial {
     this.lastZ = anchor.position.z;
     // The car-specific asset adapter is the only Ferrari-named dependency.
     // The wheel quaternion system is reusable with a sedan's wheel mapping.
-    this.wheelRig = new StreetVehicleWheelRig(anchor, FERRARI_WHEEL_MAPPING);
+    this.wheelRig = new StreetVehicleWheelRig(anchor, wheelMapping);
   }
 
   get pose(): VehicleWorldPoint { return this.body.translation(); }
@@ -115,7 +120,9 @@ export class FirstDriveTrial {
     wheelCount: this.wheelCount,
     wheelRigReady: this.wheelRig.ready,
     missingWheelPivots: this.wheelRig.absentNames,
-    distanceMetres: this.distanceMetres, curbMaxMetres: FERRARI_CURB_MAX_METRES,
+    distanceMetres: this.distanceMetres,
+    classId: this.profile.classId,
+    curbMaxMetres: this.profile.maxCurbAutostepMetres,
   }; }
 
   prepare(dt: number, steering: number, moveY: number) {
@@ -132,10 +139,10 @@ export class FirstDriveTrial {
     // User-confirmed steering direction: reversing the original angular sign
     // repairs left/right in the camera-visible Meridia Ferrari configuration.
     const nextYaw = yaw + next.yawRateRadiansPerSecond * dt;
-    const forward = ferrariForwardVelocity(nextYaw, next.speedMps);
+    const forward = streetVehicleForwardVelocity(nextYaw, next.speedMps, this.profile);
     // Free fall is gravity-accelerated after losing Rapier support, not
     // a constant 0.24m/s descent that leaves the visual car hovering.
-    const vertical = stepVehicleVerticalMotion(this.vertical, dt, FERRARI_STREET_PROFILE);
+    const vertical = stepVehicleVerticalMotion(this.vertical, dt, this.profile);
     this.controller.computeColliderMovement(this.collider, {
       x: forward.x * dt,
       y: vertical.requestedDownwardMetres,
@@ -144,7 +151,7 @@ export class FirstDriveTrial {
     const corrected = this.controller.computedMovement();
     this.vertical = settleVehicleVerticalState(vertical, this.controller.computedGrounded());
     const at = this.body.translation();
-    const climb = clampVehicleClimb(corrected.y, dt, FERRARI_STREET_PROFILE);
+    const climb = clampVehicleClimb(corrected.y, dt, this.profile);
     let x = climb.suspendPlanarTravel ? 0 : corrected.x;
     let z = climb.suspendPlanarTravel ? 0 : corrected.z;
     // Rapier autostep moves a car's CHASSIS upwards, potentially clearing
@@ -285,3 +292,6 @@ export class FirstDriveTrial {
     this.physics.world.removeRigidBody(this.body);
   }
 }
+
+/** Ferrari is the provisional source adapter; civilian cars extend StreetVehicleActor. */
+export class FirstDriveTrial extends StreetVehicleActor {}
