@@ -239,13 +239,6 @@ function registerGaragePropCollision(
   garageInterior: GeneratedGarageInterior | null,
 ): StaticCollisionHandle[] {
   const handles: StaticCollisionHandle[] = [];
-  for (const mesh of municipalContext.meshes) {
-    mesh.receiveShadows = true;
-    if (!mesh.name.includes(":lettering") && !mesh.name.includes("shop-board-face")) {
-      environment.addShadowCaster(mesh);
-    }
-  }
-
   for (const mesh of garageInterior?.meshes ?? []) {
     if (!mesh.name.startsWith("garage-tire-")) continue;
     mesh.computeWorldMatrix(true);
@@ -503,6 +496,13 @@ export function createGeneratedFirstLightWorld(
       !mesh.name.startsWith("generated-public-space:") &&
       !mesh.name.startsWith("generated-grass-variation:")
     ) {
+      environment.addShadowCaster(mesh);
+    }
+  }
+
+  for (const mesh of municipalContext.meshes) {
+    mesh.receiveShadows = true;
+    if (!mesh.name.includes(":lettering") && !mesh.name.includes("shop-board-face")) {
       environment.addShadowCaster(mesh);
     }
   }
