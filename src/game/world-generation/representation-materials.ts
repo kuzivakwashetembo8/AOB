@@ -15,6 +15,7 @@ export type MaterialFamilyId =
 
 export type SurfaceTextureKind =
   | "brick"
+  | "brick-relief"
   | "block"
   | "concrete"
   | "plaster"
@@ -207,6 +208,11 @@ export function materialRecipe(
 ): MaterialRecipe {
   const familyId = role === "wall" ? wallFamily(spec, version) : ROLE_FAMILIES[role];
   const family = MATERIAL_FAMILIES[familyId];
+  // City-wide seeded facade variety: keep some old painted/flat bricks, but
+  // give a stable subset genuine per-brick bevel, joint and light response.
+  const textureKind = role === "wall" && family.textureKind === "brick" &&
+    featureRandom(spec.seed, version, "architectural-brick-depth") >= 0.42
+    ? "brick-relief" : family.textureKind;
   const sample = (key: string) =>
     featureRandom(spec.seed, version, "surface:" + role + ":" + key);
   const tintBucket = Math.min(7, Math.floor(sample("tint") * 8));
@@ -221,6 +227,7 @@ export function materialRecipe(
     key: [
       familyId,
       role,
+      textureKind,
       "t" + tintBucket,
       "w" + Math.floor(weathering * 4),
       "g" + Math.floor(grime * 4),
@@ -236,7 +243,7 @@ export function materialRecipe(
     roughness: Math.min(0.98, family.roughness + weathering * 0.045),
     metalness: family.metalness,
     alpha: family.alpha,
-    textureKind: family.textureKind,
+    textureKind,
     textureScale: family.textureScale,
     variation: {
       tintBucket,
