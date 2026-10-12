@@ -1,6 +1,6 @@
 # GTD-RND-MAT-002 — Per-Building Brick Scale Presets and Image-Surface Workflow
 
-**Classification:** Experimental Research and Implementation Specification — **NOT an approved GTD-wide building material standard**  
+**Classification:** Experimental Research and Implemented Two-Building Preview — **NOT an approved GTD-wide building material standard**  
 **Scope:** Meridia / South Ward, owner-authorized two-building brick-image scale comparison  
 **Record:** 2026-10-12 session; filed 2026-10-13 (SAST)  
 **Branch:** `feat/gtd-world-002-municipal-administration-20261012` (draft PR #16; never auto-promote to `main`)  
@@ -26,7 +26,7 @@ The owner now requests a controlled scale comparison **within the same preview**
 
 ## 3. Separation of image asset, scale preset and building assignment
 
-Keep three independent definitions. This model is an intended contract; confirm that actual code implements equivalent behavior before claiming it complete.
+Keep three independent definitions. The branch now implements this equivalent contract in `src/game/world-generation/experimental-brick-material.ts` and `building-generator.ts`; the syntax below remains a deliberately simplified interface illustration.
 
 ### 3.1 Asset registry
 ```ts
@@ -105,7 +105,7 @@ Shader sampling and mip selection should be inspected for far-view aliasing and 
 - **Window adjacency:** the shared UV origin carries brick courses continuously across wall sections around windows; there is no separate photograph cut around each window.
 - **Window realism:** the image contains only bricks/mortar, never photographic windows. Existing window geometry, transparent glass and optional solid backing remain independent. Image alpha must not create transparent leak-through.
 - **Corners:** a face-local projection yields correct vertical mortar alignment but may expose corner seams, face mirroring or abrupt course termination; document those separately from horizontal stretch.
-- **Garage frontage:** preserve real garage entrance aperture and Rapier doorway clearance. No wall box, overlay, collision plane or backing may be added over the open bay. The owner's comparison targets **external masonry**, not a new brick finish on the garage interior.
+- **Garage frontage:** preserve real garage entrance aperture and Rapier doorway clearance. No wall box, overlay, collision plane or backing may be added over the open bay. The owner's comparison targets **external masonry**, not an intentional redesign of the garage interior. **Known visual limitation:** the current generator's wall boxes use a single material on all faces, so the interior-facing side of an exterior wall box may also show brick. Inspect the garage interior explicitly; remedying face-specific materials would be a separately reviewed refinement, not a collision change.
 - **Structural integrity:** visual wall changes are not permission to move/remove wall colliders, change vehicle parking or block Voight's threshold.
 
 ## 7. Fallback, offline and resource budgets
@@ -121,12 +121,12 @@ Safety and failure cases: incorrect manifest path, 404 or corrupt WebP, stale sc
 | Test/gate | Required result | Status |
 |---|---|---|
 | Asset identity/dimensions | Owner's exact WebP, unchanged | Source verified in MAT-001 |
-| Preset arithmetic | A=1.350m; B=1.485m; vertical scales follow source pixel aspect | Pending execution |
-| Assignment isolation | Flagged apartment uses A, flagged garage uses B, other buildings procedural | Pending execution |
-| UV continuity | Neighboring wall boxes sample consistent physical scale across windows | Pending execution |
-| Garage bay/interior | Existing garage opening and interaction geometry unchanged | Pending execution |
-| Resource lifecycle | Shared image material safe under multiple buildings and disposal | Pending execution |
-| Regression | TypeScript, targeted and full suite, Vercel READY | Pending execution |
+| Preset arithmetic | A=1.350m; B=1.485m; vertical scales follow source pixel aspect | **PASSED** — MAT-002 focused tests |
+| Assignment isolation | Flagged apartment uses A, flagged garage uses B, other buildings procedural | **PASSED** — MAT-002 focused tests |
+| UV continuity | Neighboring wall boxes sample consistent physical scale across windows | **PASSED** — headless numeric/mesh tests; visual confirmation OPEN |
+| Garage bay/interior | Existing garage opening and interaction geometry unchanged | **PASSED** geometry tests; interior appearance OPEN |
+| Resource lifecycle | Shared scene-scoped WebP resource lease and disposal | **PASSED** scene test; browser VRAM profiling OPEN |
+| Regression | TypeScript, targeted and full suite, Vercel READY | **PASSED** — deployment `dpl_9AZUUScUnSdDG69We2k9v8Boxgyq` (code SHA `05974b5`) |
 | Visual A/B | Owner screenshots of apartment + garage, comparable viewpoints and lighting | **OPEN** |
 | Performance/mobile | Frame-time, texture/decode memory and loading comparisons | **NOT ACCEPTED** |
 | Project-wide adoption | Written owner + security approval, measured evidence and rollout plan | **NOT AUTHORIZED** |
@@ -140,3 +140,12 @@ Safety and failure cases: incorrect manifest path, 404 or corrupt WebP, stale sc
 The owner approved the **two-building trial comparison** and this documentation. That does **not** constitute approval for image-derived textures across GTD, expanded South Ward, additional image assets or the use of high-resolution image materials as a mandatory building standard. Trial C (`largeC`) remains defined but inactive; further building assignments require explicit approval.
 
 Any observed success is experimental evidence; the final decision must consider the garage window/entry geometry, close-up brick dimensions, nocturnal materials, browser/mobile performance and image asset packaging.
+
+## 10. Implementation and preview evidence (2026-10-13)
+
+- **A/B code implementation:** `experimental-brick-material.ts` exports `compactA`, `standardB`, and inactive `largeC`; `brickTrialPresetForBuilding` enables only `sw-fl-south-apartment` and `sw-fl-garage` when the existing `gtdBrickTrial=1` flag is set.
+- **Rendering integration:** `building-generator.ts` applies the selected metre-size UV tile to role-`wall` boxes on the assigned building only; apartment A is unchanged at 1.350m and garage B uses 1.485m. A scene-scoped reference-counted Babylon `Texture` is shared by both experimental wall materials and released after the last building is disposed.
+- **Focused tests:** `brick-material-trial-a.test.ts` and `brick-material-trial-b.test.ts`, **6/6 pass**. The entire automated regression suite, TypeScript check and app build passed in the same preview deployment.
+- **READY preview:** [Garage B and Apartment A](https://gtd-rlmgyadr6-interlinkglobaltech.vercel.app/game?gtdBrickTrial=1). **Control:** [procedural walls](https://gtd-rlmgyadr6-interlinkglobaltech.vercel.app/game).
+- **Visual acceptance:** NOT COMPLETE. In particular, compare the garage exterior, door/bay, interior-facing wall surfaces, and apartment A at identical camera settings. Existing full-source image remains unchanged.
+- **Release:** the feature is isolated to branch `feat/gtd-world-002-municipal-administration-20261012`, with no merge to production `main`. The current documentation update does not alter the already READY runtime build.
