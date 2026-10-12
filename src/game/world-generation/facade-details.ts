@@ -201,24 +201,6 @@ function openingTrim(
         ),
       );
     }
-    if (
-      primitives.length < max &&
-      sample(opening.id + ":shutter") > 0.9
-    ) {
-      primitives.push(
-        panel(
-          "shutter:" + opening.id,
-          "shutter",
-          mass,
-          opening.facade,
-          opening.offset - opening.width / 2 - 0.11,
-          (opening.sillHeight + top) / 2,
-          0.16,
-          opening.height,
-          0.1,
-        ),
-      );
-    }
     return;
   }
 
