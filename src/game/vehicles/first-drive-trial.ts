@@ -7,6 +7,7 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { TransformNode } from "@babylonjs/core";
 import type { MeridianPhysics } from "../physics/rapier-world";
 import { stepDriveControl, type DriveState } from "./drive-kinematics";
+import { ferrariForwardVelocity } from "./ferrari-camera";
 
 export interface DriveTrialDimensions { readonly x: number; readonly y: number; readonly z: number }
 export class FirstDriveTrial {
@@ -74,6 +75,8 @@ export class FirstDriveTrial {
   }
 
   get pose() { return this.body.translation(); }
+  /** Yaw of the calibrated imported GLB's anchor (nose faces local -Z). */
+  get headingYaw() { return this.anchor.rotation.y; }
   get speedMps() { return this.drive.speedMps; }
   get wheelCount() { return this.wheels.length; }
   get status() { return { speedMps: this.speedMps, wheelCount: this.wheelCount,
@@ -93,13 +96,16 @@ export class FirstDriveTrial {
     // Rapier owns collisions, vertical gravity and horizontal resolution.
     // No manual transform translation or independent render-frame physics.
     const previous = this.body.linvel();
+    const forward = ferrariForwardVelocity(yaw, next.speedMps);
     this.body.setLinvel({
-      x: Math.sin(yaw) * next.speedMps,
+      x: forward.x,
       y: previous.y,
-      z: Math.cos(yaw) * next.speedMps,
+      z: forward.z,
     }, true);
+    // Turning sign must agree with the -Z-facing Ferrari nose: positive
+    // right steering rotates the car toward world +X while driving forward.
     this.body.setAngvel({
-      x: 0, y: next.yawRateRadiansPerSecond, z: 0,
+      x: 0, y: -next.yawRateRadiansPerSecond, z: 0,
     }, true);
   }
 
