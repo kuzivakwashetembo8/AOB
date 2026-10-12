@@ -276,6 +276,9 @@ function registerGarageThresholdCollision(
           z: 0.36,
         },
         yaw,
+        // Actual 22 cm garage sill: physically exists, but must not be
+        // auto-climbed like an ordinary 21 cm roadside curb.
+        { vehicleNoStep: true },
       ),
     );
   }
