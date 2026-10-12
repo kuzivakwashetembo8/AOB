@@ -525,9 +525,9 @@ function createFirstLightAuthoredParitySurfaces(
   drain.diffuseColor = new Color3(0.16, 0.19, 0.18);
   drain.specularColor = new Color3(0.04, 0.04, 0.04);
 
-  const residentialPaving = new StandardMaterial("generated-south-ward-residential-paving", scene);
-  residentialPaving.diffuseColor = new Color3(0.40, 0.41, 0.39);
-  residentialPaving.specularColor = new Color3(0.06, 0.06, 0.05);
+  const residentialPaving = makeTexturedMaterial(
+    scene, "generated-south-ward-residential-paving", "sidewalk-paving");
+  // A real laid joint pattern rather than another smooth gray rectangle.
   const grass = new StandardMaterial("generated-south-ward-maintained-grass", scene);
   grass.diffuseColor = new Color3(0.27, 0.38, 0.24);
   grass.specularColor = new Color3(0.01, 0.02, 0.01);
