@@ -30,7 +30,7 @@ describe("GTD-RND-MAT-002 apartment A versus garage B", () => {
         expect(brickTrialPresetForBuilding(b.id, true)).toBeNull();
       }
     }
-    expect(Object.values(BRICK_TRIAL_ASSIGNMENTS).includes("largeC")).toBe(false);
+    expect(new Set<string>(Object.values(BRICK_TRIAL_ASSIGNMENTS)).has("largeC")).toBe(false);
   });
 
   it("makes garage bricks exactly 110 percent larger using one native-ratio image", () => {
