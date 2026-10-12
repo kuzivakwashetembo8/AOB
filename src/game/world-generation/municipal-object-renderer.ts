@@ -39,6 +39,7 @@ export function createMunicipalStreetContext(
   const textures: Texture[] = [];
   const dynamicTextures: DynamicTexture[] = [];
   const boards: string[] = [];
+  const assetRoots = new Map<string, TransformNode[]>();
 
   const solid = (name: string, hex: string) => {
     const material = new StandardMaterial("ma-material:" + name, scene);
@@ -133,6 +134,9 @@ export function createMunicipalStreetContext(
         (_message, error) => {
           console.warn("[SO-MA] Optional shop-board image unavailable:", assetId,
             error instanceof Error ? error.message : String(error));
+          // Fail closed: do not leave a blank frame mistaken for a qualified
+          // imported art board. No impact on world/character/vehicle startup.
+          for (const root of assetRoots.get(assetId) ?? []) root.setEnabled(false);
         },
       );
       texture.name = "ma-shop-board-art:" + assetId;
@@ -157,6 +161,7 @@ export function createMunicipalStreetContext(
     switch (item.kind) {
       case "shop-board": {
         if (!item.assetId) throw new Error("Shop board must have qualified asset ID " + item.id);
+        assetRoots.set(item.assetId, [...(assetRoots.get(item.assetId) ?? []), root]);
         // Image-first detail, REAL 7cm 3D frame; mounting is on the frontage
         // band above the ground-floor shop glazing, not at pedestrian height.
         box(item.id + ":frame", root, 1.2, 0.56, 0.07,
@@ -166,6 +171,21 @@ export function createMunicipalStreetContext(
         panel.parent = root;
         panel.position.z = 0.045;
         panel.material = art(item.assetId);
+        // Keep the owner's exact artwork proportions inside the physical
+        // frame. WebP transfer compression is not a license to stretch art.
+        const texture = panel.material.diffuseTexture as Texture | null;
+        if (texture) {
+          const fit = () => {
+            const size = texture.getSize();
+            if (!size.width || !size.height) return;
+            const actualRatio = size.width / size.height;
+            const frameRatio = 1.14 / 0.50;
+            panel.scaling.x = Math.min(1, actualRatio / frameRatio);
+            panel.scaling.y = Math.min(1, frameRatio / actualRatio);
+          };
+          if (texture.isReady()) fit();
+          else texture.onLoadObservable.addOnce(fit);
+        }
         panel.isPickable = false;
         meshes.push(panel);
         boards.push(item.id);
