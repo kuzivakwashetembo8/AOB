@@ -28,7 +28,12 @@ describe("FL-4 visual realism integration", () => {
     expect(bigWindow.height).toBeCloseTo(1.932);
     expect(bigWindow.sillHeight - bigWindow.floor * tall.building.parameters.floorHeight).toBeCloseTo(1.26);
     expect(normalWindow.height).toBeLessThanOrEqual(1.65);
-    expect(garage.plan.openings.filter((o) => o.source === "generated")).toHaveLength(0);
+    // MA infrastructure requires one pedestrian door per building. The
+    // garage's authored vehicle bay and rear windows remain untouched.
+    const generatedGarage = garage.plan.openings.filter(o => o.source === "generated");
+    expect(generatedGarage).toHaveLength(1);
+    expect(generatedGarage[0]?.kind).toBe("door");
+    expect(generatedGarage[0]?.cutThrough).toBe(false);
     for (const authored of garage.building.openings ?? []) {
       const mapped = garage.plan.openings.find((o) => o.id === authored.id)!;
       expect(mapped.sillHeight).toBe(authored.sillHeight);
@@ -38,7 +43,11 @@ describe("FL-4 visual realism integration", () => {
     for (const { building, plan } of plans) {
       for (const opening of plan.openings.filter((o) => o.source === "generated")) {
         const localSill = opening.sillHeight - opening.floor * building.parameters.floorHeight;
-        expect(localSill).toBeGreaterThanOrEqual(0.2);
+        if (opening.kind === "door") {
+          expect(localSill).toBe(0); // Ground-level pedestrian access
+        } else {
+          expect(localSill).toBeGreaterThanOrEqual(0.2);
+        }
         expect(localSill + opening.height).toBeLessThanOrEqual(building.parameters.floorHeight + 0.00001);
       }
     }
