@@ -19,6 +19,7 @@ import type {
   InputMode,
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
+import { FirstDriveTrial } from "../vehicles/first-drive-trial";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
   beginWorldRenderWarmup,
@@ -78,6 +79,8 @@ export class GTDGameRuntime implements GameRuntime {
   private fl4Diagnostics: FL4Diagnostics | null = null;
   private removeFL4EvidenceExport: (() => void) | null = null;
   private importedCarProbe: ImportedCarProbe | null = null;
+  private drivingTrial: FirstDriveTrial | null = null;
+  private drivingBoardingPosition: { x: number; y: number; z: number } | null = null;
   private worldRenderWarmup: WorldRenderWarmup | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
@@ -459,6 +462,42 @@ export class GTDGameRuntime implements GameRuntime {
       // Preserve real GLTF source/parking/collider completion requirements.
       if (this.importedCarProbe) await this.importedCarProbe.settled;
       if (this.host !== host || this.engine !== engine) return;
+      // EXP-VEH-002: opt-in branch preview only, never the production baseline.
+      // Reuse ONE accepted sports GLB and preserve every parked buggy.
+      if (diagnosticParams.get("gtdVehicleTrial") === "1" && !productionHostname &&
+          this.importedCarProbe && isGeneratedFirstLightWorld(firstLight)) {
+        const sports = this.importedCarProbe.report().slots.find(slot =>
+          slot.source === "sports" && slot.status === "imported" && slot.finalVisualMetres);
+        const anchor = sports
+          ? scene.getTransformNodeByName("vehicle-probe-anchor:" + sports.id)
+          : null;
+        if (sports?.finalVisualMetres && anchor) {
+          let trial: FirstDriveTrial | null = null;
+          try {
+            trial = new FirstDriveTrial(physics, anchor, {
+              x: sports.finalVisualMetres.width,
+              y: sports.finalVisualMetres.height,
+              z: sports.finalVisualMetres.length,
+            });
+            // Remove the original fixed parked collider only after the
+            // dynamic chassis and collider have successfully been allocated.
+            firstLight.releaseParkedCarCollider(sports.id);
+            this.drivingTrial = trial;
+            (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: () => unknown })
+              .__GTD_DRIVE_TRIAL_REPORT__ = () => ({
+                experiment: "EXP-VEH-002", importedSlotId: sports.id,
+                ...trial!.status, pose: { ...trial!.pose },
+                context: this.context,
+              });
+          } catch (error) {
+            trial?.dispose();
+            console.error("[EXP-VEH-002] Ferrari trial not available", error);
+            this.emit({ type: "error", message: "Ferrari driving trial unavailable: " + String(error) });
+          }
+        } else {
+          this.emit({ type: "error", message: "Ferrari trial asset unavailable; no replacement or proxy activated" });
+        }
+      }
       this.emit({ type: "load-checkpoint", id: "first-frame", status: "running" });
       const finalRenderStartedAt = performance.now();
       // Only finish startup after a POST-import frame actually submits
@@ -522,6 +561,10 @@ export class GTDGameRuntime implements GameRuntime {
     window.removeEventListener("resize", this.resize);
     this.worldRenderWarmup?.cancel();
     this.worldRenderWarmup = null;
+    this.drivingTrial?.dispose();
+    this.drivingTrial = null;
+    this.drivingBoardingPosition = null;
+    delete (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: unknown }).__GTD_DRIVE_TRIAL_REPORT__;
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
@@ -612,6 +655,10 @@ export class GTDGameRuntime implements GameRuntime {
       return;
     }
     if (command.type === "action") {
+      if (command.action === "vehicle" && command.pressed && this.drivingTrial) {
+        this.toggleFerrariDriving();
+        return;
+      }
       if (command.pressed) this.actions.add(command.action);
       else this.actions.delete(command.action);
       return;
@@ -660,6 +707,44 @@ export class GTDGameRuntime implements GameRuntime {
     return () => this.eventListeners.delete(listener);
   }
 
+  /** Development-only possession: enter/exit instantly; no unverified door rig. */
+  private toggleFerrariDriving() {
+    const trial = this.drivingTrial;
+    const physics = this.physics;
+    const voight = this.voight;
+    if (!trial || !physics || !voight) return;
+    if (this.context === "driving") {
+      if (Math.abs(trial.speedMps) > 0.25) {
+        this.emit({ type: "interaction", label: "Stop the Ferrari before exiting" });
+        return;
+      }
+      this.context = "walking";
+      const position = this.drivingBoardingPosition;
+      if (position) {
+        physics.setPlayerPosition(position);
+        voight.root.position.set(position.x, position.y, position.z);
+        this.camera?.target.set(position.x, position.y + 0.55, position.z);
+      }
+      voight.root.setEnabled(true);
+      this.move = { x: 0, y: 0 };
+      this.preferredCameraRadius = 6.2;
+      this.publishSnapshot(0);
+      this.emit({ type: "interaction", label: "Ferrari trial: press F to drive again" });
+      return;
+    }
+    // L0 trial possession is deliberately reachable from the spawn point.
+    // Proximity, seat alignment and door animation are later experiments.
+    this.drivingBoardingPosition = { ...physics.playerPosition() };
+    this.context = "driving";
+    voight.root.setEnabled(false);
+    this.move = { x: 0, y: 0 };
+    this.preferredCameraRadius = 7.6;
+    const position = trial.pose;
+    this.camera?.target.set(position.x, position.y + 0.55, position.z);
+    this.publishSnapshot(0);
+    this.emit({ type: "interaction", label: "Ferrari driving: WASD / arrows / joystick · F to exit when stopped" });
+  }
+
   private schedule() {
     if (this.lifecycle !== "running") return;
     this.frameHandle = requestAnimationFrame((time) => {
@@ -703,6 +788,32 @@ export class GTDGameRuntime implements GameRuntime {
           + swipe.beta,
       ),
     );
+
+    if (this.context === "driving" && this.drivingTrial) {
+      const trial = this.drivingTrial;
+      trial.prepare(dt, this.move.x, this.move.y);
+      // Exactly one Rapier step each fixed tick. The existing character
+      // controller owns the step until world physics is centrally refactored.
+      physics.movePlayer({ x: 0, y: 0, z: 0 });
+      trial.finish(dt);
+      const position = trial.pose;
+      this.world?.update(dt, position);
+      camera.target.set(position.x, position.y + 0.7, position.z);
+      const wantedAlpha = -trial.anchor.rotation.y - Math.PI / 2;
+      const deltaAlpha = Math.atan2(
+        Math.sin(wantedAlpha - camera.alpha),
+        Math.cos(wantedAlpha - camera.alpha),
+      );
+      camera.alpha += deltaAlpha * Math.min(1, 3.5 * dt);
+      this.preferredCameraRadius = 7.6;
+      this.resolveCameraObstruction(camera, position, dt);
+      this.snapshotAccumulator += dt;
+      if (this.snapshotAccumulator >= SNAPSHOT_INTERVAL) {
+        this.snapshotAccumulator = 0;
+        this.publishSnapshot(Math.abs(trial.speedMps));
+      }
+      return;
+    }
 
     const forward = new Vector3(-Math.cos(camera.alpha), 0, -Math.sin(camera.alpha));
     const right = new Vector3(-Math.sin(camera.alpha), 0, Math.cos(camera.alpha));
@@ -858,13 +969,18 @@ export class GTDGameRuntime implements GameRuntime {
       lifecycle: this.lifecycle,
       context: this.context,
       location: this.world?.location ?? "South Ward // First Light",
-      objective:
-        this.world?.objective ?? "Walk the generated South Ward garage corner",
+      objective: this.drivingTrial
+        ? this.context === "driving"
+          ? "Ferrari trial · Drive with WASD / arrows · F to exit when stopped"
+          : "Ferrari trial · Press F to enter the sports car"
+        : this.world?.objective ?? "Walk the generated South Ward garage corner",
       health: 100,
       reputation: 0,
       heat: 0,
       speed: Math.round(speed * 3.6),
-      vehicle: null,
+      vehicle: this.context === "driving" && this.drivingTrial
+        ? "Ferrari · EXP-VEH-002"
+        : null,
       meridianTime:
         this.world?.environmentSnapshot.formattedTime ?? this.snapshot.meridianTime,
       meridianMinuteOfDay:
