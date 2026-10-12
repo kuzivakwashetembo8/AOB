@@ -345,15 +345,15 @@ export function createMeridianEnvironment(
       const light = new PointLight(
         "meridian-streetlight:" + item.id,
         new Vector3(
-          item.position.x,
-          item.position.y + 5.05 * item.scale,
-          item.position.z,
+          item.position.x + Math.cos(item.yawRadians) * 1.03 * item.scale,
+          item.position.y + 4.925 * item.scale,
+          item.position.z - Math.sin(item.yawRadians) * 1.03 * item.scale,
         ),
         scene,
       );
-      light.diffuse = new Color3(1, 0.8, 0.52);
+      light.diffuse = new Color3(1, 0.93, 0.76);
       light.specular = new Color3(0.68, 0.48, 0.28);
-      light.range = 17.5 * item.scale;
+      light.range = 14.5 * item.scale;
       light.intensity = 0;
       return light;
     });
@@ -479,16 +479,16 @@ export function createMeridianEnvironment(
     scene.fogColor = horizon;
 
     const streetlightIntensity =
-      smoothstep(0.16, 0.68, night) * (2.35 + twilight * 0.38);
+      smoothstep(0.16, 0.68, night) * (2.9 + twilight * 0.32);
     for (const light of streetlights) {
       light.intensity = streetlightIntensity;
     }
     if (streetlightGlow) {
-      const glowStrength = clamp01(streetlightIntensity / 2.35);
+      const glowStrength = clamp01(streetlightIntensity / 2.9);
       streetlightGlow.emissiveColor = new Color3(
-        0.17 + glowStrength * 1.05,
-        0.1 + glowStrength * 0.62,
-        0.035 + glowStrength * 0.18,
+        0.035 + glowStrength * 1.25,
+        0.035 + glowStrength * 1.18,
+        0.03 + glowStrength * 0.96,
       );
     }
 
