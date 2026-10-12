@@ -52,6 +52,7 @@ import {
 import type { VoightPrototype } from "../character/voight";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
 import { southWardLocationAt } from "../world-generation/south-ward-location";
+import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-policy";
 import { isCurbAscent } from "../character/locomotion/curb-step";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import {
@@ -230,8 +231,9 @@ export class GTDGameRuntime implements GameRuntime {
         // Canonical Voight always needs physical sidewalk TOP support.
         // Trial-only support previously allowed feet to clip through paving.
         enableSidewalkSupportCollision: true,
-        // Isolated RND-MAT-001 test: without query, all buildings are unchanged.
-        enableBrickMaterialTrial: diagnosticParams.get("gtdBrickTrial") !== "0",
+        // MAT-003: approved apartment and garage brick surfaces are default-on.
+        // An explicit ?gtdBrickTrial=0 permits reversible field diagnostics.
+        enableBrickMaterialTrial: acceptedBrickSurfaceEnabled(diagnosticParams),
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
