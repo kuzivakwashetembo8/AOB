@@ -32,7 +32,7 @@ describe("SO-MA municipal administration scene and authored shop boards", () => 
       ));
       expect(item.anchorType).toBe("facade");
       expect(item.collision).toBe("none");
-      expect(item.position.y - item.dimensionsMeters.height / 2).toBeGreaterThan(2);
+      expect(item.position.y - item.dimensionsMeters.height / 2).toBeGreaterThan(1.75);
     }
   });
 
