@@ -7,7 +7,7 @@ import {
   ferrariExitOffsets,
 } from "../game/vehicles/first-drive-trial";
 
-async function fixture(options: { curb?: number; wall?: number } = {}) {
+async function fixture(options: { curb?: number; wall?: number; garageThreshold?: boolean } = {}) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   const physics = await MeridianPhysics.create();
@@ -21,6 +21,15 @@ async function fixture(options: { curb?: number; wall?: number } = {}) {
     obstacles.push(physics.addStaticBox({
       x: 0, y: height / 2, z: -4,
     }, { x: 8, y: height / 2, z: 3.85 }));
+  }
+  if (options.garageThreshold) {
+    // Actual garage portal physical height = 0.22m; ordinary curb = 0.21m.
+    // Garage threshold is tagged rather than inflated into a fake high wall.
+    obstacles.push(physics.addStaticBox(
+      { x: 0, y: 0.11, z: 0 },
+      { x: 8, y: 0.11, z: 0.36 },
+      0, { vehicleNoStep: true },
+    ));
   }
   if (options.wall !== undefined) {
     obstacles.push(physics.addStaticBox({ x: 0, y: options.wall / 2, z: 0 }, { x: 8, y: options.wall / 2, z: 0.3 }));
@@ -71,6 +80,30 @@ describe("EXP-VEH-002 live Rapier Ferrari corrections", () => {
       // verify elevation DURING traversal, not after it has descended.
       expect(setup.trial.pose.z).toBeLessThan(-1.0);
       expect(peakY - initialY).toBeGreaterThan(0.06);
+    } finally { setup.dispose(); }
+  }, 30000);
+
+  it("climbs a real 0.21m street curb, not just a 0.12m miniature", async () => {
+    const setup = await fixture({ curb: 0.21 });
+    try {
+      let peakY = setup.trial.pose.y;
+      for (let tick = 0; tick < 160; tick++) {
+        setup.step(0, -1);
+        peakY = Math.max(peakY, setup.trial.pose.y);
+      }
+      expect(setup.trial.pose.z).toBeLessThan(-1);
+      expect(peakY).toBeGreaterThan(0.75 + 0.12);
+      // After the car leaves the sidewalk, gravity restores ground support.
+      expect(setup.trial.pose.y).toBeLessThan(0.9);
+    } finally { setup.dispose(); }
+  }, 30000);
+
+  it("blocks the real 0.22m garage sill despite permitting ordinary 0.21m pavement", async () => {
+    const setup = await fixture({ garageThreshold: true });
+    try {
+      setup.step(0, -1, 160);
+      expect(setup.trial.pose.z).toBeGreaterThan(2.0);
+      expect(setup.trial.status.vehicleNoStepBlockedTicks).toBeGreaterThan(0);
     } finally { setup.dispose(); }
   }, 30000);
 
