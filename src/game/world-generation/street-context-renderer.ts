@@ -507,10 +507,18 @@ function addStreetlight(
     { width: 0.5, height: 0.16, depth: 0.28 },
     scene,
   );
-  lamp.position.set(1.03, 4.98, 0);
+  lamp.position.set(1.03, 5.02, 0);
   lamp.parent = root;
-  lamp.material = glow;
+  lamp.material = metal;
   meshes.push(lamp);
+  // Actual luminous underside, rather than a yellow unlit head on a stick.
+  const diffuser = MeshBuilder.CreateBox(
+    "generated-streetlight-diffuser:" + item.id,
+    { width: 0.43, height: 0.028, depth: 0.235 }, scene);
+  diffuser.position.set(1.03, 4.925, 0);
+  diffuser.parent = root;
+  diffuser.material = glow;
+  meshes.push(diffuser);
 }
 
 function addParkedCar(
@@ -746,10 +754,10 @@ export function createGeneratedStreetContext(
   const glow = material(
     scene,
     "generated-streetlight-glow",
-    new Color3(0.84, 0.64, 0.3),
+    new Color3(0.91, 0.90, 0.79),
     0,
   );
-  glow.emissiveColor = new Color3(0.5, 0.31, 0.1);
+  glow.emissiveColor = new Color3(0.04, 0.04, 0.035);
 
   const paint = material(
     scene,
