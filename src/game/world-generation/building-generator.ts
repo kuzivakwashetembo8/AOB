@@ -15,6 +15,10 @@ import type { FacadeDetailPlan } from "./facade-details";
 import { BuildingMaterialLibrary } from "./material-library";
 import { materialRecipe } from "./representation-materials";
 import { REPRESENTATION_POLICIES, selectRepresentationTier } from "./representation-lod";
+import {
+  BRICK_TRIAL_BUILDING_ID, applyPhysicalBrickUV, createExperimentalBrickMaterial,
+} from "./experimental-brick-material";
+import type { ExperimentalBrickMaterial } from "./experimental-brick-material";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
 
 /** Step 4 adds optional physics and camera semantics without changing the live First Light scene. */
@@ -26,6 +30,8 @@ export interface BuildingGenerationContext {
   readonly materialLibrary?: BuildingMaterialLibrary;
   readonly enableFacadeDetails?: boolean;
   readonly batchingMode?: BatchingMode;
+  /** SEC-scoped, opt-in material research: one South Ward apartment only. */
+  readonly enableBrickMaterialTrial?: boolean;
   /** Metres from camera/player to building origin; default 0 preserves Step 2 output. */
   readonly initialDistance?: number;
   /** Defaults to enabled only when a physics world is provided. */
@@ -77,6 +83,9 @@ export function generateBuilding(
   const roleMaterials = new Map<PrimitiveRole, Material>();
   let downpipeMaterial: StandardMaterial | null = null;
   let storefrontLedMaterial: StandardMaterial | null = null;
+  const brickTrialActive = context.enableBrickMaterialTrial === true &&
+    spec.id === BRICK_TRIAL_BUILDING_ID;
+  let experimentalBrick: ExperimentalBrickMaterial | null = null;
   let tier: RepresentationTier = "near";
   let proxiesBuilt = false;
   let disposed = false;
@@ -84,6 +93,11 @@ export function generateBuilding(
   const materialFor = (role: PrimitiveRole): Material => {
     const supplied = context.materials?.[role];
     if (supplied) return supplied;
+    if (role === "wall" && brickTrialActive) {
+      if (!experimentalBrick) experimentalBrick = createExperimentalBrickMaterial(
+        scene, materialRecipe(spec, context.generatorVersion, "wall"));
+      return experimentalBrick.material;
+    }
     const cached = roleMaterials.get(role);
     if (cached) return cached;
     const recipe = materialRecipe(spec, context.generatorVersion, role);
@@ -163,6 +177,7 @@ export function generateBuilding(
     mesh.position.set(part.center.x, part.center.y, part.center.z);
     if (part.rotationZ !== undefined) mesh.rotation.z = part.rotationZ;
     mesh.material = materialFor(part.role);
+    if (brickTrialActive && part.role === "wall") applyPhysicalBrickUV(mesh, part);
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
       primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind,
       cameraBlocker: false };
@@ -175,7 +190,8 @@ export function generateBuilding(
     }
     const buckets = new Map<string, BoxPrimitive[]>();
     for (const part of parts) {
-      if (part.templateId === "facade-downpipe" || part.templateId === "facade-sign-band") {
+      if (part.templateId === "facade-downpipe" || part.templateId === "facade-sign-band" ||
+        (brickTrialActive && part.role === "wall")) {
         makeIndividual(part, "detail");
         continue;
       }
@@ -256,6 +272,7 @@ export function generateBuilding(
     for (const mesh of meshes) mesh.dispose();
     downpipeMaterial?.dispose();
     storefrontLedMaterial?.dispose();
+    experimentalBrick?.dispose();
     root.dispose();
     for (const key of leases.values()) library.release(key);
     if (ownsLibrary) library.dispose();
