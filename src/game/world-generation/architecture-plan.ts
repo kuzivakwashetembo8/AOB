@@ -145,14 +145,24 @@ function getMassForOpening(masses: readonly BuildingMass[], opening: FacadeOpeni
   return mass;
 }
 
-function bayRole(archetype: BuildingArchetype, side: FacadeSide, floor: number, index: number): BayRole {
-  if (floor === 0 && (archetype === "commercial" || archetype === "mixed-use" || archetype === "hospitality")) {
-    if (side === "front" || (archetype === "commercial" && side === "right")) return "storefront";
-  }
+/**
+ * Municipal Administration WG-01: resolve a facade cell by architectural intent.
+ * Never suppress independent bays with random thinning or odd/even indexes.
+ * A multistorey building's floor zero has no ordinary generated windows:
+ * explicitly designated commercial storefronts and authored openings are
+ * distinct from generic residence/office window placements.
+ */
+export function defaultFacadeBayRole(
+  archetype: BuildingArchetype, side: FacadeSide, floor: number, storeys: number,
+): BayRole {
   if (archetype === "garage" || archetype === "warehouse" || archetype === "parking") return "service";
   if (floor === 0 && archetype === "industrial") return "service";
-  if (side === "rear" && floor === 0 && archetype === "commercial") return "service";
-  if ((side === "left" || side === "right") && archetype === "residential" && index % 2 === 1) return "wall";
+  if (floor === 0 && (archetype === "commercial" || archetype === "mixed-use")) {
+    if (side === "front" || (archetype === "commercial" && side === "right")) return "storefront";
+    return "wall";
+  }
+  if (floor === 0 && archetype === "hospitality" && side === "front") return "storefront";
+  if (floor === 0 && storeys >= 2) return "wall";
   return "window";
 }
 
@@ -192,7 +202,7 @@ function createFacadeLayout(
         const floorBase = floor * floorHeight;
         for (let index = 0; index < count; index += 1) {
           const offset = round(-usable / 2 + bayWidth * (index + 0.5));
-          let role = bayRole(spec.archetype, side, floor, index);
+          let role = defaultFacadeBayRole(spec.archetype, side, floor, spec.parameters.floors);
           const authored = openings.find((opening) =>
             opening.massId === mass.id && opening.facade === side &&
             Math.abs(opening.offset - offset) < (opening.width + bayWidth) / 2 &&
@@ -225,10 +235,8 @@ function createFacadeLayout(
             id: `auto:${id}`, kind, facade: side, offset, sillHeight, width, height,
           };
           if (openings.some((other) => other.massId === mass.id && overlaps(candidate, other, 0.16))) continue;
-          // Deterministic thinning keeps industrial/side elevations from looking uniform.
-          const keep = featureRandom(spec.seed, generatorVersion, `bay:${id}`) >=
-            (side === "rear" ? 0.18 : side === "left" || side === "right" ? 0.28 : 0.06);
-          if (!keep && kind === "window") continue;
+          // Do not randomly drop individual windows: full bay columns form a
+          // consistent grid across every eligible upper-floor row.
           const templateId = openingTemplateId(kind, windowType);
           openings.push({
             ...candidate, massId: mass.id, floor, source: "generated", templateId,
