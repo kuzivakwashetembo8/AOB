@@ -87,13 +87,14 @@ describe("EXP-VEH-002 live Rapier Ferrari corrections", () => {
     const setup = await fixture({ curb: 0.21 });
     try {
       let peakY = setup.trial.pose.y;
-      for (let tick = 0; tick < 160; tick++) {
+      for (let tick = 0; tick < 230; tick++) {
         setup.step(0, -1);
         peakY = Math.max(peakY, setup.trial.pose.y);
       }
       expect(setup.trial.pose.z).toBeLessThan(-1);
       expect(peakY).toBeGreaterThan(0.75 + 0.12);
-      // After the car leaves the sidewalk, gravity restores ground support.
+      // The entire car (not merely its centre) must have cleared the sidewalk
+      // before asserting that gravity has returned the chassis to road height.
       expect(setup.trial.pose.y).toBeLessThan(0.9);
     } finally { setup.dispose(); }
   }, 30000);
