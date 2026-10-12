@@ -225,7 +225,7 @@ export class FirstDriveTrial {
       4, true, undefined, undefined, this.collider,
     );
     if (support) {
-      const gap = Math.max(0, rayStart - support.timeOfImpact - bottomY);
+      const gap = Math.max(0, bottomY - (rayStart - support.timeOfImpact));
       this.highestObservedUnsupportedGap = Math.max(this.highestObservedUnsupportedGap, gap);
       if (gap > 0.5 && this.vertical.airborneSeconds > 0.6 && !this.warningEmitted) {
         console.warn("[GTD-WORLD-002/VM-G02] Extended unsupported Ferrari travel", {
