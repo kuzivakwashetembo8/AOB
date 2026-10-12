@@ -369,3 +369,8 @@ Before changing the renderer, asset-loading sequence, scene lifecycle, camera sp
 **Code/deployment discipline:** The last explicit accepted production baseline before these new UX changes was `7157ec415d9d49052da220b218b14c2d9b329446` / `dpl_9oZubtJR9i53wpHQ5GkN1LZMAjwT`. Later main commits and READY preview builds do not imply production has been redeployed. Future rendering/Voight changes retain actual ground + Voight draw witnesses and imported vehicle readiness contracts. FL-4 data capture remains optional and local-only.
 
 **Next direction:** GTD-CHAR-001 Voight advancement may proceed independently of the higher-graphics-density experiment and this separate pause-menu usability correction.
+
+
+## Post-FL-4 development pointer — 2026-10-12
+
+**FL-4 remains formally closed.** The next street-object and moving-car initiative is **separate post-First Light development**, governed by [GTD-WORLD-002 — Street Objects and Vehicle Movement Plan](./Development/GTD-WORLD-002%20Street%20Objects%20and%20Vehicle%20Movement%20Plan%20-%202026-10-12.md) and the [Meridian Game World Development SOT](./Meridian%20Game%20World%20Development%20SOT.md). Section 4 (street props) and Section 5 (vehicles) of the existing First Light Asset Doctrine retain authority over representation quality. Old milestone exclusions describe First Light's historical scope; they do not constitute completed traffic or vehicle-motion capabilities. Work and deployment are separately gated. The accepted imported cars remain a developmental visual benchmark with unresolved commercial rights, and GTD-CHAR-001 foot-to-curb contact remains open outside this scope.
