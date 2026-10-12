@@ -895,3 +895,11 @@ Current implementation state:
 - no production deployment has been requested for this runtime milestone yet.
 
 **Next validation milestone:** build and experience **Voight standing and moving in Meridia Test Ground**. Only after that validation passes should South Ward environment construction begin.
+
+---
+
+## 2026-10-12 — Street objects and vehicle movement development direction
+
+**Post-First Light planning link:** [GTD-WORLD-002 — Street Objects and Vehicle Movement: Development Plan](./Development/GTD-WORLD-002%20Street%20Objects%20and%20Vehicle%20Movement%20Plan%20-%202026-10-12.md). The owner has directed today's work toward street objects and car movements. The technical plan defines separate street-object and vehicle-motion workstreams, source-backed current capabilities, preview gates, road-graph/collision/runtime ownership, and deferred choices about traffic vs drivability. **Planning only**; no new moving-vehicle or street-object functionality is claimed or authorized by this SOT addition.
+
+This later planning note does **not** erase historical Phase 1 / empty-world baseline descriptions above. Current implementation must be verified against GitHub `main` at task start. The accepted First Light visual, FL-4 formal closure, imported-only car quality policy, desktop-confirmed GTD-CHAR-001 movement and unresolved foot/curb IK are protected. Future traffic/vehicle actors remain inside the fixed-step game runtime and Rapier boundary, not React; move on to a narrow in-world trial before authorizing full simulation or driving.
