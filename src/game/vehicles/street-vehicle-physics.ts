@@ -7,6 +7,8 @@
  */
 export interface StreetVehiclePhysicsProfile {
   readonly classId: string;
+  /** Authored forward axis: Ferrari -Z, many standard car rigs +Z. */
+  readonly forwardAxisSign: -1 | 1;
   /** Real road curbs are 0.21m; garage portals are physical no-step barriers. */
   readonly maxCurbAutostepMetres: number;
   readonly minStepWidthMetres: number;
@@ -18,6 +20,7 @@ export interface StreetVehiclePhysicsProfile {
 }
 export const FERRARI_STREET_PROFILE: StreetVehiclePhysicsProfile = Object.freeze({
   classId: "ferrari-evaluation",
+  forwardAxisSign: -1,
   maxCurbAutostepMetres: 0.24,
   minStepWidthMetres: 0.08,
   groundSnapMetres: 0.25,
@@ -72,4 +75,15 @@ export function clampVehicleClimb(
   }
   const capped = Math.min(computedY, profile.maxClimbPerTickMetres);
   return { y: capped, suspendPlanarTravel: computedY > profile.maxClimbPerTickMetres + 1e-6 };
+}
+
+/** Planar m/s from the selected asset's authored forward axis. */
+export function streetVehicleForwardVelocity(
+  yawRadians: number, speedMps: number, profile: StreetVehiclePhysicsProfile,
+) {
+  const signedSpeed = speedMps * profile.forwardAxisSign;
+  return {
+    x: Math.sin(yawRadians) * signedSpeed,
+    z: Math.cos(yawRadians) * signedSpeed,
+  };
 }
