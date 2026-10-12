@@ -47,3 +47,31 @@ The owner confirmed L0 forward, reverse, steering and entry/exit, then identifie
 - The full repository test command, TypeScript type-check and production-style Vercel build completed successfully at runtime SHA `dfd90d938c35a76e4c2c81b83b95f328322453c0`.
 - The build is source-code/NullEngine validated; **actual live-world wheel pivot count and occasional floating have not been independently reproduced/visually accepted**. Preview: https://gtd-h7gg535w5-interlinkglobaltech.vercel.app/game?gtdVehicleTrial=1
 - Since only README/documentation changed after the validated runtime commit, the ready preview remains that exact tested runtime.
+
+## Owner desktop acceptance and promotion authorization — 2026-10-12, 12:13 SAST
+
+**Directive:** The project owner accepts EXP-VEH-002 Ferrari L0 fundamental movements as a correct development-stage baseline, explicitly authorizes merging the trial branch into `main` and requests a live production deployment for mobile testing. This is a **desktop gameplay acceptance**, not completion of subsequent car-physics refinement, mobile acceptance, commercial licensing, or ambient traffic AI.
+
+**Owner-observed movement:** Forward/reverse, steering, acceleration, ordinary curb climbing, garage resistance, wheel roll/front/rear response and overall convincing car motion meet this stage's expectations. Intermittent floating was not reproduced in the latest owner session; retain VM-G02 diagnostic safeguards and treat future occurrences as separate regressions.
+
+**Browser diagnostic supplied by owner (raw values, one snapshot):**
+
+| Field | Owner-observed value |
+| --- | --- |
+| Experiment / asset slot | `EXP-VEH-002` / `sw-fl-authored-car-rear` |
+| Vehicle class / context | `ferrari-evaluation` / `driving` |
+| Speed / grounded / airborne duration | `0 m/s` / `true` / `0 s` |
+| Observed driven distance | `1509.7046646873114 m` |
+| Observed greatest support gap | `0.24418357610702512 m` |
+| Tagged no-step threshold blocks | `420` ticks |
+| Wheel pivots | `4`, `wheelRigReady: true`, `missingWheelPivots: []` |
+| Rapier pose | `x=-5.184538841247559, y=0.9073792099952698, z=4.597155570983887` |
+| Configured curb autostep | `0.24 m` |
+
+The gap value is a **maximum observation over the run**, not evidence of a current floating condition: this screenshot sample explicitly reports `grounded: true`, `airborneSeconds: 0` and `speedMps: 0`. The 420 blocked ticks confirm the no-step guard executed; they are not a count of collisions or failures.
+
+**Console note (not a vehicle error):** The preview browser reported a cross-origin `manifest.webmanifest` fetch blocked after Vercel's SSO middleware redirected the resource to `vercel.com/sso-api`. This is a **preview deployment authentication/manifest issue** distinct from Rapier movement, player controls and wheel simulation. Re-check manifest access on the canonical production domain; do not classify it as a Ferrari failure.
+
+**Promotion rule:** After automated regression/build verification, make the accepted Ferrari controllable by default on main and the canonical production gameplay route **without** requiring `?gtdVehicleTrial=1`. Preserve the imported GLB startup gate, single car actor, parked buggy, canonical humanoid, collision protections and direct play controls. Development/evaluation asset rights remain unresolved; the production URL is a test environment, not a commercial distribution rights determination. No claim of full traffic AI, tire physics or final sedan model.
+
+**Outstanding gate:** **Mobile acceptance OPEN** until owner tests on a mobile device. Consider touch/joystick behavior, 60Hz movement stability, no unexpected visual quality regressions and camera controls. This owner promotion does not automatically close the earlier nonreproducible VM-G02 symptom.
