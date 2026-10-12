@@ -85,7 +85,7 @@ export function createMunicipalStreetContext(
     if (headless(scene)) return board;
     const texture = new DynamicTexture("ma-label:" + id,
       { width: 512, height: 256 }, scene, true);
-    const context = texture.getContext();
+    const context = texture.getContext() as CanvasRenderingContext2D;
     context.fillStyle = base;
     context.fillRect(0, 0, 512, 256);
     context.fillStyle = ink;
