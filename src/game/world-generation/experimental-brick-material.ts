@@ -12,15 +12,37 @@ import type { MaterialRecipe } from "./representation-materials";
 import { createSurfaceTexture } from "./surface-textures";
 
 export const BRICK_TRIAL_BUILDING_ID = "sw-fl-south-apartment";
+export const BRICK_TRIAL_GARAGE_ID = "sw-fl-garage";
 export const BRICK_TRIAL_ASSET_PATH = "/brick-wall-image.webp";
+export const BRICK_TRIAL_ASSET_ID = "south-ward-red-brick-a" as const;
 /** The owner's 1774x871 WebP is slightly wider than a perfect 2:1 image.
  * Preserve image pixel proportions; no stretch or crop in the first trial.
  * Approximately six 225mm brick modules span the image horizontally.
  */
-export const BRICK_TRIAL_METRES_PER_TILE = Object.freeze({
-  width: 1.35,
-  height: 1.35 * 871 / 1774,
+const aspectHeightPerWidth = 871 / 1774;
+/** Changing metre coverage changes apparent brick size, NOT image bytes. */
+export const BRICK_SCALE_PRESETS = Object.freeze({
+  compactA: Object.freeze({ width: 1.35, height: 1.35 * aspectHeightPerWidth }),
+  standardB: Object.freeze({ width: 1.485, height: 1.485 * aspectHeightPerWidth }),
+  largeC: Object.freeze({ width: 1.62, height: 1.62 * aspectHeightPerWidth }),
 });
+export type BrickScalePresetId = keyof typeof BRICK_SCALE_PRESETS;
+export type BrickScalePreset = Readonly<{ width: number; height: number }>;
+export const BRICK_TRIAL_METRES_PER_TILE = BRICK_SCALE_PRESETS.compactA;
+
+/** Exact named experimental assignments, never inferred from archetype. */
+export const BRICK_TRIAL_ASSIGNMENTS = Object.freeze({
+  [BRICK_TRIAL_BUILDING_ID]: "compactA",
+  [BRICK_TRIAL_GARAGE_ID]: "standardB",
+} as const);
+export function brickTrialPresetForBuilding(
+  buildingId: string, enabled: boolean,
+): BrickScalePresetId | null {
+  if (!enabled) return null;
+  return Object.prototype.hasOwnProperty.call(BRICK_TRIAL_ASSIGNMENTS, buildingId)
+    ? BRICK_TRIAL_ASSIGNMENTS[buildingId as keyof typeof BRICK_TRIAL_ASSIGNMENTS]
+    : null;
+}
 
 /** Object-local building coordinates are shared across ALL wall sections.
  * This avoids the old per-box UV reset that enlarged/shrank individual bricks.
@@ -29,16 +51,19 @@ export const BRICK_TRIAL_METRES_PER_TILE = Object.freeze({
 export function physicalBrickUV(
   vertex: { x: number; y: number; z: number },
   normal: { x: number; y: number; z: number },
+  preset: BrickScalePreset = BRICK_SCALE_PRESETS.compactA,
 ): { u: number; v: number } {
   const uMetres = Math.abs(normal.x) > 0.5 ? vertex.z : vertex.x;
   const vMetres = Math.abs(normal.y) > 0.5 ? vertex.z : vertex.y;
   return {
-    u: uMetres / BRICK_TRIAL_METRES_PER_TILE.width,
-    v: vMetres / BRICK_TRIAL_METRES_PER_TILE.height,
+    u: uMetres / preset.width,
+    v: vMetres / preset.height,
   };
 }
 
-export function applyPhysicalBrickUV(mesh: Mesh, part: BoxPrimitive): void {
+export function applyPhysicalBrickUV(
+  mesh: Mesh, part: BoxPrimitive, preset: BrickScalePreset = BRICK_SCALE_PRESETS.compactA,
+): void {
   const positions = mesh.getVerticesData(VertexBuffer.PositionKind);
   const normals = mesh.getVerticesData(VertexBuffer.NormalKind);
   if (!positions || !normals || positions.length !== normals.length) {
@@ -51,7 +76,7 @@ export function applyPhysicalBrickUV(mesh: Mesh, part: BoxPrimitive): void {
       z: part.center.z + positions[index * 3 + 2]! };
     const normal = { x: normals[index * 3]!, y: normals[index * 3 + 1]!,
       z: normals[index * 3 + 2]! };
-    const mapped = physicalBrickUV(vertex, normal);
+    const mapped = physicalBrickUV(vertex, normal, preset);
     uv[2 * index] = mapped.u;
     uv[2 * index + 1] = mapped.v;
   }
@@ -64,13 +89,75 @@ export interface ExperimentalBrickMaterial {
   dispose(): void;
 }
 
-/** Nonblocking image loading, with deterministic existing procedural fallback.
- * A failed WebP must NEVER erase walls, crash scene creation or add colliders.
+interface SharedBrickImage {
+  readonly subscribers: Set<StandardMaterial>;
+  image: Texture | null;
+  ready: boolean;
+  disposed: boolean;
+  references: number;
+}
+/** Scene-scoped shared Babylon texture; a second building must not request
+ * another GPU image solely because its physical UV scale differs. */
+const brickImages = new WeakMap<Scene, SharedBrickImage>();
+function leaseBrickImage(scene: Scene, material: StandardMaterial): () => void {
+  let shared = brickImages.get(scene);
+  if (!shared) {
+    shared = {
+      image: null, ready: false, disposed: false,
+      references: 0, subscribers: new Set<StandardMaterial>(),
+    };
+    brickImages.set(scene, shared);
+    if (typeof document !== "undefined") {
+      const resource = shared;
+      const image = new Texture(
+        BRICK_TRIAL_ASSET_PATH, scene, false, false,
+        Texture.TRILINEAR_SAMPLINGMODE,
+        () => {
+          if (resource.disposed || !resource.image) return;
+          resource.ready = true;
+          for (const subscriber of resource.subscribers) {
+            subscriber.diffuseTexture = resource.image;
+          }
+        },
+        message => {
+          if (!resource.disposed) console.warn(
+            "[BRICK-MAT-002] WebP unavailable; keeping procedural wall:", message);
+        },
+      );
+      image.hasAlpha = false;
+      image.wrapU = Texture.WRAP_ADDRESSMODE;
+      image.wrapV = Texture.WRAP_ADDRESSMODE;
+      image.anisotropicFilteringLevel = 8;
+      shared.image = image;
+    }
+  }
+  shared.references++;
+  shared.subscribers.add(material);
+  if (shared.ready && shared.image) material.diffuseTexture = shared.image;
+  const lease = shared;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    lease.subscribers.delete(material);
+    lease.references--;
+    if (lease.references === 0) {
+      lease.disposed = true;
+      lease.image?.dispose();
+      brickImages.delete(scene);
+    }
+  };
+}
+
+/** Nonblocking image loading; procedural fallback and wall colliders survive
+ * missing files and any scene teardown. Only wall-role material changes.
  */
 export function createExperimentalBrickMaterial(
   scene: Scene, fallbackRecipe: MaterialRecipe,
+  buildingId: string = BRICK_TRIAL_BUILDING_ID,
 ): ExperimentalBrickMaterial {
-  const material = new StandardMaterial("experiment:brick-A:" + BRICK_TRIAL_BUILDING_ID, scene);
+  const letter = buildingId === BRICK_TRIAL_GARAGE_ID ? "B" : "A";
+  const material = new StandardMaterial("experiment:brick-" + letter + ":" + buildingId, scene);
   const fallback = createSurfaceTexture(scene, fallbackRecipe);
   material.diffuseTexture = fallback;
   material.diffuseColor = Color3.White();
@@ -79,37 +166,15 @@ export function createExperimentalBrickMaterial(
   material.alpha = 1;
   material.useAlphaFromDiffuseTexture = false;
   material.backFaceCulling = true;
+  const release = leaseBrickImage(scene, material);
   let disposed = false;
-  let image: Texture | null = null;
-  if (typeof document !== "undefined") {
-    image = new Texture(
-      BRICK_TRIAL_ASSET_PATH, scene, false, false,
-      Texture.TRILINEAR_SAMPLINGMODE,
-      () => {
-        if (disposed || !image) return;
-        image.hasAlpha = false;
-        image.wrapU = Texture.WRAP_ADDRESSMODE;
-        image.wrapV = Texture.WRAP_ADDRESSMODE;
-        image.anisotropicFilteringLevel = 8;
-        material.diffuseTexture = image;
-      },
-      (message) => {
-        // Fail closed to the existing brick material without affecting gameplay.
-        console.warn("[BRICK-MAT-A] Owner WebP unavailable; using procedural brick:", message);
-      },
-    );
-    image.hasAlpha = false;
-    image.wrapU = Texture.WRAP_ADDRESSMODE;
-    image.wrapV = Texture.WRAP_ADDRESSMODE;
-    image.anisotropicFilteringLevel = 8;
-  }
   return {
     material,
     source: BRICK_TRIAL_ASSET_PATH,
     dispose() {
       if (disposed) return;
       disposed = true;
-      image?.dispose();
+      release();
       fallback.dispose();
       material.dispose();
     },
