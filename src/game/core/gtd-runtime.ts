@@ -231,7 +231,7 @@ export class GTDGameRuntime implements GameRuntime {
         // Trial-only support previously allowed feet to clip through paving.
         enableSidewalkSupportCollision: true,
         // Isolated RND-MAT-001 test: without query, all buildings are unchanged.
-        enableBrickMaterialTrial: diagnosticParams.get("gtdBrickTrial") === "1",
+        enableBrickMaterialTrial: diagnosticParams.get("gtdBrickTrial") !== "0",
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
