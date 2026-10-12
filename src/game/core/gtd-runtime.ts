@@ -20,6 +20,7 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FirstDriveTrial } from "../vehicles/first-drive-trial";
+import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha } from "../vehicles/ferrari-camera";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
   beginWorldRenderWarmup,
@@ -733,7 +734,13 @@ export class GTDGameRuntime implements GameRuntime {
     this.move = { x: 0, y: 0 };
     this.preferredCameraRadius = 7.6;
     const position = trial.pose;
-    this.camera?.target.set(position.x, position.y + 0.55, position.z);
+    if (this.camera) {
+      // A fresh entry always begins BEHIND the authored -Z-facing Ferrari.
+      // Any drag after entry remains an independent free-look offset.
+      this.camera.alpha = ferrariRearCameraAlpha(trial.headingYaw);
+      this.camera.beta = 1.14;
+      this.camera.target.set(position.x, position.y + 0.7, position.z);
+    }
     this.publishSnapshot(0);
     this.emit({ type: "interaction", label: "Ferrari driving: WASD / arrows / joystick · F to exit when stopped" });
   }
@@ -784,6 +791,7 @@ export class GTDGameRuntime implements GameRuntime {
 
     if (this.context === "driving" && this.drivingTrial) {
       const trial = this.drivingTrial;
+      const previousYaw = trial.headingYaw;
       trial.prepare(dt, this.move.x, this.move.y);
       // Exactly one Rapier step each fixed tick. The existing character
       // controller owns the step until world physics is centrally refactored.
@@ -792,12 +800,12 @@ export class GTDGameRuntime implements GameRuntime {
       const position = trial.pose;
       this.world?.update(dt, position);
       camera.target.set(position.x, position.y + 0.7, position.z);
-      const wantedAlpha = -trial.anchor.rotation.y - Math.PI / 2;
-      const deltaAlpha = Math.atan2(
-        Math.sin(wantedAlpha - camera.alpha),
-        Math.cos(wantedAlpha - camera.alpha),
+      // Follow the CAR'S heading delta, not a hard-coded target bearing.
+      // The user's pointer/touch look updates above are preserved, rather
+      // than auto-overridden on every simulation frame.
+      camera.alpha = advanceFerrariCameraAlpha(
+        camera.alpha, previousYaw, trial.headingYaw,
       );
-      camera.alpha += deltaAlpha * Math.min(1, 3.5 * dt);
       this.preferredCameraRadius = 7.6;
       this.resolveCameraObstruction(camera, position, dt);
       this.snapshotAccumulator += dt;
