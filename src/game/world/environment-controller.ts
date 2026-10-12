@@ -353,7 +353,7 @@ export function createMeridianEnvironment(
       );
       light.diffuse = new Color3(1, 0.93, 0.76);
       light.specular = new Color3(0.68, 0.48, 0.28);
-      light.range = 14.5 * item.scale;
+      light.range = 17.5 * item.scale;
       light.intensity = 0;
       return light;
     });
