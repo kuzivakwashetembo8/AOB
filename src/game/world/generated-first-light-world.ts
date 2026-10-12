@@ -75,6 +75,8 @@ export interface GeneratedFirstLightWorldOptions {
   readonly enableShadows?: boolean;
   /** GTD-CHAR-001 only: register real First Light raised sidewalk colliders. */
   readonly enableSidewalkSupportCollision?: boolean;
+  /** Explicit image-derived brick material A/B experiment only. */
+  readonly enableBrickMaterialTrial?: boolean;
 }
 
 function createGround(
@@ -403,6 +405,7 @@ export function createGeneratedFirstLightWorld(
       enableFacadeDetails: true,
       batchingMode: "thin-instances",
       enableCameraBlockers,
+      enableBrickMaterialTrial: options.enableBrickMaterialTrial ?? false,
     }),
   );
   const heroGarage =
