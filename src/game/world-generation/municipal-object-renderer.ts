@@ -23,8 +23,12 @@ const SHOP_ART: Readonly<Record<"south-ward-shop-open" | "south-ward-shop-closed
   "south-ward-shop-closed": "/SHOP%20CLOSED%20BOARD.webp",
 };
 
-const headless = (scene: Scene) =>
-  scene.getEngine().getClassName() === "NullEngine";
+const headless = (scene: Scene) => {
+  const engine = scene.getEngine();
+  return engine.getClassName() === "NullEngine" ||
+    engine.constructor.name === "NullEngine" ||
+    typeof document === "undefined";
+};
 
 export function createMunicipalStreetContext(
   scene: Scene, items: readonly MunicipalItem[],
