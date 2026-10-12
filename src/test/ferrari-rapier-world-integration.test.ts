@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { NullEngine, Scene, TransformNode } from "@babylonjs/core";
+import { FERRARI_STREET_PROFILE } from "../game/vehicles/street-vehicle-physics";
 import { MeridianPhysics, type StaticCollisionHandle } from "../game/physics/rapier-world";
 import {
   FirstDriveTrial,
+  StreetVehicleActor,
   FERRARI_CURB_MAX_METRES,
   ferrariExitOffsets,
 } from "../game/vehicles/first-drive-trial";
@@ -54,6 +56,33 @@ async function fixture(options: { curb?: number; wall?: number; garageThreshold?
   }
   return { trial, anchor, physics, step, dispose };
 }
+describe("EXP-VEH-002 generic street vehicle actor inheritance", () => {
+  it("allows a future sedan to supply +Z forward and class-specific curb limits", async () => {
+    const engine = new NullEngine(), scene = new Scene(engine);
+    const physics = await MeridianPhysics.create();
+    physics.setPlayerPosition({ x: 30, y: 0.92, z: 30 });
+    const floor = physics.addStaticBox({ x: 0, y: -0.25, z: 0 },
+      { x: 30, y: 0.25, z: 30 });
+    const anchor = new TransformNode("future-sedan-actor", scene);
+    anchor.position.z = 0;
+    const actor = new StreetVehicleActor(physics, anchor, { x: 1.8, y: 1.45, z: 4.4 },
+      { ...FERRARI_STREET_PROFILE, classId: "meridian-civilian-sedan",
+        forwardAxisSign: 1, maxCurbAutostepMetres: 0.18 });
+    try {
+      for (let i = 0; i < 75; i++) {
+        actor.prepare(1 / 60, 0, -1);
+        physics.movePlayer({ x: 0, y: 0, z: 0 });
+        actor.finish(1 / 60);
+      }
+      expect(actor.pose.z).toBeGreaterThan(2);
+      expect(actor.status.classId).toBe("meridian-civilian-sedan");
+      expect(actor.status.curbMaxMetres).toBe(0.18);
+    } finally {
+      actor.dispose(); floor.dispose(); physics.destroy(); scene.dispose(); engine.dispose();
+    }
+  }, 30000);
+});
+
 describe("EXP-VEH-002 live Rapier Ferrari corrections", () => {
   it("turns the authored vehicle in the intended signed direction", async () => {
     const right = await fixture();
