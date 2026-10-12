@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NullEngine, Scene, TransformNode } from "@babylonjs/core";
-import { MeridianPhysics } from "../game/physics/rapier-world";
+import { MeridianPhysics, type StaticCollisionHandle } from "../game/physics/rapier-world";
 import {
   FirstDriveTrial,
   FERRARI_CURB_MAX_METRES,
@@ -13,7 +13,7 @@ async function fixture(options: { curb?: number; wall?: number } = {}) {
   const physics = await MeridianPhysics.create();
   physics.setPlayerPosition({ x: 30, y: 0.92, z: 30 }); // Walking actor is not our test obstruction.
   const floor = physics.addStaticBox({ x: 0, y: -0.25, z: 0 }, { x: 60, y: 0.25, z: 60 });
-  const obstacles = [];
+  const obstacles: StaticCollisionHandle[] = [];
   if (options.curb !== undefined) {
     const height = options.curb;
     obstacles.push(physics.addStaticBox({ x: 0, y: height / 2, z: 0 }, { x: 8, y: height / 2, z: 0.15 }));
