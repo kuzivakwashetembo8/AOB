@@ -1,4 +1,5 @@
 import { featureRandom } from "./seeded-variation";
+import { resolveCityBuildings } from "./defaults";
 import type {
   CitySpec,
   PropPlacementSpec,
@@ -107,6 +108,37 @@ function addPocketGreenShrubs(
   }
 }
 
+/**
+ * Every streetlight's pole, arm and lamp head must clear nearby buildings.
+ * A head can protrude beyond the pole by >1m: pole-only tests are insufficient.
+ * Conservative footprint tests avoid 3D mesh/physics allocations in planning.
+ */
+export function isStreetlightClear(
+  item: StreetContextItem,
+  buildings: ReturnType<typeof resolveCityBuildings>,
+  clearanceMeters = 0.65,
+): boolean {
+  if (item.kind !== "streetlight") return true;
+  const arm = 1.03 * item.scale;
+  const directionX = Math.cos(item.yawRadians) * arm;
+  const directionZ = -Math.sin(item.yawRadians) * arm;
+  return buildings.every(building => {
+    for (const ratio of [0, 0.5, 1]) {
+      const dx = item.position.x + directionX * ratio - building.position.x;
+      const dz = item.position.z + directionZ * ratio - building.position.z;
+      const angle = building.yawRadians;
+      const localX = Math.cos(angle) * dx - Math.sin(angle) * dz;
+      const localZ = Math.sin(angle) * dx + Math.cos(angle) * dz;
+      const margin = clearanceMeters + (ratio === 0 ? 0.06 : 0.30);
+      if (Math.abs(localX) < building.parameters.width / 2 + margin &&
+          Math.abs(localZ) < building.parameters.depth / 2 + margin) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
 export function planStreetContext(city: CitySpec): StreetContextPlan {
   const items: StreetContextItem[] = [];
 
@@ -170,8 +202,10 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
     const uz = dz / length;
     const nx = -uz;
     const nz = ux;
-    const sidewalkOffset =
-      segment.width / 2 + Math.max(1, segment.sidewalkWidth * 0.72);
+    // Mount poles near the curb rather than against building facades.
+    // Arms point towards the road; previous yaw aimed some heads into windows.
+    const sidewalkOffset = segment.width / 2 +
+      Math.min(0.75, Math.max(0.45, segment.sidewalkWidth * 0.24));
     const carOffset = Math.max(0.7, segment.width / 2 - 1.12);
     const clear = Math.min(10.5, Math.max(7.5, length * 0.2));
 
@@ -197,7 +231,7 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
           y: 0,
           z: start.z + uz * distance + nz * sidewalkOffset * side,
         },
-        yawRadians: Math.atan2(dx, dz) + (side > 0 ? Math.PI : 0),
+        yawRadians: Math.atan2(dx, dz) + (side < 0 ? Math.PI : 0),
         scale: 1,
         seed: segment.id + ":streetlight:" + distance.toFixed(1),
       });
@@ -239,9 +273,10 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
   }
 
   const deduped = new Map(items.map((item) => [item.id, item] as const));
-  const result = [...deduped.values()].sort((a, b) =>
-    a.id.localeCompare(b.id),
-  );
+  const buildings = resolveCityBuildings(city);
+  const result = [...deduped.values()]
+    .filter(item => isStreetlightClear(item, buildings))
+    .sort((a, b) => a.id.localeCompare(b.id));
 
   return {
     items: result,
