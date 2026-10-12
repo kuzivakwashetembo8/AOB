@@ -62,8 +62,14 @@ export function planMunicipalStreetObjects(city: CitySpec): readonly MunicipalIt
   // per shop; changing OPEN/CLOSED is not yet an operating-hours simulation.
   const shopBuildings = buildings.filter(building =>
     building.archetype === "commercial" || building.archetype === "mixed-use");
-  for (const [index, building] of shopBuildings.entries()) {
-    const open = index % 2 === 0;
+  for (const building of shopBuildings) {
+    // The default presentation variant is derived from a BUILDING ID,
+    // never collection order (which may change when South Ward expands).
+    let stateHash = 2166136261;
+    for (const character of building.id) {
+      stateHash = Math.imul(stateHash ^ character.charCodeAt(0), 16777619);
+    }
+    const open = ((stateHash >>> 0) % 2) === 1;
     const state = open ? "open" : "closed";
     const template = MUNICIPAL_TEMPLATES["shop-board"];
     items.push({
