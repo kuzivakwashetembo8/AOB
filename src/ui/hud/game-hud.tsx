@@ -58,7 +58,11 @@ export function GameHud({
               aria-label="Meridian time development controls"
               onClick={() => setTimeControlsOpen((value) => !value)}
             >
-              <span className="system-label text-primary block">
+              <span className="system-label text-white block font-semibold tracking-wide"
+                aria-label="Current South Ward location">
+                {snapshot.location}
+              </span>
+              <span className="system-label text-primary block mt-1">
                 MERIDIAN // {snapshot.meridianTime}
               </span>
               <span className="system-label block opacity-70">
