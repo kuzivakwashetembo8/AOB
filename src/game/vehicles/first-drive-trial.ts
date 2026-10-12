@@ -11,6 +11,7 @@ import { TransformNode } from "@babylonjs/core";
 import type { MeridianPhysics } from "../physics/rapier-world";
 import { stepDriveControl, type DriveState } from "./drive-kinematics";
 import { ferrariForwardVelocity } from "./ferrari-camera";
+import { vehicleFootprintsOverlap } from "./street-vehicle-barriers";
 import {
   FERRARI_STREET_PROFILE,
   INITIAL_VERTICAL_VEHICLE_STATE,
@@ -50,8 +51,7 @@ export class FirstDriveTrial {
   private lastZ: number;
   private distanceMetres = 0;
   private readonly wheelRig: StreetVehicleWheelRig;
-  private readonly collisionShape: RAPIER.Cuboid;
-  private vertical: VerticalVehicleState = INITIAL_VERTICAL_VEHICLE_STATE;
+   private vertical: VerticalVehicleState = INITIAL_VERTICAL_VEHICLE_STATE;
   private blockedProtectedCurbTicks = 0;
   private highestObservedUnsupportedGap = 0;
   private warningEmitted = false;
@@ -71,10 +71,7 @@ export class FirstDriveTrial {
         .setTranslation(anchor.position.x, anchor.position.y + dimensions.y / 2 + 0.035, anchor.position.z)
         .setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }),
     );
-    this.collisionShape = new RAPIER.Cuboid(
-      dimensions.x / 2, dimensions.y / 2, dimensions.z / 2,
-    );
-    try {
+     try {
       this.collider = physics.world.createCollider(
         RAPIER.ColliderDesc.cuboid(
           dimensions.x / 2, dimensions.y / 2, dimensions.z / 2,
@@ -150,30 +147,41 @@ export class FirstDriveTrial {
     const climb = clampVehicleClimb(corrected.y, dt, FERRARI_STREET_PROFILE);
     let x = climb.suspendPlanarTravel ? 0 : corrected.x;
     let z = climb.suspendPlanarTravel ? 0 : corrected.z;
-    // A 0.21m pavement curb and 0.22m garage portal are nearly identical
-    // in height. Rapier autostep must NOT climb the garage's physical,
-    // explicitly tagged no-step threshold. Test swept chassis samples
-    // against that EXACT collider, not an invented high invisible wall.
-    if (this.physics.isNearVehicleNoStepCollider(at, this.dimensions.z + 3)) {
-      const orientation = {
-        x: 0, y: Math.sin(nextYaw / 2), z: 0, w: Math.cos(nextYaw / 2),
-      };
-      const intersectsProtected = (fraction: number) =>
-        !!this.physics.world.intersectionWithShape(
-          {
-            x: at.x + x * fraction,
-            y: at.y + climb.y * fraction,
-            z: at.z + z * fraction,
-          }, orientation, this.collisionShape,
-          undefined, undefined, this.collider, this.body,
-          candidate => this.physics.isVehicleNoStepCollider(candidate),
-        );
-      if (!intersectsProtected(0)) {
+    // Rapier autostep moves a car's CHASSIS upwards, potentially clearing
+    // the top of the existing physical 0.22m garage sill by a few centimetres.
+    // Compare swept ground-plane footprints instead of a transient 3D
+    // collision query at that lifted chassis height. No fabricated geometry.
+    const protectedBarriers = this.physics.vehicleNoStepFootprintsNear(
+      at, this.dimensions.z + 3,
+    );
+    if (protectedBarriers.length) {
+      const footprintAt = (fraction: number) => ({
+        x: at.x + x * fraction,
+        z: at.z + z * fraction,
+        halfX: this.dimensions.x / 2,
+        halfZ: this.dimensions.z / 2,
+        yaw: nextYaw,
+      });
+      const hitsProtected = (fraction: number) =>
+        protectedBarriers.some(barrier =>
+          vehicleFootprintsOverlap(footprintAt(fraction), barrier));
+      if (hitsProtected(0)) {
+        // Allow backing AWAY from a threshold if overlap pre-existed (e.g.
+        // pose restoration), never driving deeper into the tagged sill.
+        const approaching = protectedBarriers.some(barrier => {
+          const oldDistance = Math.hypot(at.x - barrier.x, at.z - barrier.z);
+          const newDistance = Math.hypot(at.x + x - barrier.x, at.z + z - barrier.z);
+          return newDistance < oldDistance - 0.0001;
+        });
+        if (approaching) {
+          x = 0; z = 0;
+          this.blockedProtectedCurbTicks++;
+        }
+      } else {
         for (let sample = 1; sample <= 6; sample++) {
-          if (!intersectsProtected(sample / 6)) continue;
-          const fraction = (sample - 1) / 6;
-          x *= fraction;
-          z *= fraction;
+          if (!hitsProtected(sample / 6)) continue;
+          const safe = (sample - 1) / 6;
+          x *= safe; z *= safe;
           this.blockedProtectedCurbTicks++;
           break;
         }
