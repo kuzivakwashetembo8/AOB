@@ -230,6 +230,8 @@ export class GTDGameRuntime implements GameRuntime {
         // Canonical Voight always needs physical sidewalk TOP support.
         // Trial-only support previously allowed feet to clip through paving.
         enableSidewalkSupportCollision: true,
+        // Isolated RND-MAT-001 test: without query, all buildings are unchanged.
+        enableBrickMaterialTrial: diagnosticParams.get("gtdBrickTrial") === "1",
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
