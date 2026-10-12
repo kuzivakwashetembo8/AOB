@@ -16,7 +16,8 @@ import { BuildingMaterialLibrary } from "./material-library";
 import { materialRecipe } from "./representation-materials";
 import { REPRESENTATION_POLICIES, selectRepresentationTier } from "./representation-lod";
 import {
-  BRICK_TRIAL_BUILDING_ID, applyPhysicalBrickUV, createExperimentalBrickMaterial,
+  BRICK_SCALE_PRESETS, applyPhysicalBrickUV, brickTrialPresetForBuilding,
+  createExperimentalBrickMaterial,
 } from "./experimental-brick-material";
 import type { ExperimentalBrickMaterial } from "./experimental-brick-material";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
@@ -30,7 +31,7 @@ export interface BuildingGenerationContext {
   readonly materialLibrary?: BuildingMaterialLibrary;
   readonly enableFacadeDetails?: boolean;
   readonly batchingMode?: BatchingMode;
-  /** SEC-scoped, opt-in material research: one South Ward apartment only. */
+  /** SEC-scoped, opt-in material research: apartment A and garage B only. */
   readonly enableBrickMaterialTrial?: boolean;
   /** Metres from camera/player to building origin; default 0 preserves Step 2 output. */
   readonly initialDistance?: number;
@@ -83,8 +84,9 @@ export function generateBuilding(
   const roleMaterials = new Map<PrimitiveRole, Material>();
   let downpipeMaterial: StandardMaterial | null = null;
   let storefrontLedMaterial: StandardMaterial | null = null;
-  const brickTrialActive = context.enableBrickMaterialTrial === true &&
-    spec.id === BRICK_TRIAL_BUILDING_ID;
+  const brickPresetId = brickTrialPresetForBuilding(
+    spec.id, context.enableBrickMaterialTrial === true);
+  const brickTrialActive = brickPresetId !== null;
   let experimentalBrick: ExperimentalBrickMaterial | null = null;
   let tier: RepresentationTier = "near";
   let proxiesBuilt = false;
@@ -95,7 +97,7 @@ export function generateBuilding(
     if (supplied) return supplied;
     if (role === "wall" && brickTrialActive) {
       if (!experimentalBrick) experimentalBrick = createExperimentalBrickMaterial(
-        scene, materialRecipe(spec, context.generatorVersion, "wall"));
+        scene, materialRecipe(spec, context.generatorVersion, "wall"), spec.id);
       return experimentalBrick.material;
     }
     const cached = roleMaterials.get(role);
@@ -177,7 +179,9 @@ export function generateBuilding(
     mesh.position.set(part.center.x, part.center.y, part.center.z);
     if (part.rotationZ !== undefined) mesh.rotation.z = part.rotationZ;
     mesh.material = materialFor(part.role);
-    if (brickTrialActive && part.role === "wall") applyPhysicalBrickUV(mesh, part);
+    if (brickPresetId && part.role === "wall") {
+      applyPhysicalBrickUV(mesh, part, BRICK_SCALE_PRESETS[brickPresetId]);
+    }
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
       primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind,
       cameraBlocker: false };
