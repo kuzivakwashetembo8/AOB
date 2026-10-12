@@ -12,7 +12,7 @@ export class MeridianPhysics {
   private readonly playerCollider: RAPIER.Collider;
   private readonly controller: RAPIER.KinematicCharacterController;
   /** Physical portal thresholds that a vehicle must not climb via autostep. */
-  private readonly vehicleNoStepColliders = new Set<RAPIER.Collider>();
+  private readonly vehicleNoStepColliders = new Map<number, RAPIER.Collider>();
 
   private constructor(world: RAPIER.World) {
     this.world = world;
@@ -65,7 +65,7 @@ export class MeridianPhysics {
         body,
       );
       if (options.vehicleNoStep) {
-        this.vehicleNoStepColliders.add(collider);
+        this.vehicleNoStepColliders.set(collider.handle, collider);
         noStepCollider = collider;
       }
     } catch (error) {
@@ -78,7 +78,7 @@ export class MeridianPhysics {
       dispose: () => {
         if (disposed) return;
         disposed = true;
-        if (noStepCollider) this.vehicleNoStepColliders.delete(noStepCollider);
+        if (noStepCollider) this.vehicleNoStepColliders.delete(noStepCollider.handle);
         this.world.removeRigidBody(body);
       },
     };
@@ -86,12 +86,12 @@ export class MeridianPhysics {
 
   /** Explicit physical collision metadata, not an invisible taller wall. */
   isVehicleNoStepCollider(collider: RAPIER.Collider): boolean {
-    return this.vehicleNoStepColliders.has(collider);
+    return this.vehicleNoStepColliders.has(collider.handle);
   }
 
   /** Cheap distance gate: precise Rapier shape queries only near actual portals. */
   isNearVehicleNoStepCollider(point: Vec3, range: number): boolean {
-    for (const collider of this.vehicleNoStepColliders) {
+    for (const collider of this.vehicleNoStepColliders.values()) {
       const p = collider.translation();
       if (Math.abs(p.x - point.x) < range && Math.abs(p.z - point.z) < range) return true;
     }
