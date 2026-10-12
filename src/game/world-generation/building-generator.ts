@@ -1,4 +1,4 @@
-import { Matrix, MeshBuilder, TransformNode } from "@babylonjs/core";
+import { Color3, Matrix, MeshBuilder, StandardMaterial, TransformNode } from "@babylonjs/core";
 import type { Material, Mesh, Scene } from "@babylonjs/core";
 import type { MeridianPhysics } from "../physics/rapier-world";
 import type { ResolvedBuildingSpec } from "./schema";
@@ -75,6 +75,7 @@ export function generateBuilding(
   const groups: RenderGroup[] = [];
   const leases = new Map<PrimitiveRole, string>();
   const roleMaterials = new Map<PrimitiveRole, Material>();
+  let downpipeMaterial: StandardMaterial | null = null;
   let tier: RepresentationTier = "near";
   let proxiesBuilt = false;
   let disposed = false;
@@ -97,6 +98,36 @@ export function generateBuilding(
     groups.push({ mesh, kind });
   };
   const makeIndividual = (part: BoxPrimitive, kind: RenderClass): void => {
+    if (part.templateId === "facade-downpipe") {
+      // WG/MA: facade downpipes are real round metal cylinders, never
+      // dark rectangular structural sticks. No change to physics shell.
+      if (!downpipeMaterial) {
+        downpipeMaterial = new StandardMaterial("municipal-downpipe-metal:" + spec.id, scene);
+        downpipeMaterial.diffuseColor = new Color3(0.70, 0.73, 0.73);
+        downpipeMaterial.specularColor = new Color3(0.82, 0.85, 0.87);
+        downpipeMaterial.specularPower = 80;
+      }
+      const pipe = MeshBuilder.CreateCylinder(
+        "generated:" + spec.id + ":" + part.id,
+        { height: part.size.y, diameter: 0.11, tessellation: 12 }, scene);
+      pipe.position.set(part.center.x, part.center.y, part.center.z);
+      pipe.material = downpipeMaterial;
+      pipe.metadata = { buildingId: spec.id, architecturalRole: "metal",
+        primitiveId: part.id, templateId: part.templateId,
+        renderClass: kind, cameraBlocker: false };
+      register(pipe, kind);
+      for (const [name, offset] of [["lower", -1], ["upper", 1]] as const) {
+        const collar = MeshBuilder.CreateCylinder(
+          "generated:" + spec.id + ":" + part.id + ":" + name,
+          { height: 0.11, diameter: 0.155, tessellation: 12 }, scene);
+        collar.position.set(part.center.x,
+          part.center.y + offset * Math.max(0, part.size.y / 2 - 0.35),
+          part.center.z);
+        collar.material = downpipeMaterial;
+        register(collar, kind);
+      }
+      return;
+    }
     const mesh = MeshBuilder.CreateBox("generated:" + spec.id + ":" + part.id,
       { width: part.size.x, height: part.size.y, depth: part.size.z }, scene);
     mesh.position.set(part.center.x, part.center.y, part.center.z);
@@ -114,6 +145,10 @@ export function generateBuilding(
     }
     const buckets = new Map<string, BoxPrimitive[]>();
     for (const part of parts) {
+      if (part.templateId === "facade-downpipe") {
+        makeIndividual(part, "detail");
+        continue;
+      }
       const kind = renderClass(part);
       const key = kind + ":" + part.role;
       const bucket = buckets.get(key) ?? [];
@@ -189,6 +224,7 @@ export function generateBuilding(
     collisionHandle?.dispose();
     for (const mesh of cameraBlockers) mesh.dispose();
     for (const mesh of meshes) mesh.dispose();
+    downpipeMaterial?.dispose();
     root.dispose();
     for (const key of leases.values()) library.release(key);
     if (ownsLibrary) library.dispose();
