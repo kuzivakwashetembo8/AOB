@@ -9,6 +9,7 @@ import {
   BRICK_TRIAL_BUILDING_ID, BRICK_TRIAL_GARAGE_ID,
   BRICK_TRIAL_METRES_PER_TILE, BRICK_TRIAL_ASSIGNMENTS,
   brickTrialPresetForBuilding, physicalBrickUV,
+  type BrickScalePreset,
 } from "../game/world-generation/experimental-brick-material";
 
 const version = FIRST_LIGHT_CITY_SPEC.generatorVersion;
@@ -71,8 +72,7 @@ describe("GTD-RND-MAT-002 apartment A versus garage B", () => {
         o.kind === "garage" && o.source === "authored");
       expect(garageBay).toBeDefined();
       expect(garageBay?.cutThrough).toBe(true);
-      expect(garageTrial.portals).toEqual(
-        expect.arrayContaining(garageTrial.portals));
+      expect(garageTrial.portals.length).toBeGreaterThan(0);
       const garageWalls = garageTrial.meshes.filter(m =>
         m.material?.name === "experiment:brick-B:" + BRICK_TRIAL_GARAGE_ID);
       const apartmentWalls = apartmentTrial.meshes.filter(m =>
@@ -80,7 +80,7 @@ describe("GTD-RND-MAT-002 apartment A versus garage B", () => {
       expect(garageWalls.length).toBeGreaterThan(3);
       expect(apartmentWalls.length).toBeGreaterThan(3);
       const verify = (meshes: typeof garageWalls, plan: typeof garagePlan,
-        preset: typeof BRICK_SCALE_PRESETS.compactA) => {
+        preset: BrickScalePreset) => {
         for (const mesh of meshes) {
           expect(mesh.hasThinInstances).toBe(false);
           const part = plan.primitives.find(p =>
