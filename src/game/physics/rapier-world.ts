@@ -54,6 +54,7 @@ export class MeridianPhysics {
           w: Math.cos(halfYaw),
         }),
     );
+    let noStepCollider: RAPIER.Collider | null = null;
     try {
       const collider = this.world.createCollider(
         RAPIER.ColliderDesc.cuboid(
@@ -63,7 +64,10 @@ export class MeridianPhysics {
         ),
         body,
       );
-      if (options.vehicleNoStep) this.vehicleNoStepColliders.add(collider);
+      if (options.vehicleNoStep) {
+        this.vehicleNoStepColliders.add(collider);
+        noStepCollider = collider;
+      }
     } catch (error) {
       this.world.removeRigidBody(body);
       throw error;
@@ -74,7 +78,7 @@ export class MeridianPhysics {
       dispose: () => {
         if (disposed) return;
         disposed = true;
-        for (const collider of body.colliders()) this.vehicleNoStepColliders.delete(collider);
+        if (noStepCollider) this.vehicleNoStepColliders.delete(noStepCollider);
         this.world.removeRigidBody(body);
       },
     };
