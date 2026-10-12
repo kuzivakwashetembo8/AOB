@@ -62,6 +62,8 @@ export interface GeneratedFirstLightWorld {
   ): void;
   /** Imported-only game: remove invisible legacy collision until GLB is ready. */
   suspendParkedCarColliders(): void;
+  /** EXP-VEH-002: transfer exactly one imported parked car to its live driving actor. */
+  releaseParkedCarCollider(itemId: string): void;
   update(realSeconds: number, playerPosition: { x: number; y: number; z: number }): void;
   setTimeMinutes(minutes: number): MeridianEnvironmentSnapshot;
   setTimeScale(scale: number): MeridianEnvironmentSnapshot;
@@ -274,6 +276,9 @@ function registerGarageThresholdCollision(
           z: 0.36,
         },
         yaw,
+        // Actual 22 cm garage sill: physically exists, but must not be
+        // auto-climbed like an ordinary 21 cm roadside curb.
+        { vehicleNoStep: true },
       ),
     );
   }
@@ -492,6 +497,16 @@ export function createGeneratedFirstLightWorld(
         if (index !== -1) contextCollision.splice(index, 1);
         parkedCollisionHandles.delete(itemId);
       }
+    },
+    releaseParkedCarCollider(itemId) {
+      if (disposed) throw new Error("Cannot release parked-car collision after world disposal");
+      if (!parkedById.has(itemId)) throw new Error("Unknown parked-car slot: " + itemId);
+      const handle = parkedCollisionHandles.get(itemId);
+      if (!handle) throw new Error("Parked-car collision unavailable for trial: " + itemId);
+      handle.dispose();
+      parkedCollisionHandles.delete(itemId);
+      const index = contextCollision.indexOf(handle);
+      if (index !== -1) contextCollision.splice(index, 1);
     },
     replaceParkedCarCollider(itemId, dimensions) {
       if (disposed) throw new Error("Cannot update parked-car collision after world disposal");

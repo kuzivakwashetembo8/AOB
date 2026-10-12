@@ -1,22 +1,15 @@
 /**
- * GTD-CHAR-001 release activation. Keep this module dependency-free so
- * gameplay UI and runtime never disagree about which character is active.
+ * GTD-CHAR-001 protagonist precedence.
  *
- * The UAL asset is still provisional; enabling the playable rig on production
- * for device confirmation does NOT approve it as final Voight artwork.
+ * The working rigged humanoid is the only supported playable character on
+ * main, preview branches and local development until a successor is accepted.
+ * Preserve this compatibility entry point for the existing game UI/runtime.
+ * Historical ?gtdCharacterTrial=baseline/off flags cannot silently restore
+ * the obsolete capsule. Asset/animation load failure must surface as failure.
+ *
+ * This provisional UAL model is accepted for development locomotion, NOT
+ * approved as the eventual original character or for commercial licensing.
  */
-const MAIN_HOSTS = new Set([
-  "grand-theft-division.vercel.app",
-  "gtd-interlinkglobaltech.vercel.app",
-  "gtd-git-main-interlinkglobaltech.vercel.app",
-]);
-
-export function isMeridiaCharacterTrialRequested(search: string, hostname: string): boolean {
-  const mode = new URLSearchParams(search).get("gtdCharacterTrial");
-  // Explicit rollback never changes physics or game logic on the server.
-  if (mode === "baseline" || mode === "off") return false;
-  if (mode === "ual") return true;
-  // A production merge must be visible at the URL gamers actually open;
-  // ordinary branch previews remain opt-in.
-  return MAIN_HOSTS.has(hostname.toLowerCase());
+export function isMeridiaCharacterTrialRequested(_search: string, _hostname: string): boolean {
+  return true;
 }

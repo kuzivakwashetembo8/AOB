@@ -75,11 +75,11 @@ describe("GTD-CHAR-001 experimental ground shader isolation", () => {
       engine.dispose();
     }
   });
-  it("activates the rigged humanoid on the canonical main route without a query", () => {
+  it("activates the rigged humanoid on production and preview routes without query flags", () => {
     expect(isMeridiaCharacterTrialRequested("", "grand-theft-division.vercel.app")).toBe(true);
-    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=baseline", "grand-theft-division.vercel.app")).toBe(false);
+    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=baseline", "grand-theft-division.vercel.app")).toBe(true);
     expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "grand-theft-division.vercel.app")).toBe(true);
-    expect(isMeridiaCharacterTrialRequested("", "gtd-preview.vercel.app")).toBe(false);
-    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=ual", "gtd-preview.vercel.app")).toBe(true);
+    expect(isMeridiaCharacterTrialRequested("", "gtd-preview.vercel.app")).toBe(true);
+    expect(isMeridiaCharacterTrialRequested("?gtdCharacterTrial=off", "gtd-preview.vercel.app")).toBe(true);
   });
 });

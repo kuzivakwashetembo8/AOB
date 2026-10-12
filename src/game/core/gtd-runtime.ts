@@ -19,6 +19,9 @@ import type {
   InputMode,
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
+import { FirstDriveTrial } from "../vehicles/first-drive-trial";
+import { canInitializePlayerVehicle } from "../vehicles/drive-availability";
+import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha } from "../vehicles/ferrari-camera";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
   beginWorldRenderWarmup,
@@ -46,7 +49,7 @@ import {
   isGeneratedFirstLightWorld,
   type RuntimeFirstLightWorld,
 } from "../world/first-light-runtime-source";
-import { createVoightPrototype, type VoightPrototype } from "../character/voight";
+import type { VoightPrototype } from "../character/voight";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import {
@@ -78,6 +81,9 @@ export class GTDGameRuntime implements GameRuntime {
   private fl4Diagnostics: FL4Diagnostics | null = null;
   private removeFL4EvidenceExport: (() => void) | null = null;
   private importedCarProbe: ImportedCarProbe | null = null;
+  private drivingTrial: FirstDriveTrial | null = null;
+  /** L0 permits one onboarding entry from the initial garage; later entry requires proximity. */
+  private hasBoardedFerrari = false;
   private worldRenderWarmup: WorldRenderWarmup | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
@@ -216,8 +222,8 @@ export class GTDGameRuntime implements GameRuntime {
       physics,
       ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
       {
-        // L1/L3 source-backed support fix: do not apply parity sidewalk
-        // collision changes to the existing no-query baseline or production.
+        // The accepted humanoid requires existing raised-sidewalk support
+        // colliders in every preview, matching current main behavior.
         enableSidewalkSupportCollision: isMeridiaCharacterTrialRequested(
           window.location.search, window.location.hostname,
         ),
@@ -316,12 +322,10 @@ export class GTDGameRuntime implements GameRuntime {
     scene.activeCamera = camera;
 
     this.emit({ type: "load-checkpoint", id: "voight", status: "running" });
-    let voight: VoightPrototype;
-    if (isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname)) {
-      // Only the opt-in preview/branch trial uses the external humanoid model.
-      // No silent fallback: unavailable or malformed GLB must not be mistaken
-      // for an accepted Voight or a successfully loaded character.
-      try {
+    // The rigged humanoid is the only supported actor. Never fall back to the
+    // obsolete capsule on previews or when an external asset fails to load.
+    let voight: LoadedMeridiaCharacter;
+    try {
         const trial = await loadMeridiaCharacterTrial(scene);
         this.characterTrial = trial;
         voight = trial;
@@ -343,13 +347,10 @@ export class GTDGameRuntime implements GameRuntime {
           });
         (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: () => ReturnType<LoadedMeridiaCharacter["report"]> })
           .__GTD_CHARACTER_TRIAL_REPORT__ = () => trial.report();
-      } catch (error) {
-        this.emit({ type: "load-checkpoint", id: "voight", status: "failed",
-          detail: error instanceof Error ? error.message : String(error) });
-        throw error;
-      }
-    } else {
-      voight = createVoightPrototype(scene);
+    } catch (error) {
+      this.emit({ type: "load-checkpoint", id: "voight", status: "failed",
+        detail: error instanceof Error ? error.message : String(error) });
+      throw error;
     }
     const spawn = physics.playerPosition();
     voight.root.position.set(spawn.x, spawn.y, spawn.z);
@@ -380,7 +381,7 @@ export class GTDGameRuntime implements GameRuntime {
     // cars are installed; the previous onAfterRender-only gate admitted
     // sky-and-cars frames with no ground/streets/Voight on mobile.
     const ground = scene.getMeshByName("generated-first-light-ground");
-    const protagonist = this.characterTrial?.witness ?? scene.getMeshByName("voight-prototype-body");
+    const protagonist = voight.witness;
     if (!(ground instanceof Mesh) || !(protagonist instanceof Mesh)) {
       throw new Error("Generated ground or Voight render witness was not constructed");
     }
@@ -422,10 +423,8 @@ export class GTDGameRuntime implements GameRuntime {
         ].filter(mesh => mesh.isEnabled() && mesh.material instanceof StandardMaterial)
       : [];
     if (this.characterTrial) {
-      // This explicit fallback tests WHETHER Babylon's original StandardMaterial
-      // effects are starving out all city meshes after UAL PBR import.
-      // Preserve existing city geometry/UVs/textures; do not invent proxies.
-      // No effect on production or the no-query preview baseline.
+      // Preserve the tested humanoid PBR/world shader integration from main:
+      // real streets and buildings must remain visible after rig import.
       groundIsolation = isolateCharacterTrialGroundShaders(
         ground, roadSurfaces, sidewalkSurfaces, trialScenery,
       );
@@ -459,6 +458,47 @@ export class GTDGameRuntime implements GameRuntime {
       // Preserve real GLTF source/parking/collider completion requirements.
       if (this.importedCarProbe) await this.importedCarProbe.settled;
       if (this.host !== host || this.engine !== engine) return;
+      // EXP-VEH-002 / GTD-WORLD-002: owner desktop-accepted Ferrari L0
+      // promoted to main for default production/mobile validation on 2026-10-12.
+      // This is a DEVELOPMENT SPECIMEN, not a commercial-asset rights clearance.
+      // Import/first-frame gates stay authoritative; no procedural fallback.
+      // Reuse ONE accepted sports GLB and preserve every parked buggy.
+      // Do not require a preview-only query flag or exclude production hosts.
+      if (canInitializePlayerVehicle(
+        this.importedCarProbe !== null, isGeneratedFirstLightWorld(firstLight),
+      ) && this.importedCarProbe && isGeneratedFirstLightWorld(firstLight)) {
+        const sports = this.importedCarProbe.report().slots.find(slot =>
+          slot.source === "sports" && slot.status === "imported" && slot.finalVisualMetres);
+        const anchor = sports
+          ? scene.getTransformNodeByName("vehicle-probe-anchor:" + sports.id)
+          : null;
+        if (sports?.finalVisualMetres && anchor) {
+          let trial: FirstDriveTrial | null = null;
+          try {
+            trial = new FirstDriveTrial(physics, anchor, {
+              x: sports.finalVisualMetres.width,
+              y: sports.finalVisualMetres.height,
+              z: sports.finalVisualMetres.length,
+            });
+            // Remove the original fixed parked collider only after the
+            // dynamic chassis and collider have successfully been allocated.
+            firstLight.releaseParkedCarCollider(sports.id);
+            this.drivingTrial = trial;
+            (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: () => unknown })
+              .__GTD_DRIVE_TRIAL_REPORT__ = () => ({
+                experiment: "EXP-VEH-002", importedSlotId: sports.id,
+                ...trial!.status, pose: { ...trial!.pose },
+                context: this.context,
+              });
+          } catch (error) {
+            trial?.dispose();
+            console.error("[EXP-VEH-002] Ferrari trial not available", error);
+            this.emit({ type: "error", message: "Ferrari driving trial unavailable: " + String(error) });
+          }
+        } else {
+          this.emit({ type: "error", message: "Ferrari trial asset unavailable; no replacement or proxy activated" });
+        }
+      }
       this.emit({ type: "load-checkpoint", id: "first-frame", status: "running" });
       const finalRenderStartedAt = performance.now();
       // Only finish startup after a POST-import frame actually submits
@@ -522,6 +562,10 @@ export class GTDGameRuntime implements GameRuntime {
     window.removeEventListener("resize", this.resize);
     this.worldRenderWarmup?.cancel();
     this.worldRenderWarmup = null;
+    this.drivingTrial?.dispose();
+    this.drivingTrial = null;
+    this.hasBoardedFerrari = false;
+    delete (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: unknown }).__GTD_DRIVE_TRIAL_REPORT__;
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
@@ -612,6 +656,10 @@ export class GTDGameRuntime implements GameRuntime {
       return;
     }
     if (command.type === "action") {
+      if (command.action === "vehicle" && command.pressed && this.drivingTrial) {
+        this.toggleFerrariDriving();
+        return;
+      }
       if (command.pressed) this.actions.add(command.action);
       else this.actions.delete(command.action);
       return;
@@ -660,6 +708,60 @@ export class GTDGameRuntime implements GameRuntime {
     return () => this.eventListeners.delete(listener);
   }
 
+  /** Development-only possession: enter/exit instantly; no unverified door rig. */
+  private toggleFerrariDriving() {
+    const trial = this.drivingTrial;
+    const physics = this.physics;
+    const voight = this.voight;
+    if (!trial || !physics || !voight) return;
+    if (this.context === "driving") {
+      if (Math.abs(trial.speedMps) > 0.25) {
+        this.emit({ type: "interaction", label: "Stop the Ferrari before exiting" });
+        return;
+      }
+      const position = trial.findSafeExitPosition();
+      if (!position) {
+        this.emit({ type: "interaction", label: "No clear space beside the Ferrari; reposition before exiting" });
+        return;
+      }
+      // Position B is authoritative; never reuse the entry location A.
+      physics.setPlayerPosition(position);
+      voight.root.position.set(position.x, position.y, position.z);
+      this.camera?.target.set(position.x, position.y + 0.55, position.z);
+      this.context = "walking";
+      voight.root.setEnabled(true);
+      this.move = { x: 0, y: 0 };
+      this.preferredCameraRadius = 6.2;
+      this.publishSnapshot(0);
+      this.emit({ type: "interaction", label: "Ferrari trial: press F to drive again" });
+      return;
+    }
+    // Preserve the initial garage test entry; after first exit, the
+    // original garage location cannot remotely summon/board a car parked at B.
+    const actorPosition = physics.playerPosition();
+    const carPosition = trial.pose;
+    if (this.hasBoardedFerrari &&
+        Math.hypot(actorPosition.x - carPosition.x, actorPosition.z - carPosition.z) > 3.5) {
+      this.emit({ type: "interaction", label: "Walk to the Ferrari to re-enter it" });
+      return;
+    }
+    this.hasBoardedFerrari = true;
+    this.context = "driving";
+    voight.root.setEnabled(false);
+    this.move = { x: 0, y: 0 };
+    this.preferredCameraRadius = 7.6;
+    const position = trial.pose;
+    if (this.camera) {
+      // A fresh entry always begins BEHIND the authored -Z-facing Ferrari.
+      // Any drag after entry remains an independent free-look offset.
+      this.camera.alpha = ferrariRearCameraAlpha(trial.headingYaw);
+      this.camera.beta = 1.14;
+      this.camera.target.set(position.x, position.y + 0.7, position.z);
+    }
+    this.publishSnapshot(0);
+    this.emit({ type: "interaction", label: "Ferrari driving: WASD / arrows / joystick · F to exit when stopped" });
+  }
+
   private schedule() {
     if (this.lifecycle !== "running") return;
     this.frameHandle = requestAnimationFrame((time) => {
@@ -703,6 +805,33 @@ export class GTDGameRuntime implements GameRuntime {
           + swipe.beta,
       ),
     );
+
+    if (this.context === "driving" && this.drivingTrial) {
+      const trial = this.drivingTrial;
+      const previousYaw = trial.headingYaw;
+      trial.prepare(dt, this.move.x, this.move.y);
+      // Exactly one Rapier step each fixed tick. The existing character
+      // controller owns the step until world physics is centrally refactored.
+      physics.movePlayer({ x: 0, y: 0, z: 0 });
+      trial.finish(dt);
+      const position = trial.pose;
+      this.world?.update(dt, position);
+      camera.target.set(position.x, position.y + 0.7, position.z);
+      // Follow the CAR'S heading delta, not a hard-coded target bearing.
+      // The user's pointer/touch look updates above are preserved, rather
+      // than auto-overridden on every simulation frame.
+      camera.alpha = advanceFerrariCameraAlpha(
+        camera.alpha, previousYaw, trial.headingYaw,
+      );
+      this.preferredCameraRadius = 7.6;
+      this.resolveCameraObstruction(camera, position, dt);
+      this.snapshotAccumulator += dt;
+      if (this.snapshotAccumulator >= SNAPSHOT_INTERVAL) {
+        this.snapshotAccumulator = 0;
+        this.publishSnapshot(Math.abs(trial.speedMps));
+      }
+      return;
+    }
 
     const forward = new Vector3(-Math.cos(camera.alpha), 0, -Math.sin(camera.alpha));
     const right = new Vector3(-Math.sin(camera.alpha), 0, Math.cos(camera.alpha));
@@ -858,13 +987,18 @@ export class GTDGameRuntime implements GameRuntime {
       lifecycle: this.lifecycle,
       context: this.context,
       location: this.world?.location ?? "South Ward // First Light",
-      objective:
-        this.world?.objective ?? "Walk the generated South Ward garage corner",
+      objective: this.drivingTrial
+        ? this.context === "driving"
+          ? "Ferrari trial · Drive with WASD / arrows · F to exit when stopped"
+          : "Ferrari trial · Press F to enter the sports car"
+        : this.world?.objective ?? "Walk the generated South Ward garage corner",
       health: 100,
       reputation: 0,
       heat: 0,
       speed: Math.round(speed * 3.6),
-      vehicle: null,
+      vehicle: this.context === "driving" && this.drivingTrial
+        ? "Ferrari · EXP-VEH-002"
+        : null,
       meridianTime:
         this.world?.environmentSnapshot.formattedTime ?? this.snapshot.meridianTime,
       meridianMinuteOfDay:

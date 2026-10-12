@@ -190,7 +190,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       "Geometry and bone counts measured after import. Report is not GPU memory.",
       "This preview uses Babylon.js and existing Rapier physics; Three.js Foot IK is NOT directly installed.",
       "Animation state playback and blending are experimental; no foot IK solution is claimed.",
-      "Baseline for A/B: the identical preview URL without gtdCharacterTrial=ual.",
+      "Canonical development character: this rig supersedes the retired capsule on main and previews.",
     ],
   };
   return {
