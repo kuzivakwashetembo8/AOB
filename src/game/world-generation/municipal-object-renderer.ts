@@ -170,10 +170,11 @@ export function createMunicipalStreetContext(
           { width: 1.14, height: 0.50, sideOrientation: Mesh.DOUBLESIDE }, scene);
         panel.parent = root;
         panel.position.z = 0.045;
-        panel.material = art(item.assetId);
+        const shopMaterial = art(item.assetId);
+        panel.material = shopMaterial;
         // Keep the owner's exact artwork proportions inside the physical
         // frame. WebP transfer compression is not a license to stretch art.
-        const texture = panel.material.diffuseTexture as Texture | null;
+        const texture = shopMaterial.diffuseTexture as Texture | null;
         if (texture) {
           const fit = () => {
             const size = texture.getSize();
