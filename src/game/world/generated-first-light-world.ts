@@ -514,6 +514,7 @@ export function createGeneratedFirstLightWorld(
   let disposed = false;
   let interiorState: InteriorVisibilityState = "outside";
   let environmentSnapshot = environment.snapshot();
+  municipalContext.setNightFraction(environmentSnapshot.night);
 
   return {
     spawn: new Vector3(
@@ -589,6 +590,7 @@ export function createGeneratedFirstLightWorld(
     },
     update(realSeconds, playerPosition) {
       environmentSnapshot = environment.update(realSeconds);
+      municipalContext.setNightFraction(environmentSnapshot.night);
       interiorState = heroGarage
         ? classifyGarageInterior(heroGarage, playerPosition)
         : "outside";
@@ -596,10 +598,12 @@ export function createGeneratedFirstLightWorld(
     },
     setTimeMinutes(minutes) {
       environmentSnapshot = environment.setTimeMinutes(minutes);
+      municipalContext.setNightFraction(environmentSnapshot.night);
       return environmentSnapshot;
     },
     setTimeScale(scale) {
       environmentSnapshot = environment.setTimeScale(scale);
+      municipalContext.setNightFraction(environmentSnapshot.night);
       return environmentSnapshot;
     },
     dispose() {
