@@ -136,24 +136,12 @@ export const FIRST_LIGHT_CITY_SPEC: CitySpec = {
           props: [
             { id: "sw-fl-authored-light-garage", templateId: "streetlight", position: { x: 4.7, y: 0, z: 3.15 }, yawRadians: 0 },
             { id: "sw-fl-authored-car-garage", templateId: "parked-car", position: { x: 7.4, y: 0, z: 9.65 }, yawRadians: Math.PI / 2 },
-            { id: "sw-ma-garage-utility-cabinet", templateId: "utility-cabinet", position: { x: -37.8, y: 0, z: 3.3 }, yawRadians: Math.PI },
-            { id: "sw-ma-west-hydrant", templateId: "hydrant", position: { x: -43, y: 0, z: 13.7 }, yawRadians: 0 },
           ],
         },
         {
           id: "sw-fl-main-south",
           lots: rows.filter((row) => row.block === "south").map(makeLot),
-          // MA-4: a handful of PURPOSE-PLACED municipal fixtures on existing
-          // pavement, outside the two road travel lanes and garage doorway.
           props: [
-            { id: "sw-ma-corner-wheelie-bin", templateId: "wheelie-bin", position: { x: 32.4, y: 0, z: 15.35 }, yawRadians: Math.PI },
-            { id: "sw-ma-corner-second-bin", templateId: "wheelie-bin", position: { x: 33.25, y: 0, z: 15.35 }, yawRadians: Math.PI },
-            { id: "sw-ma-corner-visible-hydrant", templateId: "hydrant", position: { x: 35.45, y: 0, z: 12.90 }, yawRadians: 0 },
-            { id: "sw-ma-corner-utility-cabinet", templateId: "utility-cabinet", position: { x: 35.9, y: 0, z: 15.8 }, yawRadians: Math.PI },
-            { id: "sw-ma-corner-street-plate", templateId: "street-name", position: { x: 27.4, y: 0, z: 13.3 }, yawRadians: Math.PI },
-            { id: "sw-ma-corner-bollard-west", templateId: "bollard", position: { x: 26.1, y: 0, z: 12.9 }, yawRadians: 0 },
-            { id: "sw-ma-corner-bollard-east", templateId: "bollard", position: { x: 32.9, y: 0, z: 12.9 }, yawRadians: 0 },
-            { id: "sw-ma-mercer-street-plate", templateId: "street-name", position: { x: 13.7, y: 0, z: 13.7 }, yawRadians: 0 },
           ],
         },
         {
@@ -161,9 +149,6 @@ export const FIRST_LIGHT_CITY_SPEC: CitySpec = {
           lots: rows.filter((row) => row.block === "rear").map(makeLot),
           props: [
             { id: "sw-fl-authored-car-rear", templateId: "parked-car", position: { x: -14, y: 0, z: 49.6 }, yawRadians: Math.PI / 2 },
-            { id: "sw-ma-rear-shop-bin", templateId: "wheelie-bin", position: { x: 14.2, y: 0, z: 54.1 }, yawRadians: Math.PI / 2 },
-            { id: "sw-ma-foundry-street-plate", templateId: "street-name", position: { x: 26.0, y: 0, z: 42.9 }, yawRadians: Math.PI },
-            { id: "sw-ma-workshop-stop-sign", templateId: "stop-sign", position: { x: 13.8, y: 0, z: 41.3 }, yawRadians: Math.PI / 2 },
           ],
         },
         {
