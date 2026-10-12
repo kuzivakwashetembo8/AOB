@@ -5,8 +5,8 @@
  * imported user shop boards are same-origin WebP files, never remote URLs.
  */
 import {
-  Color3, DynamicTexture, Mesh, MeshBuilder, StandardMaterial,
-  Texture, TransformNode,
+  Color3, DynamicTexture, Mesh, MeshBuilder, PointLight, StandardMaterial,
+  Texture, TransformNode, Vector3,
 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
 import type { MunicipalItem } from "./municipal-object-plan";
@@ -15,6 +15,8 @@ export interface GeneratedMunicipalContext {
   readonly itemCount: number;
   readonly meshes: readonly Mesh[];
   readonly boards: readonly string[];
+  /** Reuses Meridian's existing daylight cycle, no new animation loop. */
+  setNightFraction(night: number): void;
   dispose(): void;
 }
 
@@ -40,6 +42,7 @@ export function createMunicipalStreetContext(
   const dynamicTextures: DynamicTexture[] = [];
   const boards: string[] = [];
   const assetRoots = new Map<string, TransformNode[]>();
+  const shopLights: PointLight[] = [];
 
   const solid = (name: string, hex: string) => {
     const material = new StandardMaterial("ma-material:" + name, scene);
@@ -56,6 +59,9 @@ export function createMunicipalStreetContext(
   const yellow = solid("street-marker", "#c2a24f");
   const red = solid("road-safety-red", "#a7292b");
   const white = solid("road-safety-white", "#dfe3e0");
+  const led = solid("shop-led-diffuser", "#e2e8e9");
+  led.emissiveColor = new Color3(0.03, 0.04, 0.04);
+  const ledFixture = solid("shop-led-housing", "#484e51");
 
   const box = (id: string, parent: TransformNode,
     width: number, height: number, depth: number,
@@ -89,16 +95,16 @@ export function createMunicipalStreetContext(
       0, y, z, iron);
     if (headless(scene)) return board;
     const texture = new DynamicTexture("ma-label:" + id,
-      { width: 512, height: 256 }, scene, true);
+      { width: 1024, height: 256 }, scene, true);
     const context = texture.getContext() as CanvasRenderingContext2D;
     context.fillStyle = base;
-    context.fillRect(0, 0, 512, 256);
+    context.fillRect(0, 0, 1024, 256);
     context.fillStyle = ink;
-    const fontSize = Math.min(105, Math.floor(430 / Math.max(3.0, text.length * 0.55)));
+    const fontSize = Math.min(144, Math.floor(1650 / Math.max(3.0, text.length * 0.55)));
     context.font = "bold " + fontSize + "px Arial, sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(text, 256, 132, 474);
+    context.fillText(text, 512, 132, 970);
     texture.update();
     dynamicTextures.push(texture);
     const material = new StandardMaterial("ma-lettering:" + id, scene);
@@ -164,12 +170,12 @@ export function createMunicipalStreetContext(
         assetRoots.set(item.assetId, [...(assetRoots.get(item.assetId) ?? []), root]);
         // Image-first detail, REAL 7cm 3D frame; mounting is on the frontage
         // band above the ground-floor shop glazing, not at pedestrian height.
-        box(item.id + ":frame", root, 1.2, 0.56, 0.07,
+        box(item.id + ":frame", root, 1.68, 0.80, 0.08,
           0, 0, 0, charcoal);
         const panel = MeshBuilder.CreatePlane("ma-shop-board-face:" + item.id,
-          { width: 1.14, height: 0.50, sideOrientation: Mesh.DOUBLESIDE }, scene);
+          { width: 1.60, height: 0.72, sideOrientation: Mesh.DOUBLESIDE }, scene);
         panel.parent = root;
-        panel.position.z = 0.045;
+        panel.position.z = 0.052;
         const shopMaterial = art(item.assetId);
         panel.material = shopMaterial;
         // Keep the owner's exact artwork proportions inside the physical
@@ -180,7 +186,7 @@ export function createMunicipalStreetContext(
             const size = texture.getSize();
             if (!size.width || !size.height) return;
             const actualRatio = size.width / size.height;
-            const frameRatio = 1.14 / 0.50;
+            const frameRatio = 1.60 / 0.72;
             panel.scaling.x = Math.min(1, actualRatio / frameRatio);
             panel.scaling.y = Math.min(1, frameRatio / actualRatio);
           };
@@ -190,6 +196,28 @@ export function createMunicipalStreetContext(
         panel.isPickable = false;
         meshes.push(panel);
         boards.push(item.id);
+        break;
+      }
+      case "shop-name":
+        label(item.id + ":shop-name", root, item.label ?? "CORNER SHOP",
+          3.60, 0.52, 0, 0.015, "#242d35", "#f9f4df");
+        break;
+      case "storefront-led": {
+        // The existing dark storefront bands now have a credible aluminium
+        // housing, a thin white visible diffuser and ONE modest point light.
+        box(item.id + ":housing", root, 6.60, 0.12, 0.14, 0, 0, 0, ledFixture);
+        box(item.id + ":diffuser", root, 6.44, 0.065, 0.025,
+          0, -0.038, 0.090, led);
+        if (!headless(scene)) {
+          const light = new PointLight("ma-shop-led-light:" + item.id,
+            new Vector3(item.position.x, item.position.y - 0.13,
+              item.position.z + Math.cos(item.yawRadians) * 0.5), scene);
+          light.diffuse = new Color3(0.95, 0.97, 1);
+          light.specular = new Color3(0.32, 0.35, 0.38);
+          light.range = 6;
+          light.intensity = 0;
+          shopLights.push(light);
+        }
         break;
       }
       case "wheelie-bin":
@@ -230,9 +258,17 @@ export function createMunicipalStreetContext(
   let disposed = false;
   return {
     itemCount: items.length, meshes, boards,
+    setNightFraction(night) {
+      const fraction = Math.max(0, Math.min(1, Number.isFinite(night) ? night : 0));
+      const intensity = Math.max(0, (fraction - 0.28) / 0.72);
+      led.emissiveColor = new Color3(0.03 + intensity * 0.93,
+        0.04 + intensity * 0.94, 0.04 + intensity * 0.97);
+      for (const light of shopLights) light.intensity = intensity * 0.95;
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
+      for (const light of shopLights) light.dispose();
       for (const root of nodes) root.dispose(false, false);
       for (const mesh of meshes) mesh.dispose(false, false);
       for (const m of materials) m.dispose(false, false);
