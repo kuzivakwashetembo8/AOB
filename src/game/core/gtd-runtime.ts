@@ -51,6 +51,7 @@ import {
 } from "../world/first-light-runtime-source";
 import type { VoightPrototype } from "../character/voight";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
+import { southWardLocationAt } from "../world-generation/south-ward-location";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import {
   DEFAULT_TRAVEL_HEADING,
@@ -986,7 +987,13 @@ export class GTDGameRuntime implements GameRuntime {
     this.snapshot = {
       lifecycle: this.lifecycle,
       context: this.context,
-      location: this.world?.location ?? "South Ward // First Light",
+      location: this.world && this.physics && isGeneratedFirstLightWorld(this.world)
+        ? southWardLocationAt(
+          this.context === "driving" && this.drivingTrial
+            ? this.drivingTrial.pose
+            : this.physics.playerPosition(),
+        )
+        : this.world?.location ?? "South Ward // First Light",
       objective: this.drivingTrial
         ? this.context === "driving"
           ? "Ferrari trial · Drive with WASD / arrows · F to exit when stopped"
