@@ -62,9 +62,15 @@ describe("EXP-VEH-002 live Rapier Ferrari corrections", () => {
     try {
       expect(FERRARI_CURB_MAX_METRES).toBeGreaterThan(0.12);
       const initialY = setup.trial.pose.y;
-      setup.step(0, -1, 160);
+      let peakY = initialY;
+      for (let tick = 0; tick < 160; tick++) {
+        setup.step(0, -1);
+        peakY = Math.max(peakY, setup.trial.pose.y);
+      }
+      // The test car moves beyond the short raised sidewalk by tick 160;
+      // verify elevation DURING traversal, not after it has descended.
       expect(setup.trial.pose.z).toBeLessThan(-1.0);
-      expect(setup.trial.pose.y - initialY).toBeGreaterThan(0.06);
+      expect(peakY - initialY).toBeGreaterThan(0.06);
     } finally { setup.dispose(); }
   }, 30000);
 
