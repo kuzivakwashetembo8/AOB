@@ -1,7 +1,8 @@
 # Meridian Vehicle Runtime — GTD-WORLD-002
 
-Status: EXP-VEH-002 Ferrari **L0 development trial**, isolated on the branch
-`feat/gtd-world-002-ferrari-l0-20261012`. This is **not** released traffic AI,
+Status: EXP-VEH-002 Ferrari **L0 desktop accepted by owner** and authorized
+for promotion to `main` for mobile validation, 2026-10-12.
+This is **not** released traffic AI,
 a sedan asset, tire dynamics, or a commercial Ferrari licensing determination.
 
 ## Reusable components
@@ -43,4 +44,10 @@ camera stability. A missing wheel pivot is a reported defect, not success.
 Failure modes, root-cause evidence, protections and acceptance gates:
 [VM-G01–G05 Physics Hardening](../../documentations/Development/GTD-WORLD-002%20Ferrari%20L0%20Physics%20Hardening%20-%202026-10-12.md).
 
-No changes to the parked buggy, production `main`, humanoid precedence, or FL-4 closure.
+Production/mobile release contract: car actor initializes automatically when the
+genuine imported sports GLB loads in the generated world, without requiring
+`gtdVehicleTrial=1`. Retained `drive-availability.ts` guards against missing
+assets. The owner has verified `wheelCount=4`, `wheelRigReady=true`,
+`missingWheelPivots=[]`, `grounded=true` and `airborneSeconds=0` on desktop.
+**Mobile field acceptance is still pending.** Parked buggy, canonical humanoid
+and FL-4 closure are preserved. Commercial source asset rights remain unresolved.
