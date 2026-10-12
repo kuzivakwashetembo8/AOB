@@ -146,7 +146,11 @@ export const FIRST_LIGHT_CITY_SPEC: CitySpec = {
           // MA-4: a handful of PURPOSE-PLACED municipal fixtures on existing
           // pavement, outside the two road travel lanes and garage doorway.
           props: [
-            { id: "sw-ma-corner-wheelie-bin", templateId: "wheelie-bin", position: { x: 35.5, y: 0, z: 14.2 }, yawRadians: 0 },
+            { id: "sw-ma-corner-wheelie-bin", templateId: "wheelie-bin", position: { x: 32.4, y: 0, z: 15.35 }, yawRadians: Math.PI },
+            { id: "sw-ma-corner-second-bin", templateId: "wheelie-bin", position: { x: 33.25, y: 0, z: 15.35 }, yawRadians: Math.PI },
+            { id: "sw-ma-corner-visible-hydrant", templateId: "hydrant", position: { x: 35.45, y: 0, z: 12.90 }, yawRadians: 0 },
+            { id: "sw-ma-corner-utility-cabinet", templateId: "utility-cabinet", position: { x: 35.9, y: 0, z: 15.8 }, yawRadians: Math.PI },
+            { id: "sw-ma-corner-street-plate", templateId: "street-name", position: { x: 24.8, y: 0, z: 13.3 }, yawRadians: Math.PI },
             { id: "sw-ma-corner-bollard-west", templateId: "bollard", position: { x: 26.1, y: 0, z: 12.9 }, yawRadians: 0 },
             { id: "sw-ma-corner-bollard-east", templateId: "bollard", position: { x: 32.9, y: 0, z: 12.9 }, yawRadians: 0 },
             { id: "sw-ma-mercer-street-plate", templateId: "street-name", position: { x: 13.7, y: 0, z: 13.7 }, yawRadians: 0 },
