@@ -4,9 +4,15 @@ import type { ReactNode } from "react";
 import city from "@/assets/meridian-city.jpg";
 
 export function Scene({ game = false }: { game?: boolean }) {
+  if (game) {
+    // MA-FM-07: Gameplay must never mount the launcher hero photograph behind
+    // the WebGL canvas. Opaque fallback protects render/texture failures from
+    // displaying unrelated site artwork as apparent world geometry.
+    return <div className="scene game-scene" aria-hidden="true" />;
+  }
   return (
     <>
-      <div className={`scene ${game ? "game-scene" : ""}`}>
+      <div className="scene">
         <img
           src={city}
           alt="Meridian City skyline overlooking the harbor, with Voight on a rooftop"
@@ -17,7 +23,7 @@ export function Scene({ game = false }: { game?: boolean }) {
       </div>
       <div className="scene-edges" />
       {/* The menu grid is cosmetic; scanline styling must never overlay Babylon gameplay. */}
-      {!game && <div className="scene-grid" />}
+      <div className="scene-grid" />
     </>
   );
 }
