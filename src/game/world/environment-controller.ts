@@ -14,6 +14,7 @@ import {
 } from "@babylonjs/core";
 import type { AbstractMesh, Mesh } from "@babylonjs/core";
 import { planStreetContext } from "../world-generation/street-context";
+import { resolveCityBuildings } from "../world-generation/defaults";
 import { FIRST_LIGHT_CITY_SPEC } from "../world-generation/first-light-spec";
 
 export const MERIDIAN_DAY_MINUTES = 24 * 60;
@@ -366,6 +367,32 @@ export function createMeridianEnvironment(
       ? streetlightGlowMaterial
       : null;
 
+  // Use the REAL generated facade bands as LED emitters, rather than the
+  // previous detached municipal-object component whose appearance was never
+  // confirmed in browser testing. Only commercial frontages get light sources.
+  const storefrontLedMaterials = scene.materials.filter((m): m is StandardMaterial =>
+    m instanceof StandardMaterial && m.name.startsWith("ma-facade-led:"));
+  const storefrontLights = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC)
+    .filter(building => (building.archetype === "commercial" ||
+      building.archetype === "mixed-use") &&
+      storefrontLedMaterials.some(material =>
+        material.name === "ma-facade-led:" + building.id))
+    .map(building => {
+      const theta = building.yawRadians;
+      const forward = building.parameters.depth / 2 + 0.58;
+      const light = new PointLight("ma-storefront-led:" + building.id,
+        new Vector3(
+          building.position.x + Math.sin(theta) * forward,
+          building.position.y + building.parameters.floorHeight - 0.92,
+          building.position.z + Math.cos(theta) * forward,
+        ), scene);
+      light.diffuse = new Color3(0.96, 0.98, 1);
+      light.specular = new Color3(0.32, 0.34, 0.37);
+      light.range = 7.5;
+      light.intensity = 0;
+      return light;
+    });
+
   const interiorLights = [
     new PointLight(
       "south-ward-garage-interior-light-west",
@@ -495,6 +522,15 @@ export function createMeridianEnvironment(
     for (const light of interiorLights) {
       light.intensity = 0.5 + night * 0.82;
     }
+    const ledIntensity = smoothstep(0.22, 0.68, night);
+    for (const material of storefrontLedMaterials) {
+      material.emissiveColor.set(
+        0.035 + ledIntensity * 1.35,
+        0.035 + ledIntensity * 1.38,
+        0.038 + ledIntensity * 1.48,
+      );
+    }
+    for (const light of storefrontLights) light.intensity = ledIntensity * 1.15;
 
     return {
       minuteOfDay: clock.minuteOfDay,
@@ -551,6 +587,7 @@ export function createMeridianEnvironment(
       disposed = true;
       shadows?.dispose();
       for (const light of streetlights) light.dispose();
+      for (const light of storefrontLights) light.dispose();
       for (const light of interiorLights) light.dispose();
       sun.dispose();
       ambient.dispose();
