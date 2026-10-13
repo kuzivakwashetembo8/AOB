@@ -21,7 +21,8 @@ import type {
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FirstDriveTrial } from "../vehicles/first-drive-trial";
 import { canInitializePlayerVehicle } from "../vehicles/drive-availability";
-import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha } from "../vehicles/ferrari-camera";
+import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha, FERRARI_REAR_CAMERA_BETA, FERRARI_REAR_CAMERA_RADIUS } from "../vehicles/ferrari-camera";
+import { nearestSportsCar, stationaryDisembark, type Point3 } from "../vehicles/local-boarding";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
   beginWorldRenderWarmup,
@@ -88,9 +89,10 @@ export class GTDGameRuntime implements GameRuntime {
   private fl4Diagnostics: FL4Diagnostics | null = null;
   private removeFL4EvidenceExport: (() => void) | null = null;
   private importedCarProbe: ImportedCarProbe | null = null;
+  private readonly sportsCars=new Map<string,FirstDriveTrial>();
   private drivingTrial: FirstDriveTrial | null = null;
-  /** L0 permits one onboarding entry from the initial garage; later entry requires proximity. */
-  private hasBoardedFerrari = false;
+  private enteredAt: Point3 | null = null;
+  private carEnteredAt: Point3 | null = null;
   private worldRenderWarmup: WorldRenderWarmup | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
@@ -488,39 +490,31 @@ export class GTDGameRuntime implements GameRuntime {
       // Reuse ONE accepted sports GLB and preserve every parked buggy.
       // Do not require a preview-only query flag or exclude production hosts.
       if (canInitializePlayerVehicle(
-        this.importedCarProbe !== null, isGeneratedFirstLightWorld(firstLight),
+        this.importedCarProbe !== null,isGeneratedFirstLightWorld(firstLight),
       ) && this.importedCarProbe && isGeneratedFirstLightWorld(firstLight)) {
-        const sports = this.importedCarProbe.report().slots.find(slot =>
-          slot.source === "sports" && slot.status === "imported" && slot.finalVisualMetres);
-        const anchor = sports
-          ? scene.getTransformNodeByName("vehicle-probe-anchor:" + sports.id)
-          : null;
-        if (sports?.finalVisualMetres && anchor) {
-          let trial: FirstDriveTrial | null = null;
+        for(const slot of this.importedCarProbe.report().slots.filter(slot=>
+          slot.source==="sports"&&slot.status==="imported"&&slot.finalVisualMetres)) {
+          const anchor=scene.getTransformNodeByName("vehicle-probe-anchor:"+slot.id);
+          if(!anchor||!slot.finalVisualMetres)continue;
+          let car:FirstDriveTrial|null=null;
           try {
-            trial = new FirstDriveTrial(physics, anchor, {
-              x: sports.finalVisualMetres.width,
-              y: sports.finalVisualMetres.height,
-              z: sports.finalVisualMetres.length,
+            car=new FirstDriveTrial(physics,anchor,{
+              x:slot.finalVisualMetres.width,y:slot.finalVisualMetres.height,
+              z:slot.finalVisualMetres.length,
             });
-            // Remove the original fixed parked collider only after the
-            // dynamic chassis and collider have successfully been allocated.
-            firstLight.releaseParkedCarCollider(sports.id);
-            this.drivingTrial = trial;
-            (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: () => unknown })
-              .__GTD_DRIVE_TRIAL_REPORT__ = () => ({
-                experiment: "EXP-VEH-002", importedSlotId: sports.id,
-                ...trial!.status, pose: { ...trial!.pose },
-                context: this.context,
-              });
-          } catch (error) {
-            trial?.dispose();
-            console.error("[EXP-VEH-002] Ferrari trial not available", error);
-            this.emit({ type: "error", message: "Ferrari driving trial unavailable: " + String(error) });
+            firstLight.releaseParkedCarCollider(slot.id);
+            this.sportsCars.set(slot.id,car);
+          }catch(error){
+            car?.dispose();
+            console.error("[VEH-003] Car unavailable",slot.id,error);
           }
-        } else {
-          this.emit({ type: "error", message: "Ferrari trial asset unavailable; no replacement or proxy activated" });
         }
+        (window as Window & {__GTD_DRIVE_TRIAL_REPORT__?:()=>unknown})
+          .__GTD_DRIVE_TRIAL_REPORT__=()=>({
+            experiment:"VEH-003",
+            current:[...this.sportsCars.entries()].find(([,v])=>v===this.drivingTrial)?.[0]??null,
+            cars:[...this.sportsCars.entries()].map(([id,v])=>({id,pose:v.pose,status:v.status})),
+          });
       }
       this.emit({ type: "load-checkpoint", id: "first-frame", status: "running" });
       const finalRenderStartedAt = performance.now();
@@ -585,9 +579,11 @@ export class GTDGameRuntime implements GameRuntime {
     window.removeEventListener("resize", this.resize);
     this.worldRenderWarmup?.cancel();
     this.worldRenderWarmup = null;
-    this.drivingTrial?.dispose();
-    this.drivingTrial = null;
-    this.hasBoardedFerrari = false;
+    for(const car of this.sportsCars.values())car.dispose();
+    this.sportsCars.clear();
+    this.drivingTrial=null;
+    this.enteredAt=null;
+    this.carEnteredAt=null;
     delete (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: unknown }).__GTD_DRIVE_TRIAL_REPORT__;
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
@@ -702,7 +698,8 @@ export class GTDGameRuntime implements GameRuntime {
         this.emit({type:"interaction",label:"Disable flight (G) before entering a vehicle"});
         return;
       }
-      if (command.action === "vehicle" && command.pressed && this.drivingTrial) {
+      if (command.action === "vehicle" && command.pressed &&
+          (this.context==="driving"||this.sportsCars.size>0)) {
         this.toggleFerrariDriving();
         return;
       }
@@ -754,58 +751,59 @@ export class GTDGameRuntime implements GameRuntime {
     return () => this.eventListeners.delete(listener);
   }
 
-  /** Development-only possession: enter/exit instantly; no unverified door rig. */
+  /** VEH-003: boarding cannot remotely teleport the actor across South Ward. */
   private toggleFerrariDriving() {
-    const trial = this.drivingTrial;
-    const physics = this.physics;
-    const voight = this.voight;
-    if (!trial || !physics || !voight) return;
-    if (this.context === "driving") {
-      if (Math.abs(trial.speedMps) > 0.25) {
-        this.emit({ type: "interaction", label: "Stop the Ferrari before exiting" });
+    const physics=this.physics, voight=this.voight;
+    if(!physics||!voight)return;
+    if(this.context==="driving") {
+      const car=this.drivingTrial;
+      if(!car)return;
+      if(Math.abs(car.speedMps)>0.25){
+        this.emit({type:"interaction",label:"Stop the Ferrari before exiting"});
         return;
       }
-      const position = trial.findSafeExitPosition();
-      if (!position) {
-        this.emit({ type: "interaction", label: "No clear space beside the Ferrari; reposition before exiting" });
+      const position=stationaryDisembark(this.enteredAt,this.carEnteredAt,car.pose)
+        ??car.findSafeExitPosition();
+      if(!position){
+        this.emit({type:"interaction",label:"No clear exit beside stopped vehicle"});
         return;
       }
-      // Position B is authoritative; never reuse the entry location A.
       physics.setPlayerPosition(position);
-      voight.root.position.set(position.x, position.y, position.z);
-      this.camera?.target.set(position.x, position.y + 0.55, position.z);
-      this.context = "walking";
+      voight.root.position.set(position.x,position.y,position.z);
+      this.camera?.target.set(position.x,position.y+0.55,position.z);
+      this.context="walking";
+      this.drivingTrial=null;
+      this.enteredAt=null;this.carEnteredAt=null;
       voight.root.setEnabled(true);
-      this.move = { x: 0, y: 0 };
-      this.preferredCameraRadius = 6.2;
+      this.move={x:0,y:0};
+      this.preferredCameraRadius=6.2;
       this.publishSnapshot(0);
-      this.emit({ type: "interaction", label: "Ferrari trial: press F to drive again" });
+      this.emit({type:"interaction",label:"Exited Ferrari at its actual world position"});
       return;
     }
-    // Preserve the initial garage test entry; after first exit, the
-    // original garage location cannot remotely summon/board a car parked at B.
-    const actorPosition = physics.playerPosition();
-    const carPosition = trial.pose;
-    if (this.hasBoardedFerrari &&
-        Math.hypot(actorPosition.x - carPosition.x, actorPosition.z - carPosition.z) > 3.5) {
-      this.emit({ type: "interaction", label: "Walk to the Ferrari to re-enter it" });
+    const actor=physics.playerPosition();
+    const nearest=nearestSportsCar(actor,
+      [...this.sportsCars.entries()].map(([id,car])=>({id,pose:car.pose})));
+    if(!nearest){
+      this.emit({type:"interaction",label:"Approach a nearby Ferrari before pressing F"});
       return;
     }
-    this.hasBoardedFerrari = true;
-    this.context = "driving";
+    const car=this.sportsCars.get(nearest.id);
+    if(!car)return;
+    this.enteredAt={...actor};this.carEnteredAt={...car.pose};
+    this.drivingTrial=car;this.context="driving";
     voight.root.setEnabled(false);
-    this.move = { x: 0, y: 0 };
-    this.preferredCameraRadius = 7.6;
-    const position = trial.pose;
-    if (this.camera) {
-      // A fresh entry always begins BEHIND the authored -Z-facing Ferrari.
-      // Any drag after entry remains an independent free-look offset.
-      this.camera.alpha = ferrariRearCameraAlpha(trial.headingYaw);
-      this.camera.beta = 1.14;
-      this.camera.target.set(position.x, position.y + 0.7, position.z);
+    this.move={x:0,y:0};
+    this.preferredCameraRadius=FERRARI_REAR_CAMERA_RADIUS;
+    const p=car.pose;
+    if(this.camera){
+      this.camera.alpha=ferrariRearCameraAlpha(car.headingYaw);
+      this.camera.beta=FERRARI_REAR_CAMERA_BETA;
+      this.camera.radius=FERRARI_REAR_CAMERA_RADIUS;
+      this.camera.target.set(p.x,p.y+0.7,p.z);
     }
     this.publishSnapshot(0);
-    this.emit({ type: "interaction", label: "Ferrari driving: WASD / arrows / joystick · F to exit when stopped" });
+    this.emit({type:"interaction",label:"Ferrari driving · WASD / arrows · F exit when stopped"});
   }
 
   private schedule() {
@@ -869,8 +867,8 @@ export class GTDGameRuntime implements GameRuntime {
       camera.alpha = advanceFerrariCameraAlpha(
         camera.alpha, previousYaw, trial.headingYaw,
       );
-      this.preferredCameraRadius = 7.6;
-      this.resolveCameraObstruction(camera, position, dt);
+      this.preferredCameraRadius=FERRARI_REAR_CAMERA_RADIUS;
+      this.resolveCameraObstruction(camera,position,dt);
       this.snapshotAccumulator += dt;
       if (this.snapshotAccumulator >= SNAPSHOT_INTERVAL) {
         this.snapshotAccumulator = 0;
@@ -898,7 +896,9 @@ export class GTDGameRuntime implements GameRuntime {
       this.grounded = false;
       this.curbStepSeconds = 0;
       voight.root.position.set(position.x,position.y,position.z);
-      if (desired.lengthSquared() > 0.001) {
+      // Preserve facing when reversing or strafing in flight; the authored
+      // directional hover clips provide the lean without a 180-degree turn.
+      if (desired.lengthSquared() > 0.001 && this.move.y < -0.05) {
         const yaw = stepTravelHeading(voight.root.rotation.y,
           desired.x, desired.z, dt, this.headingSettings, this.headingTurnSign);
         voight.root.rotation.y = yaw.yaw;
@@ -1095,7 +1095,7 @@ export class GTDGameRuntime implements GameRuntime {
         : this.world?.location ?? "South Ward // First Light",
       objective: this.flightEnabled
         ? "FLIGHT INSPECTION · G land · WASD move · SPACE up · CTRL down · SHIFT fast"
-        : this.drivingTrial
+        : this.sportsCars.size > 0
         ? this.context === "driving"
           ? "Ferrari trial · Drive with WASD / arrows · F to exit when stopped"
           : "Ferrari trial · Press F to enter the sports car"
