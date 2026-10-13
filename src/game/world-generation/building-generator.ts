@@ -20,6 +20,8 @@ import {
   createExperimentalBrickMaterial,
 } from "./experimental-brick-material";
 import type { ExperimentalBrickMaterial } from "./experimental-brick-material";
+import { businessBrickForBuilding, businessBrickPhysicalTile } from "./brick-business-field-trial";
+import type { BrickSurfaceId } from "./brick-surface-catalog";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
 
 /** Step 4 adds optional physics and camera semantics without changing the live First Light scene. */
@@ -33,6 +35,10 @@ export interface BuildingGenerationContext {
   readonly batchingMode?: BatchingMode;
   /** SEC-scoped, opt-in material research: apartment A and garage B only. */
   readonly enableBrickMaterialTrial?: boolean;
+  /** MAT-005: unaccepted commercial brick imagery, isolated to preview scope. */
+  readonly enableBrickBusinessFieldTrial?: boolean;
+  /** Optional exact-ID compare on the corner business only. */
+  readonly brickBusinessFocusSurface?: BrickSurfaceId | null;
   /** Metres from camera/player to building origin; default 0 preserves Step 2 output. */
   readonly initialDistance?: number;
   /** Defaults to enabled only when a physics world is provided. */
@@ -86,7 +92,10 @@ export function generateBuilding(
   let storefrontLedMaterial: StandardMaterial | null = null;
   const brickPresetId = brickTrialPresetForBuilding(
     spec.id, context.enableBrickMaterialTrial === true);
-  const brickTrialActive = brickPresetId !== null;
+  const businessSurfaceId = businessBrickForBuilding(
+    spec.id, context.enableBrickBusinessFieldTrial === true,
+    context.brickBusinessFocusSurface ?? null);
+  const brickTrialActive = brickPresetId !== null || businessSurfaceId !== null;
   let experimentalBrick: ExperimentalBrickMaterial | null = null;
   let tier: RepresentationTier = "near";
   let proxiesBuilt = false;
@@ -97,7 +106,8 @@ export function generateBuilding(
     if (supplied) return supplied;
     if (role === "wall" && brickTrialActive) {
       if (!experimentalBrick) experimentalBrick = createExperimentalBrickMaterial(
-        scene, materialRecipe(spec, context.generatorVersion, "wall"), spec.id);
+        scene, materialRecipe(spec, context.generatorVersion, "wall"), spec.id,
+        businessSurfaceId ?? "BRK-01");
       return experimentalBrick.material;
     }
     const cached = roleMaterials.get(role);
@@ -179,8 +189,10 @@ export function generateBuilding(
     mesh.position.set(part.center.x, part.center.y, part.center.z);
     if (part.rotationZ !== undefined) mesh.rotation.z = part.rotationZ;
     mesh.material = materialFor(part.role);
-    if (brickPresetId && part.role === "wall") {
-      applyPhysicalBrickUV(mesh, part, BRICK_SCALE_PRESETS[brickPresetId]);
+    if (part.role === "wall") {
+      if (brickPresetId) applyPhysicalBrickUV(mesh, part, BRICK_SCALE_PRESETS[brickPresetId]);
+      else if (businessSurfaceId) applyPhysicalBrickUV(
+        mesh, part, businessBrickPhysicalTile(businessSurfaceId));
     }
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
       primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind,
