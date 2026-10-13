@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "familyId": "WALL-03",
+  "familyName": "Glass curtain-wall image samples",
+  "note": "Ten owner-optimized colorway grid WebPs imported from main; NOT validated transparent/wired/frit/channel/block optical systems. Physically opaque image test; owner must visually accept.",
+  "dimensions": {
+    "widthPx": 1672,
+    "heightPx": 941
+  },
+  "tileMetres": {
+    "width": 27,
+    "height": 15.195574162679426
+  },
+  "surfaces": [
+    {
+      "id": "GLS-01",
+      "familyId": "WALL-03",
+      "label": "Neutral blue vision glass",
+      "path": "/assets/surfaces/glass/gls-01.webp",
+      "sourcePathOnMain": "public/Glass 1.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 30692,
+      "gitBlobSha": "e321be6415763c9eb33331487d07880bdbdf31e6",
+      "status": "asset-committed"
+    },
+    {
+      "id": "GLS-02",
+      "familyId": "WALL-03",
+      "label": "Smoked charcoal glass",
+      "path": "/assets/surfaces/glass/gls-02.webp",
+      "sourcePathOnMain": "public/Glass 2.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 26286,
+      "gitBlobSha": "0c802813e42d2fbfd81f828ad4961d4905a38ff7",
+      "status": "asset-committed"
+    },
+    {
+      "id": "GLS-03",
+      "familyId": "WALL-03",
+      "label": "Silver-neutral reflective glass",
+      "path": "/assets/surfaces/glass/gls-03.webp",
+      "sourcePathOnMain": "public/Glass 3.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 28200,
+      "gitBlobSha": "59fbb891d9767e61d222bb924357c3b28e402954",
+      "status": "asset-committed"
+    },
+    {
+      "id": "GLS-04",
+      "familyId": "WALL-03",
+      "label": "Pale aqua glass",
+      "path": "/assets/surfaces/glass/gls-04.webp",
+      "sourcePathOnMain": "public/Glass 4.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 42890,
+      "gitBlobSha": "0e65298da5fcebc0f9f2ad162e2d90a71ac64693",
+      "status": "asset-committed"
+    },
+    {
+      "id": "GLS-05",
+      "familyId": "WALL-03",
+      "label": "Teal corporate glass",
+      "path": "/assets/surfaces/glass/gls-05.webp",
+      "sourcePathOnMain": "public/Glass 5.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 31366,
+      "gitBlobSha": "bdf11780299de2e64a4b600aa106ac5481770435",
+      "status": "asset-committed"
+    },
+    {
+      "id": "GLS-06",
+      "familyId": "WALL-03",
+      "label": "Bronze-tinted glass",
+      "path": "/assets/surfaces/glass/gls-06.webp",
+      "sourcePathOnMain": "public/Glass 6.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 30552,
+      "gitBlobSha": "a8a2be6096185e5be2c39cdaebb9bd2b9da5856c",
+      "status": "asset-committed"
+    },
+    {
+      "id": "GLS-07",
+      "familyId": "WALL-03",
+      "label": "Midnight navy glass",
+      "path": "/assets/surfaces/glass/gls-07.webp",
+      "sourcePathOnMain": "public/Glass 7.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 38480,
+      "gitBlobSha": "7b7ee56de5f9c6f256b76848a1d2869d73e5fae7",
+      "status": "asset-committed"
+    },
+    {
+      "id": "GLS-08",
+      "familyId": "WALL-03",
+      "label": "Green-grey urban glass",
+      "path": "/assets/surfaces/glass/gls-08.webp",
+      "sourcePathOnMain": "public/Glass 8.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 39590,
+      "gitBlobSha": "acb3fcaa305b083156f16cbe410d205ce0b8a998",
+      "status": "asset-committed"
+    },
+    {
+      "id": "GLS-09",
+      "familyId": "WALL-03",
+      "label": "Icy blue glass",
+      "path": "/assets/surfaces/glass/gls-09.webp",
+      "sourcePathOnMain": "public/Glass 9.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 38616,
+      "gitBlobSha": "866c4d62182f4c4ada5399a20d50125ce07335b8",
+      "status": "asset-committed"
+    },
+    {
+      "id": "GLS-10",
+      "familyId": "WALL-03",
+      "label": "Warm grey glass",
+      "path": "/assets/surfaces/glass/gls-10.webp",
+      "sourcePathOnMain": "public/Glass 10.webp",
+      "widthPx": 1672,
+      "heightPx": 941,
+      "bytes": 32222,
+      "gitBlobSha": "42ef211e8e31d3536801cf9adc55d63f8fead9d9",
+      "status": "asset-committed"
+    }
+  ]
+}
