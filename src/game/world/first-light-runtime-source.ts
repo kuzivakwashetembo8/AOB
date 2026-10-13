@@ -51,6 +51,8 @@ export function createFirstLightRuntimeWorld(
   options: {
     readonly enableSidewalkSupportCollision?: boolean;
     readonly enableBrickMaterialTrial?: boolean;
+    readonly enableBrickBusinessFieldTrial?: boolean;
+    readonly brickBusinessFocusSurface?: import("../world-generation/brick-surface-catalog").BrickSurfaceId | null;
   } = {},
 ): RuntimeFirstLightWorld {
   if (source === "generated-first-light") {
@@ -59,6 +61,8 @@ export function createFirstLightRuntimeWorld(
       enableShadows: true,
       enableSidewalkSupportCollision: options.enableSidewalkSupportCollision ?? false,
       enableBrickMaterialTrial: options.enableBrickMaterialTrial ?? false,
+      enableBrickBusinessFieldTrial: options.enableBrickBusinessFieldTrial ?? false,
+      brickBusinessFocusSurface: options.brickBusinessFocusSurface ?? null,
     });
   }
 
