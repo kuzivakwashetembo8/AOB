@@ -21,19 +21,33 @@ const towerIds = ["sw-fl-skyline-west","sw-fl-skyline-east"];
 function dimensions(bytes: Buffer) {
   expect(bytes.toString("ascii",0,4)).toBe("RIFF");
   expect(bytes.toString("ascii",8,12)).toBe("WEBP");
-  expect(bytes.toString("ascii",12,16)).toBe("VP8X");
-  return {width: 1+bytes[24]!+(bytes[25]!<<8)+(bytes[26]!<<16),
-    height: 1+bytes[27]!+(bytes[28]!<<8)+(bytes[29]!<<16)};
+  const encoding=bytes.toString("ascii",12,16);
+  if (encoding==="VP8X") return {
+    width: 1+bytes[24]!+(bytes[25]!<<8)+(bytes[26]!<<16),
+    height: 1+bytes[27]!+(bytes[28]!<<8)+(bytes[29]!<<16)
+  };
+  if (encoding==="VP8 ") return {
+    width: bytes.readUInt16LE(26)&0x3fff,
+    height: bytes.readUInt16LE(28)&0x3fff
+  };
+  if (encoding==="VP8L") {
+    const packed=bytes.readUInt32LE(21);
+    return {width: 1+(packed&0x3fff),height: 1+((packed>>>14)&0x3fff)};
+  }
+  throw new Error("Unsupported WebP header: "+encoding);
 }
 
 describe("MAT-007 South Ward image curtain-wall towers", () => {
-  it("records ten exact owner's glass blobs and measured 1672x941 resolution", () => {
+  it("verifies all ten replacement owner-committed glass blobs and wide texture aspect", () => {
     expect(GLASS_SURFACE_IDS).toHaveLength(10);
     for (const id of GLASS_SURFACE_IDS) {
       const entry = GLASS_SURFACES[id];
       const bytes = readFileSync(join(process.cwd(),"public",entry.path.slice(1)));
       expect(bytes.length).toBe(entry.bytes);
-      expect(dimensions(bytes)).toEqual({width:1672,height:941});
+      const {width,height}=dimensions(bytes);
+      expect(width).toBeGreaterThanOrEqual(1600);
+      expect(height).toBeGreaterThanOrEqual(900);
+      expect(width/height).toBeCloseTo(16/9,1);
       expect(createHash("sha1").update(Buffer.from("blob "+bytes.length+"\0"))
         .update(bytes).digest("hex")).toBe(entry.gitBlobSha);
     }

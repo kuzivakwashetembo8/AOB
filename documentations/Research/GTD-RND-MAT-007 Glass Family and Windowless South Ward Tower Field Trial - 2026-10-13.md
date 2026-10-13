@@ -49,3 +49,31 @@ Automated checks: original immutable blob SHAs and measured dimensions; exactly 
 Field QA pending owner: actual curtain-grid appearance at street/rooftop distance, day/night reflections and highlights, image tiling at outer corners and podium transitions, no phantom window frames, no residual timber, no GPU/draw-call regressions and acceptable mobile clarity. Do not claim full physical glass or optical reality based on flat facade photographs.
 
 **Release state:** visual research trial only. No merge to `main` or implementation of new geography/ambient traffic without explicit further instruction. The GTD-WORLD-003 building-material and vehicle-physics gates remain in force.
+
+
+## 6. MAT-007 continuation — pure-glass/no-strip comparison (2026-10-13)
+
+**Scope:** owner-directed research preview on this branch. The earlier grid-image state in sections 1–5 is historical; this section supersedes its texture/provenance descriptions for the latest preview.
+
+The owner committed ten new optimized **unframed** glass WebPs to `main` in commit `1962cc060f066991ba1f338ab4466bc3e8f20553` under `public/Glass 1.webp` through `public/Glass 10.webp`. This branch imports the **exact Git blobs** into `public/assets/surfaces/glass/gls-01.webp` through `gls-10.webp`, replacing the ten earlier embedded-grid WebPs while preserving corresponding GLS colorway identities and the two-tower mapping (west GLS-01, east GLS-03; east focus control still supports all ten).
+
+Only glass surfaces change: **no horizontal or vertical strip images, no new procedural mullions, no separate window geometry, no changes to the building massing, doors, collision, player, physics, brick, wood, or vehicle systems**. The building shell retains the previous UV repeat period solely for an apples-to-apples visual test. Once judged in-game, a later authorized stage can add 3D architectural framing with measurable depth.
+
+Updated manifest and registry store each owner-uploaded blob SHA and encoded byte count; prior 1672x941 dimensions are not carried forward as proven properties of the newly optimized files. Tests now read the replacement WebP headers in the build/test workspace and accept VP8X, VP8, and VP8L encodings, validating image dimensions, wide aspect and Git blob identity. The contents are image-derived glass-look shaders with Babylon scene-light specularity, not a physical optical transmission model.
+
+**Owner acceptance gate:** compare unframed glass at street and rooftop distances, in day and night conditions. Only add real 3D frame geometry after inspection and separate authorization. **Do not merge to `main` as part of this comparison.**
+
+### Replacement asset provenance
+
+| Glass ID | Source on main | Blob SHA | Bytes |
+| --- | --- | --- | --- |
+| GLS-01 | `public/Glass 1.webp` | `63e28510351276f89779059ba4d0cc31f3fe14a9` | 1130340 |
+| GLS-02 | `public/Glass 2.webp` | `2bf577e231def28f8b4f58edf8a2cbdd4996c249` | 1146512 |
+| GLS-03 | `public/Glass 3.webp` | `56f7be1b468f103b2ceecbb9226e1d00feab4834` | 1128766 |
+| GLS-04 | `public/Glass 4.webp` | `18fdc7ffeb99b17686512614c90059925b06009e` | 1092460 |
+| GLS-05 | `public/Glass 5.webp` | `51c15e0c190761361a1d962198fc26ad2adff449` | 1087504 |
+| GLS-06 | `public/Glass 6.webp` | `90029f12d85c3f55cea6df0e0bf255bdfc3f9310` | 1189218 |
+| GLS-07 | `public/Glass 7.webp` | `1f2c8b0f99c0f357a875da98431ae0a97150fc85` | 1098142 |
+| GLS-08 | `public/Glass 8.webp` | `f02a9dc208631ba4880cdc4c4d3c4b67182f2a30` | 1105606 |
+| GLS-09 | `public/Glass 9.webp` | `3e19c18c115cadfcbd348e7dd9dc1d639fe2cb29` | 1117930 |
+| GLS-10 | `public/Glass 10.webp` | `2199b0905106b90eadadbe28f168f4b95a08fe62` | 1110404 |

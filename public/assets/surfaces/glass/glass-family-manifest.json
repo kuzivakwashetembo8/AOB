@@ -1,11 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "familyId": "WALL-03",
   "familyName": "Glass curtain-wall image samples",
-  "note": "Ten owner-optimized colorway grid WebPs imported from main; NOT validated transparent/wired/frit/channel/block optical systems. Physically opaque image test; owner must visually accept.",
+  "note": "MAT-007 glass-only comparison: owner-optimized pure glass images sourced from main commit 1962cc060f066991ba1f338ab4466bc3e8f20553. No embedded mullions, separator strips, or panel grid. Opaque glass-look textures; physical 3D frames deliberately deferred. Source pixel dimensions require verification against binary in build environment.",
   "dimensions": {
-    "widthPx": 1672,
-    "heightPx": 941
+    "widthPx": null,
+    "heightPx": null,
+    "verification": "not independently established by GitHub binary-read connector"
   },
   "tileMetres": {
     "width": 27,
@@ -18,10 +19,10 @@
       "label": "Neutral blue vision glass",
       "path": "/assets/surfaces/glass/gls-01.webp",
       "sourcePathOnMain": "public/Glass 1.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 30692,
-      "gitBlobSha": "e321be6415763c9eb33331487d07880bdbdf31e6",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1130340,
+      "gitBlobSha": "63e28510351276f89779059ba4d0cc31f3fe14a9",
       "status": "asset-committed"
     },
     {
@@ -30,10 +31,10 @@
       "label": "Smoked charcoal glass",
       "path": "/assets/surfaces/glass/gls-02.webp",
       "sourcePathOnMain": "public/Glass 2.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 26286,
-      "gitBlobSha": "0c802813e42d2fbfd81f828ad4961d4905a38ff7",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1146512,
+      "gitBlobSha": "2bf577e231def28f8b4f58edf8a2cbdd4996c249",
       "status": "asset-committed"
     },
     {
@@ -42,10 +43,10 @@
       "label": "Silver-neutral reflective glass",
       "path": "/assets/surfaces/glass/gls-03.webp",
       "sourcePathOnMain": "public/Glass 3.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 28200,
-      "gitBlobSha": "59fbb891d9767e61d222bb924357c3b28e402954",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1128766,
+      "gitBlobSha": "56f7be1b468f103b2ceecbb9226e1d00feab4834",
       "status": "asset-committed"
     },
     {
@@ -54,10 +55,10 @@
       "label": "Pale aqua glass",
       "path": "/assets/surfaces/glass/gls-04.webp",
       "sourcePathOnMain": "public/Glass 4.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 42890,
-      "gitBlobSha": "0e65298da5fcebc0f9f2ad162e2d90a71ac64693",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1092460,
+      "gitBlobSha": "18fdc7ffeb99b17686512614c90059925b06009e",
       "status": "asset-committed"
     },
     {
@@ -66,10 +67,10 @@
       "label": "Teal corporate glass",
       "path": "/assets/surfaces/glass/gls-05.webp",
       "sourcePathOnMain": "public/Glass 5.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 31366,
-      "gitBlobSha": "bdf11780299de2e64a4b600aa106ac5481770435",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1087504,
+      "gitBlobSha": "51c15e0c190761361a1d962198fc26ad2adff449",
       "status": "asset-committed"
     },
     {
@@ -78,10 +79,10 @@
       "label": "Bronze-tinted glass",
       "path": "/assets/surfaces/glass/gls-06.webp",
       "sourcePathOnMain": "public/Glass 6.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 30552,
-      "gitBlobSha": "a8a2be6096185e5be2c39cdaebb9bd2b9da5856c",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1189218,
+      "gitBlobSha": "90029f12d85c3f55cea6df0e0bf255bdfc3f9310",
       "status": "asset-committed"
     },
     {
@@ -90,10 +91,10 @@
       "label": "Midnight navy glass",
       "path": "/assets/surfaces/glass/gls-07.webp",
       "sourcePathOnMain": "public/Glass 7.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 38480,
-      "gitBlobSha": "7b7ee56de5f9c6f256b76848a1d2869d73e5fae7",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1098142,
+      "gitBlobSha": "1f2c8b0f99c0f357a875da98431ae0a97150fc85",
       "status": "asset-committed"
     },
     {
@@ -102,10 +103,10 @@
       "label": "Green-grey urban glass",
       "path": "/assets/surfaces/glass/gls-08.webp",
       "sourcePathOnMain": "public/Glass 8.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 39590,
-      "gitBlobSha": "acb3fcaa305b083156f16cbe410d205ce0b8a998",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1105606,
+      "gitBlobSha": "f02a9dc208631ba4880cdc4c4d3c4b67182f2a30",
       "status": "asset-committed"
     },
     {
@@ -114,10 +115,10 @@
       "label": "Icy blue glass",
       "path": "/assets/surfaces/glass/gls-09.webp",
       "sourcePathOnMain": "public/Glass 9.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 38616,
-      "gitBlobSha": "866c4d62182f4c4ada5399a20d50125ce07335b8",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1117930,
+      "gitBlobSha": "3e19c18c115cadfcbd348e7dd9dc1d639fe2cb29",
       "status": "asset-committed"
     },
     {
@@ -126,10 +127,10 @@
       "label": "Warm grey glass",
       "path": "/assets/surfaces/glass/gls-10.webp",
       "sourcePathOnMain": "public/Glass 10.webp",
-      "widthPx": 1672,
-      "heightPx": 941,
-      "bytes": 32222,
-      "gitBlobSha": "42ef211e8e31d3536801cf9adc55d63f8fead9d9",
+      "widthPx": null,
+      "heightPx": null,
+      "bytes": 1110404,
+      "gitBlobSha": "2199b0905106b90eadadbe28f168f4b95a08fe62",
       "status": "asset-committed"
     }
   ]

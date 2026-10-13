@@ -86,7 +86,7 @@ export function generateBuilding(
   const plan = planBuilding(spec, context.generatorVersion);
   const interaction = planBuildingInteraction(spec, plan);
   // Curtain towers cannot inherit downpipes, punched-window trim or pseudo
-  // masonry cornices. Their grid mullions exist in the visual surface sample.
+  // masonry cornices. This comparison deliberately has no baked or 3D mullions.
   const detailPlan = context.enableFacadeDetails && !isGlassTower(spec.id)
     ? planFacadeDetails(spec, plan) : { primitives: [], decals: [] };
   const batchingMode = context.batchingMode ?? "individual";
@@ -139,8 +139,8 @@ export function generateBuilding(
           scene, materialRecipe(spec, context.generatorVersion, "wall"),
           "experiment:glass-" + glassSurfaceId + ":" + spec.id,
           GLASS_SURFACES[glassSurfaceId].path);
-        // The image is only the fixed panel grid/tint. Local light interaction
-        // comes from the scene; no sky/cloud reflection is baked into it.
+        // This image provides pure glass tint and soft light sheen only; no
+        // frame/mullion geometry or cloud/skyline reflections are baked in.
         experimentalGlass.material.specularColor = new Color3(0.64, 0.70, 0.78);
         experimentalGlass.material.specularPower = 112;
       }
