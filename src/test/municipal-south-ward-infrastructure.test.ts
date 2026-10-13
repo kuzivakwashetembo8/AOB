@@ -71,7 +71,7 @@ describe("South Ward municipal urban quality / seven correction gates", () => {
       }
       for (const kind of ["pavement", "parking", "grass", "parking-stalls"]) {
         const mesh = find("generated-infill:" + kind);
-        expect(mesh.thinInstanceCount).toBeGreaterThan(0);
+        expect(mesh.getTotalVertices()).toBeGreaterThan(0);
         expect(mesh.isPickable).toBe(false);
       }
       surfaces.dispose();

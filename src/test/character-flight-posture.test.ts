@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {selectFlightPose, type FlightPoseInput} from "../game/character/locomotion/flight-pose";
+import {selectFlightPose,flightFacingPolicy, type FlightPoseInput} from "../game/character/locomotion/flight-pose";
 
 const neutral:FlightPoseInput = {
   forward:false,backward:false,left:false,right:false,
@@ -27,6 +27,17 @@ describe("CHAR-002 aerial survey directional flying animation",()=>{
     expect(selectFlightPose(withInput({ascending:true}))).toBe("flyHoverUp");
     expect(selectFlightPose(withInput({descending:true}))).toBe("flyHoverDown");
     expect(selectFlightPose(withInput({left:true,accelerated:true}))).toBe("flyHoverLeft");
+  });
+  it("does not turn for ordinary backward flight, even after reversing",()=>{
+    expect(flightFacingPolicy({forward:false,backward:true,accelerated:false},Math.PI).turnTowardTravel).toBe(false);
+  });
+  it("turns toward accelerated reverse travel and delays prone pose until aligned",()=>{
+    const input={forward:false,backward:true,accelerated:true};
+    expect(flightFacingPolicy(input,Math.PI).turnTowardTravel).toBe(true);
+    expect(flightFacingPolicy(input,Math.PI).playFastReverse).toBe(false);
+    expect(flightFacingPolicy(input,0.1).playFastReverse).toBe(true);
+    expect(flightFacingPolicy(input,Infinity).playFastReverse).toBe(false);
+    expect(flightFacingPolicy({forward:true,backward:false,accelerated:true},0).turnTowardTravel).toBe(true);
   });
   it("matches the upstream fork's planar-before-vertical pose precedence",()=>{
     expect(selectFlightPose(withInput({forward:true,ascending:true}))).toBe("flyHoverForward");

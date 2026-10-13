@@ -23,3 +23,21 @@ export function selectFlightPose(input: FlightPoseInput): FlightPoseClip {
   if (input.descending) return "flyHoverDown";
   return "flyIdle";
 }
+
+/** Normal backward flight is upright reverse hover. Accelerated reverse
+ * rotates the actor to travel direction; only after visual alignment is the
+ * horizontal aerodynamic clip allowed. Physics displacement is unchanged.
+ */
+export const FAST_REVERSE_ALIGNMENT_TOLERANCE_RADIANS=Math.PI/9;
+export function flightFacingPolicy(
+ input:Readonly<{forward:boolean;backward:boolean;accelerated:boolean}>,
+ remainingErrorRadians:number,
+):Readonly<{turnTowardTravel:boolean;playFastReverse:boolean}>{
+ const fastReverse=input.backward&&input.accelerated;
+ return {
+  turnTowardTravel:input.forward||fastReverse,
+  playFastReverse:fastReverse&&
+    Number.isFinite(remainingErrorRadians)&&
+    Math.abs(remainingErrorRadians)<=FAST_REVERSE_ALIGNMENT_TOLERANCE_RADIANS,
+ };
+}

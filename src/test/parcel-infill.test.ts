@@ -16,15 +16,29 @@ describe("WORLD-003 generated inter-building land use",()=>{
   const modified=planParcelInfill({...FIRST_LIGHT_CITY_SPEC,generatorVersion: FIRST_LIGHT_CITY_SPEC.generatorVersion+1});
   expect(modified.map(x=>x.finish)).not.toEqual(original.map(x=>x.finish));
  });
- it("instantiates only three shared infill materials, with no physical colliders",()=>{
+ it("renders all four batches as world-space upward-facing geometry, not invisible allocations",()=>{
   const engine=new NullEngine(),scene=new Scene(engine);
   try{
     const urban=createGeneratedUrbanSurfaces(scene,FIRST_LIGHT_CITY_SPEC);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-infill:"))).toHaveLength(4);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-parking:"))).toHaveLength(0);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-development:"))).toHaveLength(0);
-    expect(urban.meshes.filter(m=>m.name.startsWith("generated-infill:"))
-      .every(m=>m.thinInstanceCount>0)).toBe(true);
+    // Must be real +Y-facing world-positioned vertices, not just a count of
+    // thin instances which may never display in a browser camera.
+    const visible=urban.meshes.filter(m=>m.name.startsWith("generated-infill:"));
+    for(const mesh of visible){
+      expect(mesh.getTotalVertices()).toBeGreaterThan(0);
+      expect(mesh.thinInstanceCount).toBe(0);
+      const positions=mesh.getVerticesData("position")!;
+      const normals=mesh.getVerticesData("normal")!;
+      expect(positions.length).toBeGreaterThan(12);
+      expect(normals[1]).toBe(1);
+      expect(mesh.getBoundingInfo().boundingBox.extendSize.x).toBeGreaterThan(2);
+      expect(mesh.getBoundingInfo().boundingBox.extendSize.z).toBeGreaterThan(2);
+      // Overlay above the base plane but beneath the existing roads.
+      expect(positions[1]).toBeGreaterThan(0);
+      expect(positions[1]).toBeLessThan(0.03);
+    }
     expect(urban.meshes.some(m=>m.name==="generated-infill:parking-stalls")).toBe(true);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-infill:"))
       .every(m=>!m.isPickable)).toBe(true);

@@ -2,7 +2,6 @@ import {
   Color3,
   Mesh,
   MeshBuilder,
-  Matrix,
   StandardMaterial,
   VertexData,
 } from "@babylonjs/core";
@@ -503,60 +502,76 @@ function authoredParityBox(
   return mesh;
 }
 
-/** Three thin-instance batches, no per-lot authored positions or colliders.
- * Paving/parking lie beneath all raised roads; grass is an open-lot finish.
+/** WORLD-003 L2: actual TOP-facing, world-positioned geometry in three batches.
+ * The earlier thin-instance matrices passed allocation tests but did not show
+ * land-use finishes in the preview. These explicit quads are visible from
+ * street and overhead cameras; each material costs one draw call.
+ * All land-use is visual-only and stays beneath the elevated roads/sidewalks.
  */
 function createCityParcelInfill(scene:Scene,city:CitySpec):{
  meshes:Mesh[];materials:StandardMaterial[];
 }{
  const cells=planParcelInfill(city);
  const materials=[
-  makeTexturedMaterial(scene,"generated-infill-paving","sidewalk-paving"),
-  makeTexturedMaterial(scene,"generated-infill-parking","asphalt"),
-  new StandardMaterial("generated-infill-grass",scene),
+   makeTexturedMaterial(scene,"generated-infill-paving","sidewalk-paving"),
+   makeTexturedMaterial(scene,"generated-infill-parking","asphalt"),
+   new StandardMaterial("generated-infill-grass",scene),
  ];
  materials[2]!.diffuseColor=new Color3(0.28,0.39,0.25);
  materials[2]!.specularColor=Color3.Black();
- const kinds=["pavement","parking","grass"] as const;
- const meshes=kinds.map((kind,index)=>{
-   const mesh=MeshBuilder.CreateBox("generated-infill:"+kind,
-     {width:1,height:0.022,depth:1},scene);
-   mesh.material=materials[index]!;
+ const meshes:Mesh[]=[];
+ const LAND_Y=0.014; // Base ground is 0; asphalt surface top is ~0.03
+ const PAINT_Y=0.022;
+ const appendQuad=(positions:number[],normals:number[],uvs:number[],indices:number[],
+     x0:number,z0:number,x1:number,z1:number,y:number)=>{
+   const offset=positions.length/3;
+   // Winding faces +Y, even with back-face culling enabled.
+   positions.push(x0,y,z0, x0,y,z1, x1,y,z1, x1,y,z0);
+   for(let i=0;i<4;i++)normals.push(0,1,0);
+   uvs.push(x0*0.12,z0*0.12,x0*0.12,z1*0.12,
+     x1*0.12,z1*0.12,x1*0.12,z0*0.12);
+   indices.push(offset,offset+1,offset+2,offset,offset+2,offset+3);
+ };
+ const batch=(name:string,material:StandardMaterial,rects:readonly
+   {x0:number;z0:number;x1:number;z1:number;y:number}[])=>{
+   const positions:number[]=[],normals:number[]=[],uvs:number[]=[],indices:number[]=[];
+   for(const r of rects)appendQuad(positions,normals,uvs,indices,r.x0,r.z0,r.x1,r.z1,r.y);
+   const mesh=new Mesh(name,scene);
+   const geometry=new VertexData();
+   geometry.positions=positions;
+   geometry.normals=normals;
+   geometry.uvs=uvs;
+   geometry.indices=indices;
+   geometry.applyToMesh(mesh);
+   mesh.material=material;
    mesh.receiveShadows=true;
    mesh.isPickable=false;
-   const list=cells.filter(c=>c.finish===kind);
-   const data=new Float32Array(list.length*16);
-   list.forEach((c,i)=>{
-     const values=Matrix.Scaling(c.width-0.012,1,c.width-0.012)
-       .multiply(Matrix.Translation(c.x,0.011,c.z)).toArray();
-     for(let j=0;j<16;j++)data[i*16+j]=values[j]!;
-   });
-   if(list.length>0)mesh.thinInstanceSetBuffer("matrix",data,16,true);
-   return mesh;
- });
- // Generated low-profile parking bay lines: no per-location hand authored
- // placement and no collision. Keep them below the road deck elevation.
- const parking=cells.filter(c=>c.finish==="parking");
- const stallMaterial=new StandardMaterial("generated-infill-parking-paint",scene);
- stallMaterial.diffuseColor=new Color3(0.72,0.73,0.67);
- stallMaterial.specularColor=Color3.Black();
- materials.push(stallMaterial);
- const stalls=MeshBuilder.CreateBox("generated-infill:parking-stalls",
-   {width:0.09,height:0.006,depth:4.25},scene);
- stalls.material=stallMaterial;
- stalls.isPickable=false;
- const transforms=new Float32Array(parking.length*16);
- parking.forEach((cell,index)=>{
-   // 90-degree rotation is deterministic per cluster and gives the
-   // bay markers a coherent orientation across adjacent parking cells.
-   const rotation=(Math.floor(cell.x/15)+Math.floor(cell.z/15))%2===0
-     ? 0:Math.PI/2;
-   const values=Matrix.RotationY(rotation)
-     .multiply(Matrix.Translation(cell.x,0.025,cell.z)).toArray();
-   for(let j=0;j<16;j++)transforms[index*16+j]=values[j]!;
- });
- if(parking.length)stalls.thinInstanceSetBuffer("matrix",transforms,16,true);
- meshes.push(stalls);
+   mesh.metadata={spatialRole:"land-use-infill",cameraBlocker:false};
+   meshes.push(mesh);
+ };
+ for(const [i,finish] of (["pavement","parking","grass"] as const).entries()){
+   batch("generated-infill:"+finish,materials[i]!,
+     cells.filter(c=>c.finish===finish).map(c=>({
+       x0:c.x-c.width/2,z0:c.z-c.width/2,
+       x1:c.x+c.width/2,z1:c.z+c.width/2,y:LAND_Y,
+     })));
+ }
+ const stalls=new StandardMaterial("generated-infill-parking-paint",scene);
+ stalls.diffuseColor=new Color3(0.73,0.73,0.68);
+ stalls.specularColor=Color3.Black();
+ materials.push(stalls);
+ // Distinguishable parking stalls instead of an indistinct dark asphalt pad.
+ // Each eligible five-metre cell provides one long edge line, aligned within
+ // a stable 15-metre land-use cluster.
+ batch("generated-infill:parking-stalls",stalls,
+   cells.filter(c=>c.finish==="parking").map(c=>{
+     const vertical=(Math.floor(c.x/15)+Math.floor(c.z/15))%2===0;
+     return vertical
+       ?{x0:c.x-c.width/2+0.18,x1:c.x-c.width/2+0.27,
+         z0:c.z-2.15,z1:c.z+2.15,y:PAINT_Y}
+       :{x0:c.x-2.15,x1:c.x+2.15,
+         z0:c.z-c.width/2+0.18,z1:c.z-c.width/2+0.27,y:PAINT_Y};
+   }));
  return {meshes,materials};
 }
 

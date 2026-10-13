@@ -23,6 +23,7 @@ import { FirstDriveTrial } from "../vehicles/first-drive-trial";
 import { canInitializePlayerVehicle } from "../vehicles/drive-availability";
 import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha, FERRARI_REAR_CAMERA_BETA, FERRARI_REAR_CAMERA_RADIUS } from "../vehicles/ferrari-camera";
 import { nearestSportsCar, stationaryDisembark, type Point3 } from "../vehicles/local-boarding";
+import { flightFacingPolicy } from "../character/locomotion/flight-pose";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
   beginWorldRenderWarmup,
@@ -896,27 +897,36 @@ export class GTDGameRuntime implements GameRuntime {
       this.grounded = false;
       this.curbStepSeconds = 0;
       voight.root.position.set(position.x,position.y,position.z);
-      // Preserve facing when reversing or strafing in flight; the authored
-      // directional hover clips provide the lean without a 180-degree turn.
-      if (desired.lengthSquared() > 0.001 && this.move.y < -0.05) {
-        const yaw = stepTravelHeading(voight.root.rotation.y,
-          desired.x, desired.z, dt, this.headingSettings, this.headingTurnSign);
-        voight.root.rotation.y = yaw.yaw;
-        this.headingTurnSign = yaw.turnSign;
+      const flyingForward=this.move.y < -0.05;
+      const flyingBackward=this.move.y > 0.05;
+      const accelerated=this.actions.has("sprint");
+      const provisionalFacing=flightFacingPolicy({
+        forward:flyingForward,backward:flyingBackward,accelerated,
+      },Infinity);
+      let remainingYawError=Infinity;
+      // Normal S: preserve orientation and play modest backward lean.
+      // Shift+S: turn around toward motion before entering prone fast flight.
+      if(desired.lengthSquared()>0.001&&provisionalFacing.turnTowardTravel){
+        const yaw=stepTravelHeading(voight.root.rotation.y,
+          desired.x,desired.z,dt,this.headingSettings,this.headingTurnSign);
+        voight.root.rotation.y=yaw.yaw;
+        this.headingTurnSign=yaw.turnSign;
+        remainingYawError=yaw.remainingErrorRad;
       }
+      const facing=flightFacingPolicy({
+        forward:flyingForward,backward:flyingBackward,accelerated,
+      },remainingYawError);
       this.characterTrial?.updateFlightAnimation({
         dt,
-        // Classify pose by the player's intentional camera-relative axes.
-        // Speed/physics remain governed by Rapier; SHIFT selects the
-        // aerodynamic horizontal GLB clip only while translating forward
-        // or backward. Sideways/idle use upright directional hover clips.
-        forward:this.move.y < -0.05,
-        backward:this.move.y > 0.05,
+        forward:flyingForward,
+        backward:flyingBackward,
         left:this.move.x < -0.05,
         right:this.move.x > 0.05,
         ascending:movement.movement.y > 0.001,
         descending:movement.movement.y < -0.001,
-        accelerated:this.actions.has("sprint"),
+        // A reversing pilot must face travel BEFORE the horizontal/prone
+        // animation activates; do not "sleep" facing backward.
+        accelerated:accelerated&&(!flyingBackward||facing.playFastReverse),
       });
       camera.target.set(position.x,position.y+0.55,position.z);
       this.preferredCameraRadius = 8;
