@@ -232,6 +232,9 @@ function createFacadeLayout(
             Math.abs(opening.offset - offset) < (opening.width + bayWidth) / 2 &&
             opening.sillHeight < floorBase + floorHeight && opening.sillHeight + opening.height > floorBase,
           );
+          // An opaque curtain-wall panel is a facade assembly, not a separate
+          // punched residential/office window object. Preserve door roles.
+          if (windowType === "none" && role === "window") role = "wall";
           if (authored) {
             role = authored.kind === "garage" ? "garage"
               : authored.kind === "door" ? "entrance"
