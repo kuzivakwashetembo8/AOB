@@ -22,6 +22,9 @@ import {
 import type { ExperimentalBrickMaterial } from "./experimental-brick-material";
 import { businessBrickForBuilding, businessBrickPhysicalTile } from "./brick-business-field-trial";
 import type { BrickSurfaceId } from "./brick-surface-catalog";
+import { woodSurfaceForBuilding } from "./wood-south-ward-field-trial";
+import { WOOD_SURFACES, WOOD_TILE_METRES, type WoodSurfaceId } from "./wood-surface-catalog";
+import { createImageWallMaterial, type ImageWallMaterial } from "./image-wall-material";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
 
 /** Step 4 adds optional physics and camera semantics without changing the live First Light scene. */
@@ -39,6 +42,9 @@ export interface BuildingGenerationContext {
   readonly enableBrickBusinessFieldTrial?: boolean;
   /** Optional exact-ID compare on the corner business only. */
   readonly brickBusinessFocusSurface?: BrickSurfaceId | null;
+  /** MAT-006 wood-family preview, restricted to previously procedural buildings. */
+  readonly enableWoodSurfaceFieldTrial?: boolean;
+  readonly woodSurfaceFocusId?: WoodSurfaceId | null;
   /** Metres from camera/player to building origin; default 0 preserves Step 2 output. */
   readonly initialDistance?: number;
   /** Defaults to enabled only when a physics world is provided. */
@@ -96,7 +102,12 @@ export function generateBuilding(
     spec.id, context.enableBrickBusinessFieldTrial === true,
     context.brickBusinessFocusSurface ?? null);
   const brickTrialActive = brickPresetId !== null || businessSurfaceId !== null;
+  const woodSurfaceId = woodSurfaceForBuilding(
+    spec.id, context.enableWoodSurfaceFieldTrial === true,
+    context.woodSurfaceFocusId ?? null);
+  const imageWallActive = brickTrialActive || woodSurfaceId !== null;
   let experimentalBrick: ExperimentalBrickMaterial | null = null;
+  let experimentalWood: ImageWallMaterial | null = null;
   let tier: RepresentationTier = "near";
   let proxiesBuilt = false;
   let disposed = false;
@@ -109,6 +120,13 @@ export function generateBuilding(
         scene, materialRecipe(spec, context.generatorVersion, "wall"), spec.id,
         businessSurfaceId ?? "BRK-01");
       return experimentalBrick.material;
+    }
+    if (role === "wall" && woodSurfaceId) {
+      if (!experimentalWood) experimentalWood = createImageWallMaterial(
+        scene, materialRecipe(spec, context.generatorVersion, "wall"),
+        "experiment:wood-" + woodSurfaceId + ":" + spec.id,
+        WOOD_SURFACES[woodSurfaceId].path);
+      return experimentalWood.material;
     }
     const cached = roleMaterials.get(role);
     if (cached) return cached;
@@ -193,6 +211,7 @@ export function generateBuilding(
       if (brickPresetId) applyPhysicalBrickUV(mesh, part, BRICK_SCALE_PRESETS[brickPresetId]);
       else if (businessSurfaceId) applyPhysicalBrickUV(
         mesh, part, businessBrickPhysicalTile(businessSurfaceId));
+      else if (woodSurfaceId) applyPhysicalBrickUV(mesh, part, WOOD_TILE_METRES);
     }
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
       primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind,
@@ -207,7 +226,7 @@ export function generateBuilding(
     const buckets = new Map<string, BoxPrimitive[]>();
     for (const part of parts) {
       if (part.templateId === "facade-downpipe" || part.templateId === "facade-sign-band" ||
-        (brickTrialActive && part.role === "wall")) {
+        (imageWallActive && part.role === "wall")) {
         makeIndividual(part, "detail");
         continue;
       }
@@ -289,6 +308,7 @@ export function generateBuilding(
     downpipeMaterial?.dispose();
     storefrontLedMaterial?.dispose();
     experimentalBrick?.dispose();
+    experimentalWood?.dispose();
     root.dispose();
     for (const key of leases.values()) library.release(key);
     if (ownsLibrary) library.dispose();
