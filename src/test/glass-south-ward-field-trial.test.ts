@@ -7,10 +7,9 @@ import { FIRST_LIGHT_CITY_SPEC } from "../game/world-generation/first-light-spec
 import { resolveCityBuildings } from "../game/world-generation/defaults";
 import { planBuilding } from "../game/world-generation/architecture-plan";
 import { generateBuilding } from "../game/world-generation/building-generator";
-import { physicalBrickUV } from "../game/world-generation/experimental-brick-material";
 import {
   BLUE_GLASS_TOWER_ID, GREY_GLASS_TOWER_ID,
-  continuousBlueGlassUV, planSkylineArchitecturalGeometry,
+  continuousBlueGlassUV, continuousGlassFacadeUV, planSkylineArchitecturalGeometry,
 } from "../game/world-generation/skyline-glass-geometry";
 import { GLASS_SURFACES, GLASS_SURFACE_IDS, GLASS_TILE_METRES } from "../game/world-generation/glass-surface-catalog";
 import { SOUTH_WARD_GLASS_TOWERS, glassSurfaceForBuilding, parseGlassFocus } from "../game/world-generation/glass-south-ward-field-trial";
@@ -105,7 +104,7 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
     expect(apartment.openings.some(o=>o.kind==="window")).toBe(true);
   });
 
-  it("installs per-metre glass UVs on continuous tower walls, retains collision geometry and other eight assignments", () => {
+  it("installs full-envelope UVs on BOTH towers and preserves collision plus the other eight assignments", () => {
     const engine = new NullEngine(), scene = new Scene(engine);
     try {
       const results = specs.map(spec=>({spec,result:generateBuilding(scene,null,spec,{
@@ -145,12 +144,10 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
               z:prim.center.z+pos[i*3+2]!,
             };
             const normal = {x:normals[i*3]!,y:normals[i*3+1]!,z:normals[i*3+2]!};
-            const expected = spec.id === BLUE_GLASS_TOWER_ID
-              ? continuousBlueGlassUV(vertex, normal, {
-                width: spec.parameters.width, depth: spec.parameters.depth,
-                height: spec.parameters.floors * spec.parameters.floorHeight,
-              })
-              : physicalBrickUV(vertex, normal, GLASS_TILE_METRES);
+            const expected = continuousGlassFacadeUV(vertex, normal, {
+              width: spec.parameters.width, depth: spec.parameters.depth,
+              height: spec.parameters.floors * spec.parameters.floorHeight,
+            });
             expect(uv[i*2]).toBeCloseTo(expected.u,5);
             expect(uv[i*2+1]).toBeCloseTo(expected.v,5);
           }
@@ -170,8 +167,21 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
     const greyDetails = planSkylineArchitecturalGeometry(greyPlan, grey.id);
     expect(blueDetails.some(x => x.id.startsWith("skyline-mullion:"))).toBe(false);
     expect(blueDetails.some(x => x.id.startsWith("skyline-transom:"))).toBe(false);
-    expect(blueDetails.filter(x => x.id.startsWith("skyline-cap:"))).toHaveLength(8);
-    expect(greyDetails.filter(x => x.id.startsWith("skyline-cap:"))).toHaveLength(8);
+    const blueCaps = blueDetails.filter(x => x.id.startsWith("skyline-cap:"));
+    const greyCaps = greyDetails.filter(x => x.id.startsWith("skyline-cap:"));
+    expect(blueCaps).toHaveLength(8);
+    expect(greyCaps).toHaveLength(8);
+    expect(blueCaps.every(x => x.role === "trim")).toBe(true);
+    expect(greyCaps.every(x => x.role === "metal")).toBe(true);
+    for (const mass of greyPlan.masses) {
+      const caps = greyCaps.filter(x => x.id.includes(`:${mass.id}:`));
+      expect(caps).toHaveLength(4);
+      const verticals = greyDetails.filter(x => x.id.startsWith(
+        `skyline-mullion:${mass.id}:`));
+      expect(verticals.length).toBeGreaterThan(0);
+      expect(verticals.every(x => x.center.y + x.size.y / 2 >=
+        mass.baseY + mass.height)).toBe(true);
+    }
     expect(greyDetails.filter(x => x.id.startsWith("skyline-mullion:")).length)
       .toBeGreaterThan(20);
     expect(greyDetails.filter(x => x.id.startsWith("skyline-transom:")).length)
@@ -184,7 +194,7 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
       .toHaveLength(0);
   });
 
-  it("keeps blue glass global continuous UVs, pale metallic roofs and physical grey frames", () => {
+  it("keeps blue stripless/pale while grey remains framed with dark frame-matched crown", () => {
     const engine = new NullEngine();
     const scene = new Scene(engine);
     try {
@@ -196,12 +206,22 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
         })};
       });
       for(const {spec,result} of towers) {
-        const roofs = result.meshes.filter(m =>
+        const pale = result.meshes.filter(m =>
           m.material?.name === "skyline-pale-metal-cap:" + spec.id);
-        expect(roofs.length).toBeGreaterThan(0);
-        const actualFrames = result.meshes.filter(m =>
+        const frameMetal = result.meshes.filter(m =>
           m.material?.name === "skyline-structural-metal:" + spec.id);
-        expect(actualFrames.length).toBeGreaterThan(0); // even the doorway is metal
+        expect(frameMetal.length).toBeGreaterThan(0);
+        if (spec.id === BLUE_GLASS_TOWER_ID) expect(pale.length).toBeGreaterThan(0);
+        else expect(pale).toHaveLength(0);
+        const roofGroups = result.meshes.filter(m => {
+          const info = m.metadata as { primitiveIds?: string[]; primitiveId?: string };
+          return (info.primitiveIds ?? [info.primitiveId ?? ""]).some(p => p.startsWith("roof:"));
+        });
+        expect(roofGroups.length).toBeGreaterThan(0);
+        const expectedRoofMaterial = spec.id === GREY_GLASS_TOWER_ID
+          ? "skyline-structural-metal:" : "skyline-pale-metal-cap:";
+        expect(roofGroups.every(m => m.material?.name ===
+          expectedRoofMaterial + spec.id)).toBe(true);
         const parts = planSkylineArchitecturalGeometry(result.plan, spec.id);
         if (spec.id === BLUE_GLASS_TOWER_ID) {
           expect(parts.some(x => x.id.startsWith("skyline-mullion:"))).toBe(false);
@@ -212,11 +232,36 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
         } else {
           expect(parts.some(x => x.id.startsWith("skyline-mullion:"))).toBe(true);
           expect(parts.some(x => x.id.startsWith("skyline-transom:"))).toBe(true);
+          const crownGroups = result.meshes.filter(m => {
+            const meta = m.metadata as {primitiveIds?:string[];primitiveId?:string};
+            return (meta.primitiveIds ?? [meta.primitiveId ?? ""])
+              .some(p => p.startsWith("skyline-cap:"));
+          });
+          expect(crownGroups.length).toBeGreaterThan(0);
+          expect(crownGroups.every(m => m.material?.name ===
+            "skyline-structural-metal:" + spec.id)).toBe(true);
         }
         result.dispose();
       }
       expect(scene.meshes).toHaveLength(0);
     } finally {scene.dispose(); engine.dispose();}
+  });
+
+  it("uses the same full-height image coordinates for both glass modes and GLS variants", () => {
+    const a = {width:17,depth:17,height:33.2};
+    const l = {x:-4.9,y:6.64,z:8.5};
+    const r = {x:-4.9,y:26.56,z:6.1};
+    const normal = {x:0,y:0,z:1};
+    const lower = continuousGlassFacadeUV(l,normal,a);
+    const upper = continuousGlassFacadeUV(r,normal,a);
+    expect(lower.u).toBeCloseTo(upper.u,9); // podium setback cannot reset the image
+    expect(lower.v).toBeCloseTo(0.08 + 0.84 * 0.2,9);
+    expect(upper.v).toBeCloseTo(0.08 + 0.84 * 0.8,9);
+    expect(continuousGlassFacadeUV(l,normal,a))
+      .toEqual(continuousBlueGlassUV(l,normal,a)); // blue unchanged
+    for (const id of GLASS_SURFACE_IDS) {
+      expect(glassSurfaceForBuilding(GREY_GLASS_TOWER_ID,true,id)).toBe(id);
+    }
   });
 
 });

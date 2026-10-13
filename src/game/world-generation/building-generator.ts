@@ -26,10 +26,10 @@ import { woodSurfaceForBuilding } from "./wood-south-ward-field-trial";
 import { WOOD_SURFACES, woodTileMetres, type WoodSurfaceId } from "./wood-surface-catalog";
 import { createImageWallMaterial, type ImageWallMaterial } from "./image-wall-material";
 import { isGlassTower, glassSurfaceForBuilding } from "./glass-south-ward-field-trial";
-import { GLASS_SURFACES, GLASS_TILE_METRES, type GlassSurfaceId } from "./glass-surface-catalog";
+import { GLASS_SURFACES, type GlassSurfaceId } from "./glass-surface-catalog";
 import {
   BLUE_GLASS_TOWER_ID, GREY_GLASS_TOWER_ID,
-  continuousBlueGlassUV, planSkylineArchitecturalGeometry,
+  continuousGlassFacadeUV, planSkylineArchitecturalGeometry,
 } from "./skyline-glass-geometry";
 import { VertexBuffer } from "@babylonjs/core";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
@@ -135,6 +135,9 @@ export function generateBuilding(
     const supplied = context.materials?.[role];
     if (supplied) return supplied;
     if (isGlassTower(spec.id) && (role === "roof" || role === "trim")) {
+      // The GREY framed building has NO pale/silver fascia or roof slab.
+      // Use exactly the same dark frame material for both rooftop and rails.
+      if (spec.id === GREY_GLASS_TOWER_ID) return materialFor("metal");
       if (!skylineRoofMetal) {
         skylineRoofMetal = new StandardMaterial("skyline-pale-metal-cap:" + spec.id, scene);
         skylineRoofMetal.diffuseColor = new Color3(0.78, 0.82, 0.84);
@@ -166,10 +169,13 @@ export function generateBuilding(
           GLASS_SURFACES[glassSurfaceId].path);
         // This image provides pure glass tint and soft light sheen only; no
         // frame/mullion geometry or cloud/skyline reflections are baked in.
+        // Blue's accepted light response is unchanged. Reduce the grey
+        // surface's sharp synthetic specular jumps; its baked, broad sheen
+        // now flows through one full-height GLS image underneath 3D strips.
         experimentalGlass.material.specularColor = spec.id === BLUE_GLASS_TOWER_ID
-          ? new Color3(0.27, 0.33, 0.42) : new Color3(0.64, 0.70, 0.78);
+          ? new Color3(0.27, 0.33, 0.42) : new Color3(0.32, 0.35, 0.38);
         experimentalGlass.material.specularPower = spec.id === BLUE_GLASS_TOWER_ID
-          ? 96 : 112;
+          ? 96 : 88;
       }
       return experimentalGlass.material;
     }
@@ -264,10 +270,10 @@ export function generateBuilding(
       else if (businessSurfaceId) applyPhysicalBrickUV(
         mesh, part, businessBrickPhysicalTile(businessSurfaceId));
       else if (woodSurfaceId) applyPhysicalBrickUV(mesh, part, woodTileMetres(woodSurfaceId));
-      else if (glassSurfaceId === "GLS-01" && spec.id === BLUE_GLASS_TOWER_ID) {
+      else if (glassSurfaceId && isGlassTower(spec.id)) {
         const positions = mesh.getVerticesData(VertexBuffer.PositionKind);
         const normals = mesh.getVerticesData(VertexBuffer.NormalKind);
-        if (!positions || !normals) throw new Error("Blue glass requires box positions and normals");
+        if (!positions || !normals) throw new Error("Continuous glass requires box positions and normals");
         const uv = new Float32Array(positions.length / 3 * 2);
         const envelope = {
           width: spec.parameters.width,
@@ -275,7 +281,7 @@ export function generateBuilding(
           height: spec.parameters.floors * spec.parameters.floorHeight,
         };
         for (let i = 0; i < positions.length / 3; i++) {
-          const mapped = continuousBlueGlassUV(
+          const mapped = continuousGlassFacadeUV(
             { x: part.center.x + positions[3 * i]!,
               y: part.center.y + positions[3 * i + 1]!,
               z: part.center.z + positions[3 * i + 2]! },
@@ -286,7 +292,6 @@ export function generateBuilding(
         }
         mesh.setVerticesData(VertexBuffer.UVKind, uv, true);
       }
-      else if (glassSurfaceId) applyPhysicalBrickUV(mesh, part, GLASS_TILE_METRES);
     }
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
       primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind,

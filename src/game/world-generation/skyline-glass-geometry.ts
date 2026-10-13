@@ -1,7 +1,9 @@
-/** MAT-008: controlled mixed-technique skyscraper comparison.
- * East/grey: real 3D mullions and transoms; west/blue: one continuous
- * façade-wide glass-image mapping. Both get pale architectural metal capping.
- * Geometry here is visual only; Rapier and entrance interaction are unchanged.
+/** MAT-009: two owner-approved architectural glass modes.
+ * East/grey: continuous glass beneath physical 3D mullions/transoms, with a
+ * dark crown completed by matching frame rails.
+ * West/blue: the same pre-existing continuous UV policy, no frame grid, and
+ * the approved subtle pale metal edge trim preserved unchanged.
+ * Visual only; no new physics/collision or modified building massing.
  */
 import type { BuildingMass, BoxPrimitive, GeneratedBuildingPlan } from "./architecture-plan";
 import type { FacadeSide } from "./schema";
@@ -9,7 +11,6 @@ import type { FacadeSide } from "./schema";
 export const BLUE_GLASS_TOWER_ID = "sw-fl-skyline-west";
 export const GREY_GLASS_TOWER_ID = "sw-fl-skyline-east";
 export const GREY_MULLION_SPACING_METRES = 2.3;
-const GLASS_WALL_HALF_THICKNESS = 0.12;
 const FRAME_PROJECTION = 0.18;
 const FRAME_DEPTH = 0.17;
 const VERTICAL_WIDTH = 0.13;
@@ -52,11 +53,13 @@ export function planSkylineArchitecturalGeometry(
     for (const side of SIDES) {
       const frontRear = side === "front" || side === "rear";
       const span = frontRear ? mass.width : mass.depth;
-      // A separate pale-metal fascia wraps both roof slab edges, including
-      // the setback podium roof. It visually replaces wooden-looking top trim.
+      // Framed grey crowns terminate in the same DARK metal as the real
+      // mullions and transoms. The unframed blue reference retains its
+      // previously accepted, pale architectural (never wooden) perimeter.
       const cap = edgeBox(mass, side, 0, roofY + 0.11,
         span + CAP_DEPTH, CAP_HEIGHT, CAP_DEPTH,
-        `skyline-cap:${mass.id}:${side}`, "trim");
+        `skyline-cap:${mass.id}:${side}`,
+        buildingId === GREY_GLASS_TOWER_ID ? "metal" : "trim");
       const edge = frontRear ? mass.depth / 2 : mass.width / 2;
       pieces.push({
         ...cap,
@@ -70,8 +73,11 @@ export function planSkylineArchitecturalGeometry(
       const columns = Math.max(2, Math.round(span / GREY_MULLION_SPACING_METRES));
       for (let i = 0; i <= columns; i++) {
         const offset = -span / 2 + span * i / columns;
-        pieces.push(edgeBox(mass, side, offset, mass.baseY + mass.height / 2,
-          VERTICAL_WIDTH, mass.height - 0.15, FRAME_DEPTH,
+        // Reach into the roof-edge rail to avoid a bright, unframed gap
+        // between the upper mullion tips and the curtain-wall termination.
+        pieces.push(edgeBox(mass, side, offset,
+          mass.baseY + (mass.height + 0.08) / 2,
+          VERTICAL_WIDTH, mass.height + 0.08, FRAME_DEPTH,
           `skyline-mullion:${mass.id}:${side}:c${i}`, "metal"));
       }
       // Align horizontal transoms to true floor heights, not texture pixels.
@@ -87,12 +93,13 @@ export function planSkylineArchitecturalGeometry(
   return pieces;
 }
 
-/** A single asset covers the blue tower's ENTIRE building envelope in each
- * façade orientation. All podium/tower boxes share global x/z and y mapping;
- * there is no per-floor reset, repeat, or sudden mirrored light band.
- * The gentle interior crop avoids discontinuous high-intensity image edges.
+/** A single owner's GLS image covers the ENTIRE envelope of either tower.
+ * Every wall box shares building-local x/z and y, across podium and upper
+ * mass alike: no per-floor image restart, 15.2m repeat, or block highlight.
+ * Preserve exactly the successful blue UV/crop numbers on both modes.
+ * The grey 3D strips are independently overlaid on this continuous material.
  */
-export function continuousBlueGlassUV(
+export function continuousGlassFacadeUV(
   vertex: { x: number; y: number; z: number },
   normal: { x: number; y: number; z: number },
   envelope: Readonly<{ width: number; depth: number; height: number }>,
@@ -105,3 +112,6 @@ export function continuousBlueGlassUV(
     v: 0.08 + 0.84 * (vertex.y / envelope.height),
   };
 }
+
+/** Historical MAT-008 export retained for callers and visual regressions. */
+export const continuousBlueGlassUV = continuousGlassFacadeUV;

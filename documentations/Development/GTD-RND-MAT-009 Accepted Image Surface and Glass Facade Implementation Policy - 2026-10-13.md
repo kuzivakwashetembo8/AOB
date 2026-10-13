@@ -75,3 +75,5 @@ Use **image-derived textures to define material appearance** (colour, grain, mor
 ## 7. Release gate
 
 Do not merge into `main` or treat this preview as final acceptance without explicit owner instruction. MAT-009 ends at a testable preview plus evidence. Only after visual confirmation do we proceed to the next material family (WALL-04, stone, unless the owner redirects).
+
+**MAT-009 code implementation note:** The shared `continuousGlassFacadeUV` mapper now drives both towers (the previous `continuousBlueGlassUV` remains an exact compatibility alias). Grey roof/crown material is the same dark frame metal used for transoms/mullions; blue pale non-wood roof treatment remains unchanged. Vertical grey rails now overlap the top frame band to eliminate the former termination gap. Grey specular contribution has been reduced to avoid hard artificial glints. No GLS assets have changed. Run focus tests and visually inspect both towers; approval is not automatic.
