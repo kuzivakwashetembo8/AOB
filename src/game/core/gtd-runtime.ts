@@ -906,9 +906,17 @@ export class GTDGameRuntime implements GameRuntime {
       }
       this.characterTrial?.updateFlightAnimation({
         dt,
-        moving:Math.hypot(movement.movement.x,movement.movement.z)>0.001,
-        ascending:movement.movement.y>0.001,
+        // Classify pose by the player's intentional camera-relative axes.
+        // Speed/physics remain governed by Rapier; SHIFT selects the
+        // aerodynamic horizontal GLB clip only while translating forward
+        // or backward. Sideways/idle use upright directional hover clips.
+        forward:this.move.y < -0.05,
+        backward:this.move.y > 0.05,
+        left:this.move.x < -0.05,
+        right:this.move.x > 0.05,
+        ascending:movement.movement.y > 0.001,
         descending:movement.movement.y < -0.001,
+        accelerated:this.actions.has("sprint"),
       });
       camera.target.set(position.x,position.y+0.55,position.z);
       this.preferredCameraRadius = 8;

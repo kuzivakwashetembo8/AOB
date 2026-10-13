@@ -9,6 +9,7 @@ import {
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import type { VoightPrototype } from "./voight";
+import { selectFlightPose, type FlightPoseInput } from "./locomotion/flight-pose";
 import {
   GaitContinuityController,
   type GaitInputs,
@@ -90,9 +91,7 @@ export type LoadedMeridiaCharacter = VoightPrototype & {
   readonly witness: Mesh;
   readonly report: () => CharacterTrialReport;
   updateAnimation: (inputs: GaitInputs) => GaitDecision;
-  updateFlightAnimation: (inputs: {
-    dt:number; moving:boolean; ascending:boolean; descending:boolean;
-  }) => void;
+  updateFlightAnimation: (inputs: FlightPoseInput & { dt: number }) => void;
   setVisualForward: (degrees: number) => void;
 };
 
@@ -154,10 +153,14 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     sprint: preferredClip(imported.animationGroups, ["Sprint_Loop", "run", "sprint"]),
     jump: preferredClip(imported.animationGroups, ["Jump_Loop", "Jump_Start", "jump", "fall"]),
     land: preferredClip(imported.animationGroups, ["Jump_Land", "land"]),
-    flyIdle: preferredClip(imported.animationGroups, ["FlyIdle", "flyIdle", "fly_idle", "flyhover"]),
-    fly: preferredClip(imported.animationGroups, ["Fly", "fly", "Fly_Loop", "flyHoverForward"]),
-    flyUp: preferredClip(imported.animationGroups, ["FlyHoverUp", "flyHoverUp", "flyUp"]),
-    flyDown: preferredClip(imported.animationGroups, ["FlyHoverDown", "flyHoverDown", "flyDown"]),
+    flyIdle: preferredClip(imported.animationGroups, ["flyIdle", "FlyIdle", "fly_idle"]),
+    fly: preferredClip(imported.animationGroups, ["fly", "Fly", "Fly_Loop"]),
+    flyHoverForward: preferredClip(imported.animationGroups, ["flyHoverForward"]),
+    flyHoverBack: preferredClip(imported.animationGroups, ["flyHoverBack"]),
+    flyHoverLeft: preferredClip(imported.animationGroups, ["flyHoverLeft"]),
+    flyHoverRight: preferredClip(imported.animationGroups, ["flyHoverRight"]),
+    flyHoverUp: preferredClip(imported.animationGroups, ["flyHoverUp", "flyUp"]),
+    flyHoverDown: preferredClip(imported.animationGroups, ["flyHoverDown", "flyDown"]),
   };
   if (!clips.idle || !clips.walk) {
     throw new Error("UAL trial failed: no compatible idle/walking animation clips");
@@ -230,16 +233,12 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
     },
     updateFlightAnimation(inputs) {
-      // The Quaternius model includes flight clips, but fall back to idle
-      // gracefully if a variant lacks directional hover animation.
-      const group = inputs.ascending
-        ? (clips.flyUp ?? clips.fly ?? clips.flyIdle ?? clips.idle)
-        : inputs.descending
-        ? (clips.flyDown ?? clips.fly ?? clips.flyIdle ?? clips.idle)
-        : inputs.moving
-        ? (clips.fly ?? clips.flyIdle ?? clips.idle)
-        : (clips.flyIdle ?? clips.fly ?? clips.idle);
-      switchTo(group, inputs.moving ? "flying" : "flyidle");
+      const pose = selectFlightPose(inputs);
+      // Missing directional clips fall back to upright hovering, not the
+      // prone fast-flying clip. This prevents a hidden reintroduction of the
+      // original posture bug for UAL GLB variants.
+      const group = clips[pose] ?? clips.flyIdle ?? clips.idle;
+      switchTo(group, pose);
       advanceBlend(inputs.dt);
     },
     updateAnimation(inputs) {
