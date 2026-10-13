@@ -17,6 +17,7 @@ import {
 import { brickTrialPresetForBuilding } from "../game/world-generation/experimental-brick-material";
 import { businessBrickForBuilding } from "../game/world-generation/brick-business-field-trial";
 import { physicalBrickUV } from "../game/world-generation/experimental-brick-material";
+import { isGlassTower } from "../game/world-generation/glass-south-ward-field-trial";
 
 const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC);
 const version = FIRST_LIGHT_CITY_SPEC.generatorVersion;
@@ -64,21 +65,20 @@ describe("MAT-006 wood source assets and South Ward assignments", () => {
     }
   });
 
-  it("allows exactly four formerly procedural buildings, never the brick ones", () => {
+  it("keeps timber on the two low-rise residences and reserves skyline towers for glass", () => {
     expect(SOUTH_WARD_WOOD_ASSIGNMENTS).toEqual({
       "sw-fl-west-support": "WOOD-01",
       "sw-fl-rear-residential": "WOOD-03",
-      "sw-fl-skyline-west": "WOOD-09",
-      "sw-fl-skyline-east": "WOOD-05",
     });
     const woodBuildings = buildings.filter(x => woodSurfaceForBuilding(x.id, true));
-    expect(woodBuildings).toHaveLength(4);
+    expect(woodBuildings).toHaveLength(2);
     expect(buildings).toHaveLength(10);
     for (const spec of buildings) {
       const b = brickTrialPresetForBuilding(spec.id, true) ??
         businessBrickForBuilding(spec.id, true);
       const w = woodSurfaceForBuilding(spec.id, true);
-      expect(Boolean(b) !== Boolean(w)).toBe(true);
+      const glass = isGlassTower(spec.id);
+      expect([Boolean(b), Boolean(w), glass].filter(Boolean)).toHaveLength(1);
       expect(woodSurfaceForBuilding(spec.id, false)).toBeNull();
     }
   });
