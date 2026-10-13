@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {NullEngine,Scene} from "@babylonjs/core";
+import {NullEngine,Scene,PointLight,Vector3,StandardMaterial} from "@babylonjs/core";
 import {FIRST_LIGHT_CITY_SPEC} from "../game/world-generation/first-light-spec";
 import {planParcelInfill} from "../game/world-generation/parcel-infill";
 import {createGeneratedUrbanSurfaces} from "../game/world-generation/urban-surface-renderer";
@@ -19,6 +19,10 @@ describe("WORLD-003 generated inter-building land use",()=>{
  it("renders all four batches as world-space upward-facing geometry, not invisible allocations",()=>{
   const engine=new NullEngine(),scene=new Scene(engine);
   try{
+    // The real South Ward has 17 environment/street/interior lights.
+    // A 17-light shader exceeds the reported WebGL2 12-UBO limit.
+    for(let i=0;i<17;i++)new PointLight("realistic-scene-light:"+i,
+      new Vector3(i,5,0),scene);
     const urban=createGeneratedUrbanSurfaces(scene,FIRST_LIGHT_CITY_SPEC);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-infill:"))).toHaveLength(4);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-parking:"))).toHaveLength(0);
@@ -28,6 +32,10 @@ describe("WORLD-003 generated inter-building land use",()=>{
     const visible=urban.meshes.filter(m=>m.name.startsWith("generated-infill:"));
     for(const mesh of visible){
       expect(mesh.getTotalVertices()).toBeGreaterThan(0);
+      expect(mesh.material).toBeInstanceOf(StandardMaterial);
+      expect((mesh.material as StandardMaterial).maxSimultaneousLights)
+        .toBeLessThanOrEqual(3);
+      expect(mesh.metadata.shaderLightBudget).toBe(3);
       expect(mesh.thinInstanceCount).toBe(0);
       const positions=mesh.getVerticesData("position")!;
       const normals=mesh.getVerticesData("normal")!;

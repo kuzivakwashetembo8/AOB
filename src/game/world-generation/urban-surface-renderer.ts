@@ -519,6 +519,16 @@ function createCityParcelInfill(scene:Scene,city:CitySpec):{
  ];
  materials[2]!.diffuseColor=new Color3(0.28,0.39,0.25);
  materials[2]!.specularColor=Color3.Black();
+ // The Meridian scene has 17 active day/night/practical light objects.
+ // StandardMaterial using all 17 creates 19+ vertex uniform blocks on
+ // WebGL2; the user GPU advertises only 12 (GL_MAX_VERTEX_UNIFORM_BUFFERS).
+ // Scope just these non-interactive surface materials to three lights:
+ // ambient + night fill + sun, keeping the day/night treatment intact and
+ // eliminating that shader compilation failure on constrained devices.
+ // This must apply to parking paint as well, after its material is created.
+ for(const material of materials){
+   material.maxSimultaneousLights=3;
+ }
  const meshes:Mesh[]=[];
  const LAND_Y=0.014; // Base ground is 0; asphalt surface top is ~0.03
  const PAINT_Y=0.022;
@@ -546,7 +556,8 @@ function createCityParcelInfill(scene:Scene,city:CitySpec):{
    mesh.material=material;
    mesh.receiveShadows=true;
    mesh.isPickable=false;
-   mesh.metadata={spatialRole:"land-use-infill",cameraBlocker:false};
+   mesh.metadata={spatialRole:"land-use-infill",cameraBlocker:false,
+     shaderLightBudget:3};
    meshes.push(mesh);
  };
  for(const [i,finish] of (["pavement","parking","grass"] as const).entries()){
@@ -559,6 +570,7 @@ function createCityParcelInfill(scene:Scene,city:CitySpec):{
  const stalls=new StandardMaterial("generated-infill-parking-paint",scene);
  stalls.diffuseColor=new Color3(0.73,0.73,0.68);
  stalls.specularColor=Color3.Black();
+ stalls.maxSimultaneousLights=3;
  materials.push(stalls);
  // Distinguishable parking stalls instead of an indistinct dark asphalt pad.
  // Each eligible five-metre cell provides one long edge line, aligned within
