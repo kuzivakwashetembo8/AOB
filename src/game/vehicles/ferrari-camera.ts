@@ -33,3 +33,6 @@ export function advanceFerrariCameraAlpha(
 ): number {
   return currentCameraAlpha - signedAngle(currentCarYaw - previousCarYaw);
 }
+
+export const FERRARI_REAR_CAMERA_BETA=1.4;
+export const FERRARI_REAR_CAMERA_RADIUS=7.3;

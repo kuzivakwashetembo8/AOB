@@ -199,6 +199,9 @@ function GamePage() {
     const actions: Record<string, GameAction> = {
       KeyE: "interact",
       KeyF: "vehicle",
+      KeyG: "fly",
+      ControlLeft: "descend",
+      ControlRight: "descend",
       Space: "jump",
       ShiftLeft: "sprint",
       ShiftRight: "sprint",

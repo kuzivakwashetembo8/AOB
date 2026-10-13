@@ -11,6 +11,7 @@ import { planRoadGraph, projectToRoad } from "./road-graph";
 import type { JunctionEdge, RoadJunctionPlan } from "./road-graph";
 import { MATERIAL_FAMILIES } from "./representation-materials";
 import { createSurfaceTexture } from "./surface-textures";
+import { planParcelInfill } from "./parcel-infill";
 import type {
   MaterialFamilyId,
   MaterialRecipe,
@@ -501,8 +502,94 @@ function authoredParityBox(
   return mesh;
 }
 
+/** WORLD-003 L2: actual TOP-facing, world-positioned geometry in three batches.
+ * The earlier thin-instance matrices passed allocation tests but did not show
+ * land-use finishes in the preview. These explicit quads are visible from
+ * street and overhead cameras; each material costs one draw call.
+ * All land-use is visual-only and stays beneath the elevated roads/sidewalks.
+ */
+function createCityParcelInfill(scene:Scene,city:CitySpec):{
+ meshes:Mesh[];materials:StandardMaterial[];
+}{
+ const cells=planParcelInfill(city);
+ const materials=[
+   makeTexturedMaterial(scene,"generated-infill-paving","sidewalk-paving"),
+   makeTexturedMaterial(scene,"generated-infill-parking","asphalt"),
+   new StandardMaterial("generated-infill-grass",scene),
+ ];
+ materials[2]!.diffuseColor=new Color3(0.28,0.39,0.25);
+ materials[2]!.specularColor=Color3.Black();
+ // The Meridian scene has 17 active day/night/practical light objects.
+ // StandardMaterial using all 17 creates 19+ vertex uniform blocks on
+ // WebGL2; the user GPU advertises only 12 (GL_MAX_VERTEX_UNIFORM_BUFFERS).
+ // Scope just these non-interactive surface materials to three lights:
+ // ambient + night fill + sun, keeping the day/night treatment intact and
+ // eliminating that shader compilation failure on constrained devices.
+ // This must apply to parking paint as well, after its material is created.
+ for(const material of materials){
+   material.maxSimultaneousLights=3;
+ }
+ const meshes:Mesh[]=[];
+ const LAND_Y=0.014; // Base ground is 0; asphalt surface top is ~0.03
+ const PAINT_Y=0.022;
+ const appendQuad=(positions:number[],normals:number[],uvs:number[],indices:number[],
+     x0:number,z0:number,x1:number,z1:number,y:number)=>{
+   const offset=positions.length/3;
+   // Winding faces +Y, even with back-face culling enabled.
+   positions.push(x0,y,z0, x0,y,z1, x1,y,z1, x1,y,z0);
+   for(let i=0;i<4;i++)normals.push(0,1,0);
+   uvs.push(x0*0.12,z0*0.12,x0*0.12,z1*0.12,
+     x1*0.12,z1*0.12,x1*0.12,z0*0.12);
+   indices.push(offset,offset+1,offset+2,offset,offset+2,offset+3);
+ };
+ const batch=(name:string,material:StandardMaterial,rects:readonly
+   {x0:number;z0:number;x1:number;z1:number;y:number}[])=>{
+   const positions:number[]=[],normals:number[]=[],uvs:number[]=[],indices:number[]=[];
+   for(const r of rects)appendQuad(positions,normals,uvs,indices,r.x0,r.z0,r.x1,r.z1,r.y);
+   const mesh=new Mesh(name,scene);
+   const geometry=new VertexData();
+   geometry.positions=positions;
+   geometry.normals=normals;
+   geometry.uvs=uvs;
+   geometry.indices=indices;
+   geometry.applyToMesh(mesh);
+   mesh.material=material;
+   mesh.receiveShadows=true;
+   mesh.isPickable=false;
+   mesh.metadata={spatialRole:"land-use-infill",cameraBlocker:false,
+     shaderLightBudget:3};
+   meshes.push(mesh);
+ };
+ for(const [i,finish] of (["pavement","parking","grass"] as const).entries()){
+   batch("generated-infill:"+finish,materials[i]!,
+     cells.filter(c=>c.finish===finish).map(c=>({
+       x0:c.x-c.width/2,z0:c.z-c.width/2,
+       x1:c.x+c.width/2,z1:c.z+c.width/2,y:LAND_Y,
+     })));
+ }
+ const stalls=new StandardMaterial("generated-infill-parking-paint",scene);
+ stalls.diffuseColor=new Color3(0.73,0.73,0.68);
+ stalls.specularColor=Color3.Black();
+ stalls.maxSimultaneousLights=3;
+ materials.push(stalls);
+ // Distinguishable parking stalls instead of an indistinct dark asphalt pad.
+ // Each eligible five-metre cell provides one long edge line, aligned within
+ // a stable 15-metre land-use cluster.
+ batch("generated-infill:parking-stalls",stalls,
+   cells.filter(c=>c.finish==="parking").map(c=>{
+     const vertical=(Math.floor(c.x/15)+Math.floor(c.z/15))%2===0;
+     return vertical
+       ?{x0:c.x-c.width/2+0.18,x1:c.x-c.width/2+0.27,
+         z0:c.z-2.15,z1:c.z+2.15,y:PAINT_Y}
+       :{x0:c.x-2.15,x1:c.x+2.15,
+         z0:c.z-c.width/2+0.18,z1:c.z-c.width/2+0.27,y:PAINT_Y};
+   }));
+ return {meshes,materials};
+}
+
 function createFirstLightAuthoredParitySurfaces(
   scene: Scene,
+  city: CitySpec,
 ): GeneratedUrbanSurfaces {
   const meshes: Mesh[] = [];
   const materials: StandardMaterial[] = [];
@@ -525,47 +612,11 @@ function createFirstLightAuthoredParitySurfaces(
   drain.diffuseColor = new Color3(0.16, 0.19, 0.18);
   drain.specularColor = new Color3(0.04, 0.04, 0.04);
 
-  const residentialPaving = makeTexturedMaterial(
-    scene, "generated-south-ward-residential-paving", "sidewalk-paving");
-  // A real laid joint pattern rather than another smooth gray rectangle.
-  const grass = new StandardMaterial("generated-south-ward-maintained-grass", scene);
-  grass.diffuseColor = new Color3(0.27, 0.38, 0.24);
-  grass.specularColor = new Color3(0.01, 0.02, 0.01);
-  const parking = new StandardMaterial("generated-south-ward-car-park", scene);
-  parking.diffuseColor = new Color3(0.31, 0.32, 0.31);
-  parking.specularColor = new Color3(0.04, 0.04, 0.04);
-  const stallMarking = new StandardMaterial("generated-south-ward-parking-lines", scene);
-  stallMarking.diffuseColor = new Color3(0.70, 0.71, 0.65);
-  materials.push(asphalt, sidewalk, curb, marking, drain,
-    residentialPaving, grass, parking, stallMarking);
-
-  // Develop residential parcels rather than leaving an unexplained brown
-  // infinite ground. Deliberately zoned rectangles are BELOW road/sidewalk
-  // surfaces and have no separate collider or loading dependency.
-  const zones = [
-    { id: "north", x: 0, z: -19.5, w: 130, d: 47, material: residentialPaving },
-    { id: "west-residential", x: -24.5, z: 28, w: 81, d: 32, material: grass },
-    { id: "east-residential", x: 44.5, z: 28, w: 41, d: 32, material: residentialPaving },
-    { id: "rear-residential", x: 0, z: 69, w: 130, d: 34, material: grass },
-  ] as const;
-  for (const zone of zones) {
-    meshes.push(authoredParityBox(scene, "generated-development:" + zone.id,
-      zone.x, 0.009, zone.z, zone.w, 0.018, zone.d, zone.material));
-  }
-  for (const lot of [
-    { id: "west-parking", x: -41, z: 29, w: 10, d: 14 },
-    { id: "east-parking", x: 39.5, z: 31, w: 8, d: 13 },
-    { id: "rear-service-parking", x: 53.5, z: 68.5, w: 13, d: 12 },
-  ]) {
-    meshes.push(authoredParityBox(scene, "generated-parking:" + lot.id,
-      lot.x, 0.020, lot.z, lot.w, 0.022, lot.d, parking));
-    for (let index = 1; index < 4; index++) {
-      const lineZ = lot.z - lot.d / 2 + index * lot.d / 4;
-      meshes.push(authoredParityBox(scene,
-        "generated-parking-marking:" + lot.id + ":" + index,
-        lot.x, 0.033, lineZ, lot.w - 0.75, 0.010, 0.085, stallMarking));
-    }
-  }
+  // WORLD-003: continuous city-derived infill replaces four authored zones
+  // and three hand-positioned parking pads without changing street geometry.
+  const infill=createCityParcelInfill(scene,city);
+  meshes.push(...infill.meshes);
+  materials.push(...infill.materials);
 
   // First Light road ownership: longitudinal Mercer/Foundry surfaces own
   // the entire T-junction. Workshop Road ends at each road's OUTER edge:
@@ -683,7 +734,7 @@ export function createGeneratedUrbanSurfaces(
   city: CitySpec,
 ): GeneratedUrbanSurfaces {
   if (isFirstLightReferenceCity(city)) {
-    return createFirstLightAuthoredParitySurfaces(scene);
+    return createFirstLightAuthoredParitySurfaces(scene,city);
   }
 
   const roadPlan = planRoadGraph(city.roads);
@@ -720,6 +771,9 @@ export function createGeneratedUrbanSurfaces(
   patch.specularColor = Color3.Black();
 
   materials.push(asphalt, sidewalk, curb, marking, drain, gutter, patch);
+  const infill=createCityParcelInfill(scene,city);
+  meshes.push(...infill.meshes);
+  materials.push(...infill.materials);
 
   for (const surface of roadPlan.surfaces) {
     meshes.push(
