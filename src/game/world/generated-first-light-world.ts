@@ -77,6 +77,9 @@ export interface GeneratedFirstLightWorldOptions {
   readonly enableSidewalkSupportCollision?: boolean;
   /** Explicit image-derived brick material A/B experiment only. */
   readonly enableBrickMaterialTrial?: boolean;
+  /** MAT-005 owner-directed visual witness surfaces; not production acceptance. */
+  readonly enableBrickBusinessFieldTrial?: boolean;
+  readonly brickBusinessFocusSurface?: import("../world-generation/brick-surface-catalog").BrickSurfaceId | null;
 }
 
 function createGround(
@@ -406,6 +409,8 @@ export function createGeneratedFirstLightWorld(
       batchingMode: "thin-instances",
       enableCameraBlockers,
       enableBrickMaterialTrial: options.enableBrickMaterialTrial ?? false,
+      enableBrickBusinessFieldTrial: options.enableBrickBusinessFieldTrial ?? false,
+      brickBusinessFocusSurface: options.brickBusinessFocusSurface ?? null,
     }),
   );
   const heroGarage =
