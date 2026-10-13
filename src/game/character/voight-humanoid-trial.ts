@@ -90,6 +90,9 @@ export type LoadedMeridiaCharacter = VoightPrototype & {
   readonly witness: Mesh;
   readonly report: () => CharacterTrialReport;
   updateAnimation: (inputs: GaitInputs) => GaitDecision;
+  updateFlightAnimation: (inputs: {
+    dt:number; moving:boolean; ascending:boolean; descending:boolean;
+  }) => void;
   setVisualForward: (degrees: number) => void;
 };
 
@@ -151,6 +154,10 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     sprint: preferredClip(imported.animationGroups, ["Sprint_Loop", "run", "sprint"]),
     jump: preferredClip(imported.animationGroups, ["Jump_Loop", "Jump_Start", "jump", "fall"]),
     land: preferredClip(imported.animationGroups, ["Jump_Land", "land"]),
+    flyIdle: preferredClip(imported.animationGroups, ["FlyIdle", "flyIdle", "fly_idle", "flyhover"]),
+    fly: preferredClip(imported.animationGroups, ["Fly", "fly", "Fly_Loop", "flyHoverForward"]),
+    flyUp: preferredClip(imported.animationGroups, ["FlyHoverUp", "flyHoverUp", "flyUp"]),
+    flyDown: preferredClip(imported.animationGroups, ["FlyHoverDown", "flyHoverDown", "flyDown"]),
   };
   if (!clips.idle || !clips.walk) {
     throw new Error("UAL trial failed: no compatible idle/walking animation clips");
@@ -174,6 +181,20 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     active.setWeightForAllAnimatables(0);
   }
   switchTo(clips.idle, "idle");
+
+  function advanceBlend(dt: number) {
+    if (active) {
+      blend = Math.min(1, blend + Math.max(0, dt) / 0.18);
+      active.setWeightForAllAnimatables(blend);
+    }
+    if (outgoing) {
+      outgoing.setWeightForAllAnimatables(1 - blend);
+      if (blend >= 1) {
+        outgoing.stop();
+        outgoing = null;
+      }
+    }
+  }
 
   const reportInfo = {
     source: MERIDIA_TRIAL_SOURCE,
@@ -208,6 +229,19 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       visualForwardDeg = Math.max(-180, Math.min(180, degrees));
       visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
     },
+    updateFlightAnimation(inputs) {
+      // The Quaternius model includes flight clips, but fall back to idle
+      // gracefully if a variant lacks directional hover animation.
+      const group = inputs.ascending
+        ? (clips.flyUp ?? clips.fly ?? clips.flyIdle ?? clips.idle)
+        : inputs.descending
+        ? (clips.flyDown ?? clips.fly ?? clips.flyIdle ?? clips.idle)
+        : inputs.moving
+        ? (clips.fly ?? clips.flyIdle ?? clips.idle)
+        : (clips.flyIdle ?? clips.fly ?? clips.idle);
+      switchTo(group, inputs.moving ? "flying" : "flyidle");
+      advanceBlend(inputs.dt);
+    },
     updateAnimation(inputs) {
       // L2: Visual state follows corrected Rapier travel but rejects
       // transient one-tick support/speed loss during sustained movement.
@@ -216,17 +250,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       lastGait = decision;
       const group = clips[decision.state] ?? clips.idle;
       if (group) switchTo(group, decision.state);
-      if (active) {
-        blend = Math.min(1, blend + Math.max(0, inputs.dt) / 0.18);
-        active.setWeightForAllAnimatables(blend);
-      }
-      if (outgoing) {
-        outgoing.setWeightForAllAnimatables(1 - blend);
-        if (blend >= 1) {
-          outgoing.stop();
-          outgoing = null;
-        }
-      }
+      advanceBlend(inputs.dt);
       return decision;
     },
   };

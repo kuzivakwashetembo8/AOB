@@ -1,5 +1,5 @@
 import { useRef, type CSSProperties, type PointerEvent } from "react";
-import { Hand, ArrowUp, Crosshair, Footprints, Car, Zap } from "lucide-react";
+import { Hand, ArrowUp, ArrowDown, Crosshair, Footprints, Car, Zap, Plane } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameAction, GameCommand } from "@/game/core/types";
 import type { Settings } from "@/ui/menus/settings-state";
@@ -55,6 +55,8 @@ const actions: Array<{ action: GameAction; label: string; icon: typeof Hand }> =
   { action: "combat", label: "Combat", icon: Crosshair },
   { action: "sprint", label: "Sprint", icon: Footprints },
   { action: "vehicle", label: "Enter or exit vehicle", icon: Car },
+  { action: "fly", label: "Toggle flight mode", icon: Plane },
+  { action: "descend", label: "Descend while flying (hold)", icon: ArrowDown },
   { action: "context", label: "Context action", icon: Zap },
 ];
 export function TouchControls({

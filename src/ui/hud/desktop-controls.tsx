@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUp,
   Car,
+  Plane,
   Crosshair,
   Footprints,
   Hand,
@@ -27,6 +28,8 @@ const actionSpecs: ActionSpec[] = [
   { action: "sprint", label: "Sprint", keyHint: "SHIFT", icon: Footprints },
   { action: "combat", label: "Aim / combat", keyHint: "C", icon: Crosshair },
   { action: "vehicle", label: "Enter / exit vehicle", keyHint: "F", icon: Car },
+  { action: "fly", label: "Toggle flight", keyHint: "G", icon: Plane },
+  { action: "descend", label: "Descend while flying", keyHint: "CTRL", icon: ArrowDown },
   { action: "context", label: "Context action", keyHint: "Q", icon: Zap },
 ];
 

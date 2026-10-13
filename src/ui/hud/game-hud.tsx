@@ -128,6 +128,11 @@ export function GameHud({
             )}
           </div>
 
+          {snapshot.flying && (
+            <span className="system-label self-center rounded border border-white/30 bg-black/60 px-2 py-1 text-white">
+              FLIGHT / SURVEY
+            </span>
+          )}
           {showHeat && (
             <div aria-label={`Heat ${snapshot.heat}`}>
               <span className="system-label">HEAT / {snapshot.heat}</span>

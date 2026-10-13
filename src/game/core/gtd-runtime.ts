@@ -57,6 +57,7 @@ import { parseBusinessBrickFocus } from "../world-generation/brick-business-fiel
 import { parseWoodFocus } from "../world-generation/wood-south-ward-field-trial";
 import { parseGlassFocus } from "../world-generation/glass-south-ward-field-trial";
 import { isCurbAscent } from "../character/locomotion/curb-step";
+import { flightDisplacement, toggleInspectionFlight } from "../character/locomotion/inspection-flight";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import {
   DEFAULT_TRAVEL_HEADING,
@@ -133,6 +134,7 @@ export class GTDGameRuntime implements GameRuntime {
   private diagnosticHardwareScale: number | null = null;
   private actions = new Set<GameAction>();
   private verticalVelocity = 0;
+  private flightEnabled = false;
   private curbStepSeconds = 0;
   private grounded = true;
   private accumulator = 0;
@@ -617,6 +619,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.voight = null;
     this.world = null;
     this.actions.clear();
+    this.flightEnabled = false;
     this.pendingTouchLook = { x: 0, y: 0 };
     this.lifecycle = "destroyed";
     this.publishSnapshot();
@@ -677,6 +680,28 @@ export class GTDGameRuntime implements GameRuntime {
       return;
     }
     if (command.type === "action") {
+      if (command.action === "fly") {
+        if (command.pressed && this.lifecycle === "running") {
+          const next = toggleInspectionFlight(
+            {enabled:this.flightEnabled,verticalSpeed:0}, this.context);
+          if (next.enabled !== this.flightEnabled) {
+            this.flightEnabled = next.enabled;
+            this.verticalVelocity = 0;
+            this.grounded = false;
+            this.actions.delete("jump"); // no stale held ascent on transition
+            this.actions.delete("descend");
+            this.emit({type:"interaction",label:next.enabled
+              ? "FLIGHT INSPECTION · WASD move · SPACE ascend · CTRL descend · SHIFT faster · G land"
+              : "Flight disabled · gravity and grounded movement restored"});
+            this.publishSnapshot(0);
+          }
+        }
+        return; // a toggle, never a held action
+      }
+      if (command.action === "vehicle" && command.pressed && this.flightEnabled) {
+        this.emit({type:"interaction",label:"Disable flight (G) before entering a vehicle"});
+        return;
+      }
       if (command.action === "vehicle" && command.pressed && this.drivingTrial) {
         this.toggleFerrariDriving();
         return;
@@ -859,6 +884,43 @@ export class GTDGameRuntime implements GameRuntime {
     const desired = forward.scale(-this.move.y).add(right.scale(this.move.x));
     if (desired.lengthSquared() > 1) desired.normalize();
     const speed = this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
+    if (this.flightEnabled) {
+      const current = physics.playerPosition();
+      const flight = flightDisplacement({
+        horizontalX:desired.x, horizontalZ:desired.z,
+        ascend:this.actions.has("jump"), descend:this.actions.has("descend"),
+        sprint:this.actions.has("sprint"),
+      },dt,current.y);
+      const movement = physics.movePlayer(flight);
+      const position = physics.playerPosition();
+      this.world?.update(dt,position);
+      this.verticalVelocity = 0;
+      this.grounded = false;
+      this.curbStepSeconds = 0;
+      voight.root.position.set(position.x,position.y,position.z);
+      if (desired.lengthSquared() > 0.001) {
+        const yaw = stepTravelHeading(voight.root.rotation.y,
+          desired.x, desired.z, dt, this.headingSettings, this.headingTurnSign);
+        voight.root.rotation.y = yaw.yaw;
+        this.headingTurnSign = yaw.turnSign;
+      }
+      this.characterTrial?.updateFlightAnimation({
+        dt,
+        moving:Math.hypot(movement.movement.x,movement.movement.z)>0.001,
+        ascending:movement.movement.y>0.001,
+        descending:movement.movement.y < -0.001,
+      });
+      camera.target.set(position.x,position.y+0.55,position.z);
+      this.preferredCameraRadius = 8;
+      this.resolveCameraObstruction(camera,position,dt);
+      this.snapshotAccumulator+=dt;
+      if (this.snapshotAccumulator>=SNAPSHOT_INTERVAL) {
+        this.snapshotAccumulator=0;
+        this.publishSnapshot(Math.hypot(movement.movement.x,movement.movement.y,
+          movement.movement.z)/Math.max(dt,0.0001));
+      }
+      return;
+    }
     const headingStep = this.characterTrial
       ? stepTravelHeading(
           voight.root.rotation.y, desired.x, desired.z, dt, this.headingSettings,
@@ -1023,7 +1085,9 @@ export class GTDGameRuntime implements GameRuntime {
             : this.physics.playerPosition(),
         )
         : this.world?.location ?? "South Ward // First Light",
-      objective: this.drivingTrial
+      objective: this.flightEnabled
+        ? "FLIGHT INSPECTION · G land · WASD move · SPACE up · CTRL down · SHIFT fast"
+        : this.drivingTrial
         ? this.context === "driving"
           ? "Ferrari trial · Drive with WASD / arrows · F to exit when stopped"
           : "Ferrari trial · Press F to enter the sports car"
@@ -1035,6 +1099,7 @@ export class GTDGameRuntime implements GameRuntime {
       vehicle: this.context === "driving" && this.drivingTrial
         ? "Ferrari · EXP-VEH-002"
         : null,
+      flying: this.flightEnabled,
       meridianTime:
         this.world?.environmentSnapshot.formattedTime ?? this.snapshot.meridianTime,
       meridianMinuteOfDay:

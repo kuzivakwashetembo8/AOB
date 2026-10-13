@@ -18,6 +18,8 @@ export type GameSnapshot = Readonly<{
   meridianMinuteOfDay: number;
   meridianTimeScale: number;
   interiorState: InteriorVisibilityState;
+  /** CHAR-002 aerial inspection mode, independent of vehicle context. */
+  flying?: boolean;
 }>;
 
 export type GameAction =
@@ -26,7 +28,9 @@ export type GameAction =
   | "combat"
   | "sprint"
   | "vehicle"
-  | "context";
+  | "context"
+  | "fly"
+  | "descend";
 
 export type GameCommand =
   | { type: "move" | "look"; x: number; y: number; source?: "keyboard" | "keyboard-reset" | "desktop-pointer-down" | "desktop-pointer-up" | "desktop-pointer-cancel" | "desktop-pointer-lost" | "touch-joystick" }
