@@ -8,6 +8,10 @@ import { resolveCityBuildings } from "../game/world-generation/defaults";
 import { planBuilding } from "../game/world-generation/architecture-plan";
 import { generateBuilding } from "../game/world-generation/building-generator";
 import { physicalBrickUV } from "../game/world-generation/experimental-brick-material";
+import {
+  BLUE_GLASS_TOWER_ID, GREY_GLASS_TOWER_ID,
+  continuousBlueGlassUV, planSkylineArchitecturalGeometry,
+} from "../game/world-generation/skyline-glass-geometry";
 import { GLASS_SURFACES, GLASS_SURFACE_IDS, GLASS_TILE_METRES } from "../game/world-generation/glass-surface-catalog";
 import { SOUTH_WARD_GLASS_TOWERS, glassSurfaceForBuilding, parseGlassFocus } from "../game/world-generation/glass-south-ward-field-trial";
 import { woodSurfaceForBuilding } from "../game/world-generation/wood-south-ward-field-trial";
@@ -136,10 +140,17 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
           const normals=mesh.getVerticesData(VertexBuffer.NormalKind)!;
           const uv=mesh.getVerticesData(VertexBuffer.UVKind)!;
           for(let i=0;i<pos.length/3;i++){
-            const expected=physicalBrickUV({
+            const vertex = {
               x:prim.center.x+pos[i*3]!,y:prim.center.y+pos[i*3+1]!,
               z:prim.center.z+pos[i*3+2]!,
-            }, {x:normals[i*3]!,y:normals[i*3+1]!,z:normals[i*3+2]!}, GLASS_TILE_METRES);
+            };
+            const normal = {x:normals[i*3]!,y:normals[i*3+1]!,z:normals[i*3+2]!};
+            const expected = spec.id === BLUE_GLASS_TOWER_ID
+              ? continuousBlueGlassUV(vertex, normal, {
+                width: spec.parameters.width, depth: spec.parameters.depth,
+                height: spec.parameters.floors * spec.parameters.floorHeight,
+              })
+              : physicalBrickUV(vertex, normal, GLASS_TILE_METRES);
             expect(uv[i*2]).toBeCloseTo(expected.u,5);
             expect(uv[i*2+1]).toBeCloseTo(expected.v,5);
           }
@@ -149,4 +160,63 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
       expect(scene.meshes).toHaveLength(0);
     } finally{scene.dispose();engine.dispose();}
   });
+
+  it("installs 3D mullions and floor transoms only on the grey-glass tower", () => {
+    const blue = specs.find(s => s.id === BLUE_GLASS_TOWER_ID)!;
+    const grey = specs.find(s => s.id === GREY_GLASS_TOWER_ID)!;
+    const bluePlan = planBuilding(blue, version);
+    const greyPlan = planBuilding(grey, version);
+    const blueDetails = planSkylineArchitecturalGeometry(bluePlan, blue.id);
+    const greyDetails = planSkylineArchitecturalGeometry(greyPlan, grey.id);
+    expect(blueDetails.some(x => x.id.startsWith("skyline-mullion:"))).toBe(false);
+    expect(blueDetails.some(x => x.id.startsWith("skyline-transom:"))).toBe(false);
+    expect(blueDetails.filter(x => x.id.startsWith("skyline-cap:"))).toHaveLength(8);
+    expect(greyDetails.filter(x => x.id.startsWith("skyline-cap:"))).toHaveLength(8);
+    expect(greyDetails.filter(x => x.id.startsWith("skyline-mullion:")).length)
+      .toBeGreaterThan(20);
+    expect(greyDetails.filter(x => x.id.startsWith("skyline-transom:")).length)
+      .toBeGreaterThan(20);
+    expect(greyDetails.filter(x => x.id.startsWith("skyline-mullion:"))
+      .every(x => x.size.y > 3 && Math.min(x.size.x,x.size.z) > 0.1)).toBe(true);
+    expect(planSkylineArchitecturalGeometry(greyPlan, grey.id, false)
+      .every(x => x.id.startsWith("skyline-cap:"))).toBe(true);
+    expect(planSkylineArchitecturalGeometry(planBuilding(specs[0]!,version), specs[0]!.id))
+      .toHaveLength(0);
+  });
+
+  it("keeps blue glass global continuous UVs, pale metallic roofs and physical grey frames", () => {
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    try {
+      const towers = towerIds.map(id => {
+        const spec = specs.find(s => s.id === id)!;
+        return {spec, result: generateBuilding(scene, null, spec, {
+          generatorVersion:version, enableGlassSurfaceFieldTrial:true,
+          enableFacadeDetails:true, batchingMode:"thin-instances",
+        })};
+      });
+      for(const {spec,result} of towers) {
+        const roofs = result.meshes.filter(m =>
+          m.material?.name === "skyline-pale-metal-cap:" + spec.id);
+        expect(roofs.length).toBeGreaterThan(0);
+        const actualFrames = result.meshes.filter(m =>
+          m.material?.name === "skyline-structural-metal:" + spec.id);
+        expect(actualFrames.length).toBeGreaterThan(0); // even the doorway is metal
+        const parts = planSkylineArchitecturalGeometry(result.plan, spec.id);
+        if (spec.id === BLUE_GLASS_TOWER_ID) {
+          expect(parts.some(x => x.id.startsWith("skyline-mullion:"))).toBe(false);
+          expect(continuousBlueGlassUV({x:0,y:0,z:0},{x:0,y:0,z:1},
+            {width:15,depth:18,height:28}).v).toBeCloseTo(0.08,5);
+          expect(continuousBlueGlassUV({x:0,y:28,z:0},{x:0,y:0,z:1},
+            {width:15,depth:18,height:28}).v).toBeCloseTo(0.92,5);
+        } else {
+          expect(parts.some(x => x.id.startsWith("skyline-mullion:"))).toBe(true);
+          expect(parts.some(x => x.id.startsWith("skyline-transom:"))).toBe(true);
+        }
+        result.dispose();
+      }
+      expect(scene.meshes).toHaveLength(0);
+    } finally {scene.dispose(); engine.dispose();}
+  });
+
 });

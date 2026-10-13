@@ -77,3 +77,16 @@ Updated manifest and registry store each owner-uploaded blob SHA and encoded byt
 | GLS-08 | `public/Glass 8.webp` | `f02a9dc208631ba4880cdc4c4d3c4b67182f2a30` | 1105606 |
 | GLS-09 | `public/Glass 9.webp` | `3e19c18c115cadfcbd348e7dd9dc1d639fe2cb29` | 1117930 |
 | GLS-10 | `public/Glass 10.webp` | `2199b0905106b90eadadbe28f168f4b95a08fe62` | 1110404 |
+
+
+## 7. MAT-008 — split-tower framing and continuous-glass UV evaluation (2026-10-13)
+
+**Owner approval:** Implement two different experiments at the same time, retaining existing building identities, no merge to main.
+
+- **East, `sw-fl-skyline-east`, GLS-03 grey:** real Babylon box-geometry **vertical mullions** (2.3m nominal bay spacing, 0.13m width, 0.17m depth) and **horizontal transoms** (0.13m tall) at actual floor-height boundaries across front, rear, left and right façades on both podium and tower masses. Geometry protrudes beyond the existing facade skin and is shared/instanced using the building generator's batching policy. No collision or camera blockers are introduced for purely visual rails.
+- **West, `sw-fl-skyline-west`, GLS-01 blue:** keep **zero 3D frame strips**; use **one GLS-01 asset** with a normalized, building-wide UV envelope across all windowless wall boxes. Exactly one vertical UV interval spans the entire 28m height instead of the previous 15.2m repetition, with a moderate horizontal crop to suppress abrupt bright edge bands. The same continuous coordinates apply through the stepped podium-to-tower transition. Blue specular strength is moderated to avoid overwhelming baked shine.
+- **Both:** override roof slabs and edge trims with a pale, whitish metallic Babylon StandardMaterial (not timber), and place narrow three-dimensional perimeter fascia strips on the upper tower and exposed podium roof edges.
+- **Rendering safeguards:** glass wall meshes are treated as structural `base` instead of `detail` when the engine chooses medium LOD, avoiding disappearance while new framing remains visible. All rails use stable building-local coordinates and share existing thin-instance batching.
+- **Unchanged:** two tower footprints, floor count and heights, pedestrian access, gameplay, vehicles, Rapier collision, other eight building material assignments, ten immutable owner images, and main branch.
+
+The pure function `skyline-glass-geometry.ts` specifies physical rails/caps and blue image UV mapping; `building-generator.ts` applies them. Tests inspect geometry, actual mesh materials, image URL identities and normalized UVs. **Acceptance gate:** verify close-range shape/depth and day/night shading of grey frames, blue image alignment at podium seam and corners, and non-wood metallic top trim on both. No acceptance is assumed before inspection.

@@ -27,6 +27,11 @@ import { WOOD_SURFACES, woodTileMetres, type WoodSurfaceId } from "./wood-surfac
 import { createImageWallMaterial, type ImageWallMaterial } from "./image-wall-material";
 import { isGlassTower, glassSurfaceForBuilding } from "./glass-south-ward-field-trial";
 import { GLASS_SURFACES, GLASS_TILE_METRES, type GlassSurfaceId } from "./glass-surface-catalog";
+import {
+  BLUE_GLASS_TOWER_ID, GREY_GLASS_TOWER_ID,
+  continuousBlueGlassUV, planSkylineArchitecturalGeometry,
+} from "./skyline-glass-geometry";
+import { VertexBuffer } from "@babylonjs/core";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
 
 /** Step 4 adds optional physics and camera semantics without changing the live First Light scene. */
@@ -86,7 +91,7 @@ export function generateBuilding(
   const plan = planBuilding(spec, context.generatorVersion);
   const interaction = planBuildingInteraction(spec, plan);
   // Curtain towers cannot inherit downpipes, punched-window trim or pseudo
-  // masonry cornices. This comparison deliberately has no baked or 3D mullions.
+  // masonry cornices. MAT-008 adds dedicated grey-tower frame geometry later.
   const detailPlan = context.enableFacadeDetails && !isGlassTower(spec.id)
     ? planFacadeDetails(spec, plan) : { primitives: [], decals: [] };
   const batchingMode = context.batchingMode ?? "individual";
@@ -103,6 +108,8 @@ export function generateBuilding(
   const roleMaterials = new Map<PrimitiveRole, Material>();
   let downpipeMaterial: StandardMaterial | null = null;
   let storefrontLedMaterial: StandardMaterial | null = null;
+  let skylineRoofMetal: StandardMaterial | null = null;
+  let skylineFrameMetal: StandardMaterial | null = null;
   const brickPresetId = brickTrialPresetForBuilding(
     spec.id, context.enableBrickMaterialTrial === true);
   const businessSurfaceId = businessBrickForBuilding(
@@ -127,6 +134,24 @@ export function generateBuilding(
   const materialFor = (role: PrimitiveRole): Material => {
     const supplied = context.materials?.[role];
     if (supplied) return supplied;
+    if (isGlassTower(spec.id) && (role === "roof" || role === "trim")) {
+      if (!skylineRoofMetal) {
+        skylineRoofMetal = new StandardMaterial("skyline-pale-metal-cap:" + spec.id, scene);
+        skylineRoofMetal.diffuseColor = new Color3(0.78, 0.82, 0.84);
+        skylineRoofMetal.specularColor = new Color3(0.66, 0.70, 0.74);
+        skylineRoofMetal.specularPower = 88;
+      }
+      return skylineRoofMetal;
+    }
+    if (isGlassTower(spec.id) && role === "metal") {
+      if (!skylineFrameMetal) {
+        skylineFrameMetal = new StandardMaterial("skyline-structural-metal:" + spec.id, scene);
+        skylineFrameMetal.diffuseColor = new Color3(0.18, 0.23, 0.27);
+        skylineFrameMetal.specularColor = new Color3(0.42, 0.47, 0.50);
+        skylineFrameMetal.specularPower = 78;
+      }
+      return skylineFrameMetal;
+    }
     if (role === "wall" && brickTrialActive) {
       if (!experimentalBrick) experimentalBrick = createExperimentalBrickMaterial(
         scene, materialRecipe(spec, context.generatorVersion, "wall"), spec.id,
@@ -141,8 +166,10 @@ export function generateBuilding(
           GLASS_SURFACES[glassSurfaceId].path);
         // This image provides pure glass tint and soft light sheen only; no
         // frame/mullion geometry or cloud/skyline reflections are baked in.
-        experimentalGlass.material.specularColor = new Color3(0.64, 0.70, 0.78);
-        experimentalGlass.material.specularPower = 112;
+        experimentalGlass.material.specularColor = spec.id === BLUE_GLASS_TOWER_ID
+          ? new Color3(0.27, 0.33, 0.42) : new Color3(0.64, 0.70, 0.78);
+        experimentalGlass.material.specularPower = spec.id === BLUE_GLASS_TOWER_ID
+          ? 96 : 112;
       }
       return experimentalGlass.material;
     }
@@ -237,6 +264,28 @@ export function generateBuilding(
       else if (businessSurfaceId) applyPhysicalBrickUV(
         mesh, part, businessBrickPhysicalTile(businessSurfaceId));
       else if (woodSurfaceId) applyPhysicalBrickUV(mesh, part, woodTileMetres(woodSurfaceId));
+      else if (glassSurfaceId === "GLS-01" && spec.id === BLUE_GLASS_TOWER_ID) {
+        const positions = mesh.getVerticesData(VertexBuffer.PositionKind);
+        const normals = mesh.getVerticesData(VertexBuffer.NormalKind);
+        if (!positions || !normals) throw new Error("Blue glass requires box positions and normals");
+        const uv = new Float32Array(positions.length / 3 * 2);
+        const envelope = {
+          width: spec.parameters.width,
+          depth: spec.parameters.depth,
+          height: spec.parameters.floors * spec.parameters.floorHeight,
+        };
+        for (let i = 0; i < positions.length / 3; i++) {
+          const mapped = continuousBlueGlassUV(
+            { x: part.center.x + positions[3 * i]!,
+              y: part.center.y + positions[3 * i + 1]!,
+              z: part.center.z + positions[3 * i + 2]! },
+            { x: normals[3 * i]!, y: normals[3 * i + 1]!,
+              z: normals[3 * i + 2]! }, envelope);
+          uv[2 * i] = mapped.u;
+          uv[2 * i + 1] = mapped.v;
+        }
+        mesh.setVerticesData(VertexBuffer.UVKind, uv, true);
+      }
       else if (glassSurfaceId) applyPhysicalBrickUV(mesh, part, GLASS_TILE_METRES);
     }
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
@@ -253,7 +302,9 @@ export function generateBuilding(
     for (const part of parts) {
       if (part.templateId === "facade-downpipe" || part.templateId === "facade-sign-band" ||
         (imageWallActive && part.role === "wall")) {
-        makeIndividual(part, "detail");
+        // Glass shell walls must remain structural at medium LOD;
+        // otherwise the tower disappears while thin-instanced metal survives.
+        makeIndividual(part, part.role === "wall" && glassSurfaceId ? "base" : "detail");
         continue;
       }
       const kind = renderClass(part);
@@ -336,6 +387,8 @@ export function generateBuilding(
     experimentalBrick?.dispose();
     experimentalWood?.dispose();
     experimentalGlass?.dispose();
+    skylineRoofMetal?.dispose();
+    skylineFrameMetal?.dispose();
     root.dispose();
     for (const key of leases.values()) library.release(key);
     if (ownsLibrary) library.dispose();
@@ -344,6 +397,8 @@ export function generateBuilding(
     const parts = [
       ...plan.primitives, ...detailPlan.primitives,
       ...(physics ? interaction.closedDoorPanels : []),
+      ...planSkylineArchitecturalGeometry(plan, spec.id,
+        glassSurfaceId !== null && spec.id === GREY_GLASS_TOWER_ID),
     ];
     if (batchingMode === "thin-instances") makeBatches(parts);
     else if (batchingMode === "individual") {
