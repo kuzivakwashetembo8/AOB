@@ -2,6 +2,7 @@ import {
   Color3,
   Mesh,
   MeshBuilder,
+  Matrix,
   StandardMaterial,
   VertexData,
 } from "@babylonjs/core";
@@ -11,6 +12,7 @@ import { planRoadGraph, projectToRoad } from "./road-graph";
 import type { JunctionEdge, RoadJunctionPlan } from "./road-graph";
 import { MATERIAL_FAMILIES } from "./representation-materials";
 import { createSurfaceTexture } from "./surface-textures";
+import { planParcelInfill } from "./parcel-infill";
 import type {
   MaterialFamilyId,
   MaterialRecipe,
@@ -501,8 +503,43 @@ function authoredParityBox(
   return mesh;
 }
 
+/** Three thin-instance batches, no per-lot authored positions or colliders.
+ * Paving/parking lie beneath all raised roads; grass is an open-lot finish.
+ */
+function createCityParcelInfill(scene:Scene,city:CitySpec):{
+ meshes:Mesh[];materials:StandardMaterial[];
+}{
+ const cells=planParcelInfill(city);
+ const materials=[
+  makeTexturedMaterial(scene,"generated-infill-paving","sidewalk-paving"),
+  makeTexturedMaterial(scene,"generated-infill-parking","asphalt"),
+  new StandardMaterial("generated-infill-grass",scene),
+ ];
+ materials[2]!.diffuseColor=new Color3(0.28,0.39,0.25);
+ materials[2]!.specularColor=Color3.Black();
+ const kinds=["pavement","parking","grass"] as const;
+ const meshes=kinds.map((kind,index)=>{
+   const mesh=MeshBuilder.CreateBox("generated-infill:"+kind,
+     {width:1,height:0.022,depth:1},scene);
+   mesh.material=materials[index]!;
+   mesh.receiveShadows=true;
+   mesh.isPickable=false;
+   const list=cells.filter(c=>c.finish===kind);
+   const data=new Float32Array(list.length*16);
+   list.forEach((c,i)=>{
+     const values=Matrix.Scaling(c.width-0.012,1,c.width-0.012)
+       .multiply(Matrix.Translation(c.x,0.011,c.z)).toArray();
+     for(let j=0;j<16;j++)data[i*16+j]=values[j]!;
+   });
+   if(list.length>0)mesh.thinInstanceSetBuffer("matrix",data,16,true);
+   return mesh;
+ });
+ return {meshes,materials};
+}
+
 function createFirstLightAuthoredParitySurfaces(
   scene: Scene,
+  city: CitySpec,
 ): GeneratedUrbanSurfaces {
   const meshes: Mesh[] = [];
   const materials: StandardMaterial[] = [];
@@ -525,47 +562,11 @@ function createFirstLightAuthoredParitySurfaces(
   drain.diffuseColor = new Color3(0.16, 0.19, 0.18);
   drain.specularColor = new Color3(0.04, 0.04, 0.04);
 
-  const residentialPaving = makeTexturedMaterial(
-    scene, "generated-south-ward-residential-paving", "sidewalk-paving");
-  // A real laid joint pattern rather than another smooth gray rectangle.
-  const grass = new StandardMaterial("generated-south-ward-maintained-grass", scene);
-  grass.diffuseColor = new Color3(0.27, 0.38, 0.24);
-  grass.specularColor = new Color3(0.01, 0.02, 0.01);
-  const parking = new StandardMaterial("generated-south-ward-car-park", scene);
-  parking.diffuseColor = new Color3(0.31, 0.32, 0.31);
-  parking.specularColor = new Color3(0.04, 0.04, 0.04);
-  const stallMarking = new StandardMaterial("generated-south-ward-parking-lines", scene);
-  stallMarking.diffuseColor = new Color3(0.70, 0.71, 0.65);
-  materials.push(asphalt, sidewalk, curb, marking, drain,
-    residentialPaving, grass, parking, stallMarking);
-
-  // Develop residential parcels rather than leaving an unexplained brown
-  // infinite ground. Deliberately zoned rectangles are BELOW road/sidewalk
-  // surfaces and have no separate collider or loading dependency.
-  const zones = [
-    { id: "north", x: 0, z: -19.5, w: 130, d: 47, material: residentialPaving },
-    { id: "west-residential", x: -24.5, z: 28, w: 81, d: 32, material: grass },
-    { id: "east-residential", x: 44.5, z: 28, w: 41, d: 32, material: residentialPaving },
-    { id: "rear-residential", x: 0, z: 69, w: 130, d: 34, material: grass },
-  ] as const;
-  for (const zone of zones) {
-    meshes.push(authoredParityBox(scene, "generated-development:" + zone.id,
-      zone.x, 0.009, zone.z, zone.w, 0.018, zone.d, zone.material));
-  }
-  for (const lot of [
-    { id: "west-parking", x: -41, z: 29, w: 10, d: 14 },
-    { id: "east-parking", x: 39.5, z: 31, w: 8, d: 13 },
-    { id: "rear-service-parking", x: 53.5, z: 68.5, w: 13, d: 12 },
-  ]) {
-    meshes.push(authoredParityBox(scene, "generated-parking:" + lot.id,
-      lot.x, 0.020, lot.z, lot.w, 0.022, lot.d, parking));
-    for (let index = 1; index < 4; index++) {
-      const lineZ = lot.z - lot.d / 2 + index * lot.d / 4;
-      meshes.push(authoredParityBox(scene,
-        "generated-parking-marking:" + lot.id + ":" + index,
-        lot.x, 0.033, lineZ, lot.w - 0.75, 0.010, 0.085, stallMarking));
-    }
-  }
+  // WORLD-003: continuous city-derived infill replaces four authored zones
+  // and three hand-positioned parking pads without changing street geometry.
+  const infill=createCityParcelInfill(scene,city);
+  meshes.push(...infill.meshes);
+  materials.push(...infill.materials);
 
   // First Light road ownership: longitudinal Mercer/Foundry surfaces own
   // the entire T-junction. Workshop Road ends at each road's OUTER edge:
@@ -683,7 +684,7 @@ export function createGeneratedUrbanSurfaces(
   city: CitySpec,
 ): GeneratedUrbanSurfaces {
   if (isFirstLightReferenceCity(city)) {
-    return createFirstLightAuthoredParitySurfaces(scene);
+    return createFirstLightAuthoredParitySurfaces(scene,city);
   }
 
   const roadPlan = planRoadGraph(city.roads);
@@ -720,6 +721,9 @@ export function createGeneratedUrbanSurfaces(
   patch.specularColor = Color3.Black();
 
   materials.push(asphalt, sidewalk, curb, marking, drain, gutter, patch);
+  const infill=createCityParcelInfill(scene,city);
+  meshes.push(...infill.meshes);
+  materials.push(...infill.materials);
 
   for (const surface of roadPlan.surfaces) {
     meshes.push(
