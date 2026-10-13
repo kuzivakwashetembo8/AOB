@@ -67,6 +67,10 @@ function makeLot(row: Row): LotSpec {
     overrides: {
       width: row.width, depth: row.depth, floors: row.floors, floorHeight: row.floorHeight,
       ...(row.material ? { facadeMaterial: row.material } : {}),
+      // MAT-007: these are curtain-wall towers, not punched-window slabs.
+      // No independent window openings, frames or window glass meshes.
+      ...(row.id === "sw-fl-skyline-west" || row.id === "sw-fl-skyline-east"
+        ? { windowType: "none" as const } : {}),
       ...(hero ? { garageOpeningCount: 1, interiorMode: "cell" as const, lodProfile: "hero" as const } : {}),
     },
     ...(hero ? {

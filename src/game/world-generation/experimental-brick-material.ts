@@ -4,12 +4,14 @@
  * city-wide building style or change to any Rapier geometry.
  */
 import {
-  Color3, Mesh, RawTexture, StandardMaterial, Texture, VertexBuffer,
+  Mesh, VertexBuffer,
 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
 import type { BoxPrimitive } from "./architecture-plan";
 import type { MaterialRecipe } from "./representation-materials";
-import { createSurfaceTexture } from "./surface-textures";
+import { createImageWallMaterial } from "./image-wall-material";
+import type { ImageWallMaterial } from "./image-wall-material";
+import { BRICK_SURFACES, type BrickSurfaceId } from "./brick-surface-catalog";
 
 export const BRICK_TRIAL_BUILDING_ID = "sw-fl-south-apartment";
 export const BRICK_TRIAL_GARAGE_ID = "sw-fl-garage";
@@ -83,100 +85,20 @@ export function applyPhysicalBrickUV(
   mesh.setVerticesData(VertexBuffer.UVKind, uv, true);
 }
 
-export interface ExperimentalBrickMaterial {
-  readonly material: StandardMaterial;
-  readonly source: string;
-  dispose(): void;
-}
+export type ExperimentalBrickMaterial = ImageWallMaterial;
 
-interface SharedBrickImage {
-  readonly subscribers: Set<StandardMaterial>;
-  image: Texture | null;
-  ready: boolean;
-  disposed: boolean;
-  references: number;
-}
-/** Scene-scoped shared Babylon texture; a second building must not request
- * another GPU image solely because its physical UV scale differs. */
-const brickImages = new WeakMap<Scene, SharedBrickImage>();
-function leaseBrickImage(scene: Scene, material: StandardMaterial): () => void {
-  let shared = brickImages.get(scene);
-  if (!shared) {
-    shared = {
-      image: null, ready: false, disposed: false,
-      references: 0, subscribers: new Set<StandardMaterial>(),
-    };
-    brickImages.set(scene, shared);
-    if (typeof document !== "undefined") {
-      const resource = shared;
-      const image = new Texture(
-        BRICK_TRIAL_ASSET_PATH, scene, false, false,
-        Texture.TRILINEAR_SAMPLINGMODE,
-        () => {
-          if (resource.disposed || !resource.image) return;
-          resource.ready = true;
-          for (const subscriber of resource.subscribers) {
-            subscriber.diffuseTexture = resource.image;
-          }
-        },
-        message => {
-          if (!resource.disposed) console.warn(
-            "[BRICK-MAT-002] WebP unavailable; keeping procedural wall:", message);
-        },
-      );
-      image.hasAlpha = false;
-      image.wrapU = Texture.WRAP_ADDRESSMODE;
-      image.wrapV = Texture.WRAP_ADDRESSMODE;
-      image.anisotropicFilteringLevel = 8;
-      shared.image = image;
-    }
-  }
-  shared.references++;
-  shared.subscribers.add(material);
-  if (shared.ready && shared.image) material.diffuseTexture = shared.image;
-  const lease = shared;
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    lease.subscribers.delete(material);
-    lease.references--;
-    if (lease.references === 0) {
-      lease.disposed = true;
-      lease.image?.dispose();
-      brickImages.delete(scene);
-    }
-  };
-}
-
-/** Nonblocking image loading; procedural fallback and wall colliders survive
- * missing files and any scene teardown. Only wall-role material changes.
+/** Preserve the accepted BRK-01 implementation and material names; delegate
+ * image caching and fallback to the shared cross-family material library.
  */
 export function createExperimentalBrickMaterial(
   scene: Scene, fallbackRecipe: MaterialRecipe,
   buildingId: string = BRICK_TRIAL_BUILDING_ID,
+  surfaceId: BrickSurfaceId = "BRK-01",
 ): ExperimentalBrickMaterial {
-  const letter = buildingId === BRICK_TRIAL_GARAGE_ID ? "B" : "A";
-  const material = new StandardMaterial("experiment:brick-" + letter + ":" + buildingId, scene);
-  const fallback = createSurfaceTexture(scene, fallbackRecipe);
-  material.diffuseTexture = fallback;
-  material.diffuseColor = Color3.White();
-  material.specularColor = new Color3(0.045, 0.045, 0.045);
-  material.specularPower = 10;
-  material.alpha = 1;
-  material.useAlphaFromDiffuseTexture = false;
-  material.backFaceCulling = true;
-  const release = leaseBrickImage(scene, material);
-  let disposed = false;
-  return {
-    material,
-    source: BRICK_TRIAL_ASSET_PATH,
-    dispose() {
-      if (disposed) return;
-      disposed = true;
-      release();
-      fallback.dispose();
-      material.dispose();
-    },
-  };
+  const name = surfaceId === "BRK-01"
+    ? ("experiment:brick-" + (buildingId === BRICK_TRIAL_GARAGE_ID ? "B" : "A") + ":" + buildingId)
+    : ("experiment:brick-" + surfaceId + ":" + buildingId);
+  const source = surfaceId === "BRK-01"
+    ? BRICK_TRIAL_ASSET_PATH : BRICK_SURFACES[surfaceId].path;
+  return createImageWallMaterial(scene, fallbackRecipe, name, source);
 }

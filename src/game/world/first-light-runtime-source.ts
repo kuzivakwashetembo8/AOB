@@ -51,6 +51,12 @@ export function createFirstLightRuntimeWorld(
   options: {
     readonly enableSidewalkSupportCollision?: boolean;
     readonly enableBrickMaterialTrial?: boolean;
+    readonly enableBrickBusinessFieldTrial?: boolean;
+    readonly brickBusinessFocusSurface?: import("../world-generation/brick-surface-catalog").BrickSurfaceId | null;
+    readonly enableWoodSurfaceFieldTrial?: boolean;
+    readonly woodSurfaceFocusId?: import("../world-generation/wood-surface-catalog").WoodSurfaceId | null;
+    readonly enableGlassSurfaceFieldTrial?: boolean;
+    readonly glassSurfaceFocusId?: import("../world-generation/glass-surface-catalog").GlassSurfaceId | null;
   } = {},
 ): RuntimeFirstLightWorld {
   if (source === "generated-first-light") {
@@ -59,6 +65,12 @@ export function createFirstLightRuntimeWorld(
       enableShadows: true,
       enableSidewalkSupportCollision: options.enableSidewalkSupportCollision ?? false,
       enableBrickMaterialTrial: options.enableBrickMaterialTrial ?? false,
+      enableBrickBusinessFieldTrial: options.enableBrickBusinessFieldTrial ?? false,
+      brickBusinessFocusSurface: options.brickBusinessFocusSurface ?? null,
+      enableWoodSurfaceFieldTrial: options.enableWoodSurfaceFieldTrial ?? false,
+      woodSurfaceFocusId: options.woodSurfaceFocusId ?? null,
+      enableGlassSurfaceFieldTrial: options.enableGlassSurfaceFieldTrial ?? false,
+      glassSurfaceFocusId: options.glassSurfaceFocusId ?? null,
     });
   }
 
