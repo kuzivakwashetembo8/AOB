@@ -90,3 +90,13 @@ Updated manifest and registry store each owner-uploaded blob SHA and encoded byt
 - **Unchanged:** two tower footprints, floor count and heights, pedestrian access, gameplay, vehicles, Rapier collision, other eight building material assignments, ten immutable owner images, and main branch.
 
 The pure function `skyline-glass-geometry.ts` specifies physical rails/caps and blue image UV mapping; `building-generator.ts` applies them. Tests inspect geometry, actual mesh materials, image URL identities and normalized UVs. **Acceptance gate:** verify close-range shape/depth and day/night shading of grey frames, blue image alignment at podium seam and corners, and non-wood metallic top trim on both. No acceptance is assumed before inspection.
+
+## 8. MAT-009 owner policy and grey-tower correction (2026-10-13)
+
+**Governing policy:** [GTD-RND-MAT-009 — Accepted Image Surface & Glass Façade Implementation Policy](../Development/GTD-RND-MAT-009%20Accepted%20Image%20Surface%20and%20Glass%20Facade%20Implementation%20Policy%20-%202026-10-13.md).
+
+Owner field QA approved **the blue/stripless building-wide glass mapping** and confirmed that grey physical mullions/transoms improve structural depth, but rejected the grey repeat-induced **blocky highlights** and its **white/silver roof capping**. These are separate from the successful brick/wood image-derived material patterns.
+
+Latest implementation contract: the grey glass must use **one continuous source-image coordinate system across both masses** (not the previous 27m x ~15.2m tiled image), the physical grey mullions/transoms remain, grey frames extend through the roof perimeter in the same dark material, and grey roof slabs are no longer pale/silver. The blue reference must remain visually unchanged. Earlier MAT-008 sections are historical evidence, not current approval for framed silver caps.
+
+No new glass source images, massing, gameplay, collision, vehicles, brick or wood assignments. Full aesthetic acceptance remains gated by the owner's preview inspection. Do not merge to main.
