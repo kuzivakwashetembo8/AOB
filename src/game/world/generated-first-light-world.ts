@@ -80,6 +80,8 @@ export interface GeneratedFirstLightWorldOptions {
   /** MAT-005 owner-directed visual witness surfaces; not production acceptance. */
   readonly enableBrickBusinessFieldTrial?: boolean;
   readonly brickBusinessFocusSurface?: import("../world-generation/brick-surface-catalog").BrickSurfaceId | null;
+  readonly enableWoodSurfaceFieldTrial?: boolean;
+  readonly woodSurfaceFocusId?: import("../world-generation/wood-surface-catalog").WoodSurfaceId | null;
 }
 
 function createGround(
@@ -411,6 +413,8 @@ export function createGeneratedFirstLightWorld(
       enableBrickMaterialTrial: options.enableBrickMaterialTrial ?? false,
       enableBrickBusinessFieldTrial: options.enableBrickBusinessFieldTrial ?? false,
       brickBusinessFocusSurface: options.brickBusinessFocusSurface ?? null,
+      enableWoodSurfaceFieldTrial: options.enableWoodSurfaceFieldTrial ?? false,
+      woodSurfaceFocusId: options.woodSurfaceFocusId ?? null,
     }),
   );
   const heroGarage =
