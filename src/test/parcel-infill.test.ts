@@ -20,11 +20,12 @@ describe("WORLD-003 generated inter-building land use",()=>{
   const engine=new NullEngine(),scene=new Scene(engine);
   try{
     const urban=createGeneratedUrbanSurfaces(scene,FIRST_LIGHT_CITY_SPEC);
-    expect(urban.meshes.filter(m=>m.name.startsWith("generated-infill:"))).toHaveLength(3);
+    expect(urban.meshes.filter(m=>m.name.startsWith("generated-infill:"))).toHaveLength(4);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-parking:"))).toHaveLength(0);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-development:"))).toHaveLength(0);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-infill:"))
       .every(m=>m.thinInstanceCount>0)).toBe(true);
+    expect(urban.meshes.some(m=>m.name==="generated-infill:parking-stalls")).toBe(true);
     expect(urban.meshes.filter(m=>m.name.startsWith("generated-infill:"))
       .every(m=>!m.isPickable)).toBe(true);
     urban.dispose();

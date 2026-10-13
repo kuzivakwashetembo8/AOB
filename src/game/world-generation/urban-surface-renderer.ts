@@ -534,6 +534,29 @@ function createCityParcelInfill(scene:Scene,city:CitySpec):{
    if(list.length>0)mesh.thinInstanceSetBuffer("matrix",data,16,true);
    return mesh;
  });
+ // Generated low-profile parking bay lines: no per-location hand authored
+ // placement and no collision. Keep them below the road deck elevation.
+ const parking=cells.filter(c=>c.finish==="parking");
+ const stallMaterial=new StandardMaterial("generated-infill-parking-paint",scene);
+ stallMaterial.diffuseColor=new Color3(0.72,0.73,0.67);
+ stallMaterial.specularColor=Color3.Black();
+ materials.push(stallMaterial);
+ const stalls=MeshBuilder.CreateBox("generated-infill:parking-stalls",
+   {width:0.09,height:0.006,depth:4.25},scene);
+ stalls.material=stallMaterial;
+ stalls.isPickable=false;
+ const transforms=new Float32Array(parking.length*16);
+ parking.forEach((cell,index)=>{
+   // 90-degree rotation is deterministic per cluster and gives the
+   // bay markers a coherent orientation across adjacent parking cells.
+   const rotation=(Math.floor(cell.x/15)+Math.floor(cell.z/15))%2===0
+     ? 0:Math.PI/2;
+   const values=Matrix.RotationY(rotation)
+     .multiply(Matrix.Translation(cell.x,0.025,cell.z)).toArray();
+   for(let j=0;j<16;j++)transforms[index*16+j]=values[j]!;
+ });
+ if(parking.length)stalls.thinInstanceSetBuffer("matrix",transforms,16,true);
+ meshes.push(stalls);
  return {meshes,materials};
 }
 
