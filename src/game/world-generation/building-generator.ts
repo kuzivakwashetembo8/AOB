@@ -23,7 +23,7 @@ import type { ExperimentalBrickMaterial } from "./experimental-brick-material";
 import { businessBrickForBuilding, businessBrickPhysicalTile } from "./brick-business-field-trial";
 import type { BrickSurfaceId } from "./brick-surface-catalog";
 import { woodSurfaceForBuilding } from "./wood-south-ward-field-trial";
-import { WOOD_SURFACES, WOOD_TILE_METRES, type WoodSurfaceId } from "./wood-surface-catalog";
+import { WOOD_SURFACES, woodTileMetres, type WoodSurfaceId } from "./wood-surface-catalog";
 import { createImageWallMaterial, type ImageWallMaterial } from "./image-wall-material";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
 
@@ -211,7 +211,7 @@ export function generateBuilding(
       if (brickPresetId) applyPhysicalBrickUV(mesh, part, BRICK_SCALE_PRESETS[brickPresetId]);
       else if (businessSurfaceId) applyPhysicalBrickUV(
         mesh, part, businessBrickPhysicalTile(businessSurfaceId));
-      else if (woodSurfaceId) applyPhysicalBrickUV(mesh, part, WOOD_TILE_METRES);
+      else if (woodSurfaceId) applyPhysicalBrickUV(mesh, part, woodTileMetres(woodSurfaceId));
     }
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
       primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind,
