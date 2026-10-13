@@ -27,13 +27,13 @@ if (!existsSync(published)) {
   const generatedFiles = readdirSync(generated);
   const workerCode = readFileSync(sw, "utf8");
   const referencedWorkbox = [...new Set(
-    workerCode.match(/workbox-[A-Za-z0-9_-]+\\.js/g) ?? [],
+    workerCode.match(/workbox-[A-Za-z0-9_-]+\.js/g) ?? [],
   )];
   // Retain every generated Workbox module, including references that may
   // change hashes when Vite / Workbox is upgraded.
   const dependencies = [...new Set([
     ...referencedWorkbox,
-    ...generatedFiles.filter((file) => /^workbox-[A-Za-z0-9_-]+\\.js$/.test(file)),
+    ...generatedFiles.filter((file) => /^workbox-[A-Za-z0-9_-]+\.js$/.test(file)),
   ])];
   for (const file of ["sw.js", ...dependencies]) {
     const source = join(generated, file);
