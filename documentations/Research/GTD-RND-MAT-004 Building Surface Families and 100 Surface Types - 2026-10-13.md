@@ -3,7 +3,7 @@
 **Date:** 2026-10-13 (SAST)  
 **Classification:** OWNER-APPROVED TAXONOMY / SURFACE ART-DIRECTION REGISTRY  
 **Authority:** owner accepts ten deliberately distinct major wall-material families with ten candidate surface types each (100 in total).  
-**Asset status:** WALL-01 / BRK-01 is already approved and committed as the first image-derived building design surface; **all other 99 types are catalogue definitions only**, not sourced, generated, committed or deployed.  
+**Asset status:** WALL-01 / BRK-01 is the accepted and deployed first brick design surface. BRK-02–10 are now committed as optimized WebPs and registered, but NOT visually accepted or applied to buildings. The remaining 90 types are catalogue definitions only.
 **Repository baseline:** production main at \`2833566fb10b69e9df815bc7114188a25e4fba86\`. This standalone documentation lives on the documentation branch until any separately approved promotion.  
 **Related:** GTD-RND-MAT-001/002/003; GTD-WORLD-003 six-system audit and implementation plan.
 
@@ -51,7 +51,7 @@ The order is a **visual contrast sequence**, not a literal construction-history 
 | BRK-09 | Reclaimed aged mixed brick | Deliberately heterogeneous red, faded orange, soot-brown and lighter replacement units, chips, patched joints and repair chronology; visibly reused wall rather than uniform new cream brick. |
 | BRK-10 | Painted / whitewashed brick | Brick bonds remain visible through chalky white/limewash or partly weathered painted coverage; paint pooling, uneven opacity and exposed chips shift emphasis from raw reclaimed clay to applied finish. |
 
-**Research and generation order:** BRK-02 → BRK-10; no new assets are implied. For each: collect rights-valid visual references, decide unit geometry and colour range, generate/source the orthographic swatch, fix horizontal/vertical repeat borders, inspect 2×2 + 3×3 samples, establish metres-per-tile, optimize WebP, compare day/night, owner approve, commit and register. Keep accepted BRK-01 pixel and source identity unchanged.
+**Brick production record:** BRK-02–10 source/optimization and branch commitment are complete. Their tile-edge seam QA, per-style physical calibration and owner acceptance remain pending; BRK-01 source bytes are unchanged. Future families follow source research → orthographic swatch → 2×2/3×3 repeat inspection → scale QA → optimization → owner approval.
 
 ## 3. WALL-02 — Timber / wood cladding — TIM
 
@@ -214,7 +214,7 @@ The **100 concepts are not 100 mandatory production downloads**. Author surface 
 
 \`CANDIDATE → RESEARCHED → SOURCE_APPROVED → IMAGE_OR_MATERIAL_AUTHORED → TILE_QA → OPTIMIZED → COMMITTED → OWNER_VISUALLY_ACCEPTED → ASSIGNED_TO_BUILDING\`
 
-Only **BRK-01** currently qualifies as the accepted and assigned image surface. All others remain **CANDIDATE**, even where procedural analogues exist. A candidate becoming photographed/AI-generated does not automatically authorize commercial use; maintain provenance and clearance.
+Only **BRK-01** qualifies as an accepted and assigned image surface. **BRK-02–10 are asset-committed but not visually accepted or assigned.** All non-brick surface types remain candidates. Maintain provenance and rights clearance.
 
 ### Per-type specification fields
 
@@ -252,7 +252,16 @@ A building's type assignment is a deliberate design decision. Asset count, textu
 ## 13. Current acceptance and next instruction
 
 - **Family count:** 10/10 definitions complete; **surface-type count:** 100/100 definitions complete.
-- **Accepted physical image assets:** 1 (WALL-01 / BRK-01, \`public/brick-wall-image.webp\`, currently on apartment and garage).
-- **Nine remaining BRK surface IDs:** BRK-02...BRK-10 — research, source retrieval, image generation/manual cleanup, optimization and repository commitment NOT YET STARTED.
+- **Accepted physical image assets:** 1 (WALL-01 / BRK-01; legacy production path `/brick-wall-image.webp`, apartment and garage). **Additional organized, unaccepted brick WebPs:** 9.
+- **BRK-02 through BRK-10:** image assets committed and canonically named on the documentation branch. Tile seam QA, owner acceptance, building assignment and deployment are pending; these are NOT yet G1 material coverage.
 - **Remaining families WALL-02...10:** described for subsequent phases; no production images or new shader implementations authorized by this document.
 - **World and traffic dependency:** this catalogue does not close the G1 building-coverage gate of GTD-WORLD-003. The owner will direct which surface to research/generate next; no world expansion or ambient traffic begins until previously stated foundation gates are closed.
+
+
+## 14. Brick asset organization and compatibility — 2026-10-13
+
+The owner committed `public/Brick 2.webp` through `public/Brick 10.webp` on branch `docs/gtd-world-003-six-system-audit-plan-20261013`. All nine assets were renamed into `public/assets/surfaces/brick/` through Git tree operations using their **exact original Git blob SHAs**. No image bytes were resampled or re-encoded. BRK-01 is also available in that canonical directory as a byte-identical copy, while the original `public/brick-wall-image.webp` remains untouched to protect production.
+
+**Verified dimensions:** BRK-01 = **1774 × 871 px**; BRK-02–10 = **1790 × 879 px** each. The aspect ratios closely match, but pixel dimensions are not identical. The manifest records exact dimensions and Git hashes; image seam continuity is still subject to separate visual 2×2 and 3×3 tile tests.
+
+**Machine-readable files:** `public/assets/surfaces/brick/brick-family-manifest.json` and `src/game/world-generation/brick-surface-catalog.ts`. A regression test verifies source identity and live BRK-01 compatibility. No additional buildings or materials were activated and no changes were merged to production `main` in this organization task.
