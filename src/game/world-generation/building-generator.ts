@@ -25,6 +25,8 @@ import type { BrickSurfaceId } from "./brick-surface-catalog";
 import { woodSurfaceForBuilding } from "./wood-south-ward-field-trial";
 import { WOOD_SURFACES, woodTileMetres, type WoodSurfaceId } from "./wood-surface-catalog";
 import { createImageWallMaterial, type ImageWallMaterial } from "./image-wall-material";
+import { isGlassTower, glassSurfaceForBuilding } from "./glass-south-ward-field-trial";
+import { GLASS_SURFACES, GLASS_TILE_METRES, type GlassSurfaceId } from "./glass-surface-catalog";
 import type { BatchingMode, RepresentationTier } from "./representation-lod";
 
 /** Step 4 adds optional physics and camera semantics without changing the live First Light scene. */
@@ -45,6 +47,8 @@ export interface BuildingGenerationContext {
   /** MAT-006 wood-family preview, restricted to previously procedural buildings. */
   readonly enableWoodSurfaceFieldTrial?: boolean;
   readonly woodSurfaceFocusId?: WoodSurfaceId | null;
+  readonly enableGlassSurfaceFieldTrial?: boolean;
+  readonly glassSurfaceFocusId?: GlassSurfaceId | null;
   /** Metres from camera/player to building origin; default 0 preserves Step 2 output. */
   readonly initialDistance?: number;
   /** Defaults to enabled only when a physics world is provided. */
@@ -81,7 +85,10 @@ export function generateBuilding(
 ): GeneratedBuilding {
   const plan = planBuilding(spec, context.generatorVersion);
   const interaction = planBuildingInteraction(spec, plan);
-  const detailPlan = context.enableFacadeDetails ? planFacadeDetails(spec, plan) : { primitives: [], decals: [] };
+  // Curtain towers cannot inherit downpipes, punched-window trim or pseudo
+  // masonry cornices. Their grid mullions exist in the visual surface sample.
+  const detailPlan = context.enableFacadeDetails && !isGlassTower(spec.id)
+    ? planFacadeDetails(spec, plan) : { primitives: [], decals: [] };
   const batchingMode = context.batchingMode ?? "individual";
   const library = context.materialLibrary ?? new BuildingMaterialLibrary(scene);
   const ownsLibrary = !context.materialLibrary;
@@ -105,9 +112,14 @@ export function generateBuilding(
   const woodSurfaceId = woodSurfaceForBuilding(
     spec.id, context.enableWoodSurfaceFieldTrial === true,
     context.woodSurfaceFocusId ?? null);
-  const imageWallActive = brickTrialActive || woodSurfaceId !== null;
+  const glassSurfaceId = glassSurfaceForBuilding(
+    spec.id, context.enableGlassSurfaceFieldTrial === true,
+    context.glassSurfaceFocusId ?? null);
+  const imageWallActive = brickTrialActive || woodSurfaceId !== null ||
+    glassSurfaceId !== null;
   let experimentalBrick: ExperimentalBrickMaterial | null = null;
   let experimentalWood: ImageWallMaterial | null = null;
+  let experimentalGlass: ImageWallMaterial | null = null;
   let tier: RepresentationTier = "near";
   let proxiesBuilt = false;
   let disposed = false;
@@ -120,6 +132,19 @@ export function generateBuilding(
         scene, materialRecipe(spec, context.generatorVersion, "wall"), spec.id,
         businessSurfaceId ?? "BRK-01");
       return experimentalBrick.material;
+    }
+    if (role === "wall" && glassSurfaceId) {
+      if (!experimentalGlass) {
+        experimentalGlass = createImageWallMaterial(
+          scene, materialRecipe(spec, context.generatorVersion, "wall"),
+          "experiment:glass-" + glassSurfaceId + ":" + spec.id,
+          GLASS_SURFACES[glassSurfaceId].path);
+        // The image is only the fixed panel grid/tint. Local light interaction
+        // comes from the scene; no sky/cloud reflection is baked into it.
+        experimentalGlass.material.specularColor = new Color3(0.64, 0.70, 0.78);
+        experimentalGlass.material.specularPower = 112;
+      }
+      return experimentalGlass.material;
     }
     if (role === "wall" && woodSurfaceId) {
       if (!experimentalWood) experimentalWood = createImageWallMaterial(
@@ -212,6 +237,7 @@ export function generateBuilding(
       else if (businessSurfaceId) applyPhysicalBrickUV(
         mesh, part, businessBrickPhysicalTile(businessSurfaceId));
       else if (woodSurfaceId) applyPhysicalBrickUV(mesh, part, woodTileMetres(woodSurfaceId));
+      else if (glassSurfaceId) applyPhysicalBrickUV(mesh, part, GLASS_TILE_METRES);
     }
     mesh.metadata = { buildingId: spec.id, architecturalRole: part.role,
       primitiveId: part.id, templateId: part.templateId ?? null, renderClass: kind,
@@ -309,6 +335,7 @@ export function generateBuilding(
     storefrontLedMaterial?.dispose();
     experimentalBrick?.dispose();
     experimentalWood?.dispose();
+    experimentalGlass?.dispose();
     root.dispose();
     for (const key of leases.values()) library.release(key);
     if (ownsLibrary) library.dispose();
