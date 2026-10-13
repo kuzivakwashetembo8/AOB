@@ -55,6 +55,7 @@ import { southWardLocationAt } from "../world-generation/south-ward-location";
 import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-policy";
 import { parseBusinessBrickFocus } from "../world-generation/brick-business-field-trial";
 import { parseWoodFocus } from "../world-generation/wood-south-ward-field-trial";
+import { parseGlassFocus } from "../world-generation/glass-south-ward-field-trial";
 import { isCurbAscent } from "../character/locomotion/curb-step";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import {
@@ -244,6 +245,9 @@ export class GTDGameRuntime implements GameRuntime {
           diagnosticParams.get("gtdBrickFocus")),
         enableWoodSurfaceFieldTrial: diagnosticParams.get("gtdWoodField") !== "0",
         woodSurfaceFocusId: parseWoodFocus(diagnosticParams.get("gtdWoodFocus")),
+        // MAT-007 curtain-wall towers replace the prior timber preview.
+        enableGlassSurfaceFieldTrial: diagnosticParams.get("gtdGlassField") !== "0",
+        glassSurfaceFocusId: parseGlassFocus(diagnosticParams.get("gtdGlassFocus")),
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
