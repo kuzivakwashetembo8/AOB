@@ -64,8 +64,15 @@ describe("South Ward municipal urban quality / seven correction gates", () => {
       expect(walks.length).toBeGreaterThan(4);
       expect(find("generated-parity-north-walk").getBoundingInfo().boundingBox.extendSize.z * 2)
         .toBeCloseTo(3.75);
-      for (const type of ["generated-development:", "generated-parking:", "generated-parking-marking:"]) {
-        expect(surfaces.meshes.some(m => m.name.startsWith(type))).toBe(true);
+      // WORLD-003 supersedes the old four fixed development rectangles
+      // and three authored car parks with deterministic city-derived infill.
+      for (const obsolete of ["generated-development:", "generated-parking:", "generated-parking-marking:"]) {
+        expect(surfaces.meshes.some(m => m.name.startsWith(obsolete))).toBe(false);
+      }
+      for (const kind of ["pavement", "parking", "grass", "parking-stalls"]) {
+        const mesh = find("generated-infill:" + kind);
+        expect(mesh.thinInstanceCount).toBeGreaterThan(0);
+        expect(mesh.isPickable).toBe(false);
       }
       surfaces.dispose();
       expect(scene.meshes).toHaveLength(0);
