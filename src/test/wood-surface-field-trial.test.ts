@@ -8,7 +8,7 @@ import { resolveCityBuildings } from "../game/world-generation/defaults";
 import { generateBuilding } from "../game/world-generation/building-generator";
 import { planBuilding } from "../game/world-generation/architecture-plan";
 import {
-  WOOD_FAMILY_ID, WOOD_SURFACES, WOOD_SURFACE_IDS, WOOD_TILE_METRES,
+  WOOD_FAMILY_ID, WOOD_SURFACES, WOOD_SURFACE_IDS, woodTileMetres,
 } from "../game/world-generation/wood-surface-catalog";
 import {
   SOUTH_WARD_WOOD_ASSIGNMENTS, parseWoodFocus,
@@ -53,6 +53,12 @@ describe("MAT-006 wood source assets and South Ward assignments", () => {
       const img = header(bytes);
       expect(img.width).toBeGreaterThan(900);
       expect(img.height).toBeGreaterThan(500);
+      expect(img.width).toBe(id === "WOOD-01" ? 1790 : 1659);
+      expect(img.height).toBe(id === "WOOD-01" ? 879 : 948);
+      expect(item.pixelWidth).toBe(img.width);
+      expect(item.pixelHeight).toBe(img.height);
+      expect(woodTileMetres(id).width / woodTileMetres(id).height)
+        .toBeCloseTo(img.width / img.height, 9);
       // Expose actual source dimensions in CI before the family can be certified.
       console.info("MAT006-WEBP-HEADER", id, img.width, img.height, img.tag);
     }
@@ -126,7 +132,7 @@ describe("MAT-006 wood source assets and South Ward assignments", () => {
               z: part.center.z + positions[3*i+2]!,
             }, {
               x: normals[3*i]!, y: normals[3*i+1]!, z: normals[3*i+2]!,
-            }, WOOD_TILE_METRES);
+            }, woodTileMetres(id));
             expect(uv[2*i]).toBeCloseTo(mapped.u, 5);
             expect(uv[2*i+1]).toBeCloseTo(mapped.v, 5);
           }
