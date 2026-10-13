@@ -53,6 +53,7 @@ import type { VoightPrototype } from "../character/voight";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
 import { southWardLocationAt } from "../world-generation/south-ward-location";
 import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-policy";
+import { parseBusinessBrickFocus } from "../world-generation/brick-business-field-trial";
 import { isCurbAscent } from "../character/locomotion/curb-step";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import {
@@ -234,6 +235,12 @@ export class GTDGameRuntime implements GameRuntime {
         // MAT-003: approved apartment and garage brick surfaces are default-on.
         // An explicit ?gtdBrickTrial=0 permits reversible field diagnostics.
         enableBrickMaterialTrial: acceptedBrickSurfaceEnabled(diagnosticParams),
+        // MAT-005 candidate business surfaces default to preview-on.
+        // ?gtdBrickField=0 removes only the new candidate assignment layer.
+        enableBrickBusinessFieldTrial: diagnosticParams.get("gtdBrickField") !== "0",
+        // ?gtdBrickFocus=BRK-05 previews another committed surface on corner shop.
+        brickBusinessFocusSurface: parseBusinessBrickFocus(
+          diagnosticParams.get("gtdBrickFocus")),
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
