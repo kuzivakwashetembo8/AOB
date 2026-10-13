@@ -54,6 +54,7 @@ import { resolveCharacterTrialStreetWitnesses } from "../character/character-tri
 import { southWardLocationAt } from "../world-generation/south-ward-location";
 import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-policy";
 import { parseBusinessBrickFocus } from "../world-generation/brick-business-field-trial";
+import { parseWoodFocus } from "../world-generation/wood-south-ward-field-trial";
 import { isCurbAscent } from "../character/locomotion/curb-step";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
 import {
@@ -241,6 +242,8 @@ export class GTDGameRuntime implements GameRuntime {
         // ?gtdBrickFocus=BRK-05 previews another committed surface on corner shop.
         brickBusinessFocusSurface: parseBusinessBrickFocus(
           diagnosticParams.get("gtdBrickFocus")),
+        enableWoodSurfaceFieldTrial: diagnosticParams.get("gtdWoodField") !== "0",
+        woodSurfaceFocusId: parseWoodFocus(diagnosticParams.get("gtdWoodFocus")),
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
