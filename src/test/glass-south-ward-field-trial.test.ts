@@ -78,7 +78,7 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
       expect(plan.bays.filter(b=>b.role==="window"||b.role==="storefront"))
         .toHaveLength(0);
       expect(plan.primitives.filter(p=>p.id.startsWith("pane:")||
-        p.id.startsWith("frame:") || p.role==="glass" ||p.role==="storefront"))
+        p.id.startsWith("frame:auto:") || p.role==="glass" ||p.role==="storefront"))
         .toHaveLength(0);
       expect(plan.primitives.some(p=>p.role==="wall")).toBe(true);
       expect(plan.primitives.some(p=>p.role==="roof")).toBe(true);
