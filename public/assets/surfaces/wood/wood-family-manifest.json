@@ -4,7 +4,7 @@
   "familyName": "Timber / wood cladding",
   "publicDirectory": "/assets/surfaces/wood/",
   "taxonomyNote": "WOOD-01 through WOOD-10 are the approved user-facing wood labels; correspond ordinally to the older MAT-004 TIM-01 through TIM-10 taxonomy, whose descriptions may differ and require reconciliation.",
-  "geometryNote": "Optimized source pixel dimensions are not yet available through the GitHub binary connector. UV calibration is provisional to the generated landscape 7:4 design frame; do not certify seamlessness or exact physical measurements until on-device inspection.",
+  "geometryNote": "Measured WebP headers: WOOD-01 1790x879; WOOD-02..10 1659x948. Physical UVs use each native aspect ratio.",
   "photoRights": "Owner-committed generated textures; provenance to be pinned before broader distribution.",
   "surfaces": [
     {
@@ -15,8 +15,8 @@
       "sourcePathOnMain": "public/Wood 1.webp",
       "gitBlobSha": "9005c8590e8ac3936704023f0875cae1274bd42b",
       "sizeBytes": 2133064,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1790,
+      "pixelHeight": 879,
       "status": "asset-committed"
     },
     {
@@ -27,8 +27,8 @@
       "sourcePathOnMain": "public/Wood 2.webp",
       "gitBlobSha": "433cf30ec340413f7952a1b075b574257446c805",
       "sizeBytes": 2030940,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1659,
+      "pixelHeight": 948,
       "status": "asset-committed"
     },
     {
@@ -39,8 +39,8 @@
       "sourcePathOnMain": "public/Wood 3.webp",
       "gitBlobSha": "4aacef5d08eaba487ee7efc22856ceca91ef6aa4",
       "sizeBytes": 2358220,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1659,
+      "pixelHeight": 948,
       "status": "asset-committed"
     },
     {
@@ -51,8 +51,8 @@
       "sourcePathOnMain": "public/Wood 4.webp",
       "gitBlobSha": "8e7353ccca6cb4f6694ef4629a86bebb9c41ef8d",
       "sizeBytes": 2752364,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1659,
+      "pixelHeight": 948,
       "status": "asset-committed"
     },
     {
@@ -63,8 +63,8 @@
       "sourcePathOnMain": "public/Wood 5.webp",
       "gitBlobSha": "2ed6e12416320bb00eb6f2102e9543f12796eab6",
       "sizeBytes": 1973698,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1659,
+      "pixelHeight": 948,
       "status": "asset-committed"
     },
     {
@@ -75,8 +75,8 @@
       "sourcePathOnMain": "public/Wood 6.webp",
       "gitBlobSha": "5c262f412d35b74d6967f9af188d3665607a1ad2",
       "sizeBytes": 1830226,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1659,
+      "pixelHeight": 948,
       "status": "asset-committed"
     },
     {
@@ -87,8 +87,8 @@
       "sourcePathOnMain": "public/Wood 7.webp",
       "gitBlobSha": "7cf7ed496a83d8f7cb3159040c8612ee012efc65",
       "sizeBytes": 2008394,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1659,
+      "pixelHeight": 948,
       "status": "asset-committed"
     },
     {
@@ -99,8 +99,8 @@
       "sourcePathOnMain": "public/Wood 8.webp",
       "gitBlobSha": "20ee6d6936f98972499e0bb16483a69479db7b15",
       "sizeBytes": 2591310,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1659,
+      "pixelHeight": 948,
       "status": "asset-committed"
     },
     {
@@ -111,8 +111,8 @@
       "sourcePathOnMain": "public/Wood 9.webp",
       "gitBlobSha": "49a3205cc995141c994e62e207de068448d58ef7",
       "sizeBytes": 1870360,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1659,
+      "pixelHeight": 948,
       "status": "asset-committed"
     },
     {
@@ -123,8 +123,8 @@
       "sourcePathOnMain": "public/Wood 10.webp",
       "gitBlobSha": "8eb77654895a06c519446a051eea69a84361fa7a",
       "sizeBytes": 1958836,
-      "pixelWidth": null,
-      "pixelHeight": null,
+      "pixelWidth": 1659,
+      "pixelHeight": 948,
       "status": "asset-committed"
     }
   ]
