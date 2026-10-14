@@ -402,8 +402,10 @@ export function generateBuilding(
     const parts = [
       ...plan.primitives, ...detailPlan.primitives,
       ...(physics ? interaction.closedDoorPanels : []),
+      // Both glass towers now have physical strips when glass imagery is active;
+      // the existing cap coloration remains distinct between blue and grey.
       ...planSkylineArchitecturalGeometry(plan, spec.id,
-        glassSurfaceId !== null && spec.id === GREY_GLASS_TOWER_ID),
+        glassSurfaceId !== null),
     ];
     if (batchingMode === "thin-instances") makeBatches(parts);
     else if (batchingMode === "individual") {
