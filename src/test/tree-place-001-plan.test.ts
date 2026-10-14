@@ -88,6 +88,9 @@ describe("TREE-PLACE-001 pure deterministic urban forestry",()=>{
    expect(report.generated.every(x=>["architecture","woodland","corridor"].includes(x.zoneKind))).toBe(true);
    expect(report.perZone.architecture+report.perZone.woodland+report.perZone.corridor)
      .toBe(report.generated.length);
+   expect(report.perZone.architecture).toBeGreaterThan(0);
+   expect(report.perZone.woodland).toBeGreaterThan(0);
+   expect(report.perZone.corridor).toBeGreaterThan(0);
    expect(planUrbanForestry(city,base.items,24)).toEqual(report);
  });
 });
