@@ -49,6 +49,7 @@ export function createFirstLightRuntimeWorld(
   physics: MeridianPhysics,
   source: FirstLightWorldSource = ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
   options: {
+    readonly enableLandUsePreview?: boolean;
     readonly enableSidewalkSupportCollision?: boolean;
     readonly enableBrickMaterialTrial?: boolean;
     readonly enableBrickBusinessFieldTrial?: boolean;
@@ -63,6 +64,7 @@ export function createFirstLightRuntimeWorld(
     return createGeneratedFirstLightWorld(scene, physics, {
       enableCameraBlockers: true,
       enableShadows: true,
+      enableLandUsePreview: options.enableLandUsePreview ?? false,
       enableSidewalkSupportCollision: options.enableSidewalkSupportCollision ?? false,
       enableBrickMaterialTrial: options.enableBrickMaterialTrial ?? false,
       enableBrickBusinessFieldTrial: options.enableBrickBusinessFieldTrial ?? false,
