@@ -15,7 +15,7 @@ import type { CitySpec, PublicSpaceSpec } from "./schema";
 import { planStreetContext } from "./street-context";
 import { planTreeCanopy } from "./tree-canopy";
 import { planVehicleProxyGeometry } from "./vehicle-proxy-geometry";
-import type { StreetContextItem } from "./street-context";
+import type { StreetContextItem, StreetContextPlan } from "./street-context";
 
 export interface GeneratedStreetContext {
   readonly itemCount: number;
@@ -720,9 +720,9 @@ function createPocketParkSurface(
 export function createGeneratedStreetContext(
   scene: Scene,
   city: CitySpec,
-  options: { readonly skipPocketParkGround?: boolean } = {},
+  options: { readonly skipPocketParkGround?: boolean; readonly plan?: StreetContextPlan } = {},
 ): GeneratedStreetContext {
-  const plan = planStreetContext(city);
+  const plan = options.plan ?? planStreetContext(city);
   const meshes: Mesh[] = [];
   const nodes: TransformNode[] = [];
 
