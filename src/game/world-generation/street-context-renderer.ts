@@ -14,6 +14,8 @@ import type { Scene } from "@babylonjs/core";
 import type { CitySpec, PublicSpaceSpec } from "./schema";
 import { planStreetContext } from "./street-context";
 import { planTreeCanopy } from "./tree-canopy";
+import { createImageTexture, FOLIAGE_IMAGE_URL, FOLIAGE_TEST_TREE_ID } from "./greenery-image-assets";
+import type { FoliageImageTrial } from "./greenery-image-assets";
 import { planVehicleProxyGeometry } from "./vehicle-proxy-geometry";
 import type { StreetContextItem } from "./street-context";
 
@@ -720,7 +722,7 @@ function createPocketParkSurface(
 export function createGeneratedStreetContext(
   scene: Scene,
   city: CitySpec,
-  options: {readonly skipPocketParkGround?:boolean} = {},
+  options: {readonly skipPocketParkGround?:boolean; readonly foliageImageTrial?:FoliageImageTrial} = {},
 ): GeneratedStreetContext {
   const plan = planStreetContext(city);
   const meshes: Mesh[] = [];
@@ -745,6 +747,36 @@ export function createGeneratedStreetContext(
   foliage.backFaceCulling = false;
   foliage.transparencyMode = Material.MATERIAL_ALPHATESTANDBLEND;
   foliage.specularColor = Color3.Black();
+
+  // One shared photo material for test tree (or all authored trees via opt-in).
+  // Shrubs retain procedural foliage. A missing image never blanks the crown.
+  let disposed=false;
+  let foliageTrialTexture:Texture|null=null;
+  const trial=options.foliageImageTrial??"off";
+  const foliageImageMaterial=trial==="off"?null:new StandardMaterial(
+    "grn002-photo-foliage-material",scene);
+  if(foliageImageMaterial){
+    foliageImageMaterial.diffuseTexture=foliageMap;
+    foliageImageMaterial.opacityTexture=foliageMap;
+    foliageImageMaterial.useAlphaFromDiffuseTexture=true;
+    foliageImageMaterial.backFaceCulling=false;
+    foliageImageMaterial.transparencyMode=Material.MATERIAL_ALPHATESTANDBLEND;
+    foliageImageMaterial.specularColor=Color3.Black();
+    foliageTrialTexture=createImageTexture(scene,FOLIAGE_IMAGE_URL,texture=>{
+      if(disposed){texture.dispose();return;}
+      texture.hasAlpha=true;
+      texture.wrapU=Texture.CLAMP_ADDRESSMODE;
+      texture.wrapV=Texture.CLAMP_ADDRESSMODE;
+      foliageImageMaterial.diffuseTexture=texture;
+      foliageImageMaterial.opacityTexture=texture;
+      foliageImageMaterial.alphaCutOff=0.45;
+      foliageImageMaterial.metadata={imageState:"ready",assetUrl:FOLIAGE_IMAGE_URL};
+    },message=>{
+      if(disposed)return;
+      foliageImageMaterial.metadata={imageState:"fallback",error:message};
+    });
+    foliageImageMaterial.metadata={imageState:"loading",assetUrl:FOLIAGE_IMAGE_URL};
+  }
 
   const metal = material(
     scene,
@@ -818,7 +850,10 @@ export function createGeneratedStreetContext(
 
   for (const item of plan.items) {
     if (item.kind === "tree") {
-      addTree(scene, item, meshes, nodes, trunk, foliage, city.generatorVersion);
+      const photoTree=trial==="all"||
+        (trial==="one"&&item.id===FOLIAGE_TEST_TREE_ID);
+      addTree(scene,item,meshes,nodes,trunk,
+        photoTree?(foliageImageMaterial??foliage):foliage,city.generatorVersion);
     } else if (item.kind === "shrub") {
       addShrub(scene, item, meshes, nodes, foliage);
     } else if (item.kind === "streetlight") {
@@ -835,6 +870,7 @@ export function createGeneratedStreetContext(
   const materials = [
     trunk,
     foliage,
+    ...(foliageImageMaterial?[foliageImageMaterial]:[]),
     metal,
     glow,
     paint,
@@ -845,7 +881,6 @@ export function createGeneratedStreetContext(
     grassAccent,
   ];
 
-  let disposed = false;
   return {
     itemCount: plan.items.length,
     meshes,
@@ -861,10 +896,13 @@ export function createGeneratedStreetContext(
           if (materialValue.opacityTexture === diffuse) {
             materialValue.opacityTexture = null;
           }
-          diffuse?.dispose();
+          // Fallback foliageMap belongs to the original material, not the
+          // trial material, which may borrow it until the photo loads.
+          if(materialValue!==foliageImageMaterial)diffuse?.dispose();
         }
         materialValue.dispose();
       }
+      foliageTrialTexture?.dispose();
     },
   };
 }
