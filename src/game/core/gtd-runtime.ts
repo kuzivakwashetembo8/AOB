@@ -58,7 +58,7 @@ import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-p
 import { parseBusinessBrickFocus } from "../world-generation/brick-business-field-trial";
 import { parseWoodFocus } from "../world-generation/wood-south-ward-field-trial";
 import { parseGlassFocus } from "../world-generation/glass-south-ward-field-trial";
-import { parseForestryBudget } from "../world-generation/urban-forestry-plan";
+import { resolveAcceptedSouthWardPresentation } from "../world-generation/south-ward-accepted-presentation";
 import { isCurbAscent } from "../character/locomotion/curb-step";
 import { flightDisplacement, toggleInspectionFlight } from "../character/locomotion/inspection-flight";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
@@ -230,6 +230,7 @@ export class GTDGameRuntime implements GameRuntime {
     const physics = await MeridianPhysics.create();
     this.emit({ type: "load-checkpoint", id: "physics", status: "done" });
     this.emit({ type: "load-checkpoint", id: "world", status: "running" });
+    const acceptedSouthWard=resolveAcceptedSouthWardPresentation(diagnosticParams);
     const firstLight = createFirstLightRuntimeWorld(
       scene,
       physics,
@@ -240,13 +241,10 @@ export class GTDGameRuntime implements GameRuntime {
         // Canonical Voight always needs physical sidewalk TOP support.
         // Trial-only support previously allowed feet to clip through paving.
         enableSidewalkSupportCollision: true,
-        // GROUND-001: opt-in, rollback-safe surface replacement on preview.
-        enableLandUsePreview: diagnosticParams.get("gtdGround001") === "1",
-        // TREE-PLACE-001 is a preview-only, budget-bounded forestry experiment.
-        enableTreePlace001: diagnosticParams.get("gtdTreePlace001") === "1",
-        treeBudget: parseForestryBudget(diagnosticParams.get("gtdTreeBudget")),
-        treeDensityFocus: diagnosticParams.get("gtdTreeDensity")==="mercer"
-          ? "mercer-open-side" : "balanced",
+        // Accepted South Ward ground and woodland now load without URL
+        // parameters. Explicit ?gtdGround001=0 or ?gtdTreePlace001=0
+        // individually restores the former field-test baseline.
+        ...acceptedSouthWard,
         // GRN-004: photo grass trials removed. The approved GRN-01 grass is always used.
         // GRN-005: discontinued photo/aerial foliage URL trials are inert.
         // MAT-003: approved apartment and garage brick surfaces are default-on.
@@ -287,10 +285,10 @@ export class GTDGameRuntime implements GameRuntime {
       .__GTD_TREE_PLACE_REPORT__=()=>{
         const sorted=[...treeFrameTimes].sort((a,b)=>a-b);
         return {
-          schema:"gtd.tree-place-001.preview.v2",
-          enabled:diagnosticParams.get("gtdTreePlace001")==="1",
-          budget:parseForestryBudget(diagnosticParams.get("gtdTreeBudget")),
-          density:diagnosticParams.get("gtdTreeDensity")==="mercer"?"mercer-open-side":"balanced",
+          schema:"gtd.tree-place-001.accepted.v3",
+          enabled:acceptedSouthWard.enableTreePlace001,
+          budget:acceptedSouthWard.treeBudget,
+          density:acceptedSouthWard.treeDensityFocus,
           forest:firstLight.forestryReport??null,
           scene:{meshes:scene.meshes.length,activeMeshes:scene.getActiveMeshes().length,
             materials:scene.materials.length,textures:scene.textures.length,
