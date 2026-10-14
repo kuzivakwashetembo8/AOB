@@ -720,6 +720,7 @@ function createPocketParkSurface(
 export function createGeneratedStreetContext(
   scene: Scene,
   city: CitySpec,
+  options: {readonly skipPocketParkGround?:boolean} = {},
 ): GeneratedStreetContext {
   const plan = planStreetContext(city);
   const meshes: Mesh[] = [];
@@ -798,7 +799,7 @@ export function createGeneratedStreetContext(
     0.01,
   );
 
-  for (const district of city.districts) {
+  if (!options.skipPocketParkGround) for (const district of city.districts) {
     for (const neighborhood of district.neighborhoods) {
       for (const block of neighborhood.blocks) {
         for (const space of block.publicSpaces ?? []) {
