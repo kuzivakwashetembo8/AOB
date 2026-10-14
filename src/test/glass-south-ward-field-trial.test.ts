@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { NullEngine, Scene, VertexBuffer } from "@babylonjs/core";
+import { NullEngine, Scene, StandardMaterial, VertexBuffer } from "@babylonjs/core";
 import { FIRST_LIGHT_CITY_SPEC } from "../game/world-generation/first-light-spec";
 import { resolveCityBuildings } from "../game/world-generation/defaults";
 import { planBuilding } from "../game/world-generation/architecture-plan";
@@ -218,8 +218,18 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
         const frameMetal = result.meshes.filter(m =>
           m.material?.name === "skyline-structural-metal:" + spec.id);
         expect(frameMetal.length).toBeGreaterThan(0);
-        if (spec.id === BLUE_GLASS_TOWER_ID) expect(pale.length).toBeGreaterThan(0);
-        else expect(pale).toHaveLength(0);
+        const frame = frameMetal[0]?.material as StandardMaterial;
+        expect(frame).toBeInstanceOf(StandardMaterial);
+        if (spec.id === BLUE_GLASS_TOWER_ID) {
+          // 3D mullions and transoms use the near-white frame, not graphite.
+          expect(pale.length).toBeGreaterThan(0);
+          expect(frame.diffuseColor.r).toBeGreaterThan(0.94);
+          expect(frame.diffuseColor.g).toBeGreaterThan(0.94);
+          expect(frame.diffuseColor.b).toBeGreaterThan(0.94);
+        } else {
+          expect(pale).toHaveLength(0);
+          expect(frame.diffuseColor.r).toBeLessThan(0.3);
+        }
         const roofGroups = result.meshes.filter(m => {
           const info = m.metadata as { primitiveIds?: string[]; primitiveId?: string };
           return (info.primitiveIds ?? [info.primitiveId ?? ""]).some(p => p.startsWith("roof:"));
