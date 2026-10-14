@@ -17,7 +17,7 @@ describe("GROUND-004: intentional grass-only residual coverage",()=>{
    expect([...plan.kinds].every(value=>value===0)).toBe(true);
    expect(plan.counts).toEqual({"GRN-01":20800});
    expect(plan.basins).toHaveLength(0);
-   for(const [x,z] of [[0,8],[20,28],[-2.5,35.5],[64,70],[-75,-40]])
+   for(const [x,z] of [[0,8],[20,28],[-2.5,35.5],[64,70],[-75,-40]] as const)
      expect(plan.sample(x,z)).toBe("GRN-01");
    expect(plan.sample(-81,0)).toBeNull();
    expect(plan.sample(81,0)).toBeNull();
@@ -37,8 +37,8 @@ describe("GROUND-004: intentional grass-only residual coverage",()=>{
    expect(texture.pixels.length).toBe(1280*1040*4);
    let invalid=0;
    for(let i=0;i<texture.pixels.length;i+=4)
-     if(texture.pixels[i+3]!==255||texture.pixels[i+1]<=texture.pixels[i]
-       ||texture.pixels[i+1]<=texture.pixels[i+2])invalid++;
+     if(texture.pixels[i+3]!==255||texture.pixels[i+1]!<=texture.pixels[i]!
+       ||texture.pixels[i+1]!<=texture.pixels[i+2]!)invalid++;
    expect(invalid).toBe(0);
  });
  it("allocates and disposes a grass-only Babylon texture",()=>{
