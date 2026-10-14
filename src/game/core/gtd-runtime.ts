@@ -58,6 +58,7 @@ import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-p
 import { parseBusinessBrickFocus } from "../world-generation/brick-business-field-trial";
 import { parseWoodFocus } from "../world-generation/wood-south-ward-field-trial";
 import { parseGlassFocus } from "../world-generation/glass-south-ward-field-trial";
+import { parseGrassTileMetres } from "../world-generation/greenery-image-assets";
 import { isCurbAscent } from "../character/locomotion/curb-step";
 import { flightDisplacement, toggleInspectionFlight } from "../character/locomotion/inspection-flight";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
