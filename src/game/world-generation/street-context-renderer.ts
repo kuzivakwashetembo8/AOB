@@ -762,7 +762,7 @@ export function createGeneratedStreetContext(
     foliageImageMaterial.backFaceCulling=false;
     foliageImageMaterial.transparencyMode=Material.MATERIAL_ALPHATESTANDBLEND;
     foliageImageMaterial.specularColor=Color3.Black();
-    foliageTrialTexture=createImageTexture(scene,FOLIAGE_IMAGE_URL,texture=>{
+    if(!isHeadlessTextureEnvironment(scene))foliageTrialTexture=createImageTexture(scene,FOLIAGE_IMAGE_URL,texture=>{
       if(disposed){texture.dispose();return;}
       texture.hasAlpha=true;
       texture.wrapU=Texture.CLAMP_ADDRESSMODE;
