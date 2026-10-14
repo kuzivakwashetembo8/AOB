@@ -1,5 +1,8 @@
 # GTD-WORLD-006 — Meridian City Expansion Architecture & Security-Gated Implementation Plan
 
+> **DECOMMISSIONED GEO-R1 EXECUTION — OWNER STOP ORDER (2026-10-14).** The implementation branch `feat/world006-r1-visible-south-ward-pilot-20261014` and all `verify/world006-r1-*` verification branches are permanently withdrawn from consideration. **DO NOT MERGE, REOPEN, CONTINUE DEVELOPMENT, REUSE AS A BASE, OR DEPLOY THEIR COMMITS.** All R1 mobile previews failed visual acceptance despite green automated tests. The GEO-R1 experiment is closed as **FAILED**, not completed. See [GEO-R1 complete failure register](./Issues/GTD-WORLD-006%20GEO-R1%20Decommissioned%20Pilot%20-%20Complete%20Attempt%20and%20Failure%20Register%20-%202026-10-14.md). This order applies to the failed visible R1 implementation, not to the broader architectural planning document or the separately reviewed P0/P1 foundation; no new implementation is authorized by this note.
+
+
 **Date:** 2026-10-14 (SAST)
 **Directive:** Expand Meridian City from South Ward outward **before introducing ambient traffic**; add real building types and the recently generated surface materials; deliberately expose failures when South Ward techniques operate at city scale.
 **Status:** TECHNICAL PLAN ONLY — NO IMPLEMENTATION AUTHORIZED. Security check and owner's subsequent explicit authorization are mandatory.
