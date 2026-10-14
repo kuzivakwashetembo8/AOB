@@ -63,8 +63,10 @@ describe("GRN-003 image scale and aerial volume experiment",()=>{
      scene.onBeforeRenderObservable.notifyObservers(scene);
      expect(cards.every(m=>m.isEnabled())).toBe(true);
      expect(lobes.every(m=>!m.isEnabled())).toBe(true);
+     const observersBeforeDispose=scene.onBeforeRenderObservable.observers.length;
      c.dispose();
-     expect(scene.onBeforeRenderObservable.observers.length).toBe(0);
+     // Camera may own other Babylon render observers. Our context removes one.
+     expect(scene.onBeforeRenderObservable.observers.length).toBe(observersBeforeDispose-1);
    }finally{scene.dispose();engine.dispose();}
  });
 });
