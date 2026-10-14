@@ -58,7 +58,6 @@ import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-p
 import { parseBusinessBrickFocus } from "../world-generation/brick-business-field-trial";
 import { parseWoodFocus } from "../world-generation/wood-south-ward-field-trial";
 import { parseGlassFocus } from "../world-generation/glass-south-ward-field-trial";
-import { parseGrassTileMetres } from "../world-generation/greenery-image-assets";
 import { isCurbAscent } from "../character/locomotion/curb-step";
 import { flightDisplacement, toggleInspectionFlight } from "../character/locomotion/inspection-flight";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
@@ -242,9 +241,7 @@ export class GTDGameRuntime implements GameRuntime {
         enableSidewalkSupportCollision: true,
         // GROUND-001: opt-in, rollback-safe surface replacement on preview.
         enableLandUsePreview: diagnosticParams.get("gtdGround001") === "1",
-        // GRN-002: independent image-only trials, default disabled.
-        enableGrassImageTrial: diagnosticParams.get("gtdGrassImgTrial") === "1",
-        grassTileMetres: parseGrassTileMetres(diagnosticParams.get("gtdGrassTile")),
+        // GRN-004: photo grass trials removed. The approved GRN-01 grass is always used.
         aerialFoliageTrial: diagnosticParams.get("gtdAerialFoliage") === "1",
         foliageImageTrial: diagnosticParams.get("gtdFoliageImgTrial") === "all"
           ? "all" : diagnosticParams.get("gtdFoliageImgTrial") === "1"
