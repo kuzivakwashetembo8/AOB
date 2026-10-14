@@ -132,6 +132,7 @@ function createGround(
   mesh.receiveShadows = true;
   mesh.isPickable = true;
   mesh.metadata = {
+    ...mesh.metadata,
     spatialRole: "terrain",
     cameraBlocker: true,
     cameraGround: true,
