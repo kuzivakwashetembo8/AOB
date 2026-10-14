@@ -241,6 +241,11 @@ export class GTDGameRuntime implements GameRuntime {
         enableSidewalkSupportCollision: true,
         // GROUND-001: opt-in, rollback-safe surface replacement on preview.
         enableLandUsePreview: diagnosticParams.get("gtdGround001") === "1",
+        // GRN-002: independent image-only trials, default disabled.
+        enableGrassImageTrial: diagnosticParams.get("gtdGrassImgTrial") === "1",
+        foliageImageTrial: diagnosticParams.get("gtdFoliageImgTrial") === "all"
+          ? "all" : diagnosticParams.get("gtdFoliageImgTrial") === "1"
+            ? "one" : "off",
         // MAT-003: approved apartment and garage brick surfaces are default-on.
         // An explicit ?gtdBrickTrial=0 permits reversible field diagnostics.
         enableBrickMaterialTrial: acceptedBrickSurfaceEnabled(diagnosticParams),
