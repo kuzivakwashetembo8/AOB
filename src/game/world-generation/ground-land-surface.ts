@@ -1,70 +1,76 @@
-import {RawTexture, Texture} from "@babylonjs/core";
+import {RawTexture,Texture} from "@babylonjs/core";
 import type {Scene} from "@babylonjs/core";
-import type {GroundLandPlan, LandFinish} from "./ground-land-use";
+import {LAND_FINISHES} from "./ground-land-use";
+import type {GroundLandPlan,LandFinish} from "./ground-land-use";
 
 const PALETTE:Record<LandFinish,readonly [number,number,number]>={
-  "PAV-01":[143,140,130],"PAV-02":[166,157,143],"PAV-03":[175,167,153],
-  "PAV-04":[120,119,112],"PRK-01":[79,84,84],"PRK-02":[95,98,96],
-  "SRV-01":[111,105,94],"GRN-01":[80,125,68],"GRN-02":[98,134,73],
-  "GRN-03":[73,111,65],"GRD-01":[125,108,85],
-  "WTR-01":[49,101,113],"WTR-02":[69,110,111],
+  "PAV-01":[153,151,144],"PAV-02":[168,163,153],"PAV-03":[173,168,156],
+  "PAV-04":[119,116,109],"PRK-01":[80,85,84],"PRK-02":[87,91,89],
+  "SRV-01":[112,108,99],"GRN-01":[77,118,67],"GRN-02":[92,133,79],
+  "GRN-03":[71,108,63],"GRD-01":[121,105,86],
+  "WTR-01":[65,83,69],"WTR-02":[72,108,84],
 };
-const clampByte=(v:number)=>Math.max(0,Math.min(255,Math.round(v)));
-/** The existing ground mesh is an already confirmed real WebGL draw witness.
- * Encode parcel surfaces on its own UV-aligned texture, removing any dependency
- * on WORLD-003's unverified overlapping quad visibility path.
- */
-export function buildGroundLandPixels(plan:GroundLandPlan, pixelsPerMetre=4){
+const byte=(v:number)=>Math.max(0,Math.min(255,Math.round(v)));
+const mix=(x:number,z:number,seed:number)=>{
+  let h=Math.imul(x+1,374761393)^Math.imul(z+1,668265263)^seed;
+  h=Math.imul(h^(h>>>13),1274126177);return ((h^(h>>>16))>>>0)/4294967296;
+};
+const fract=(x:number,s:number)=>((x%s)+s)%s;
+export function buildGroundLandPixels(plan:GroundLandPlan,pixelsPerMetre=8){
+  if(!Number.isInteger(pixelsPerMetre)||pixelsPerMetre<1||pixelsPerMetre>10)
+    throw Error("GROUND-003 invalid texture density");
   const w=plan.width*pixelsPerMetre,h=plan.height*pixelsPerMetre;
-  if(w*h>4000000)throw new Error("GROUND-001 texture budget exceeded");
-  const rgba=new Uint8Array(w*h*4);
+  if(w*h>4000000)throw Error("GROUND-003 texture budget exceeded");
+  const pixels=new Uint8Array(w*h*4);
   for(let z=0;z<h;z++)for(let x=0;x<w;x++){
-    const col=Math.floor(x/pixelsPerMetre),row=Math.floor(z/pixelsPerMetre);
-    const ix=row*plan.width+col;
-    const finish: LandFinish = "PAV-01";
-    const id=plan.kinds[ix]??0;
-    // Constant catalogue ordering is authoritative; a random object ordering is not.
-    const key: LandFinish = LAND_ORDER[id]??finish;
-    const rgb=PALETTE[key],worldX=plan.bounds.left+(x+.5)/pixelsPerMetre;
-    const worldZ=plan.bounds.north+(z+.5)/pixelsPerMetre;
-    const noise=((Math.imul(x+27,374761393)^Math.imul(z+7,668265263))>>>0)%41-20;
-    let detail=noise*.30;
-    const ux=((worldX%2+2)%2),uz=((worldZ%2+2)%2);
-    if(key.startsWith("PAV") && key!=="PAV-04"){
-      if(ux<.025||uz<.025)detail-=20; // physical-scale slab joints
-      else if(ux<.065||uz<.065)detail-=5;
-    }
-    if(key==="PRK-01"||key==="PRK-02"){
-      const unit=((worldX%2.6+2.6)%2.6),length=((worldZ%5+5)%5);
-      if((unit<.11 && length<4.8)||(length<.10&&unit<2.5)){
-        const off=(z*w+x)*4;
-        rgba[off]=202;rgba[off+1]=201;rgba[off+2]=186;rgba[off+3]=255;
+    const i=Math.floor(z/pixelsPerMetre)*plan.width+Math.floor(x/pixelsPerMetre);
+    const kind=LAND_FINISHES[plan.kinds[i]??0]??"PAV-01";
+    const rgb=PALETTE[kind], wx=plan.bounds.left+(x+.5)/pixelsPerMetre;
+    const wz=plan.bounds.north+(z+.5)/pixelsPerMetre, grain=mix(x,z,7341);
+    let light=(grain-.5)*11;
+    if(kind.startsWith("GRN")){
+      // Fine, deterministic blade-scale texture; no large blurry sine-wave wash.
+      const cluster=mix(Math.floor(wx*3),Math.floor(wz*3),32001)-.5;
+      const tuft=mix(Math.floor(wx*9),Math.floor(wz*9),8711);
+      const fleck=tuft>.8?14:tuft<.2?-13:0;
+      light=cluster*27+(grain-.5)*20+fleck;
+    }else if(kind.startsWith("PAV")){
+      // ONLY transverse slab joints: no vertical world-X joints or columns.
+      if(kind!=="PAV-04"){
+        const transverse=fract(wz,3);
+        if(transverse<0.07)light=-9;
+        else if(transverse<0.15)light=-3;
+        else light=(grain-.5)*7;
+      }
+    }else if(kind==="PRK-01"||kind==="PRK-02"){
+      // Keep stall paint wholly inside allotted asphalt: never draw over grass.
+      const cellX=fract(wx,2.65),cellZ=fract(wz,5.4);
+      if((cellX<.10&&cellZ<4.6)||(cellZ<.10&&cellX<2.5)){
+        const o=(z*w+x)*4;
+        pixels[o]=206;pixels[o+1]=204;pixels[o+2]=193;pixels[o+3]=255;
         continue;
       }
-      detail*=.55;
+      light=(grain-.5)*8;
+    }else if(kind==="GRD-01"||kind==="SRV-01"){
+      const fleck=mix(Math.floor(wx*11),Math.floor(wz*11),440);
+      light=(grain-.5)*19+(fleck>.83?13:0);
+    }else if(kind==="WTR-01"||kind==="WTR-02"){
+      light=(grain-.5)*6;
     }
-    if(key==="SRV-01"||key==="GRD-01")detail*=1.4;
-    if(key==="GRN-01"||key==="GRN-02"||key==="GRN-03"){
-      detail+=Math.sin(worldX*1.18+worldZ*2.1)*4;
-      if(key==="GRN-03"&&noise>12)detail+=8;
-    }
-    if(key.startsWith("WTR")){
-      detail=Math.sin(worldX*.8+worldZ*.7)*5+Math.sin(worldZ*2.3)*2;
-    }
-    const out=(z*w+x)*4;
-    rgba[out]=clampByte(rgb[0]+detail);
-    rgba[out+1]=clampByte(rgb[1]+detail);
-    rgba[out+2]=clampByte(rgb[2]+detail);
-    rgba[out+3]=255;
+    const offset=(z*w+x)*4;
+    pixels[offset]=byte(rgb[0]+light);
+    pixels[offset+1]=byte(rgb[1]+light);
+    pixels[offset+2]=byte(rgb[2]+light*.75);
+    pixels[offset+3]=255;
   }
-  return {pixels:rgba,width:w,height:h};
+  return {pixels,width:w,height:h};
 }
-import {LAND_FINISHES as LAND_ORDER} from "./ground-land-use";
 export function createGroundLandTexture(scene:Scene,plan:GroundLandPlan):RawTexture{
   const {pixels,width,height}=buildGroundLandPixels(plan);
   const texture=RawTexture.CreateRGBATexture(pixels,width,height,scene,true,false,
-    Texture.TRILINEAR_SAMPLINGMODE);
-  texture.name="ground001-south-ward-composed-parcel-map";
+    Texture.BILINEAR_SAMPLINGMODE);
+  texture.name="ground003-urban-parcel-map";
+  texture.anisotropicFilteringLevel=8;
   texture.wrapU=Texture.CLAMP_ADDRESSMODE;
   texture.wrapV=Texture.CLAMP_ADDRESSMODE;
   return texture;
