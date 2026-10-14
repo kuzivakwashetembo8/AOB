@@ -14,7 +14,9 @@ describe("GRN-002: repeatable image-based greenery experiments",()=>{
  it("uses exact committed asset paths and a metre-based, finite tiling scale",()=>{
    expect(FOLIAGE_IMAGE_URL).toBe("/assets/vegetation/foliage-cluster-01.webp");
    expect(CARPET_GRASS_IMAGE_URL).toBe("/assets/ground/carpet-grass-01.webp");
-   expect(grassMetricRepeat()).toEqual({u:32,v:26});
+   expect(grassMetricRepeat()).toEqual({u:80,v:65});
+   expect(grassMetricRepeat(3)).toEqual({u:160/3,v:130/3});
+   expect(grassMetricRepeat(1)).toEqual({u:160,v:130});
    expect(()=>grassMetricRepeat(0)).toThrow();
    expect(()=>grassMetricRepeat(Infinity)).toThrow();
    expect(()=>grassMetricRepeat(5,-1,130)).toThrow();
