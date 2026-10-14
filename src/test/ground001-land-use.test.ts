@@ -36,8 +36,8 @@ describe("GROUND-001: intentional South Ward land coverage",()=>{
  it("paints a full-size opaque surface without allocation gaps",()=>{
    const p=planGroundLandUse(FIRST_LIGHT_CITY_SPEC,bounds);
    const image=buildGroundLandPixels(p);
-   expect(image.width).toBe(640);expect(image.height).toBe(520);
-   expect(image.pixels.length).toBe(640*520*4);
+   expect(image.width).toBe(1280);expect(image.height).toBe(1040);
+   expect(image.pixels.length).toBe(1280*1040*4);
    let transparent=0;
    for(let i=3;i<image.pixels.length;i+=4)if(image.pixels[i]!==255)transparent++;
    expect(transparent).toBe(0);
@@ -49,7 +49,7 @@ describe("GROUND-001: intentional South Ward land coverage",()=>{
      const p=planGroundLandUse(FIRST_LIGHT_CITY_SPEC,bounds);
      const tex=createGroundLandTexture(scene,p);
      expect(tex).toBeInstanceOf(Texture);
-     expect(tex.name).toContain("ground001");
+     expect(tex.name).toContain("ground003");
      tex.dispose();
    }finally{scene.dispose();engine.dispose();}
  });
