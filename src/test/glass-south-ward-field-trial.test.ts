@@ -173,10 +173,13 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
     expect(greyCaps).toHaveLength(8);
     expect(blueCaps.every(x => x.role === "trim")).toBe(true);
     expect(greyCaps.every(x => x.role === "metal")).toBe(true);
-    for (const mass of [...greyPlan.masses,...bluePlan.masses]) {
-      const caps = greyCaps.filter(x => x.id.includes(`:${mass.id}:`));
+    for (const [masses,details,capsForTower] of [
+      [greyPlan.masses,greyDetails,greyCaps],
+      [bluePlan.masses,blueDetails,blueCaps],
+    ] as const) for (const mass of masses) {
+      const caps = capsForTower.filter(x => x.id.includes(`:${mass.id}:`));
       expect(caps).toHaveLength(4);
-      const verticals = greyDetails.filter(x => x.id.startsWith(
+      const verticals = details.filter(x => x.id.startsWith(
         `skyline-mullion:${mass.id}:`));
       expect(verticals.length).toBeGreaterThan(0);
       expect(verticals.every(x => x.center.y + x.size.y / 2 >=
