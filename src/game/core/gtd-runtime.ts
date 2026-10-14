@@ -245,6 +245,8 @@ export class GTDGameRuntime implements GameRuntime {
         // TREE-PLACE-001 is a preview-only, budget-bounded forestry experiment.
         enableTreePlace001: diagnosticParams.get("gtdTreePlace001") === "1",
         treeBudget: parseForestryBudget(diagnosticParams.get("gtdTreeBudget")),
+        treeDensityFocus: diagnosticParams.get("gtdTreeDensity")==="mercer"
+          ? "mercer-open-side" : "balanced",
         // GRN-004: photo grass trials removed. The approved GRN-01 grass is always used.
         // GRN-005: discontinued photo/aerial foliage URL trials are inert.
         // MAT-003: approved apartment and garage brick surfaces are default-on.
@@ -288,6 +290,7 @@ export class GTDGameRuntime implements GameRuntime {
           schema:"gtd.tree-place-001.preview.v2",
           enabled:diagnosticParams.get("gtdTreePlace001")==="1",
           budget:parseForestryBudget(diagnosticParams.get("gtdTreeBudget")),
+          density:diagnosticParams.get("gtdTreeDensity")==="mercer"?"mercer-open-side":"balanced",
           forest:firstLight.forestryReport??null,
           scene:{meshes:scene.meshes.length,activeMeshes:scene.getActiveMeshes().length,
             materials:scene.materials.length,textures:scene.textures.length,
