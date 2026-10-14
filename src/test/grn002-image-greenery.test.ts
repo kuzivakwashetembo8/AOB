@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {NullEngine,Scene,Material,StandardMaterial} from "@babylonjs/core";
+import {NullEngine,Scene,StandardMaterial} from "@babylonjs/core";
 import {FIRST_LIGHT_CITY_SPEC} from "../game/world-generation/first-light-spec";
 import {createGeneratedStreetContext} from "../game/world-generation/street-context-renderer";
 import {createGeneratedFirstLightWorld} from "../game/world/generated-first-light-world";
