@@ -126,7 +126,7 @@ function createGround(
     mesh.setVerticesData("uv",uvs);
     fallbackTexture=createGroundLandTexture(scene,plan);
     material.diffuseTexture=fallbackTexture;
-    if(grassImageTrial){
+    if(grassImageTrial && scene.getEngine().getClassName()!=="NullEngine"){
       // GRN-002: texture upload is asynchronous; original GRN-01 stays visible
       // until the committed image has decoded and uploaded successfully.
       mesh.metadata={...mesh.metadata,grassImageState:"loading"};
