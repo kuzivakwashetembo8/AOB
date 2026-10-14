@@ -3,5 +3,7 @@
   "framework": "tanstack-start",
   "git": {
     "deploymentEnabled": false
-  }
+  },
+  "ignoreCommand": "exit 1",
+  "buildCommand": "npx tsc --noEmit && npx vitest run && npm run build"
 }

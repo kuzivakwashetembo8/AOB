@@ -58,6 +58,7 @@ import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-p
 import { parseBusinessBrickFocus } from "../world-generation/brick-business-field-trial";
 import { parseWoodFocus } from "../world-generation/wood-south-ward-field-trial";
 import { parseGlassFocus } from "../world-generation/glass-south-ward-field-trial";
+import { resolveAcceptedSouthWardPresentation } from "../world-generation/south-ward-accepted-presentation";
 import { isCurbAscent } from "../character/locomotion/curb-step";
 import { flightDisplacement, toggleInspectionFlight } from "../character/locomotion/inspection-flight";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
@@ -229,6 +230,7 @@ export class GTDGameRuntime implements GameRuntime {
     const physics = await MeridianPhysics.create();
     this.emit({ type: "load-checkpoint", id: "physics", status: "done" });
     this.emit({ type: "load-checkpoint", id: "world", status: "running" });
+    const acceptedSouthWard=resolveAcceptedSouthWardPresentation(diagnosticParams);
     const firstLight = createFirstLightRuntimeWorld(
       scene,
       physics,
@@ -239,6 +241,12 @@ export class GTDGameRuntime implements GameRuntime {
         // Canonical Voight always needs physical sidewalk TOP support.
         // Trial-only support previously allowed feet to clip through paving.
         enableSidewalkSupportCollision: true,
+        // Accepted South Ward ground and woodland now load without URL
+        // parameters. Explicit ?gtdGround001=0 or ?gtdTreePlace001=0
+        // individually restores the former field-test baseline.
+        ...acceptedSouthWard,
+        // GRN-004: photo grass trials removed. The approved GRN-01 grass is always used.
+        // GRN-005: discontinued photo/aerial foliage URL trials are inert.
         // MAT-003: approved apartment and garage brick surfaces are default-on.
         // An explicit ?gtdBrickTrial=0 permits reversible field diagnostics.
         enableBrickMaterialTrial: acceptedBrickSurfaceEnabled(diagnosticParams),
@@ -256,6 +264,57 @@ export class GTDGameRuntime implements GameRuntime {
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
+    // Lightweight read-only runtime benchmark: first 15 seconds are warm-up.
+    // Bounded memory, no network telemetry and no impact on a disabled trial's
+    // tree generation. The same witness exists on all TREE-PLACE preview budgets.
+    const treeFrameTimes:number[]=[];
+    const treeFrameStart=performance.now();
+    let treeSampleCursor=0;
+    scene.onAfterRenderObservable.add(()=>{
+      if(performance.now()-treeFrameStart<15000)return;
+      const ms=engine.getDeltaTime();
+      if(!Number.isFinite(ms)||ms<=0)return;
+      if(treeFrameTimes.length<3600)treeFrameTimes.push(ms);
+      else treeFrameTimes[treeSampleCursor%3600]=ms;
+      treeSampleCursor++;
+    });
+    const treeFramePercentile=(sorted:readonly number[],p:number)=>
+      sorted.length?sorted[Math.min(sorted.length-1,
+        Math.floor((sorted.length-1)*p))]??null:null;
+    (window as Window & {__GTD_TREE_PLACE_REPORT__?:()=>unknown})
+      .__GTD_TREE_PLACE_REPORT__=()=>{
+        const sorted=[...treeFrameTimes].sort((a,b)=>a-b);
+        return {
+          schema:"gtd.tree-place-001.accepted.v3",
+          enabled:acceptedSouthWard.enableTreePlace001,
+          budget:acceptedSouthWard.treeBudget,
+          density:acceptedSouthWard.treeDensityFocus,
+          forest:firstLight.forestryReport??null,
+          scene:{meshes:scene.meshes.length,activeMeshes:scene.getActiveMeshes().length,
+            materials:scene.materials.length,textures:scene.textures.length,
+            activeFoliageCards:scene.meshes.filter(m=>m.name.startsWith("generated-tree-foliage:")).length,
+            currentFps:engine.getFps(),width:engine.getRenderWidth(),height:engine.getRenderHeight()},
+          frameTimes:{warmupSeconds:15,framesSampled:treeSampleCursor,
+            medianMs:treeFramePercentile(sorted,0.50),
+            p95Ms:treeFramePercentile(sorted,0.95),
+            peakMs:treeFramePercentile(sorted,1)},
+          note:"Observed local frame times after warm-up; run the same walk/flight itinerary and quality preset on each budget. These are NOT GPU-only timings.",
+        };
+      };
+    // GROUND-001: local-only visual witness. Coverage counts do not prove GPU pixels.
+    (window as Window & {__GTD_GROUND_REPORT__?: () => unknown})
+      .__GTD_GROUND_REPORT__ = () => {
+        const groundMesh = scene.getMeshByName("generated-first-light-ground");
+        return {
+          schema: "gtd.ground001.preview.v1",
+          enabled: diagnosticParams.get("gtdGround001") === "1",
+          ground: groundMesh?.name ?? null,
+          coverage: groundMesh?.metadata?.landUseCoverage ?? null,
+          meshEnabled: groundMesh?.isEnabled() ?? false,
+          material: groundMesh?.material?.name ?? null,
+          note: "Semantic map allocation and draw eligibility only; visually inspect actual game pixels.",
+        };
+      };
     // This getter is available even when startup dies at 7/8. No network
     // telemetry: only a user-initiated download reads its snapshot.
     let lastTrialWarmup: ReturnType<WorldRenderWarmup["snapshot"]> | null = null;

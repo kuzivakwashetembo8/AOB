@@ -15,7 +15,7 @@ import type { CitySpec, PublicSpaceSpec } from "./schema";
 import { planStreetContext } from "./street-context";
 import { planTreeCanopy } from "./tree-canopy";
 import { planVehicleProxyGeometry } from "./vehicle-proxy-geometry";
-import type { StreetContextItem } from "./street-context";
+import type { StreetContextItem, StreetContextPlan } from "./street-context";
 
 export interface GeneratedStreetContext {
   readonly itemCount: number;
@@ -720,8 +720,9 @@ function createPocketParkSurface(
 export function createGeneratedStreetContext(
   scene: Scene,
   city: CitySpec,
+  options: { readonly skipPocketParkGround?: boolean; readonly plan?: StreetContextPlan } = {},
 ): GeneratedStreetContext {
-  const plan = planStreetContext(city);
+  const plan = options.plan ?? planStreetContext(city);
   const meshes: Mesh[] = [];
   const nodes: TransformNode[] = [];
 
@@ -744,6 +745,10 @@ export function createGeneratedStreetContext(
   foliage.backFaceCulling = false;
   foliage.transparencyMode = Material.MATERIAL_ALPHATESTANDBLEND;
   foliage.specularColor = Color3.Black();
+
+  // GRN-005: always use the native procedurally generated foliage.
+  // The photo-card and aerial replacement experiments were rejected.
+  let disposed = false;
 
   const metal = material(
     scene,
@@ -798,7 +803,7 @@ export function createGeneratedStreetContext(
     0.01,
   );
 
-  for (const district of city.districts) {
+  if (!options.skipPocketParkGround) for (const district of city.districts) {
     for (const neighborhood of district.neighborhoods) {
       for (const block of neighborhood.blocks) {
         for (const space of block.publicSpaces ?? []) {
@@ -844,7 +849,6 @@ export function createGeneratedStreetContext(
     grassAccent,
   ];
 
-  let disposed = false;
   return {
     itemCount: plan.items.length,
     meshes,

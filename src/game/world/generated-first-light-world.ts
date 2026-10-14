@@ -6,6 +6,8 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
+import { planGroundLandUse } from "../world-generation/ground-land-use";
+import { createGroundLandTexture } from "../world-generation/ground-land-surface";
 import type {
   MeridianPhysics,
   StaticCollisionHandle,
@@ -26,6 +28,8 @@ import type {
   GeneratedStreetContext,
   GeneratedUrbanSurfaces,
 } from "../world-generation";
+import type { StreetContextPlan } from "../world-generation/street-context";
+import type { ForestryBudget, ForestryPlan, ForestryDensityFocus } from "../world-generation/urban-forestry-plan";
 import {
   createMeridianEnvironment,
   type InteriorVisibilityState,
@@ -49,6 +53,7 @@ export interface GeneratedFirstLightWorld {
   readonly environment: MeridianEnvironmentController;
   readonly garageInterior: GeneratedGarageInterior | null;
   readonly shadowGenerator: MeridianEnvironmentController["shadowGenerator"];
+  readonly forestryReport: ForestryPlan | null;
   readonly interiorState: InteriorVisibilityState;
   readonly environmentSnapshot: MeridianEnvironmentSnapshot;
   /**
@@ -71,6 +76,10 @@ export interface GeneratedFirstLightWorld {
 }
 
 export interface GeneratedFirstLightWorldOptions {
+  readonly enableLandUsePreview?: boolean;
+  readonly enableTreePlace001?: boolean;
+  readonly treeBudget?: ForestryBudget;
+  readonly treeDensityFocus?: ForestryDensityFocus;
   readonly enableCameraBlockers?: boolean;
   readonly enableShadows?: boolean;
   /** GTD-CHAR-001 only: register real First Light raised sidewalk colliders. */
@@ -89,44 +98,61 @@ export interface GeneratedFirstLightWorldOptions {
 function createGround(
   scene: Scene,
   physics: MeridianPhysics,
+  landUsePreview = false,
 ): {
   mesh: Mesh;
   material: StandardMaterial;
   collision: StaticCollisionHandle;
+  disposeTexture(): void;
 } {
-  const material = new StandardMaterial("generated-ground-material", scene);
-  material.diffuseColor = new Color3(0.17, 0.16, 0.14);
-  material.specularColor = Color3.Black();
-
-  const mesh = MeshBuilder.CreateGround(
-    "generated-first-light-ground",
-    { width: 160, height: 130 },
-    scene,
+  const material=new StandardMaterial("generated-ground-material",scene);
+  let groundTexture: ReturnType<typeof createGroundLandTexture> | null = null;
+  material.diffuseColor=new Color3(0.17,0.16,0.14);
+  material.specularColor=Color3.Black();
+  const mesh=MeshBuilder.CreateGround(
+    "generated-first-light-ground",{width:160,height:130},scene,
   );
-  mesh.position.z = 20;
-  mesh.material = material;
-  mesh.receiveShadows = true;
-  mesh.isPickable = true;
-  mesh.metadata = {
-    spatialRole: "terrain",
-    cameraBlocker: true,
-    cameraGround: true,
-  };
-
-  const collision = physics.addStaticBox(
-    { x: 0, y: -0.12, z: 20 },
-    { x: 80, y: 0.12, z: 65 },
+  mesh.position.z=20;
+  if(landUsePreview){
+    const plan=planGroundLandUse(FIRST_LIGHT_CITY_SPEC,
+      {left:-80,right:80,north:-45,south:85});
+    // Grass fills every residual metre under the original road/building meshes.
+    // The original flat mesh remains the sole ground draw and collision support.
+    const positions=mesh.getVerticesData("position")??[];
+    const uvs:number[]=[];
+    for(let i=0;i<positions.length;i+=3)
+      uvs.push((positions[i]!+80)/160,(positions[i+2]!+65)/130);
+    mesh.setVerticesData("uv",uvs);
+    // GRN-004: photographic carpet-grass trials rejected. The accepted
+    // GRN-01 procedural image is always the sole residual-ground material.
+    groundTexture=createGroundLandTexture(scene,plan);
+    material.diffuseTexture=groundTexture;
+    material.diffuseColor=Color3.White();
+    material.specularColor=Color3.Black();
+    material.disableLighting=true;
+    material.maxSimultaneousLights=1;
+    mesh.metadata={...mesh.metadata,landUsePreview:true,landUseCoverage:plan.counts,
+      groundFinish:"GRN-01"};
+  }
+  mesh.material=material;
+  mesh.receiveShadows=true;
+  mesh.isPickable=true;
+  mesh.metadata={...mesh.metadata,spatialRole:"terrain",
+    cameraBlocker:true,cameraGround:true};
+  const collision=physics.addStaticBox(
+    {x:0,y:-0.12,z:20},{x:80,y:0.12,z:65},
   );
-
-  return { mesh, material, collision };
+  return {mesh,material,collision,disposeTexture(){
+    groundTexture?.dispose();
+  }};
 }
 
 function registerStreetContextCollision(
   physics: MeridianPhysics,
+  plan: StreetContextPlan,
   parkedHandles?: Map<string, StaticCollisionHandle>,
 ): StaticCollisionHandle[] {
   const handles: StaticCollisionHandle[] = [];
-  const plan = planStreetContext(FIRST_LIGHT_CITY_SPEC);
 
   for (const item of plan.items) {
     switch (item.kind) {
@@ -395,14 +421,21 @@ export function createGeneratedFirstLightWorld(
   const enableCameraBlockers = options.enableCameraBlockers ?? true;
   const enableShadows = options.enableShadows ?? true;
 
-  const ground = createGround(scene, physics);
+  const ground = createGround(scene, physics, options.enableLandUsePreview ?? false);
   const urbanSurfaces = createGeneratedUrbanSurfaces(
     scene,
     FIRST_LIGHT_CITY_SPEC,
+    {skipLegacyParcelInfill: options.enableLandUsePreview ?? false},
   );
+  const streetPlan = planStreetContext(FIRST_LIGHT_CITY_SPEC, {
+    enableTreePlace001: options.enableTreePlace001 ?? false,
+    treeBudget: options.treeBudget ?? 6,
+    treeDensityFocus: options.treeDensityFocus ?? "balanced",
+  });
   const streetContext = createGeneratedStreetContext(
     scene,
     FIRST_LIGHT_CITY_SPEC,
+    { skipPocketParkGround: options.enableLandUsePreview ?? false, plan: streetPlan },
   );
   const materialLibrary = new BuildingMaterialLibrary(scene);
   const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC).map((spec) =>
@@ -436,11 +469,11 @@ export function createGeneratedFirstLightWorld(
   });
   const parkedCollisionHandles = new Map<string, StaticCollisionHandle>();
   const parkedById = new Map(
-    planStreetContext(FIRST_LIGHT_CITY_SPEC).items
+    streetPlan.items
       .filter((item) => item.kind === "parked-car")
       .map((item) => [item.id, item] as const),
   );
-  const contextCollision = registerStreetContextCollision(physics, parkedCollisionHandles);
+  const contextCollision = registerStreetContextCollision(physics, streetPlan, parkedCollisionHandles);
   const urbanNavigationCollision = registerUrbanNavigationCollision(
     physics,
     urbanSurfaces,
@@ -501,6 +534,7 @@ export function createGeneratedFirstLightWorld(
     buildings,
     urbanSurfaces,
     streetContext,
+    forestryReport: streetPlan.forestry,
     materialLibrary,
     environment,
     garageInterior,
@@ -588,6 +622,7 @@ export function createGeneratedFirstLightWorld(
       materialLibrary.dispose();
       ground.collision.dispose();
       ground.mesh.dispose();
+      ground.disposeTexture();
       ground.material.dispose();
     },
   };

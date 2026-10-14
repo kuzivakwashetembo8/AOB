@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { NullEngine, Scene, VertexBuffer } from "@babylonjs/core";
+import { NullEngine, Scene, StandardMaterial, VertexBuffer } from "@babylonjs/core";
 import { FIRST_LIGHT_CITY_SPEC } from "../game/world-generation/first-light-spec";
 import { resolveCityBuildings } from "../game/world-generation/defaults";
 import { planBuilding } from "../game/world-generation/architecture-plan";
@@ -158,25 +158,28 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
     } finally{scene.dispose();engine.dispose();}
   });
 
-  it("installs 3D mullions and floor transoms only on the grey-glass tower", () => {
+  it("installs real 3D mullions and floor transoms on both skyline towers", () => {
     const blue = specs.find(s => s.id === BLUE_GLASS_TOWER_ID)!;
     const grey = specs.find(s => s.id === GREY_GLASS_TOWER_ID)!;
     const bluePlan = planBuilding(blue, version);
     const greyPlan = planBuilding(grey, version);
     const blueDetails = planSkylineArchitecturalGeometry(bluePlan, blue.id);
     const greyDetails = planSkylineArchitecturalGeometry(greyPlan, grey.id);
-    expect(blueDetails.some(x => x.id.startsWith("skyline-mullion:"))).toBe(false);
-    expect(blueDetails.some(x => x.id.startsWith("skyline-transom:"))).toBe(false);
+    expect(blueDetails.some(x => x.id.startsWith("skyline-mullion:"))).toBe(true);
+    expect(blueDetails.some(x => x.id.startsWith("skyline-transom:"))).toBe(true);
     const blueCaps = blueDetails.filter(x => x.id.startsWith("skyline-cap:"));
     const greyCaps = greyDetails.filter(x => x.id.startsWith("skyline-cap:"));
     expect(blueCaps).toHaveLength(8);
     expect(greyCaps).toHaveLength(8);
     expect(blueCaps.every(x => x.role === "trim")).toBe(true);
     expect(greyCaps.every(x => x.role === "metal")).toBe(true);
-    for (const mass of greyPlan.masses) {
-      const caps = greyCaps.filter(x => x.id.includes(`:${mass.id}:`));
+    for (const [masses,details,capsForTower] of [
+      [greyPlan.masses,greyDetails,greyCaps],
+      [bluePlan.masses,blueDetails,blueCaps],
+    ] as const) for (const mass of masses) {
+      const caps = capsForTower.filter(x => x.id.includes(`:${mass.id}:`));
       expect(caps).toHaveLength(4);
-      const verticals = greyDetails.filter(x => x.id.startsWith(
+      const verticals = details.filter(x => x.id.startsWith(
         `skyline-mullion:${mass.id}:`));
       expect(verticals.length).toBeGreaterThan(0);
       expect(verticals.every(x => x.center.y + x.size.y / 2 >=
@@ -184,7 +187,11 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
     }
     expect(greyDetails.filter(x => x.id.startsWith("skyline-mullion:")).length)
       .toBeGreaterThan(20);
+    expect(blueDetails.filter(x => x.id.startsWith("skyline-mullion:")).length)
+      .toBeGreaterThan(20);
     expect(greyDetails.filter(x => x.id.startsWith("skyline-transom:")).length)
+      .toBeGreaterThan(20);
+    expect(blueDetails.filter(x => x.id.startsWith("skyline-transom:")).length)
       .toBeGreaterThan(20);
     expect(greyDetails.filter(x => x.id.startsWith("skyline-mullion:"))
       .every(x => x.size.y > 3 && Math.min(x.size.x,x.size.z) > 0.1)).toBe(true);
@@ -194,7 +201,7 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
       .toHaveLength(0);
   });
 
-  it("keeps blue stripless/pale while grey remains framed with dark frame-matched crown", () => {
+  it("keeps blue pale-capped with real strips and grey dark-framed with matching crown", () => {
     const engine = new NullEngine();
     const scene = new Scene(engine);
     try {
@@ -211,8 +218,18 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
         const frameMetal = result.meshes.filter(m =>
           m.material?.name === "skyline-structural-metal:" + spec.id);
         expect(frameMetal.length).toBeGreaterThan(0);
-        if (spec.id === BLUE_GLASS_TOWER_ID) expect(pale.length).toBeGreaterThan(0);
-        else expect(pale).toHaveLength(0);
+        const frame = frameMetal[0]?.material as StandardMaterial;
+        expect(frame).toBeInstanceOf(StandardMaterial);
+        if (spec.id === BLUE_GLASS_TOWER_ID) {
+          // 3D mullions and transoms use the near-white frame, not graphite.
+          expect(pale.length).toBeGreaterThan(0);
+          expect(frame.diffuseColor.r).toBeGreaterThan(0.94);
+          expect(frame.diffuseColor.g).toBeGreaterThan(0.94);
+          expect(frame.diffuseColor.b).toBeGreaterThan(0.94);
+        } else {
+          expect(pale).toHaveLength(0);
+          expect(frame.diffuseColor.r).toBeLessThan(0.3);
+        }
         const roofGroups = result.meshes.filter(m => {
           const info = m.metadata as { primitiveIds?: string[]; primitiveId?: string };
           return (info.primitiveIds ?? [info.primitiveId ?? ""]).some(p => p.startsWith("roof:"));
@@ -224,7 +241,8 @@ describe("MAT-007 South Ward image curtain-wall towers", () => {
           expectedRoofMaterial + spec.id)).toBe(true);
         const parts = planSkylineArchitecturalGeometry(result.plan, spec.id);
         if (spec.id === BLUE_GLASS_TOWER_ID) {
-          expect(parts.some(x => x.id.startsWith("skyline-mullion:"))).toBe(false);
+          expect(parts.some(x => x.id.startsWith("skyline-mullion:"))).toBe(true);
+          expect(parts.some(x => x.id.startsWith("skyline-transom:"))).toBe(true);
           expect(continuousBlueGlassUV({x:0,y:0,z:0},{x:0,y:0,z:1},
             {width:15,depth:18,height:28}).v).toBeCloseTo(0.08,5);
           expect(continuousBlueGlassUV({x:0,y:28,z:0},{x:0,y:0,z:1},

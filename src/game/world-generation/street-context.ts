@@ -1,5 +1,7 @@
 import { featureRandom } from "./seeded-variation";
 import { resolveCityBuildings } from "./defaults";
+import { planUrbanForestry } from "./urban-forestry-plan";
+import type { ForestryBudget, ForestryPlan, ForestryDensityFocus } from "./urban-forestry-plan";
 import type {
   CitySpec,
   PropPlacementSpec,
@@ -32,6 +34,7 @@ export interface StreetContextPlan {
   readonly streetlightCount: number;
   readonly parkedCarCount: number;
   readonly propCount: number;
+  readonly forestry: ForestryPlan | null;
 }
 
 function collectAuthoredVegetation(city: CitySpec): VegetationPlacementSpec[] {
@@ -139,7 +142,13 @@ export function isStreetlightClear(
   });
 }
 
-export function planStreetContext(city: CitySpec): StreetContextPlan {
+export interface StreetContextOptions {
+  readonly enableTreePlace001?:boolean;
+  readonly treeBudget?:ForestryBudget;
+  readonly treeDensityFocus?:ForestryDensityFocus;
+}
+
+export function planStreetContext(city: CitySpec, options:StreetContextOptions = {}): StreetContextPlan {
   const items: StreetContextItem[] = [];
 
   for (const tree of collectAuthoredVegetation(city)) {
@@ -272,6 +281,13 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
     }
   }
 
+  // TREE-PLACE-001: deterministically admit new trees only after existing
+  // authored vegetation, fixtures, lamps and parked cars are known.
+  const forestry=options.enableTreePlace001
+    ?planUrbanForestry(city,items,options.treeBudget??6,undefined,
+      options.treeDensityFocus??"balanced"):null;
+  for(const tree of forestry?.generated??[]) items.push(tree.item);
+
   const deduped = new Map(items.map((item) => [item.id, item] as const));
   const buildings = resolveCityBuildings(city);
   const result = [...deduped.values()]
@@ -280,6 +296,7 @@ export function planStreetContext(city: CitySpec): StreetContextPlan {
 
   return {
     items: result,
+    forestry,
     treeCount: result.filter((item) => item.kind === "tree").length,
     shrubCount: result.filter((item) => item.kind === "shrub").length,
     streetlightCount: result.filter((item) => item.kind === "streetlight")

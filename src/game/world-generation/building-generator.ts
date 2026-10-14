@@ -149,8 +149,12 @@ export function generateBuilding(
     if (isGlassTower(spec.id) && role === "metal") {
       if (!skylineFrameMetal) {
         skylineFrameMetal = new StandardMaterial("skyline-structural-metal:" + spec.id, scene);
-        skylineFrameMetal.diffuseColor = new Color3(0.18, 0.23, 0.27);
-        skylineFrameMetal.specularColor = new Color3(0.42, 0.47, 0.50);
+        // GRN-005: blue tower mullions/transoms are white, not graphite.
+        // Grey tower keeps its established dark structural frame and crown.
+        skylineFrameMetal.diffuseColor = spec.id === BLUE_GLASS_TOWER_ID
+          ? new Color3(0.97, 0.98, 1.0) : new Color3(0.18, 0.23, 0.27);
+        skylineFrameMetal.specularColor = spec.id === BLUE_GLASS_TOWER_ID
+          ? new Color3(0.60, 0.63, 0.68) : new Color3(0.42, 0.47, 0.50);
         skylineFrameMetal.specularPower = 78;
       }
       return skylineFrameMetal;
@@ -402,8 +406,10 @@ export function generateBuilding(
     const parts = [
       ...plan.primitives, ...detailPlan.primitives,
       ...(physics ? interaction.closedDoorPanels : []),
+      // Both glass towers now have physical strips when glass imagery is active;
+      // the existing cap coloration remains distinct between blue and grey.
       ...planSkylineArchitecturalGeometry(plan, spec.id,
-        glassSurfaceId !== null && spec.id === GREY_GLASS_TOWER_ID),
+        glassSurfaceId !== null),
     ];
     if (batchingMode === "thin-instances") makeBatches(parts);
     else if (batchingMode === "individual") {

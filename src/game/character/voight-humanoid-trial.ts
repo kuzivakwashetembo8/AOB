@@ -183,7 +183,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     active.start(true);
     active.setWeightForAllAnimatables(0);
   }
-  switchTo(clips.idle, "idle");
+  switchTo(clips.idle!, "idle");
 
   function advanceBlend(dt: number) {
     if (active) {
@@ -238,7 +238,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       // prone fast-flying clip. This prevents a hidden reintroduction of the
       // original posture bug for UAL GLB variants.
       const group = clips[pose] ?? clips.flyIdle ?? clips.idle;
-      switchTo(group, pose);
+      if (group) switchTo(group, pose);
       advanceBlend(inputs.dt);
     },
     updateAnimation(inputs) {
