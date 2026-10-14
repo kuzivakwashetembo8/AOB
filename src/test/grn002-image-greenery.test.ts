@@ -1,80 +1,65 @@
-import {describe,expect,it} from "vitest";
-import {NullEngine,Scene,StandardMaterial} from "@babylonjs/core";
-import {FIRST_LIGHT_CITY_SPEC} from "../game/world-generation/first-light-spec";
-import {createGeneratedStreetContext} from "../game/world-generation/street-context-renderer";
-import {createGeneratedFirstLightWorld} from "../game/world/generated-first-light-world";
-import {MeridianPhysics} from "../game/physics/rapier-world";
-import {planGroundLandUse,LAND_FINISHES} from "../game/world-generation/ground-land-use";
-import {
- FOLIAGE_IMAGE_URL,FOLIAGE_TEST_TREE_ID,
-} from "../game/world-generation/greenery-image-assets";
+import { describe, expect, it } from "vitest";
+import { NullEngine, Scene, StandardMaterial } from "@babylonjs/core";
+import { FIRST_LIGHT_CITY_SPEC } from "../game/world-generation/first-light-spec";
+import { createGeneratedStreetContext } from "../game/world-generation/street-context-renderer";
+import { createGeneratedFirstLightWorld } from "../game/world/generated-first-light-world";
+import { MeridianPhysics } from "../game/physics/rapier-world";
+import { planGroundLandUse, LAND_FINISHES } from "../game/world-generation/ground-land-use";
 
-describe("GRN-002: repeatable image-based greenery experiments",()=>{
- it("retains the single approved photographic foliage source",()=>{
-   expect(FOLIAGE_IMAGE_URL).toBe("/assets/vegetation/foliage-cluster-01.webp");
- });
- it("keeps one-photo-tree material isolated from all shrubs and other trees",()=>{
-   const engine=new NullEngine(),scene=new Scene(engine);
-   try{
-     const c=createGeneratedStreetContext(scene,FIRST_LIGHT_CITY_SPEC,
-       {skipPocketParkGround:true,foliageImageTrial:"one"});
-     const target=c.meshes.filter(m=>m.name.startsWith("generated-tree-foliage:"+FOLIAGE_TEST_TREE_ID+":"));
-     const other=c.meshes.filter(m=>m.name.startsWith("generated-tree-foliage:sw-fl-tree-garage-east:"));
-     const shrubs=c.meshes.filter(m=>m.name.startsWith("generated-shrub-card:"));
-     expect(target).toHaveLength(30);
-     expect(other).toHaveLength(30);
-     expect(shrubs.length).toBeGreaterThan(0);
-     expect(target.every(m=>m.material?.name==="grn002-photo-foliage-material")).toBe(true);
-     expect(other.every(m=>m.material?.name==="generated-tree-foliage-material")).toBe(true);
-     expect(shrubs.every(m=>m.material?.name==="generated-tree-foliage-material")).toBe(true);
-     c.dispose();
-   }finally{scene.dispose();engine.dispose();}
- });
- it("does not change geometry/card count even when every tree is opted in",()=>{
-   const engine=new NullEngine(),scene=new Scene(engine);
-   try{
-     const c=createGeneratedStreetContext(scene,FIRST_LIGHT_CITY_SPEC,
-       {skipPocketParkGround:true,foliageImageTrial:"all"});
-     const cards=c.meshes.filter(m=>m.name.startsWith("generated-tree-foliage:"));
-     const proceduralShrubs=c.meshes.filter(m=>m.name.startsWith("generated-shrub-card:"));
-     expect(cards.length).toBeGreaterThanOrEqual(90);
-     expect(cards.length%30).toBe(0);
-     expect(cards.every(m=>m.material?.name==="grn002-photo-foliage-material")).toBe(true);
-     expect(proceduralShrubs.every(m=>m.material?.name==="generated-tree-foliage-material")).toBe(true);
-     c.dispose();
-   }finally{scene.dispose();engine.dispose();}
- });
- it("keeps original shared materials when image flags are off",()=>{
-   const engine=new NullEngine(),scene=new Scene(engine);
-   try{
-     const c=createGeneratedStreetContext(scene,FIRST_LIGHT_CITY_SPEC,
-       {skipPocketParkGround:true});
-     expect(c.meshes.filter(m=>m.name.startsWith("generated-tree-foliage:"))
-       .every(m=>m.material?.name==="generated-tree-foliage-material")).toBe(true);
-     expect(scene.materials.filter(m=>m.name==="grn002-photo-foliage-material")).toHaveLength(0);
-     c.dispose();
-   }finally{scene.dispose();engine.dispose();}
- });
- it("keeps GROUND-004 GRN-01 physics and material fallback unchanged during image trials",async()=>{
-   const engine=new NullEngine(),scene=new Scene(engine);
-   const physics=await MeridianPhysics.create();
-   try{
-     const p=planGroundLandUse(FIRST_LIGHT_CITY_SPEC,{left:-80,right:80,north:-45,south:85});
-     expect(LAND_FINISHES).toEqual(["GRN-01"]);
-     expect(p.kinds).toHaveLength(20800);
-     const orig=physics.world.bodies.len();
-     const world=createGeneratedFirstLightWorld(scene,physics,{
-       enableLandUsePreview:true,
-       foliageImageTrial:"all",enableShadows:false,
-     });
-     const ground=scene.getMeshByName("generated-first-light-ground");
-     expect((ground?.material as StandardMaterial).diffuseTexture?.name)
-       .toBe("ground004-grass-only"); // NullEngine never downloads assets.
-     expect(ground?.getTotalVertices()).toBe(4);
-     expect(world.buildings).toHaveLength(10);
-     expect(physics.world.bodies.len()).toBeGreaterThan(orig);
-     world.dispose();
-     expect(physics.world.bodies.len()).toBe(orig);
-   }finally{physics.destroy();scene.dispose();engine.dispose();}
- });
+describe("GRN-005: accepted native greenery, no photographic runtime path", () => {
+  it("uses the same generated leaf material on every tree and shrub", () => {
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    try {
+      const context = createGeneratedStreetContext(scene, FIRST_LIGHT_CITY_SPEC, {
+        skipPocketParkGround: true,
+      });
+      const treeCards = context.meshes.filter(mesh =>
+        mesh.name.startsWith("generated-tree-foliage:"));
+      const shrubCards = context.meshes.filter(mesh =>
+        mesh.name.startsWith("generated-shrub-card:"));
+      expect(treeCards.length).toBeGreaterThanOrEqual(90);
+      expect(treeCards.length % 30).toBe(0);
+      expect(shrubCards.length).toBeGreaterThan(0);
+      expect([...treeCards, ...shrubCards].every(mesh =>
+        mesh.material?.name === "generated-tree-foliage-material")).toBe(true);
+      expect([...treeCards, ...shrubCards].every(mesh => mesh.isEnabled())).toBe(true);
+      expect(scene.materials.some(material => material.name.includes("photo-foliage"))).toBe(false);
+      expect(context.meshes.some(mesh => mesh.name.startsWith("grn003-aerial-foliage:"))).toBe(false);
+      context.dispose();
+      expect(context.meshes.every(mesh => mesh.isDisposed())).toBe(true);
+    } finally {
+      scene.dispose();
+      engine.dispose();
+    }
+  });
+
+  it("retains procedural grass, original ground geometry, and collider lifecycle", async () => {
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    const physics = await MeridianPhysics.create();
+    try {
+      const plan = planGroundLandUse(FIRST_LIGHT_CITY_SPEC,
+        { left: -80, right: 80, north: -45, south: 85 });
+      expect(LAND_FINISHES).toEqual(["GRN-01"]);
+      expect(plan.kinds).toHaveLength(20800);
+      const initialBodies = physics.world.bodies.len();
+      const world = createGeneratedFirstLightWorld(scene, physics, {
+        enableLandUsePreview: true,
+        enableShadows: false,
+      });
+      const ground = scene.getMeshByName("generated-first-light-ground");
+      expect((ground?.material as StandardMaterial).diffuseTexture?.name)
+        .toBe("ground004-grass-only");
+      expect(ground?.getTotalVertices()).toBe(4);
+      expect(world.buildings).toHaveLength(10);
+      expect(physics.world.bodies.len()).toBeGreaterThan(initialBodies);
+      world.dispose();
+      expect(physics.world.bodies.len()).toBe(initialBodies);
+    } finally {
+      physics.destroy();
+      scene.dispose();
+      engine.dispose();
+    }
+  });
 });
