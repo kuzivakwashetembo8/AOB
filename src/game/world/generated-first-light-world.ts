@@ -3,10 +3,11 @@ import {
   Mesh,
   MeshBuilder,
   StandardMaterial,
+  VertexData,
   Vector3,
 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
-import { planGroundLandUse } from "../world-generation/ground-land-use";
+import { planGroundLandUse, pondHeight } from "../world-generation/ground-land-use";
 import { createGroundLandTexture } from "../world-generation/ground-land-surface";
 import type {
   MeridianPhysics,
@@ -97,6 +98,8 @@ function createGround(
   mesh: Mesh;
   material: StandardMaterial;
   collision: StaticCollisionHandle;
+  waterMeshes: Mesh[];
+  waterMaterials: StandardMaterial[];
 } {
   const material = new StandardMaterial("generated-ground-material", scene);
   material.diffuseColor = new Color3(0.17, 0.16, 0.14);
@@ -104,29 +107,69 @@ function createGround(
 
   const mesh = MeshBuilder.CreateGround(
     "generated-first-light-ground",
-    { width: 160, height: 130 },
+    { width: 160, height: 130, ...(landUsePreview ? {subdivisions:160} : {}) },
     scene,
   );
   mesh.position.z = 20;
+  const waterMeshes: Mesh[] = [];
+  const waterMaterials: StandardMaterial[] = [];
   if (landUsePreview) {
     const plan = planGroundLandUse(FIRST_LIGHT_CITY_SPEC,
       {left:-80,right:80,north:-45,south:85});
-    // Reuse the existing known-visible ground draw and preserve its collision.
-    // Babylon UVs are calibrated explicitly in world metres, rather than relying
-    // on the default ground vertex order (which may vary by Babylon version).
     const positions = mesh.getVerticesData("position") ?? [];
     const uvs: number[] = [];
     for (let i = 0; i < positions.length; i += 3) {
-      uvs.push((positions[i]! + 80) / 160, (positions[i + 2]! + 65) / 130);
+      const x=positions[i]!, z=positions[i+2]!+20;
+      positions[i+1]=Math.min(0,...plan.basins.map(b=>pondHeight(b,x,z)));
+      uvs.push((x+80)/160,(z+45)/130);
     }
-    mesh.setVerticesData("uv", uvs);
+    mesh.setVerticesData("position",positions,true);
+    mesh.setVerticesData("uv",uvs);
+    const meshIndices=mesh.getIndices();
+    if (!meshIndices) throw new Error("GROUND-003 terrain grid indices missing");
+    const normals=new Array<number>(positions.length).fill(0);
+    VertexData.ComputeNormals(positions,Array.from(meshIndices),normals);
+    mesh.setVerticesData("normal",normals);
+    mesh.refreshBoundingInfo();
     material.diffuseTexture = createGroundLandTexture(scene, plan);
-    material.diffuseColor = Color3.White();
-    material.specularColor = Color3.Black();
-    material.disableLighting = true;
-    material.maxSimultaneousLights = 1;
+    material.diffuseColor=Color3.White();
+    material.specularColor=Color3.Black();
+    material.disableLighting=true;
+    material.maxSimultaneousLights=1;
+    for(const basin of plan.basins){
+      // Smooth 96-edge water plane above a genuinely depressed, collidable bed.
+      // Not a blue texture on flat ground. This plane has NO physics collider.
+      const water=new Mesh("ground003-water:"+basin.kind,scene);
+      const points=[basin.x,basin.waterY,basin.z], uv=[0.5,0.5],triangles:number[]=[];
+      for(let n=0;n<96;n++){
+        const theta=n*2*Math.PI/96;
+        const x=basin.x+Math.cos(theta)*basin.rx*0.82;
+        const z=basin.z+Math.sin(theta)*basin.rz*0.82;
+        points.push(x,basin.waterY,z);
+        uv.push(0.5+Math.cos(theta)*0.5,0.5+Math.sin(theta)*0.5);
+      }
+      for(let n=0;n<96;n++)triangles.push(0,((n+1)%96)+1,n+1);
+      const geometry=new VertexData();
+      geometry.positions=points;
+      geometry.uvs=uv;
+      geometry.indices=triangles;
+      geometry.normals=new Array<number>(points.length).fill(0);
+      VertexData.ComputeNormals(points,triangles,geometry.normals);
+      geometry.applyToMesh(water);
+      const waterMaterial=new StandardMaterial("ground003-water-surface:"+basin.kind,scene);
+      waterMaterial.diffuseColor=new Color3(0.15,0.37,0.44);
+      waterMaterial.emissiveColor=new Color3(0.028,0.052,0.055);
+      waterMaterial.specularColor=new Color3(0.09,0.12,0.13);
+      waterMaterial.alpha=0.66;
+      waterMaterial.backFaceCulling=false;
+      water.material=waterMaterial;
+      water.isPickable=false;
+      waterMeshes.push(water);
+      waterMaterials.push(waterMaterial);
+    }
     mesh.metadata = {spatialRole:"terrain",cameraBlocker:true,cameraGround:true,
-      landUsePreview:true, landUseCoverage:plan.counts};
+      landUsePreview:true, landUseCoverage:plan.counts,
+      basins:plan.basins.map(b=>({kind:b.kind,x:b.x,z:b.z,depth:b.depth}))};
   }
   mesh.material = material;
   mesh.receiveShadows = true;
@@ -138,12 +181,18 @@ function createGround(
     cameraGround: true,
   };
 
-  const collision = physics.addStaticBox(
-    { x: 0, y: -0.12, z: 20 },
-    { x: 80, y: 0.12, z: 65 },
-  );
+  const collision = landUsePreview
+    ? physics.addStaticTerrain(
+      {x:0,y:0,z:20},
+      mesh.getVerticesData("position") ?? [],
+      Array.from(mesh.getIndices() ?? []),
+    )
+    : physics.addStaticBox(
+      { x: 0, y: -0.12, z: 20 },
+      { x: 80, y: 0.12, z: 65 },
+    );
 
-  return { mesh, material, collision };
+  return {mesh,material,collision,waterMeshes,waterMaterials};
 }
 
 function registerStreetContextCollision(
@@ -429,6 +478,7 @@ export function createGeneratedFirstLightWorld(
   const streetContext = createGeneratedStreetContext(
     scene,
     FIRST_LIGHT_CITY_SPEC,
+    {skipPocketParkGround:options.enableLandUsePreview ?? false},
   );
   const materialLibrary = new BuildingMaterialLibrary(scene);
   const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC).map((spec) =>
@@ -613,6 +663,8 @@ export function createGeneratedFirstLightWorld(
       urbanSurfaces.dispose();
       materialLibrary.dispose();
       ground.collision.dispose();
+      for(const water of ground.waterMeshes)water.dispose();
+      for(const material of ground.waterMaterials)material.dispose();
       ground.mesh.dispose();
       ground.material.diffuseTexture?.dispose();
       ground.material.dispose();
