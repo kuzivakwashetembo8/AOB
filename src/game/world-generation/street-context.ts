@@ -1,7 +1,7 @@
 import { featureRandom } from "./seeded-variation";
 import { resolveCityBuildings } from "./defaults";
 import { planUrbanForestry } from "./urban-forestry-plan";
-import type { ForestryBudget, ForestryPlan } from "./urban-forestry-plan";
+import type { ForestryBudget, ForestryPlan, ForestryDensityFocus } from "./urban-forestry-plan";
 import type {
   CitySpec,
   PropPlacementSpec,
@@ -145,6 +145,7 @@ export function isStreetlightClear(
 export interface StreetContextOptions {
   readonly enableTreePlace001?:boolean;
   readonly treeBudget?:ForestryBudget;
+  readonly treeDensityFocus?:ForestryDensityFocus;
 }
 
 export function planStreetContext(city: CitySpec, options:StreetContextOptions = {}): StreetContextPlan {
@@ -283,7 +284,8 @@ export function planStreetContext(city: CitySpec, options:StreetContextOptions =
   // TREE-PLACE-001: deterministically admit new trees only after existing
   // authored vegetation, fixtures, lamps and parked cars are known.
   const forestry=options.enableTreePlace001
-    ?planUrbanForestry(city,items,options.treeBudget??6):null;
+    ?planUrbanForestry(city,items,options.treeBudget??6,undefined,
+      options.treeDensityFocus??"balanced"):null;
   for(const tree of forestry?.generated??[]) items.push(tree.item);
 
   const deduped = new Map(items.map((item) => [item.id, item] as const));
