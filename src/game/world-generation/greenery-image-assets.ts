@@ -5,30 +5,10 @@ import type { Scene } from "@babylonjs/core";
  * No tree geometry, land-use classification or collider change.
  */
 export const FOLIAGE_IMAGE_URL = "/assets/vegetation/foliage-cluster-01.webp";
-export const CARPET_GRASS_IMAGE_URL = "/assets/ground/carpet-grass-01.webp";
 export const FOLIAGE_TEST_TREE_ID = "sw-fl-tree-pocket-west";
 export type FoliageImageTrial = "off" | "one" | "all";
 
 /** Metre-scaled repetition; never stretch one carpet tile over the whole map. */
-/** Two metres is the comparison default; 3m and 1m remain independent A/B cases. */
-export const CARPET_GRASS_TILE_METRES = 2;
-export type GrassTileMetres = 1 | 2 | 3;
-export function parseGrassTileMetres(input:string|null):GrassTileMetres {
-  return input==="1"?1:input==="3"?3:2;
-}
-export const SOUTH_WARD_GROUND_METRES = {width:160,height:130} as const;
-
-export function grassMetricRepeat(
-  tileMetres=CARPET_GRASS_TILE_METRES,
-  width:number=SOUTH_WARD_GROUND_METRES.width,
-  height:number=SOUTH_WARD_GROUND_METRES.height,
-): {u:number;v:number} {
-  if(![tileMetres,width,height].every(Number.isFinite)||
-    tileMetres<1||tileMetres>30||width<=0||height<=0)
-    throw new Error("GRN-002 invalid metre repeat");
-  return {u:width/tileMetres,v:height/tileMetres};
-}
-
 /** Texture has its own error/fallback handlers at the integration point.
  * No texture is constructed on the NullEngine unless a test requests it.
  */
