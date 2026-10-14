@@ -21,10 +21,10 @@ export function buildGroundLandPixels(plan:GroundLandPlan, pixelsPerMetre=4){
   for(let z=0;z<h;z++)for(let x=0;x<w;x++){
     const col=Math.floor(x/pixelsPerMetre),row=Math.floor(z/pixelsPerMetre);
     const ix=row*plan.width+col;
-    const finish=(Object.keys(PALETTE) as LandFinish[])[0];
+    const finish: LandFinish = "PAV-01";
     const id=plan.kinds[ix]??0;
     // Constant catalogue ordering is authoritative; a random object ordering is not.
-    const key=LAND_ORDER[id]??finish;
+    const key: LandFinish = LAND_ORDER[id]??finish;
     const rgb=PALETTE[key],worldX=plan.bounds.left+(x+.5)/pixelsPerMetre;
     const worldZ=plan.bounds.north+(z+.5)/pixelsPerMetre;
     const noise=((Math.imul(x+27,374761393)^Math.imul(z+7,668265263))>>>0)%41-20;
