@@ -63,10 +63,12 @@ describe("GRN-003 image scale and aerial volume experiment",()=>{
      scene.onBeforeRenderObservable.notifyObservers(scene);
      expect(cards.every(m=>m.isEnabled())).toBe(true);
      expect(lobes.every(m=>!m.isEnabled())).toBe(true);
-     const observersBeforeDispose=scene.onBeforeRenderObservable.observers.length;
      c.dispose();
-     // Camera may own other Babylon render observers. Our context removes one.
-     expect(scene.onBeforeRenderObservable.observers.length).toBe(observersBeforeDispose-1);
+     // Babylon may defer unregistering an observer until the next notification.
+     // The contract is that render callbacks cannot mutate disposed crowns.
+     expect(cards.every(m=>m.isDisposed())).toBe(true);
+     expect(lobes.every(m=>m.isDisposed())).toBe(true);
+     expect(()=>scene.onBeforeRenderObservable.notifyObservers(scene)).not.toThrow();
    }finally{scene.dispose();engine.dispose();}
  });
 });
