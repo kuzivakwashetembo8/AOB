@@ -258,6 +258,20 @@ export class GTDGameRuntime implements GameRuntime {
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
+    // GROUND-001: local-only visual witness. Coverage counts do not prove GPU pixels.
+    (window as Window & {__GTD_GROUND_REPORT__?: () => unknown})
+      .__GTD_GROUND_REPORT__ = () => {
+        const groundMesh = scene.getMeshByName("generated-first-light-ground");
+        return {
+          schema: "gtd.ground001.preview.v1",
+          enabled: diagnosticParams.get("gtdGround001") === "1",
+          ground: groundMesh?.name ?? null,
+          coverage: groundMesh?.metadata?.landUseCoverage ?? null,
+          meshEnabled: groundMesh?.isEnabled() ?? false,
+          material: groundMesh?.material?.name ?? null,
+          note: "Semantic map allocation and draw eligibility only; visually inspect actual game pixels.",
+        };
+      };
     // This getter is available even when startup dies at 7/8. No network
     // telemetry: only a user-initiated download reads its snapshot.
     let lastTrialWarmup: ReturnType<WorldRenderWarmup["snapshot"]> | null = null;
