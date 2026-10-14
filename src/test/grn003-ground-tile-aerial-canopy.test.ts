@@ -2,26 +2,21 @@ import {describe,expect,it} from "vitest";
 import {FreeCamera,NullEngine,Scene,Vector3} from "@babylonjs/core";
 import {FIRST_LIGHT_CITY_SPEC} from "../game/world-generation/first-light-spec";
 import {createGeneratedStreetContext} from "../game/world-generation/street-context-renderer";
-import {FOLIAGE_TEST_TREE_ID,parseGrassTileMetres,grassMetricRepeat} from "../game/world-generation/greenery-image-assets";
+import {FOLIAGE_TEST_TREE_ID} from "../game/world-generation/greenery-image-assets";
 import {chooseCanopyPresentation} from "../game/world-generation/greenery-view-policy";
 
 describe("GRN-003 image scale and aerial volume experiment",()=>{
- it("allows only fixed 1/2/3 metre photo-tile cases with a 2m default",()=>{
-   expect(parseGrassTileMetres(null)).toBe(2);
-   expect(parseGrassTileMetres("3")).toBe(3);
-   expect(parseGrassTileMetres("2")).toBe(2);
-   expect(parseGrassTileMetres("1")).toBe(1);
-   expect(parseGrassTileMetres("0")).toBe(2);
-   expect(grassMetricRepeat(1)).toEqual({u:160,v:130});
-   expect(grassMetricRepeat(2)).toEqual({u:80,v:65});
-   expect(grassMetricRepeat(3)).toEqual({u:160/3,v:130/3});
+ it("selects 3D generated foliage at high flight altitude even if the camera looks shallowly downward",()=>{
+   expect(chooseCanopyPresentation(8,.05,"photo")).toBe("volume");
+   expect(chooseCanopyPresentation(2,0,"photo")).toBe("volume");
+   expect(chooseCanopyPresentation(-3,.85,"photo")).toBe("photo");
  });
  it("uses hysteresis so near camera thresholds do not flicker",()=>{
    expect(chooseCanopyPresentation(10,.5,"photo")).toBe("volume");
-   expect(chooseCanopyPresentation(1.2,.21,"volume")).toBe("volume");
-   expect(chooseCanopyPresentation(1.2,.21,"photo")).toBe("photo");
-   expect(chooseCanopyPresentation(.5,.6,"volume")).toBe("photo");
-   expect(chooseCanopyPresentation(10,.12,"volume")).toBe("photo");
+   expect(chooseCanopyPresentation(.5,.21,"volume")).toBe("volume");
+   expect(chooseCanopyPresentation(.5,.21,"photo")).toBe("photo");
+   expect(chooseCanopyPresentation(-1,.6,"volume")).toBe("photo");
+   expect(chooseCanopyPresentation(10,.12,"volume")).toBe("volume");
    expect(chooseCanopyPresentation(Number.NaN,.5,"photo")).toBe("photo");
  });
  it("does not create aerial 3D lobes when switch is off",()=>{
