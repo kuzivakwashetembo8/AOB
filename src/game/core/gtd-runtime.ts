@@ -264,17 +264,42 @@ export class GTDGameRuntime implements GameRuntime {
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
+    // Lightweight read-only runtime benchmark: first 15 seconds are warm-up.
+    // Bounded memory, no network telemetry and no impact on a disabled trial's
+    // tree generation. The same witness exists on all TREE-PLACE preview budgets.
+    const treeFrameTimes:number[]=[];
+    const treeFrameStart=performance.now();
+    let treeSampleCursor=0;
+    scene.onAfterRenderObservable.add(()=>{
+      if(performance.now()-treeFrameStart<15000)return;
+      const ms=engine.getDeltaTime();
+      if(!Number.isFinite(ms)||ms<=0)return;
+      if(treeFrameTimes.length<3600)treeFrameTimes.push(ms);
+      else treeFrameTimes[treeSampleCursor%3600]=ms;
+      treeSampleCursor++;
+    });
+    const treeFramePercentile=(sorted:readonly number[],p:number)=>
+      sorted.length?sorted[Math.min(sorted.length-1,
+        Math.floor((sorted.length-1)*p))]??null:null;
     (window as Window & {__GTD_TREE_PLACE_REPORT__?:()=>unknown})
-      .__GTD_TREE_PLACE_REPORT__=()=>({
-        schema:"gtd.tree-place-001.preview.v1",
-        enabled:diagnosticParams.get("gtdTreePlace001")==="1",
-        budget:parseForestryBudget(diagnosticParams.get("gtdTreeBudget")),
-        forest:firstLight.forestryReport??null,
-        scene:{meshes:scene.meshes.length,activeMeshes:scene.getActiveMeshes().length,
-          materials:scene.materials.length,textures:scene.textures.length,
-          currentFps:engine.getFps()},
-        note:"Runtime snapshot, not desktop/mobile benchmark. Compare identical routes and graphics presets.",
-      });
+      .__GTD_TREE_PLACE_REPORT__=()=>{
+        const sorted=[...treeFrameTimes].sort((a,b)=>a-b);
+        return {
+          schema:"gtd.tree-place-001.preview.v2",
+          enabled:diagnosticParams.get("gtdTreePlace001")==="1",
+          budget:parseForestryBudget(diagnosticParams.get("gtdTreeBudget")),
+          forest:firstLight.forestryReport??null,
+          scene:{meshes:scene.meshes.length,activeMeshes:scene.getActiveMeshes().length,
+            materials:scene.materials.length,textures:scene.textures.length,
+            activeFoliageCards:scene.meshes.filter(m=>m.name.startsWith("generated-tree-foliage:")).length,
+            currentFps:engine.getFps(),width:engine.getRenderWidth(),height:engine.getRenderHeight()},
+          frameTimes:{warmupSeconds:15,framesSampled:treeSampleCursor,
+            medianMs:treeFramePercentile(sorted,0.50),
+            p95Ms:treeFramePercentile(sorted,0.95),
+            peakMs:treeFramePercentile(sorted,1)},
+          note:"Observed local frame times after warm-up; run the same walk/flight itinerary and quality preset on each budget. These are NOT GPU-only timings.",
+        };
+      };
     // GROUND-001: local-only visual witness. Coverage counts do not prove GPU pixels.
     (window as Window & {__GTD_GROUND_REPORT__?: () => unknown})
       .__GTD_GROUND_REPORT__ = () => {
