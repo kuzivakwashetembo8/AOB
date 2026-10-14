@@ -58,6 +58,12 @@ describe("GRN-003 image scale and aerial volume experiment",()=>{
      scene.onBeforeRenderObservable.notifyObservers(scene);
      expect(cards.every(m=>m.isEnabled())).toBe(true);
      expect(lobes.every(m=>!m.isEnabled())).toBe(true);
+     // The screenshot failure mode: flight height, almost horizontal view.
+     camera.position.set(root.position.x+4,root.position.y+21,root.position.z+12);
+     camera.setTarget(new Vector3(root.position.x,root.position.y+20.5,root.position.z));
+     scene.onBeforeRenderObservable.notifyObservers(scene);
+     expect(lobes.every(m=>m.isEnabled())).toBe(true);
+     expect(cards.every(m=>!m.isEnabled())).toBe(true);
      c.dispose();
      // Babylon may defer unregistering an observer until the next notification.
      // The contract is that render callbacks cannot mutate disposed crowns.
