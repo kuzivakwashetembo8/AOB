@@ -74,8 +74,6 @@ export interface GeneratedFirstLightWorld {
 
 export interface GeneratedFirstLightWorldOptions {
   readonly enableLandUsePreview?: boolean;
-  readonly foliageImageTrial?: import("../world-generation/greenery-image-assets").FoliageImageTrial;
-  readonly aerialFoliageTrial?: boolean;
   readonly enableCameraBlockers?: boolean;
   readonly enableShadows?: boolean;
   /** GTD-CHAR-001 only: register real First Light raised sidewalk colliders. */
@@ -426,9 +424,7 @@ export function createGeneratedFirstLightWorld(
   const streetContext = createGeneratedStreetContext(
     scene,
     FIRST_LIGHT_CITY_SPEC,
-    {skipPocketParkGround:options.enableLandUsePreview ?? false,
-      foliageImageTrial:options.foliageImageTrial ?? "off",
-      aerialFoliageTrial:options.aerialFoliageTrial ?? false},
+    { skipPocketParkGround: options.enableLandUsePreview ?? false },
   );
   const materialLibrary = new BuildingMaterialLibrary(scene);
   const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC).map((spec) =>
