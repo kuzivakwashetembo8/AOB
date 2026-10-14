@@ -15,8 +15,8 @@ export const SOUTH_WARD_GROUND_METRES = {width:160,height:130} as const;
 
 export function grassMetricRepeat(
   tileMetres=CARPET_GRASS_TILE_METRES,
-  width=SOUTH_WARD_GROUND_METRES.width,
-  height=SOUTH_WARD_GROUND_METRES.height,
+  width:number=SOUTH_WARD_GROUND_METRES.width,
+  height:number=SOUTH_WARD_GROUND_METRES.height,
 ): {u:number;v:number} {
   if(![tileMetres,width,height].every(Number.isFinite)||
     tileMetres<1||tileMetres>30||width<=0||height<=0)
@@ -35,7 +35,7 @@ export function createImageTexture(
  const texture = new Texture(
    url, scene, false, false, Texture.TRILINEAR_SAMPLINGMODE,
    ()=>onLoad(texture),
-   message=>onError(message),
+   message=>onError(message??"Image asset failed to load"),
  );
  return texture;
 }
