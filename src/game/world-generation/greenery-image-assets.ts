@@ -10,7 +10,12 @@ export const FOLIAGE_TEST_TREE_ID = "sw-fl-tree-pocket-west";
 export type FoliageImageTrial = "off" | "one" | "all";
 
 /** Metre-scaled repetition; never stretch one carpet tile over the whole map. */
-export const CARPET_GRASS_TILE_METRES = 5;
+/** Two metres is the comparison default; 3m and 1m remain independent A/B cases. */
+export const CARPET_GRASS_TILE_METRES = 2;
+export type GrassTileMetres = 1 | 2 | 3;
+export function parseGrassTileMetres(input:string|null):GrassTileMetres {
+  return input==="1"?1:input==="3"?3:2;
+}
 export const SOUTH_WARD_GROUND_METRES = {width:160,height:130} as const;
 
 export function grassMetricRepeat(
