@@ -9,8 +9,9 @@ import { featureRandom } from "./seeded-variation";
 import { planTreeCanopy } from "./tree-canopy";
 
 export type ForestryZoneKind = "architecture" | "woodland" | "corridor";
-export type ForestryBudget = 0 | 6 | 12 | 18 | 24;
-export const FORESTRY_BUDGETS = [0, 6, 12, 18, 24] as const;
+export type ForestryBudget = 0 | 6 | 12 | 18 | 24 | 30 | 36;
+export const FORESTRY_BUDGETS = [0, 6, 12, 18, 24, 30, 36] as const;
+export type ForestryDensityFocus = "balanced" | "mercer-open-side";
 export const FIRST_LIGHT_FORESTRY_BOUNDS = {
   left: -80, right: 80, north: -45, south: 85,
 } as const;
@@ -38,6 +39,9 @@ export interface ForestryPlan {
   readonly routes: readonly ForestryRoute[];
   readonly budget: ForestryBudget;
   readonly estimate: {readonly meshes:number;readonly cards:number;readonly colliders:number};
+  readonly focus:ForestryDensityFocus;
+  readonly selectedOpenSideCount:number;
+  readonly selectedOtherCount:number;
 }
 type Point = Pick<WorldPosition, "x" | "z">;
 type Bounds = {readonly left:number;readonly right:number;readonly north:number;readonly south:number};
@@ -57,7 +61,7 @@ type Terrain = {
 };
 
 export function parseForestryBudget(value:string|null): ForestryBudget {
-  return value==="6"?6:value==="12"?12:value==="18"?18:value==="24"?24:6;
+  return value==="6"?6:value==="12"?12:value==="18"?18:value==="24"?24:value==="30"?30:value==="36"?36:6;
 }
 const xz=(x:number,z:number):WorldPosition=>({x,y:0,z});
 const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -282,6 +286,144 @@ function corridorCandidates(city:CitySpec,terrain:Terrain):
   }
   return {candidates,routes};
 }
+
+/** Determine the exposed direction from the garage and its closest street,
+ * rather than baking camera-relative tree coordinates into the algorithm.
+ * For the current First Light data this resolves to the open northern lawn.
+ */
+function mercerOpenSide(city:CitySpec,terrain:Terrain):{
+  garage:Point; normal:Point; tangent:Point; minAlong:number; maxAlong:number
+}|null{
+  const garage=terrain.buildings.find(b=>b.id==="sw-fl-garage");
+  if(!garage)return null;
+  const streets=city.roads.segments.filter(x=>/Mercer Street/i.test(x.name));
+  const nodes=new Map(city.roads.nodes.map(x=>[x.id,x.position] as const));
+  const segments=streets.flatMap(street=>{
+    const a=nodes.get(street.startNodeId),b=nodes.get(street.endNodeId);
+    return a&&b?[{a,b,dist:distanceToSegment(garage.position,a,b)}]:[];
+  }).sort((a,b)=>a.dist-b.dist);
+  const street=segments[0];
+  if(!street)return null;
+  const dx=street.b.x-street.a.x,dz=street.b.z-street.a.z;
+  const len=Math.hypot(dx,dz);
+  if(len<1)return null;
+  const tangent={x:dx/len,z:dz/len};
+  const a=street.a;
+  const t=Math.max(0,Math.min(1,
+    ((garage.position.x-a.x)*dx+(garage.position.z-a.z)*dz)/(len*len)));
+  const nearest={x:a.x+t*dx,z:a.z+t*dz};
+  const side={x:garage.position.x-nearest.x,z:garage.position.z-nearest.z};
+  const sideLen=Math.hypot(side.x,side.z);
+  if(sideLen<0.01)return null;
+  const normal={x:side.x/sideLen,z:side.z/sideLen};
+  const corners=[
+    {x:terrain.bounds.left,z:terrain.bounds.north},
+    {x:terrain.bounds.right,z:terrain.bounds.north},
+    {x:terrain.bounds.left,z:terrain.bounds.south},
+    {x:terrain.bounds.right,z:terrain.bounds.south},
+  ];
+  const projections=corners.map(p=>
+    (p.x-garage.position.x)*tangent.x+(p.z-garage.position.z)*tangent.z);
+  return {garage:garage.position,normal,tangent,
+    minAlong:Math.min(...projections),maxAlong:Math.max(...projections)};
+}
+function openSideDepth(p:Point,frame:NonNullable<ReturnType<typeof mercerOpenSide>>):number{
+  return (p.x-frame.garage.x)*frame.normal.x+
+    (p.z-frame.garage.z)*frame.normal.z;
+}
+function onOpenSide(p:Point,frame:NonNullable<ReturnType<typeof mercerOpenSide>>):boolean{
+  return openSideDepth(p,frame)>=8.0;
+}
+/** Cluster centres are selected dynamically from clear open grass in five
+ * longitudinal bands, then scattered with stable spiral + jitter samples.
+ * No coordinates are copied from screenshots and no new 3D model is used.
+ */
+function mercerWoodlandCandidates(
+  city:CitySpec,terrain:Terrain,frame:NonNullable<ReturnType<typeof mercerOpenSide>>,
+):Candidate[]{
+  const bands=5;
+  const best=new Map<number,{p:Point;score:number}>();
+  const total=frame.maxAlong-frame.minAlong;
+  for(let x=terrain.bounds.left+7;x<=terrain.bounds.right-7;x+=3.7){
+    for(let z=terrain.bounds.north+7;z<=terrain.bounds.south-7;z+=3.7){
+      const key="mercer-open-grid:"+x.toFixed(2)+":"+z.toFixed(2);
+      const p={x:x+(rng(city,key+":x")-0.5)*2.0,
+        z:z+(rng(city,key+":z")-0.5)*2.0};
+      const depth=openSideDepth(p,frame);
+      if(depth<14||depth>32)continue;
+      const clear=clearPosition(p,4.2,terrain,[],true);
+      if(!clear.accepted)continue;
+      const along=(p.x-frame.garage.x)*frame.tangent.x+
+        (p.z-frame.garage.z)*frame.tangent.z;
+      const band=Math.max(0,Math.min(bands-1,
+        Math.floor((along-frame.minAlong)/total*bands)));
+      // Open grass near the built environment grades into a woodland edge.
+      // Mid-depth centroids keep room for trees both toward and away from it.
+      const score=9-Math.abs(depth-23)*0.85+
+        Math.min(12,clear.freeDistance)*0.18+rng(city,key+":rank");
+      const old=best.get(band);
+      if(!old||score>old.score)best.set(band,{p,score});
+    }
+  }
+  const result:Candidate[]=[];
+  for(const [band,anchor]of [...best].sort((a,b)=>a[0]-b[0])){
+    const zoneId="woodland:mercer-open-side:"+band;
+    for(let i=0;i<25;i++){
+      const key=zoneId+":"+i;
+      const theta=i*2.399963229728653+
+        rng(city,key+":theta")*0.68;
+      const radius=i===0?0:5.05*Math.sqrt(i)*(0.82+rng(city,key+":radial")*0.25);
+      const p={x:anchor.p.x+Math.cos(theta)*radius,
+        z:anchor.p.z+Math.sin(theta)*radius};
+      // Exclude all of Mercer Street's opposite side from this grove.
+      if(!onOpenSide(p,frame))continue;
+      result.push({
+        zoneId,zoneKind:"woodland",index:i,
+        position:xz(p.x,p.z),rating:anchor.score-i*0.07,
+      });
+    }
+  }
+  // Round-robin bands maintains irregular woodland mass across the
+  // entire open side rather than saturating a single endpoint.
+  const grouped=[...best.keys()].sort((a,b)=>a-b).map(band=>
+    result.filter(x=>x.zoneId==="woodland:mercer-open-side:"+band));
+  const interleaved:Candidate[]=[];
+  for(let i=0;i<25;i++)for(const group of grouped){
+    const c=group.find(x=>x.index===i);
+    if(c)interleaved.push(c);
+  }
+  return interleaved;
+}
+function balancedSupplementCandidates(
+  city:CitySpec,terrain:Terrain,routes:readonly ForestryRoute[],
+  frame:NonNullable<ReturnType<typeof mercerOpenSide>>,
+):Candidate[]{
+  const all=[
+    ...architectureCandidates(city,terrain),
+    ...woodlandCandidates(city,terrain,routes),
+  ];
+  // Only occasional integration away from the featured lawn. Reject
+  // candidates that would turn the rest of the ward into a perimeter forest.
+  return all.filter(c=>!onOpenSide(c.position,frame));
+}
+function focusedDensityCandidates(
+  city:CitySpec,terrain:Terrain,routes:readonly ForestryRoute[],
+):Candidate[]{
+  const frame=mercerOpenSide(city,terrain);
+  if(!frame)return [];
+  const open=mercerWoodlandCandidates(city,terrain,frame);
+  const side=balancedSupplementCandidates(city,terrain,routes,frame);
+  // Four front-grove candidates per one occasional urban tree. This ratio
+  // is tested on accepted positions as well, not assumed from candidate mix.
+  const result:Candidate[]=[];
+  let a=0,b=0;
+  while(a<open.length||b<side.length){
+    for(let j=0;j<4&&a<open.length;j++)result.push(open[a++]!);
+    if(b<side.length)result.push(side[b++]!);
+  }
+  return result;
+}
+
 function interleave(groups:Readonly<Record<ForestryZoneKind,readonly Candidate[]>>):Candidate[]{
   const result:Candidate[]=[],indexes={architecture:0,woodland:0,corridor:0};
   // A stable composition rhythm: pockets, architecture and connectors each
@@ -305,22 +447,25 @@ export function planUrbanForestry(
   existingItems:readonly StreetContextItem[],
   budget:ForestryBudget=6,
   bounds:Bounds=FIRST_LIGHT_FORESTRY_BOUNDS,
+  focus:ForestryDensityFocus="balanced",
 ):ForestryPlan {
   if(!FORESTRY_BUDGETS.includes(budget))throw new Error("Unrecognized TREE-PLACE-001 budget");
   const terrain=createTerrain(city,existingItems,bounds);
   const {candidates:connectors,routes}=corridorCandidates(city,terrain);
-  const candidates=interleave({
-    woodland:woodlandCandidates(city,terrain,routes),
-    architecture:architectureCandidates(city,terrain),
-    corridor:connectors,
-  });
+  const candidates=focus==="mercer-open-side"
+    ?focusedDensityCandidates(city,terrain,routes)
+    :interleave({
+      woodland:woodlandCandidates(city,terrain,routes),
+      architecture:architectureCandidates(city,terrain),
+      corridor:connectors,
+    });
   const accepted:ForestryTree[]=[],rejected:Record<string,number>={};
   const perZone:Record<ForestryZoneKind,number>={
     architecture:0,woodland:0,corridor:0,
   };
   let attempted=0;
   for(const candidate of candidates){
-    if(accepted.length>=24)break;
+    if(accepted.length>= (focus==="mercer-open-side"?36:24))break;
     const tree=makeCandidate(city,candidate);
     const status=clearPosition(tree.item.position,tree.canopyRadius,terrain,accepted);
     attempted++;
@@ -330,8 +475,10 @@ export function planUrbanForestry(
     }
     // Hard category limit protects open grass and avoids any one zone becoming
     // an uninterrupted thicket.
-    const cap=candidate.zoneKind==="woodland"?12:
-      candidate.zoneKind==="architecture"?10:7;
+    const cap=focus==="mercer-open-side"
+      ?candidate.zoneKind==="woodland"?33:4
+      :candidate.zoneKind==="woodland"?12:
+        candidate.zoneKind==="architecture"?10:7;
     if(perZone[candidate.zoneKind]>=cap){
       rejected["zone-cap"]=(rejected["zone-cap"]??0)+1;
       continue;
@@ -344,10 +491,13 @@ export function planUrbanForestry(
     architecture:0,woodland:0,corridor:0,
   };
   for(const tree of selected)selectedPerZone[tree.zoneKind]++;
+  const focusFrame=focus==="mercer-open-side"?mercerOpenSide(city,terrain):null;
+  const focusCount=focusFrame?selected.filter(t=>onOpenSide(t.item.position,focusFrame)).length:0;
   return {
     generated:selected,allAccepted:accepted,
     authoredTreeCount:existingItems.filter(x=>x.kind==="tree").length,
     attempted,rejected,perZone:selectedPerZone,routes,budget,
     estimate:{meshes:selected.length*35,cards:selected.length*30,colliders:selected.length},
+    focus,selectedOpenSideCount:focusCount,selectedOtherCount:selected.length-focusCount,
   };
 }
