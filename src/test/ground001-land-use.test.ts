@@ -1,5 +1,7 @@
 import {describe,expect,it} from "vitest";
-import {NullEngine,Scene,Texture} from "@babylonjs/core";
+import {NullEngine,Scene,Texture,StandardMaterial} from "@babylonjs/core";
+import {MeridianPhysics} from "../game/physics/rapier-world";
+import {createGeneratedFirstLightWorld} from "../game/world/generated-first-light-world";
 import {FIRST_LIGHT_CITY_SPEC} from "../game/world-generation/first-light-spec";
 import {LAND_FINISHES,planGroundLandUse} from "../game/world-generation/ground-land-use";
 import {buildGroundLandPixels,createGroundLandTexture} from "../game/world-generation/ground-land-surface";
@@ -50,6 +52,28 @@ describe("GROUND-001: intentional South Ward land coverage",()=>{
      expect(tex.name).toContain("ground001");
      tex.dispose();
    }finally{scene.dispose();engine.dispose();}
+ });
+ it("installs preview map on the same ground draw while keeping buildings, roads, and physics",async()=>{
+   const engine=new NullEngine();
+   const scene=new Scene(engine);
+   const physics=await MeridianPhysics.create();
+   try{
+     const baselineBodies=physics.world.bodies.len();
+     const world=createGeneratedFirstLightWorld(scene,physics,{
+       enableLandUsePreview:true,enableShadows:false,
+     });
+     const ground=scene.getMeshByName("generated-first-light-ground");
+     expect(ground).toBeDefined();
+     expect(ground?.metadata?.landUsePreview).toBe(true);
+     expect(ground?.material).toBeInstanceOf(StandardMaterial);
+     const texture=(ground?.material as StandardMaterial).diffuseTexture;
+     expect(texture?.name).toContain("ground001");
+     expect(world.buildings).toHaveLength(10);
+     expect(world.urbanSurfaces.meshes.some(m=>m.name.startsWith("generated-infill:"))).toBe(false);
+     expect(physics.world.bodies.len()).toBeGreaterThan(baselineBodies);
+     world.dispose();
+     expect(physics.world.bodies.len()).toBe(baselineBodies);
+   }finally{physics.destroy();scene.dispose();engine.dispose();}
  });
  it("rejects invalid and unbounded world domains before allocating",()=>{
    expect(()=>planGroundLandUse(FIRST_LIGHT_CITY_SPEC,
