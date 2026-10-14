@@ -14,10 +14,6 @@ import type { Scene } from "@babylonjs/core";
 import type { CitySpec, PublicSpaceSpec } from "./schema";
 import { planStreetContext } from "./street-context";
 import { planTreeCanopy } from "./tree-canopy";
-import { chooseCanopyPresentation } from "./greenery-view-policy";
-import type { CanopyPresentation } from "./greenery-view-policy";
-import { createImageTexture, FOLIAGE_IMAGE_URL, FOLIAGE_TEST_TREE_ID } from "./greenery-image-assets";
-import type { FoliageImageTrial } from "./greenery-image-assets";
 import { planVehicleProxyGeometry } from "./vehicle-proxy-geometry";
 import type { StreetContextItem } from "./street-context";
 
@@ -724,8 +720,7 @@ function createPocketParkSurface(
 export function createGeneratedStreetContext(
   scene: Scene,
   city: CitySpec,
-  options: {readonly skipPocketParkGround?:boolean; readonly foliageImageTrial?:FoliageImageTrial;
-    readonly aerialFoliageTrial?:boolean} = {},
+  options: { readonly skipPocketParkGround?: boolean } = {},
 ): GeneratedStreetContext {
   const plan = planStreetContext(city);
   const meshes: Mesh[] = [];
@@ -751,55 +746,9 @@ export function createGeneratedStreetContext(
   foliage.transparencyMode = Material.MATERIAL_ALPHATESTANDBLEND;
   foliage.specularColor = Color3.Black();
 
-  // One shared photo material for test tree (or all authored trees via opt-in).
-  // Shrubs retain procedural foliage. A missing image never blanks the crown.
-  let disposed=false;
-  let foliageTrialTexture:Texture|null=null;
-  const trial=options.foliageImageTrial??"off";
-  const foliageImageMaterial=trial==="off"?null:new StandardMaterial(
-    "grn002-photo-foliage-material",scene);
-  if(foliageImageMaterial){
-    foliageImageMaterial.diffuseTexture=foliageMap;
-    foliageImageMaterial.opacityTexture=foliageMap;
-    foliageImageMaterial.useAlphaFromDiffuseTexture=true;
-    foliageImageMaterial.backFaceCulling=false;
-    foliageImageMaterial.transparencyMode=Material.MATERIAL_ALPHATESTANDBLEND;
-    foliageImageMaterial.specularColor=Color3.Black();
-    if(!isHeadlessTextureEnvironment(scene))foliageTrialTexture=createImageTexture(scene,FOLIAGE_IMAGE_URL,texture=>{
-      if(disposed){texture.dispose();return;}
-      texture.hasAlpha=true;
-      texture.wrapU=Texture.CLAMP_ADDRESSMODE;
-      texture.wrapV=Texture.CLAMP_ADDRESSMODE;
-      foliageImageMaterial.diffuseTexture=texture;
-      foliageImageMaterial.opacityTexture=texture;
-      foliageImageMaterial.alphaCutOff=0.45;
-      foliageImageMaterial.metadata={imageState:"ready",assetUrl:FOLIAGE_IMAGE_URL};
-    },message=>{
-      if(disposed)return;
-      foliageImageMaterial.metadata={imageState:"fallback",error:message};
-    });
-    foliageImageMaterial.metadata={imageState:"loading",assetUrl:FOLIAGE_IMAGE_URL};
-  }
-
-  // GRN-003: a separate volumetric crown uses genuine 3D rounded geometry
-  // and no billboard alpha. It is created only for opted-in image trees.
-  const aerialMaterials:StandardMaterial[]=[];
-  if(options.aerialFoliageTrial && trial!=="off") {
-    const shades=[
-      new Color3(0.19,0.36,0.16),
-      new Color3(0.22,0.40,0.18),
-      new Color3(0.16,0.32,0.14),
-    ];
-    shades.forEach((shade,index)=>{
-      const mat=material(scene,"grn003-aerial-crown-material:"+index,shade,0);
-      mat.specularColor=Color3.Black();
-      mat.maxSimultaneousLights=1;
-      aerialMaterials.push(mat);
-    });
-  }
-  type SwitchableCrown={root:TransformNode;scale:number;mode:CanopyPresentation;
-    cards:Mesh[];lobes:Mesh[]};
-  const switchableCrowns:SwitchableCrown[]=[];
+  // GRN-005: always use the native procedurally generated foliage.
+  // The photo-card and aerial replacement experiments were rejected.
+  let disposed = false;
 
   const metal = material(
     scene,
@@ -873,36 +822,7 @@ export function createGeneratedStreetContext(
 
   for (const item of plan.items) {
     if (item.kind === "tree") {
-      const photoTree=trial==="all"||
-        (trial==="one"&&item.id===FOLIAGE_TEST_TREE_ID);
-      addTree(scene,item,meshes,nodes,trunk,
-        photoTree?(foliageImageMaterial??foliage):foliage,city.generatorVersion);
-      if(photoTree && aerialMaterials.length) {
-        const root=nodes.find(n=>n.name==="generated-tree:"+item.id);
-        if(!root)throw new Error("GRN-003 tree root not found: "+item.id);
-        const cards=meshes.filter(m=>m.name.startsWith("generated-tree-foliage:"+item.id+":"));
-        // One 3D lobe per already-authored canopy cluster. Independent foliage
-        // planes stay unchanged, allowing a reversible camera-dependent trial.
-        const lobes=planTreeCanopy(item,city.generatorVersion).cards
-          .filter((_,index)=>index%3===0)
-          .map((placement,index)=>{
-            const lobe=MeshBuilder.CreateSphere(
-              "grn003-aerial-foliage:"+item.id+":"+index,
-              {diameter:2.85,segments:10},scene);
-            lobe.position.set(placement.x,placement.y+0.12,placement.z);
-            lobe.scaling.set(1+((index*7)%5)*0.035,
-              0.82+((index*3)%4)*0.055,
-              0.91+((index*11)%6)*0.024);
-            lobe.parent=root;
-            lobe.material=aerialMaterials[index%aerialMaterials.length]!;
-            lobe.receiveShadows=false;
-            lobe.isPickable=false;
-            lobe.setEnabled(false);
-            meshes.push(lobe);
-            return lobe;
-          });
-        switchableCrowns.push({root,scale:item.scale,mode:"photo",cards,lobes});
-      }
+      addTree(scene, item, meshes, nodes, trunk, foliage, city.generatorVersion);
     } else if (item.kind === "shrub") {
       addShrub(scene, item, meshes, nodes, foliage);
     } else if (item.kind === "streetlight") {
@@ -916,26 +836,9 @@ export function createGeneratedStreetContext(
     }
   }
 
-  const foliageObserver=switchableCrowns.length
-    ?scene.onBeforeRenderObservable.add(()=>{
-      const camera=scene.activeCamera;
-      if(!camera)return;
-      const down=-camera.getForwardRay(1).direction.y;
-      for(const crown of switchableCrowns){
-        const relativeHeight=camera.position.y-(crown.root.position.y+5.5*crown.scale);
-        const next=chooseCanopyPresentation(relativeHeight,down,crown.mode);
-        if(next===crown.mode)continue;
-        crown.mode=next;
-        crown.cards.forEach(mesh=>mesh.setEnabled(next==="photo"));
-        crown.lobes.forEach(mesh=>mesh.setEnabled(next==="volume"));
-      }
-    }):null;
-
   const materials = [
     trunk,
     foliage,
-    ...aerialMaterials,
-    ...(foliageImageMaterial?[foliageImageMaterial]:[]),
     metal,
     glow,
     paint,
@@ -952,7 +855,6 @@ export function createGeneratedStreetContext(
     dispose() {
       if (disposed) return;
       disposed = true;
-      if(foliageObserver)scene.onBeforeRenderObservable.remove(foliageObserver);
       for (const mesh of meshes) mesh.dispose();
       for (const node of nodes) node.dispose();
       for (const materialValue of materials) {
@@ -962,13 +864,10 @@ export function createGeneratedStreetContext(
           if (materialValue.opacityTexture === diffuse) {
             materialValue.opacityTexture = null;
           }
-          // Fallback foliageMap belongs to the original material, not the
-          // trial material, which may borrow it until the photo loads.
-          if(materialValue!==foliageImageMaterial)diffuse?.dispose();
+          diffuse?.dispose();
         }
         materialValue.dispose();
       }
-      foliageTrialTexture?.dispose();
     },
   };
 }
