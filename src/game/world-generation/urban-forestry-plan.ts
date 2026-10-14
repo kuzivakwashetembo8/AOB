@@ -183,7 +183,7 @@ function architectureCandidates(city:CitySpec,terrain:Terrain):Candidate[]{
   }
   return result.sort((a,b)=>b.rating-a.rating||a.zoneId.localeCompare(b.zoneId)||a.index-b.index);
 }
-function woodlandCandidates(city:CitySpec,terrain:Terrain):Candidate[]{
+function woodlandCandidates(city:CitySpec,terrain:Terrain,routes:readonly ForestryRoute[]):Candidate[]{
   // Inspect a fixed-size spatial lattice; infer the four broad planting zones
   // from vacant ground, never from painted screenshot positions.
   const quadrants=new Map<string,{point:Point;rating:number}>();
@@ -221,7 +221,31 @@ function woodlandCandidates(city:CitySpec,terrain:Terrain):Candidate[]{
         rating:anchor.rating-(i*0.06)});
     }
   }
-  return results.sort((a,b)=>a.index-b.index||a.zoneId.localeCompare(b.zoneId));
+  results.sort((a,b)=>a.index-b.index||a.zoneId.localeCompare(b.zoneId));
+  // Each feasible outward tower connector can end at an organically formed
+  // woodland pocket; the pocket position is derived from the route geometry,
+  // never traced from an annotated screenshot.
+  const outlets:Candidate[]=[];
+  for(const route of routes.filter(r=>r.status==="connected")){
+    const inward=route.to.x<route.from.x?1:-1;
+    const angles=[-8,8,-4,4,-11,11];
+    angles.forEach((zOffset,i)=>{
+      outlets.push({zoneKind:"woodland",zoneId:"woodland:outlet:"+route.id,
+        index:i,position:xz(
+          route.to.x+inward*(1.1+rng(city,route.id+":inward:"+i)*1.2),
+          route.to.z+zOffset+(rng(city,route.id+":z:"+i)-0.5)*0.9),
+        rating:8-i*0.1});
+    });
+  }
+  // Give the user's foreground open lawn a visible grove before filling both
+  // connector endpoints; then continue with other geometrically found pockets.
+  return [
+    ...results.slice(0,2),
+    ...outlets.filter(x=>x.index===0),
+    ...outlets.filter(x=>x.index===1),
+    ...results.slice(2),
+    ...outlets.filter(x=>x.index>1),
+  ];
 }
 function corridorCandidates(city:CitySpec,terrain:Terrain):
   {candidates:Candidate[];routes:ForestryRoute[]}{
@@ -286,7 +310,7 @@ export function planUrbanForestry(
   const terrain=createTerrain(city,existingItems,bounds);
   const {candidates:connectors,routes}=corridorCandidates(city,terrain);
   const candidates=interleave({
-    woodland:woodlandCandidates(city,terrain),
+    woodland:woodlandCandidates(city,terrain,routes),
     architecture:architectureCandidates(city,terrain),
     corridor:connectors,
   });
