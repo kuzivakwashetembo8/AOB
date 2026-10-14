@@ -239,6 +239,8 @@ export class GTDGameRuntime implements GameRuntime {
         // Canonical Voight always needs physical sidewalk TOP support.
         // Trial-only support previously allowed feet to clip through paving.
         enableSidewalkSupportCollision: true,
+        // GROUND-001: opt-in, rollback-safe surface replacement on preview.
+        enableLandUsePreview: diagnosticParams.get("gtdGround001") === "1",
         // MAT-003: approved apartment and garage brick surfaces are default-on.
         // An explicit ?gtdBrickTrial=0 permits reversible field diagnostics.
         enableBrickMaterialTrial: acceptedBrickSurfaceEnabled(diagnosticParams),
