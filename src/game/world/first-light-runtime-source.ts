@@ -8,6 +8,7 @@ import {
   type GeneratedFirstLightWorld,
 } from "./generated-first-light-world";
 import type { MeridianEnvironmentSnapshot } from "./environment-controller";
+import type { ForestryBudget, ForestryPlan } from "../world-generation/urban-forestry-plan";
 
 export type FirstLightWorldSource =
   | "authored-first-light"
@@ -35,6 +36,7 @@ export interface RuntimeFirstLightWorld {
   readonly objective: string;
   readonly interiorState: InteriorVisibilityState;
   readonly environmentSnapshot: MeridianEnvironmentSnapshot;
+  readonly forestryReport?: ForestryPlan | null;
   update(
     realSeconds: number,
     playerPosition: { x: number; y: number; z: number },
@@ -50,6 +52,8 @@ export function createFirstLightRuntimeWorld(
   source: FirstLightWorldSource = ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
   options: {
     readonly enableLandUsePreview?: boolean;
+    readonly enableTreePlace001?: boolean;
+    readonly treeBudget?: ForestryBudget;
     readonly enableSidewalkSupportCollision?: boolean;
     readonly enableBrickMaterialTrial?: boolean;
     readonly enableBrickBusinessFieldTrial?: boolean;
@@ -65,6 +69,8 @@ export function createFirstLightRuntimeWorld(
       enableCameraBlockers: true,
       enableShadows: true,
       enableLandUsePreview: options.enableLandUsePreview ?? false,
+      enableTreePlace001: options.enableTreePlace001 ?? false,
+      treeBudget: options.treeBudget ?? 6,
       enableSidewalkSupportCollision: options.enableSidewalkSupportCollision ?? false,
       enableBrickMaterialTrial: options.enableBrickMaterialTrial ?? false,
       enableBrickBusinessFieldTrial: options.enableBrickBusinessFieldTrial ?? false,
