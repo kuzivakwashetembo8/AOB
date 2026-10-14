@@ -94,6 +94,46 @@ export class MeridianPhysics {
     };
   }
 
+  /**
+   * GROUND-003: a local, actual terrain triangle surface supports walking into
+   * a depressed basin. The visual terrain and collider share the same vertices.
+   * Use only on the bounded First Light trial: never generate arbitrary
+   * unbounded terrain/triangle input from remote data.
+   */
+  addStaticTerrain(
+    position: Vec3,
+    vertices: readonly number[] | Float32Array,
+    triangles: readonly number[] | Uint32Array,
+  ): StaticCollisionHandle {
+    if (vertices.length % 3 !== 0 || triangles.length % 3 !== 0 ||
+        vertices.length < 9 || triangles.length < 3 ||
+        vertices.length > 100000 || triangles.length > 180000 ||
+        ![position.x, position.y, position.z].every(Number.isFinite)) {
+      throw new Error("GROUND-003 invalid terrain collision geometry");
+    }
+    const vertexArray = Float32Array.from(vertices);
+    const indexArray = Uint32Array.from(triangles);
+    if (!vertexArray.every(Number.isFinite) ||
+        !indexArray.every(i => i < vertexArray.length / 3)) {
+      throw new Error("GROUND-003 nonfinite terrain or invalid triangle");
+    }
+    const body = this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.fixed().setTranslation(position.x, position.y, position.z),
+    );
+    try {
+      this.world.createCollider(RAPIER.ColliderDesc.trimesh(vertexArray,indexArray),body);
+    } catch (error) {
+      this.world.removeRigidBody(body);
+      throw error;
+    }
+    let disposed = false;
+    return {dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      this.world.removeRigidBody(body);
+    }};
+  }
+
   /** Explicit physical collision metadata, not an invisible taller wall. */
   isVehicleNoStepCollider(collider: RAPIER.Collider): boolean {
     return this.vehicleNoStepColliders.has(collider.handle);
