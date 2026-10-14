@@ -53,6 +53,7 @@ export function createFirstLightRuntimeWorld(
     readonly enableGrassImageTrial?: boolean;
     readonly grassTileMetres?: import("../world-generation/greenery-image-assets").GrassTileMetres;
     readonly foliageImageTrial?: import("../world-generation/greenery-image-assets").FoliageImageTrial;
+    readonly aerialFoliageTrial?: boolean;
     readonly enableSidewalkSupportCollision?: boolean;
     readonly enableBrickMaterialTrial?: boolean;
     readonly enableBrickBusinessFieldTrial?: boolean;
@@ -71,6 +72,7 @@ export function createFirstLightRuntimeWorld(
       enableGrassImageTrial: options.enableGrassImageTrial ?? false,
       grassTileMetres:options.grassTileMetres ?? 2,
       foliageImageTrial: options.foliageImageTrial ?? "off",
+      aerialFoliageTrial:options.aerialFoliageTrial ?? false,
       enableSidewalkSupportCollision: options.enableSidewalkSupportCollision ?? false,
       enableBrickMaterialTrial: options.enableBrickMaterialTrial ?? false,
       enableBrickBusinessFieldTrial: options.enableBrickBusinessFieldTrial ?? false,
