@@ -183,7 +183,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     active.start(true);
     active.setWeightForAllAnimatables(0);
   }
-  switchTo(clips.idle, "idle");
+  switchTo(clips.idle!, "idle");
 
   function advanceBlend(dt: number) {
     if (active) {
