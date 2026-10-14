@@ -590,6 +590,7 @@ function createCityParcelInfill(scene:Scene,city:CitySpec):{
 function createFirstLightAuthoredParitySurfaces(
   scene: Scene,
   city: CitySpec,
+  skipLegacyParcelInfill = false,
 ): GeneratedUrbanSurfaces {
   const meshes: Mesh[] = [];
   const materials: StandardMaterial[] = [];
@@ -614,9 +615,11 @@ function createFirstLightAuthoredParitySurfaces(
 
   // WORLD-003: continuous city-derived infill replaces four authored zones
   // and three hand-positioned parking pads without changing street geometry.
-  const infill=createCityParcelInfill(scene,city);
-  meshes.push(...infill.meshes);
-  materials.push(...infill.materials);
+  if (!skipLegacyParcelInfill) {
+    const infill=createCityParcelInfill(scene,city);
+    meshes.push(...infill.meshes);
+    materials.push(...infill.materials);
+  }
 
   // First Light road ownership: longitudinal Mercer/Foundry surfaces own
   // the entire T-junction. Workshop Road ends at each road's OUTER edge:
@@ -732,9 +735,10 @@ function createFirstLightAuthoredParitySurfaces(
 export function createGeneratedUrbanSurfaces(
   scene: Scene,
   city: CitySpec,
+  options: {readonly skipLegacyParcelInfill?: boolean} = {},
 ): GeneratedUrbanSurfaces {
   if (isFirstLightReferenceCity(city)) {
-    return createFirstLightAuthoredParitySurfaces(scene,city);
+    return createFirstLightAuthoredParitySurfaces(scene,city,options.skipLegacyParcelInfill??false);
   }
 
   const roadPlan = planRoadGraph(city.roads);
