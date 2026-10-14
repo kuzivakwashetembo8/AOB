@@ -28,6 +28,8 @@ import type {
   GeneratedStreetContext,
   GeneratedUrbanSurfaces,
 } from "../world-generation";
+import type { StreetContextPlan } from "../world-generation/street-context";
+import type { ForestryBudget, ForestryPlan } from "../world-generation/urban-forestry-plan";
 import {
   createMeridianEnvironment,
   type InteriorVisibilityState,
@@ -51,6 +53,7 @@ export interface GeneratedFirstLightWorld {
   readonly environment: MeridianEnvironmentController;
   readonly garageInterior: GeneratedGarageInterior | null;
   readonly shadowGenerator: MeridianEnvironmentController["shadowGenerator"];
+  readonly forestryReport: ForestryPlan | null;
   readonly interiorState: InteriorVisibilityState;
   readonly environmentSnapshot: MeridianEnvironmentSnapshot;
   /**
@@ -74,6 +77,8 @@ export interface GeneratedFirstLightWorld {
 
 export interface GeneratedFirstLightWorldOptions {
   readonly enableLandUsePreview?: boolean;
+  readonly enableTreePlace001?: boolean;
+  readonly treeBudget?: ForestryBudget;
   readonly enableCameraBlockers?: boolean;
   readonly enableShadows?: boolean;
   /** GTD-CHAR-001 only: register real First Light raised sidewalk colliders. */
@@ -143,10 +148,10 @@ function createGround(
 
 function registerStreetContextCollision(
   physics: MeridianPhysics,
+  plan: StreetContextPlan,
   parkedHandles?: Map<string, StaticCollisionHandle>,
 ): StaticCollisionHandle[] {
   const handles: StaticCollisionHandle[] = [];
-  const plan = planStreetContext(FIRST_LIGHT_CITY_SPEC);
 
   for (const item of plan.items) {
     switch (item.kind) {
@@ -421,10 +426,14 @@ export function createGeneratedFirstLightWorld(
     FIRST_LIGHT_CITY_SPEC,
     {skipLegacyParcelInfill: options.enableLandUsePreview ?? false},
   );
+  const streetPlan = planStreetContext(FIRST_LIGHT_CITY_SPEC, {
+    enableTreePlace001: options.enableTreePlace001 ?? false,
+    treeBudget: options.treeBudget ?? 6,
+  });
   const streetContext = createGeneratedStreetContext(
     scene,
     FIRST_LIGHT_CITY_SPEC,
-    { skipPocketParkGround: options.enableLandUsePreview ?? false },
+    { skipPocketParkGround: options.enableLandUsePreview ?? false, plan: streetPlan },
   );
   const materialLibrary = new BuildingMaterialLibrary(scene);
   const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC).map((spec) =>
@@ -458,11 +467,11 @@ export function createGeneratedFirstLightWorld(
   });
   const parkedCollisionHandles = new Map<string, StaticCollisionHandle>();
   const parkedById = new Map(
-    planStreetContext(FIRST_LIGHT_CITY_SPEC).items
+    streetPlan.items
       .filter((item) => item.kind === "parked-car")
       .map((item) => [item.id, item] as const),
   );
-  const contextCollision = registerStreetContextCollision(physics, parkedCollisionHandles);
+  const contextCollision = registerStreetContextCollision(physics, streetPlan, parkedCollisionHandles);
   const urbanNavigationCollision = registerUrbanNavigationCollision(
     physics,
     urbanSurfaces,
@@ -523,6 +532,7 @@ export function createGeneratedFirstLightWorld(
     buildings,
     urbanSurfaces,
     streetContext,
+    forestryReport: streetPlan.forestry,
     materialLibrary,
     environment,
     garageInterior,
