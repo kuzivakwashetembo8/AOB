@@ -1,9 +1,7 @@
-/** MAT-009: two owner-approved architectural glass modes.
- * East/grey: continuous glass beneath physical 3D mullions/transoms, with a
- * dark crown completed by matching frame rails.
- * West/blue: the same pre-existing continuous UV policy, no frame grid, and
- * the approved subtle pale metal edge trim preserved unchanged.
- * Visual only; no new physics/collision or modified building massing.
+/** MAT-009 / GRN-004: both South Ward towers receive actual 3D mullions
+ * and transoms laid over the accepted continuous glass imagery.
+ * Blue/west keeps its pale roof cap; grey/east keeps its matching dark cap.
+ * Visual-only geometry, without changing glass UV, massing or collision.
  */
 import type { BuildingMass, BoxPrimitive, GeneratedBuildingPlan } from "./architecture-plan";
 import type { FacadeSide } from "./schema";
@@ -44,7 +42,7 @@ function edgeBox(
 export function planSkylineArchitecturalGeometry(
   plan: GeneratedBuildingPlan,
   buildingId: string,
-  enableGreyFraming = true,
+  enableFraming = true,
 ): readonly BoxPrimitive[] {
   if (buildingId !== BLUE_GLASS_TOWER_ID && buildingId !== GREY_GLASS_TOWER_ID) return [];
   const pieces: BoxPrimitive[] = [];
@@ -53,9 +51,8 @@ export function planSkylineArchitecturalGeometry(
     for (const side of SIDES) {
       const frontRear = side === "front" || side === "rear";
       const span = frontRear ? mass.width : mass.depth;
-      // Framed grey crowns terminate in the same DARK metal as the real
-      // mullions and transoms. The unframed blue reference retains its
-      // previously accepted, pale architectural (never wooden) perimeter.
+      // Grey crowns match their dark structural mullions; blue retains the
+      // accepted pale architectural metal cap over its newly framed glass.
       const cap = edgeBox(mass, side, 0, roofY + 0.11,
         span + CAP_DEPTH, CAP_HEIGHT, CAP_DEPTH,
         `skyline-cap:${mass.id}:${side}`,
@@ -69,12 +66,11 @@ export function planSkylineArchitecturalGeometry(
             (side === "rear" || side === "left" ? -1 : 1) * (edge + 0.07),
         },
       });
-      if (buildingId !== GREY_GLASS_TOWER_ID || !enableGreyFraming) continue;
+      if (!enableFraming) continue;
       const columns = Math.max(2, Math.round(span / GREY_MULLION_SPACING_METRES));
       for (let i = 0; i <= columns; i++) {
         const offset = -span / 2 + span * i / columns;
-        // Reach into the roof-edge rail to avoid a bright, unframed gap
-        // between the upper mullion tips and the curtain-wall termination.
+        // Extend the physical vertical rail into either tower roof edge.
         pieces.push(edgeBox(mass, side, offset,
           mass.baseY + (mass.height + 0.08) / 2,
           VERTICAL_WIDTH, mass.height + 0.08, FRAME_DEPTH,
