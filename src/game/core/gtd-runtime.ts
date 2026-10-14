@@ -58,6 +58,7 @@ import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-p
 import { parseBusinessBrickFocus } from "../world-generation/brick-business-field-trial";
 import { parseWoodFocus } from "../world-generation/wood-south-ward-field-trial";
 import { parseGlassFocus } from "../world-generation/glass-south-ward-field-trial";
+import { parseForestryBudget } from "../world-generation/urban-forestry-plan";
 import { isCurbAscent } from "../character/locomotion/curb-step";
 import { flightDisplacement, toggleInspectionFlight } from "../character/locomotion/inspection-flight";
 import { isolateCharacterTrialGroundShaders } from "../character/character-trial-ground-isolation";
@@ -241,6 +242,9 @@ export class GTDGameRuntime implements GameRuntime {
         enableSidewalkSupportCollision: true,
         // GROUND-001: opt-in, rollback-safe surface replacement on preview.
         enableLandUsePreview: diagnosticParams.get("gtdGround001") === "1",
+        // TREE-PLACE-001 is a preview-only, budget-bounded forestry experiment.
+        enableTreePlace001: diagnosticParams.get("gtdTreePlace001") === "1",
+        treeBudget: parseForestryBudget(diagnosticParams.get("gtdTreeBudget")),
         // GRN-004: photo grass trials removed. The approved GRN-01 grass is always used.
         // GRN-005: discontinued photo/aerial foliage URL trials are inert.
         // MAT-003: approved apartment and garage brick surfaces are default-on.
@@ -260,6 +264,17 @@ export class GTDGameRuntime implements GameRuntime {
       },
     );
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
+    (window as Window & {__GTD_TREE_PLACE_REPORT__?:()=>unknown})
+      .__GTD_TREE_PLACE_REPORT__=()=>({
+        schema:"gtd.tree-place-001.preview.v1",
+        enabled:diagnosticParams.get("gtdTreePlace001")==="1",
+        budget:parseForestryBudget(diagnosticParams.get("gtdTreeBudget")),
+        forest:firstLight.forestryReport??null,
+        scene:{meshes:scene.meshes.length,activeMeshes:scene.getActiveMeshes().length,
+          materials:scene.materials.length,textures:scene.textures.length,
+          currentFps:engine.getFps()},
+        note:"Runtime snapshot, not desktop/mobile benchmark. Compare identical routes and graphics presets.",
+      });
     // GROUND-001: local-only visual witness. Coverage counts do not prove GPU pixels.
     (window as Window & {__GTD_GROUND_REPORT__?: () => unknown})
       .__GTD_GROUND_REPORT__ = () => {
