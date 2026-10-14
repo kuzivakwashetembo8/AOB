@@ -67,7 +67,7 @@ describe("GROUND-001: intentional South Ward land coverage",()=>{
      expect(ground?.metadata?.landUsePreview).toBe(true);
      expect(ground?.material).toBeInstanceOf(StandardMaterial);
      const texture=(ground?.material as StandardMaterial).diffuseTexture;
-     expect(texture?.name).toContain("ground001");
+     expect(texture?.name).toContain("ground003");
      expect(world.buildings).toHaveLength(10);
      expect(world.urbanSurfaces.meshes.some(m=>m.name.startsWith("generated-infill:"))).toBe(false);
      expect(physics.world.bodies.len()).toBeGreaterThan(baselineBodies);
