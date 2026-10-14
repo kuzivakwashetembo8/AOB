@@ -77,6 +77,7 @@ export interface GeneratedFirstLightWorld {
 export interface GeneratedFirstLightWorldOptions {
   readonly enableLandUsePreview?: boolean;
   readonly enableGrassImageTrial?: boolean;
+  readonly grassTileMetres?: import("../world-generation/greenery-image-assets").GrassTileMetres;
   readonly foliageImageTrial?: import("../world-generation/greenery-image-assets").FoliageImageTrial;
   readonly enableCameraBlockers?: boolean;
   readonly enableShadows?: boolean;
@@ -98,6 +99,7 @@ function createGround(
   physics: MeridianPhysics,
   landUsePreview = false,
   grassImageTrial = false,
+  grassTileMetres: import("../world-generation/greenery-image-assets").GrassTileMetres = 2,
 ): {
   mesh: Mesh;
   material: StandardMaterial;
@@ -132,7 +134,7 @@ function createGround(
       mesh.metadata={...mesh.metadata,grassImageState:"loading"};
       grassImage=createImageTexture(scene,CARPET_GRASS_IMAGE_URL,texture=>{
         if(disposed){texture.dispose();return;}
-        const repeat=grassMetricRepeat();
+        const repeat=grassMetricRepeat(grassTileMetres);
         texture.wrapU=Texture.WRAP_ADDRESSMODE;
         texture.wrapV=Texture.WRAP_ADDRESSMODE;
         texture.uScale=repeat.u;
@@ -142,7 +144,10 @@ function createGround(
         fallbackTexture?.dispose();
         fallbackTexture=null;
         mesh.metadata={...mesh.metadata,grassImageState:"ready",
-          grassImageUrl:CARPET_GRASS_IMAGE_URL,tileMetres:5};
+          grassImageUrl:CARPET_GRASS_IMAGE_URL,tileMetres:grassTileMetres,
+          repeats:{u:repeat.u,v:repeat.v},
+          sampler:{wrapU:texture.wrapU,wrapV:texture.wrapV,
+            uScale:texture.uScale,vScale:texture.vScale}};
       },message=>{
         if(disposed)return;
         mesh.metadata={...mesh.metadata,grassImageState:"fallback",grassImageError:message};
@@ -153,7 +158,7 @@ function createGround(
     material.specularColor=Color3.Black();
     material.disableLighting=true;
     material.maxSimultaneousLights=1;
-    mesh.metadata={landUsePreview:true,landUseCoverage:plan.counts,
+    mesh.metadata={...mesh.metadata,landUsePreview:true,landUseCoverage:plan.counts,
       groundFinish:"GRN-01"};
   }
   mesh.material=material;
@@ -446,7 +451,8 @@ export function createGeneratedFirstLightWorld(
   const enableShadows = options.enableShadows ?? true;
 
   const ground = createGround(scene, physics, options.enableLandUsePreview ?? false,
-    options.enableGrassImageTrial ?? false);
+    options.enableGrassImageTrial ?? false,
+    options.grassTileMetres ?? 2);
   const urbanSurfaces = createGeneratedUrbanSurfaces(
     scene,
     FIRST_LIGHT_CITY_SPEC,
