@@ -8,7 +8,7 @@ import {
   type GeneratedFirstLightWorld,
 } from "./generated-first-light-world";
 import type { MeridianEnvironmentSnapshot } from "./environment-controller";
-import type { ForestryBudget, ForestryPlan } from "../world-generation/urban-forestry-plan";
+import type { ForestryBudget, ForestryPlan, ForestryDensityFocus } from "../world-generation/urban-forestry-plan";
 
 export type FirstLightWorldSource =
   | "authored-first-light"
@@ -54,6 +54,7 @@ export function createFirstLightRuntimeWorld(
     readonly enableLandUsePreview?: boolean;
     readonly enableTreePlace001?: boolean;
     readonly treeBudget?: ForestryBudget;
+    readonly treeDensityFocus?: ForestryDensityFocus;
     readonly enableSidewalkSupportCollision?: boolean;
     readonly enableBrickMaterialTrial?: boolean;
     readonly enableBrickBusinessFieldTrial?: boolean;
@@ -71,6 +72,7 @@ export function createFirstLightRuntimeWorld(
       enableLandUsePreview: options.enableLandUsePreview ?? false,
       enableTreePlace001: options.enableTreePlace001 ?? false,
       treeBudget: options.treeBudget ?? 6,
+      treeDensityFocus: options.treeDensityFocus ?? "balanced",
       enableSidewalkSupportCollision: options.enableSidewalkSupportCollision ?? false,
       enableBrickMaterialTrial: options.enableBrickMaterialTrial ?? false,
       enableBrickBusinessFieldTrial: options.enableBrickBusinessFieldTrial ?? false,
