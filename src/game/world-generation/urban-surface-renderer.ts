@@ -601,6 +601,12 @@ function createFirstLightAuthoredParitySurfaces(
     "generated-sidewalk",
     "sidewalk-paving",
   );
+  if (skipLegacyParcelInfill) {
+    sidewalk.diffuseTexture?.dispose();
+    sidewalk.diffuseTexture=null;
+    sidewalk.diffuseColor=new Color3(0.63,0.61,0.57);
+    sidewalk.specularColor=Color3.Black();
+  }
   const curb = new StandardMaterial("generated-curb", scene);
   curb.diffuseColor = new Color3(0.48, 0.45, 0.39);
   curb.specularColor = new Color3(0.03, 0.03, 0.03);
@@ -621,24 +627,29 @@ function createFirstLightAuthoredParitySurfaces(
     materials.push(...infill.materials);
   }
 
+  const extend=skipLegacyParcelInfill;
+  // Open street mouths extend to playable-slice boundary, not concrete caps.
+  const roadWidth=extend?160:130;
+  const mainWestX=extend?-32:-24.5,mainWestWidth=extend?96:81;
+  const mainEastX=extend?52:44.5,mainEastWidth=extend?56:41;
   // First Light road ownership: longitudinal Mercer/Foundry surfaces own
   // the entire T-junction. Workshop Road ends at each road's OUTER edge:
   // no coincident coplanar asphalt layers or raised junction carpet patch.
   meshes.push(
-    authoredParityBox(scene, "generated-parity-main-road", 0, 0.015, 8, 130, 0.03, 8, asphalt),
+    authoredParityBox(scene, "generated-parity-main-road", 0, 0.015, 8, roadWidth, 0.03, 8, asphalt),
     authoredParityBox(scene, "generated-parity-side-road", 20, 0.015, 28, 8, 0.03, 32, asphalt),
-    authoredParityBox(scene, "generated-parity-north-walk", 0, 0.055, 2.125, 130, 0.11, 3.75, sidewalk),
-    authoredParityBox(scene, "generated-parity-south-walk-west", -24.5, 0.055, 13.875, 81, 0.11, 3.75, sidewalk),
-    authoredParityBox(scene, "generated-parity-south-walk-east", 44.5, 0.055, 13.875, 41, 0.11, 3.75, sidewalk),
-    authoredParityBox(scene, "generated-parity-north-curb", 0, 0.105, 4.02, 130, 0.21, 0.2, curb),
-    authoredParityBox(scene, "generated-parity-south-curb-west", -24.5, 0.105, 11.98, 81, 0.21, 0.2, curb),
-    authoredParityBox(scene, "generated-parity-south-curb-east", 44.5, 0.105, 11.98, 41, 0.21, 0.2, curb),
-    authoredParityBox(scene, "generated-parity-rear-road", 2, 0.018, 48, 118, 0.035, 8, asphalt),
+    authoredParityBox(scene, "generated-parity-north-walk", 0, 0.055, 2.125, roadWidth, 0.11, 3.75, sidewalk),
+    authoredParityBox(scene, "generated-parity-south-walk-west", mainWestX, 0.055, 13.875, mainWestWidth, 0.11, 3.75, sidewalk),
+    authoredParityBox(scene, "generated-parity-south-walk-east", mainEastX, 0.055, 13.875, mainEastWidth, 0.11, 3.75, sidewalk),
+    authoredParityBox(scene, "generated-parity-north-curb", 0, 0.105, 4.02, roadWidth, 0.21, 0.2, curb),
+    authoredParityBox(scene, "generated-parity-south-curb-west", mainWestX, 0.105, 11.98, mainWestWidth, 0.21, 0.2, curb),
+    authoredParityBox(scene, "generated-parity-south-curb-east", mainEastX, 0.105, 11.98, mainEastWidth, 0.21, 0.2, curb),
+    authoredParityBox(scene, "generated-parity-rear-road", extend?0:2, 0.018, 48, extend?160:118, 0.035, 8, asphalt),
   );
 
   const rearSegments = [
-    { suffix: "west", x: -20.5, width: 73 },
-    { suffix: "east", x: 42.5, width: 37 },
+    { suffix: "west", x: extend?-32:-20.5, width: extend?96:73 },
+    { suffix: "east", x: extend?52:42.5, width: extend?56:37 },
   ] as const;
   rearSegments.forEach((segment) => {
     meshes.push(
@@ -658,7 +669,7 @@ function createFirstLightAuthoredParitySurfaces(
 
   const markingPlan: RoadMarkingPlan[] = [];
 
-  for (let x = -56; x <= 56; x += 8) {
+  for (let x = (extend?-72:-56); x <= (extend?72:56); x += 8) {
     meshes.push(
       authoredParityBox(scene, "generated-parity-main-lane-" + x, x, 0.045, 8, 3.4, 0.035, 0.14, marking),
     );
@@ -686,7 +697,7 @@ function createFirstLightAuthoredParitySurfaces(
     });
   }
 
-  for (let x = -48; x <= 48; x += 8) {
+  for (let x = (extend?-72:-48); x <= (extend?72:48); x += 8) {
     meshes.push(
       authoredParityBox(scene, "generated-parity-rear-lane-" + x, x, 0.045, 48, 3.4, 0.035, 0.14, marking),
     );
