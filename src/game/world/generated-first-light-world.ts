@@ -161,6 +161,9 @@ function createGround(
       waterMaterial.emissiveColor=new Color3(0.028,0.052,0.055);
       waterMaterial.specularColor=new Color3(0.09,0.12,0.13);
       waterMaterial.alpha=0.66;
+      // No 17-light shader permutations on an alpha water plane (WORLD-003).
+      waterMaterial.disableLighting=true;
+      waterMaterial.maxSimultaneousLights=1;
       waterMaterial.backFaceCulling=false;
       water.material=waterMaterial;
       water.isPickable=false;
