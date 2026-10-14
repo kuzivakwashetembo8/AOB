@@ -6,20 +6,12 @@ import {createGeneratedFirstLightWorld} from "../game/world/generated-first-ligh
 import {MeridianPhysics} from "../game/physics/rapier-world";
 import {planGroundLandUse,LAND_FINISHES} from "../game/world-generation/ground-land-use";
 import {
- FOLIAGE_IMAGE_URL,CARPET_GRASS_IMAGE_URL,FOLIAGE_TEST_TREE_ID,
- grassMetricRepeat,
+ FOLIAGE_IMAGE_URL,FOLIAGE_TEST_TREE_ID,
 } from "../game/world-generation/greenery-image-assets";
 
 describe("GRN-002: repeatable image-based greenery experiments",()=>{
- it("uses exact committed asset paths and a metre-based, finite tiling scale",()=>{
+ it("retains the single approved photographic foliage source",()=>{
    expect(FOLIAGE_IMAGE_URL).toBe("/assets/vegetation/foliage-cluster-01.webp");
-   expect(CARPET_GRASS_IMAGE_URL).toBe("/assets/ground/carpet-grass-01.webp");
-   expect(grassMetricRepeat()).toEqual({u:80,v:65});
-   expect(grassMetricRepeat(3)).toEqual({u:160/3,v:130/3});
-   expect(grassMetricRepeat(1)).toEqual({u:160,v:130});
-   expect(()=>grassMetricRepeat(0)).toThrow();
-   expect(()=>grassMetricRepeat(Infinity)).toThrow();
-   expect(()=>grassMetricRepeat(5,-1,130)).toThrow();
  });
  it("keeps one-photo-tree material isolated from all shrubs and other trees",()=>{
    const engine=new NullEngine(),scene=new Scene(engine);
@@ -72,7 +64,7 @@ describe("GRN-002: repeatable image-based greenery experiments",()=>{
      expect(p.kinds).toHaveLength(20800);
      const orig=physics.world.bodies.len();
      const world=createGeneratedFirstLightWorld(scene,physics,{
-       enableLandUsePreview:true,enableGrassImageTrial:true,
+       enableLandUsePreview:true,
        foliageImageTrial:"all",enableShadows:false,
      });
      const ground=scene.getMeshByName("generated-first-light-ground");
