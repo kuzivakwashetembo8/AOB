@@ -3,13 +3,11 @@ import {
   Mesh,
   MeshBuilder,
   StandardMaterial,
-  Texture,
   Vector3,
 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
 import { planGroundLandUse } from "../world-generation/ground-land-use";
 import { createGroundLandTexture } from "../world-generation/ground-land-surface";
-import { CARPET_GRASS_IMAGE_URL, createImageTexture, grassMetricRepeat } from "../world-generation/greenery-image-assets";
 import type {
   MeridianPhysics,
   StaticCollisionHandle,
@@ -76,8 +74,6 @@ export interface GeneratedFirstLightWorld {
 
 export interface GeneratedFirstLightWorldOptions {
   readonly enableLandUsePreview?: boolean;
-  readonly enableGrassImageTrial?: boolean;
-  readonly grassTileMetres?: import("../world-generation/greenery-image-assets").GrassTileMetres;
   readonly foliageImageTrial?: import("../world-generation/greenery-image-assets").FoliageImageTrial;
   readonly aerialFoliageTrial?: boolean;
   readonly enableCameraBlockers?: boolean;
@@ -99,8 +95,6 @@ function createGround(
   scene: Scene,
   physics: MeridianPhysics,
   landUsePreview = false,
-  grassImageTrial = false,
-  grassTileMetres: import("../world-generation/greenery-image-assets").GrassTileMetres = 2,
 ): {
   mesh: Mesh;
   material: StandardMaterial;
@@ -108,9 +102,7 @@ function createGround(
   disposeTexture(): void;
 } {
   const material=new StandardMaterial("generated-ground-material",scene);
-  let disposed=false;
-  let grassImage:Texture|null=null;
-  let fallbackTexture:Texture|null=null;
+  let groundTexture: ReturnType<typeof createGroundLandTexture> | null = null;
   material.diffuseColor=new Color3(0.17,0.16,0.14);
   material.specularColor=Color3.Black();
   const mesh=MeshBuilder.CreateGround(
@@ -127,34 +119,10 @@ function createGround(
     for(let i=0;i<positions.length;i+=3)
       uvs.push((positions[i]!+80)/160,(positions[i+2]!+65)/130);
     mesh.setVerticesData("uv",uvs);
-    fallbackTexture=createGroundLandTexture(scene,plan);
-    material.diffuseTexture=fallbackTexture;
-    if(grassImageTrial && scene.getEngine().getClassName()!=="NullEngine"){
-      // GRN-002: texture upload is asynchronous; original GRN-01 stays visible
-      // until the committed image has decoded and uploaded successfully.
-      mesh.metadata={...mesh.metadata,grassImageState:"loading"};
-      grassImage=createImageTexture(scene,CARPET_GRASS_IMAGE_URL,texture=>{
-        if(disposed){texture.dispose();return;}
-        const repeat=grassMetricRepeat(grassTileMetres);
-        texture.wrapU=Texture.WRAP_ADDRESSMODE;
-        texture.wrapV=Texture.WRAP_ADDRESSMODE;
-        texture.uScale=repeat.u;
-        texture.vScale=repeat.v;
-        texture.anisotropicFilteringLevel=8;
-        material.diffuseTexture=texture;
-        fallbackTexture?.dispose();
-        fallbackTexture=null;
-        mesh.metadata={...mesh.metadata,grassImageState:"ready",
-          grassImageUrl:CARPET_GRASS_IMAGE_URL,tileMetres:grassTileMetres,
-          repeats:{u:repeat.u,v:repeat.v},
-          sampler:{wrapU:texture.wrapU,wrapV:texture.wrapV,
-            uScale:texture.uScale,vScale:texture.vScale}};
-      },message=>{
-        if(disposed)return;
-        mesh.metadata={...mesh.metadata,grassImageState:"fallback",grassImageError:message};
-        // The procedural ground remains the known-good draw and collider.
-      });
-    }
+    // GRN-004: photographic carpet-grass trials rejected. The accepted
+    // GRN-01 procedural image is always the sole residual-ground material.
+    groundTexture=createGroundLandTexture(scene,plan);
+    material.diffuseTexture=groundTexture;
     material.diffuseColor=Color3.White();
     material.specularColor=Color3.Black();
     material.disableLighting=true;
@@ -171,9 +139,7 @@ function createGround(
     {x:0,y:-0.12,z:20},{x:80,y:0.12,z:65},
   );
   return {mesh,material,collision,disposeTexture(){
-    disposed=true;
-    grassImage?.dispose();
-    fallbackTexture?.dispose();
+    groundTexture?.dispose();
   }};
 }
 
@@ -451,9 +417,7 @@ export function createGeneratedFirstLightWorld(
   const enableCameraBlockers = options.enableCameraBlockers ?? true;
   const enableShadows = options.enableShadows ?? true;
 
-  const ground = createGround(scene, physics, options.enableLandUsePreview ?? false,
-    options.enableGrassImageTrial ?? false,
-    options.grassTileMetres ?? 2);
+  const ground = createGround(scene, physics, options.enableLandUsePreview ?? false);
   const urbanSurfaces = createGeneratedUrbanSurfaces(
     scene,
     FIRST_LIGHT_CITY_SPEC,
