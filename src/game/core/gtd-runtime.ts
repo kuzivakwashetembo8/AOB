@@ -245,6 +245,7 @@ export class GTDGameRuntime implements GameRuntime {
         // GRN-002: independent image-only trials, default disabled.
         enableGrassImageTrial: diagnosticParams.get("gtdGrassImgTrial") === "1",
         grassTileMetres: parseGrassTileMetres(diagnosticParams.get("gtdGrassTile")),
+        aerialFoliageTrial: diagnosticParams.get("gtdAerialFoliage") === "1",
         foliageImageTrial: diagnosticParams.get("gtdFoliageImgTrial") === "all"
           ? "all" : diagnosticParams.get("gtdFoliageImgTrial") === "1"
             ? "one" : "off",
