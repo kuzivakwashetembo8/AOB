@@ -6,6 +6,8 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
+import { planGroundLandUse } from "../world-generation/ground-land-use";
+import { createGroundLandTexture } from "../world-generation/ground-land-surface";
 import type {
   MeridianPhysics,
   StaticCollisionHandle,
@@ -71,6 +73,7 @@ export interface GeneratedFirstLightWorld {
 }
 
 export interface GeneratedFirstLightWorldOptions {
+  readonly enableLandUsePreview?: boolean;
   readonly enableCameraBlockers?: boolean;
   readonly enableShadows?: boolean;
   /** GTD-CHAR-001 only: register real First Light raised sidewalk colliders. */
@@ -89,6 +92,7 @@ export interface GeneratedFirstLightWorldOptions {
 function createGround(
   scene: Scene,
   physics: MeridianPhysics,
+  landUsePreview = false,
 ): {
   mesh: Mesh;
   material: StandardMaterial;
@@ -104,6 +108,26 @@ function createGround(
     scene,
   );
   mesh.position.z = 20;
+  if (landUsePreview) {
+    const plan = planGroundLandUse(FIRST_LIGHT_CITY_SPEC,
+      {left:-80,right:80,north:-45,south:85});
+    // Reuse the existing known-visible ground draw and preserve its collision.
+    // Babylon UVs are calibrated explicitly in world metres, rather than relying
+    // on the default ground vertex order (which may vary by Babylon version).
+    const positions = mesh.getVerticesData("position") ?? [];
+    const uvs: number[] = [];
+    for (let i = 0; i < positions.length; i += 3) {
+      uvs.push((positions[i]! + 80) / 160, (positions[i + 2]! + 65) / 130);
+    }
+    mesh.setVerticesData("uv", uvs);
+    material.diffuseTexture = createGroundLandTexture(scene, plan);
+    material.diffuseColor = Color3.White();
+    material.specularColor = Color3.Black();
+    material.disableLighting = true;
+    material.maxSimultaneousLights = 1;
+    mesh.metadata = {spatialRole:"terrain",cameraBlocker:true,cameraGround:true,
+      landUsePreview:true, landUseCoverage:plan.counts};
+  }
   mesh.material = material;
   mesh.receiveShadows = true;
   mesh.isPickable = true;
@@ -395,10 +419,11 @@ export function createGeneratedFirstLightWorld(
   const enableCameraBlockers = options.enableCameraBlockers ?? true;
   const enableShadows = options.enableShadows ?? true;
 
-  const ground = createGround(scene, physics);
+  const ground = createGround(scene, physics, options.enableLandUsePreview ?? false);
   const urbanSurfaces = createGeneratedUrbanSurfaces(
     scene,
     FIRST_LIGHT_CITY_SPEC,
+    {skipLegacyParcelInfill: options.enableLandUsePreview ?? false},
   );
   const streetContext = createGeneratedStreetContext(
     scene,
@@ -588,6 +613,7 @@ export function createGeneratedFirstLightWorld(
       materialLibrary.dispose();
       ground.collision.dispose();
       ground.mesh.dispose();
+      ground.material.diffuseTexture?.dispose();
       ground.material.dispose();
     },
   };
