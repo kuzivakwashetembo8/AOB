@@ -36,7 +36,9 @@ describe("GROUND-001: intentional South Ward land coverage",()=>{
    const image=buildGroundLandPixels(p);
    expect(image.width).toBe(640);expect(image.height).toBe(520);
    expect(image.pixels.length).toBe(640*520*4);
-   for(let i=3;i<image.pixels.length;i+=4)expect(image.pixels[i]).toBe(255);
+   let transparent=0;
+   for(let i=3;i<image.pixels.length;i+=4)if(image.pixels[i]!==255)transparent++;
+   expect(transparent).toBe(0);
  });
  it("allocates a bounded mipmapped WebGL-compatible texture and disposes it",()=>{
    const engine=new NullEngine();
