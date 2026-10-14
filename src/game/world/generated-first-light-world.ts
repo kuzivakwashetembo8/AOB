@@ -3,11 +3,13 @@ import {
   Mesh,
   MeshBuilder,
   StandardMaterial,
+  Texture,
   Vector3,
 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
 import { planGroundLandUse } from "../world-generation/ground-land-use";
 import { createGroundLandTexture } from "../world-generation/ground-land-surface";
+import { CARPET_GRASS_IMAGE_URL, createImageTexture, grassMetricRepeat } from "../world-generation/greenery-image-assets";
 import type {
   MeridianPhysics,
   StaticCollisionHandle,
@@ -74,6 +76,8 @@ export interface GeneratedFirstLightWorld {
 
 export interface GeneratedFirstLightWorldOptions {
   readonly enableLandUsePreview?: boolean;
+  readonly enableGrassImageTrial?: boolean;
+  readonly foliageImageTrial?: import("../world-generation/greenery-image-assets").FoliageImageTrial;
   readonly enableCameraBlockers?: boolean;
   readonly enableShadows?: boolean;
   /** GTD-CHAR-001 only: register real First Light raised sidewalk colliders. */
@@ -93,12 +97,17 @@ function createGround(
   scene: Scene,
   physics: MeridianPhysics,
   landUsePreview = false,
+  grassImageTrial = false,
 ): {
   mesh: Mesh;
   material: StandardMaterial;
   collision: StaticCollisionHandle;
+  disposeTexture(): void;
 } {
   const material=new StandardMaterial("generated-ground-material",scene);
+  let disposed=false;
+  let grassImage:Texture|null=null;
+  let fallbackTexture:Texture|null=null;
   material.diffuseColor=new Color3(0.17,0.16,0.14);
   material.specularColor=Color3.Black();
   const mesh=MeshBuilder.CreateGround(
@@ -115,7 +124,31 @@ function createGround(
     for(let i=0;i<positions.length;i+=3)
       uvs.push((positions[i]!+80)/160,(positions[i+2]!+65)/130);
     mesh.setVerticesData("uv",uvs);
-    material.diffuseTexture=createGroundLandTexture(scene,plan);
+    fallbackTexture=createGroundLandTexture(scene,plan);
+    material.diffuseTexture=fallbackTexture;
+    if(grassImageTrial){
+      // GRN-002: texture upload is asynchronous; original GRN-01 stays visible
+      // until the committed image has decoded and uploaded successfully.
+      mesh.metadata={...mesh.metadata,grassImageState:"loading"};
+      grassImage=createImageTexture(scene,CARPET_GRASS_IMAGE_URL,texture=>{
+        if(disposed){texture.dispose();return;}
+        const repeat=grassMetricRepeat();
+        texture.wrapU=Texture.WRAP_ADDRESSMODE;
+        texture.wrapV=Texture.WRAP_ADDRESSMODE;
+        texture.uScale=repeat.u;
+        texture.vScale=repeat.v;
+        texture.anisotropicFilteringLevel=8;
+        material.diffuseTexture=texture;
+        fallbackTexture?.dispose();
+        fallbackTexture=null;
+        mesh.metadata={...mesh.metadata,grassImageState:"ready",
+          grassImageUrl:CARPET_GRASS_IMAGE_URL,tileMetres:5};
+      },message=>{
+        if(disposed)return;
+        mesh.metadata={...mesh.metadata,grassImageState:"fallback",grassImageError:message};
+        // The procedural ground remains the known-good draw and collider.
+      });
+    }
     material.diffuseColor=Color3.White();
     material.specularColor=Color3.Black();
     material.disableLighting=true;
@@ -131,7 +164,11 @@ function createGround(
   const collision=physics.addStaticBox(
     {x:0,y:-0.12,z:20},{x:80,y:0.12,z:65},
   );
-  return {mesh,material,collision};
+  return {mesh,material,collision,disposeTexture(){
+    disposed=true;
+    grassImage?.dispose();
+    fallbackTexture?.dispose();
+  }};
 }
 
 function registerStreetContextCollision(
@@ -408,7 +445,8 @@ export function createGeneratedFirstLightWorld(
   const enableCameraBlockers = options.enableCameraBlockers ?? true;
   const enableShadows = options.enableShadows ?? true;
 
-  const ground = createGround(scene, physics, options.enableLandUsePreview ?? false);
+  const ground = createGround(scene, physics, options.enableLandUsePreview ?? false,
+    options.enableGrassImageTrial ?? false);
   const urbanSurfaces = createGeneratedUrbanSurfaces(
     scene,
     FIRST_LIGHT_CITY_SPEC,
@@ -417,7 +455,8 @@ export function createGeneratedFirstLightWorld(
   const streetContext = createGeneratedStreetContext(
     scene,
     FIRST_LIGHT_CITY_SPEC,
-    {skipPocketParkGround:options.enableLandUsePreview ?? false},
+    {skipPocketParkGround:options.enableLandUsePreview ?? false,
+      foliageImageTrial:options.foliageImageTrial ?? "off"},
   );
   const materialLibrary = new BuildingMaterialLibrary(scene);
   const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC).map((spec) =>
@@ -603,7 +642,7 @@ export function createGeneratedFirstLightWorld(
       materialLibrary.dispose();
       ground.collision.dispose();
       ground.mesh.dispose();
-      ground.material.diffuseTexture?.dispose();
+      ground.disposeTexture();
       ground.material.dispose();
     },
   };
