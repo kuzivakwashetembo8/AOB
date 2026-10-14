@@ -50,8 +50,6 @@ export function createFirstLightRuntimeWorld(
   source: FirstLightWorldSource = ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
   options: {
     readonly enableLandUsePreview?: boolean;
-    readonly enableGrassImageTrial?: boolean;
-    readonly grassTileMetres?: import("../world-generation/greenery-image-assets").GrassTileMetres;
     readonly foliageImageTrial?: import("../world-generation/greenery-image-assets").FoliageImageTrial;
     readonly aerialFoliageTrial?: boolean;
     readonly enableSidewalkSupportCollision?: boolean;
@@ -69,8 +67,6 @@ export function createFirstLightRuntimeWorld(
       enableCameraBlockers: true,
       enableShadows: true,
       enableLandUsePreview: options.enableLandUsePreview ?? false,
-      enableGrassImageTrial: options.enableGrassImageTrial ?? false,
-      grassTileMetres:options.grassTileMetres ?? 2,
       foliageImageTrial: options.foliageImageTrial ?? "off",
       aerialFoliageTrial:options.aerialFoliageTrial ?? false,
       enableSidewalkSupportCollision: options.enableSidewalkSupportCollision ?? false,
