@@ -29,7 +29,7 @@ import type {
   GeneratedUrbanSurfaces,
 } from "../world-generation";
 import type { StreetContextPlan } from "../world-generation/street-context";
-import type { ForestryBudget, ForestryPlan } from "../world-generation/urban-forestry-plan";
+import type { ForestryBudget, ForestryPlan, ForestryDensityFocus } from "../world-generation/urban-forestry-plan";
 import {
   createMeridianEnvironment,
   type InteriorVisibilityState,
@@ -79,6 +79,7 @@ export interface GeneratedFirstLightWorldOptions {
   readonly enableLandUsePreview?: boolean;
   readonly enableTreePlace001?: boolean;
   readonly treeBudget?: ForestryBudget;
+  readonly treeDensityFocus?: ForestryDensityFocus;
   readonly enableCameraBlockers?: boolean;
   readonly enableShadows?: boolean;
   /** GTD-CHAR-001 only: register real First Light raised sidewalk colliders. */
@@ -429,6 +430,7 @@ export function createGeneratedFirstLightWorld(
   const streetPlan = planStreetContext(FIRST_LIGHT_CITY_SPEC, {
     enableTreePlace001: options.enableTreePlace001 ?? false,
     treeBudget: options.treeBudget ?? 6,
+    treeDensityFocus: options.treeDensityFocus ?? "balanced",
   });
   const streetContext = createGeneratedStreetContext(
     scene,
