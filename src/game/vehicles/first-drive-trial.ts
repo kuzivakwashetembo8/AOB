@@ -61,6 +61,7 @@ export class StreetVehicleActor {
   private destroyed = false;
   private chassisFloorOffsetMetres = 0.035;
   private treadAligned = false;
+  private readonly visualWheelSupportEnabled: boolean;
 
   constructor(
     private readonly physics: MeridianPhysics,
@@ -69,7 +70,9 @@ export class StreetVehicleActor {
     private readonly profile: StreetVehiclePhysicsProfile = FERRARI_STREET_PROFILE,
     wheelMapping: StreetVehicleWheelMapping = FERRARI_WHEEL_MAPPING,
     alignChassisToRealTires = false,
+    visualWheelSupportEnabled = false,
   ) {
+    this.visualWheelSupportEnabled = visualWheelSupportEnabled;
     if (![dimensions.x, dimensions.y, dimensions.z].every(n => Number.isFinite(n) && n > 0)) {
       throw new Error("Ferrari trial requires the imported visual's real calibrated bounds");
     }
@@ -164,6 +167,8 @@ export class StreetVehicleActor {
     curbMaxMetres: this.profile.maxCurbAutostepMetres,
     treadAligned: this.treadAligned,
     chassisFloorOffsetMetres: this.chassisFloorOffsetMetres,
+    visualWheelSupportEnabled: this.visualWheelSupportEnabled,
+    visualWheelTravel: this.wheelRig.visualWheelTravelMetres,
   }; }
 
   prepare(dt: number, steering: number, moveY: number) {
@@ -266,6 +271,10 @@ export class StreetVehicleActor {
       travelled * (this.drive.speedMps < 0 ? -1 : 1),
       this.drive.steeringRadians,
     );
+    if(this.visualWheelSupportEnabled) {
+      this.wheelRig.alignVisualWheelContacts(dt,p=>this.probeWheelSupport(
+        p.x,p.y,p.z)?.topY??null,this.vertical.grounded);
+    }
     if (!Number.isFinite(dt) || ![translation.x, translation.y, translation.z,
       this.headingYaw].every(Number.isFinite)) {
       throw new Error("VM-G02: Nonfinite or invalid simulated vehicle pose");
