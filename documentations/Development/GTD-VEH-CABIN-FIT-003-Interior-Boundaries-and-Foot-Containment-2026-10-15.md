@@ -70,3 +70,11 @@ No main merge or replacement of the accepted AR1 preview. Document new results/l
 5. **Action boundary:** This message requests **documentation of failure only**. No gameplay source patches, no re-tuning, no new deployment, no `main` merge. Keep the rejected experiment reproducible. G6 remains closed.
 
 **Next phase, only if authorized:** diagnose external foot/calf/shoe mesh against a complete cabin and underbody volume, then separately diagnose wheel-to-road contact with low-angle view and live Babylon/Rapier measurements.
+
+## Read-only technical root-cause investigation (2026-10-15)
+
+See [Deep Root-Cause Investigation](./GTD-VEH-CABIN-FIT-003-Deep-Root-Cause-Investigation-2026-10-15.md) for the direct actual-asset reproduction and separate Rapier curb support test.
+
+- **PRIMARY VERIFIED FAILURE PATH:** In a reconstruction using the actual Ferrari, UAL Driving_Loop and existing AR1 transforms, sole-floor clearance deficits were ~139.1 mm and ~137.9 mm; including the required 10-mm clearance, proposed lift exceeded the permitted 80-mm cap, producing `too-deep` on both feet and **zero applied lift**. The existing sensor also omits calf-dominated vertices, with 38 left and 36 right points falling more than 10 mm below sampled carpet.
+- **SECONDARY REPRODUCED MECHANISM:** The full-size Rapier cuboid can step the whole body ~0.10–0.20 m upward upon encountering a raised sidewalk edge **outside the sampled tire positions**. KCC then reports grounded while the wheels are visibly disconnected from lower road. This is a mechanism-level reproduction, not exact telemetry of the owner's screenshot.
+- **BOUNDARY:** AR1 remains owner-accepted for basic seating. The failed Cabin Fit 003 and road-grounding concerns remain unaccepted. The investigation is **documentation only**, with no further code/preview authorization. G4 open, G6 closed.
