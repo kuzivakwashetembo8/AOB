@@ -23,6 +23,9 @@ type WheelWitness = {
   collisionTopY: number | null;
   visualTreadGapMetres: number | null;
   colliderRoadDeltaMetres: number | null;
+  visualSupportTopY: number | null;
+  visualSupportKind: "road" | "sidewalk" | "unknown";
+  visualSupportGapMetres: number | null;
   meshCount: number;
   supportStatus: "measured" | "no-road" | "no-wheel" | "no-collider";
 };
@@ -47,6 +50,19 @@ function roadVisualTop(scene: Scene, point: P): number | null {
   }
   return highest;
 }
+function sidewalkVisualTop(scene:Scene,point:P):number|null {
+  let top:number|null=null;
+  for(const mesh of scene.meshes){
+    if(!mesh.name.startsWith("generated-parity-") ||
+      !mesh.name.includes("-walk"))continue;
+    mesh.computeWorldMatrix(true);
+    const b=mesh.getBoundingInfo().boundingBox;
+    if(point.x>=b.minimumWorld.x && point.x<=b.maximumWorld.x &&
+      point.z>=b.minimumWorld.z && point.z<=b.maximumWorld.z)
+      top=Math.max(top??-Infinity,b.maximumWorld.y);
+  }
+  return top;
+}
 function descendantMeshes(node: TransformNode): AbstractMesh[] {
   return [
     ...(node instanceof AbstractMesh ? [node] : []),
@@ -60,6 +76,7 @@ function wheelWitness(scene: Scene, car: FirstDriveTrial, name: string): WheelWi
     name, pivot: null, treadBottomY: null, estimatedRadius: null,
     roadVisualTopY: null, collisionTopY: null,
     visualTreadGapMetres: null, colliderRoadDeltaMetres: null,
+    visualSupportTopY:null,visualSupportKind:"unknown",visualSupportGapMetres:null,
     meshCount: 0, supportStatus,
   });
   if (!(pivot instanceof TransformNode)) return empty("no-wheel");
@@ -79,18 +96,24 @@ function wheelWitness(scene: Scene, car: FirstDriveTrial, name: string): WheelWi
   }
   if (![minY, minX, maxX, minZ, maxZ].every(Number.isFinite)) return empty("no-wheel");
   const roadY = roadVisualTop(scene, position);
+  const walkY = sidewalkVisualTop(scene,position);
+  const visualTop=walkY??roadY;
   // Measured AABB dimensions are reported, not assumed to be perfect tire radii.
   const radius = Math.max(0, Math.min(maxX - minX, maxZ - minZ)) * 0.5;
   const probe = car.probeWheelSupport(position.x, position.y + 0.4, position.z);
   const supportY = probe?.topY ?? null;
   const status: WheelWitness["supportStatus"] =
-    roadY === null ? "no-road" : supportY === null ? "no-collider" : "measured";
+    visualTop === null ? "no-road" : supportY === null ? "no-collider" : "measured";
   return {
     name, pivot: p(position), treadBottomY: minY, estimatedRadius: radius,
     roadVisualTopY: roadY, collisionTopY: supportY,
     visualTreadGapMetres: roadY === null ? null : minY - roadY,
     colliderRoadDeltaMetres: roadY === null || supportY === null
-      ? null : roadY - supportY, meshCount: parts.length, supportStatus: status,
+      ? null : roadY - supportY,
+    visualSupportTopY:visualTop,
+    visualSupportKind: walkY!==null?"sidewalk":roadY!==null?"road":"unknown",
+    visualSupportGapMetres:visualTop===null?null:minY-visualTop,
+    meshCount:parts.length,supportStatus:status,
   };
 }
 function humanoidBones(character: LoadedMeridiaCharacter | null) {
@@ -139,7 +162,7 @@ export function measureVehicleFit002(scene: Scene, car: FirstDriveTrial | null,
   };
   const wheels = wheelNames.map(n => wheelWitness(scene, car, n));
   const boneReport = humanoidBones(character);
-  const allGaps = wheels.map(w => w.visualTreadGapMetres).filter(
+  const allGaps = wheels.map(w => w.visualSupportGapMetres).filter(
     (n): n is number => n !== null && Number.isFinite(n));
   const steeringWheel = steeringWheelWitness(car);
   const currentWristPositions = boneReport.limbs.filter(l =>
@@ -162,6 +185,7 @@ export function measureVehicleFit002(scene: Scene, car: FirstDriveTrial | null,
       normalizationScale: report?.normalizationScale ?? null,
       driverRoot: character ? p(character.root.position) : null,
       bones: boneReport,
+      fittedDrivingPose: character?.driverContactReport() ?? null,
     },
     car: { visualAnchor: p(car.anchor.position), yaw: car.headingYaw,
       dimensions: car.dimensions, physics: status,
