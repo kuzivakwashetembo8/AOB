@@ -107,6 +107,20 @@ export class StreetVehicleActor {
     this.wheelRig = new StreetVehicleWheelRig(anchor, wheelMapping);
   }
 
+  /** VEH-FIT-002 G0. One explicit, nonmutating Rapier ray per requested wheel.
+   * The driven chassis is excluded so the result describes world support. */
+  probeWheelSupport(x: number, startY: number, z: number):
+    { topY: number; rayDistance: number } | null {
+    if (this.destroyed || ![x, startY, z].every(Number.isFinite)) return null;
+    const hit = this.physics.world.castRay(
+      new RAPIER.Ray({ x, y: startY, z }, { x: 0, y: -1, z: 0 }),
+      4, true, undefined, undefined, this.collider,
+    );
+    return hit && Number.isFinite(hit.timeOfImpact)
+      ? { topY: startY - hit.timeOfImpact, rayDistance: hit.timeOfImpact }
+      : null;
+  }
+
   get pose(): VehicleWorldPoint { return this.body.translation(); }
   get headingYaw() { return this.anchor.rotation.y; }
   get speedMps() { return this.drive.speedMps; }
