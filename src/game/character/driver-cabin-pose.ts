@@ -163,6 +163,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   let correctionMode: "feet"|"hands"|"both" = "both";
   let cachedLocalTargets:ReturnType<typeof planDriverContactTargets>|null=null;
   let cabinFitEnabled=false;
+  let cabinFit004Enabled=false;
   let cabinKind:VehicleCabinKind="unknown";
   let floor:VehicleCabinFloor|null=null;
   let shoe:SkinnedFootGeometry|null=null;
@@ -171,6 +172,10 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   type FootResult={side:FootSide;state:string;soleY:number|null;floorY:number|null;
     penetrationMetres:number|null;liftAppliedMetres:number;sourceMesh:string|null};
   let footResult:FootResult[]=[];
+  let fit004Attempts=0;
+  let fit004State="disabled";
+  let fit004Baseline:ReturnType<SkinnedFootGeometry["measureLowerLeg"]>|null=null;
+  let fit004Final:ReturnType<SkinnedFootGeometry["measureLowerLeg"]>|null=null;
   const cachedBaseline=new Map<TransformNode,Quaternion>();
   const zero=():DriverContactState=>({
     enabled,status:enabled?"missing-wheel":"disabled",appliedLimbs:[],
@@ -242,7 +247,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       leftHand:leftGrip,rightHand:rightGrip}=plannedTargets;
     // Only the opt-in fitting layer changes foot goals; accepted AR1 is the
     // identity path when no verified cabin is available.
-    if(cabinFitEnabled && floor?.evidence==="verified-floor-mesh" && shoe?.available){
+    if((cabinFitEnabled||cabinFit004Enabled) && floor?.evidence==="verified-floor-mesh" && shoe?.available){
       leftFootTarget.y+=offsetLift.left;
       rightFootTarget.y+=offsetLift.right;
     }
@@ -276,6 +281,86 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         errorMetres[limb.role]=error;
         // Attempting an IK solve is NOT equivalent to making contact.
         if(attempted && error<=0.02)appliedLimbs.push(limb.role);
+      }
+    }
+    // VEH-CABIN-FIT-004: search *measured* bounded leg targets against actual
+    // deforming footwear AND calf geometry. This is a one-off boarding-phase
+    // calibration, not an unbounded per-frame pose or global-character offset.
+    if(cabinFit004Enabled && shoe?.available &&
+      floor?.evidence==="verified-floor-mesh" && (++sampledFrames % 20===0)){
+      const current=shoe.measureLowerLeg(floor);
+      if(fit004State==="pending"){
+        fit004Attempts++;
+        fit004Baseline=current;
+        const joints=["leftThigh","leftCalf","rightThigh","rightCalf"] as const;
+        const snapshots=joints.map(role=>{
+          const n=mapped.found[role]?.getTransformNode();
+          return n?{n,q:rotationOf(n)}:null;
+        });
+        const restore=()=>{for(const saved of snapshots){
+          if(saved)saved.n.rotationQuaternion=saved.q.clone();
+        }};
+        let allPassed=snapshots.every(Boolean);
+        const proposed:Record<FootSide,number>={left:0,right:0};
+        if(!allPassed)fit004State="missing-leg-bones";
+        for(const side of ["left","right"] as const){
+          if(!allPassed)break;
+          const baseline=current[side];
+          if(baseline.state==="clear")continue;
+          // Foot vertices must all have real carpet support; a missing
+          // footprint is an unknown, not a clearance success.
+          if(baseline.unmeasuredFootVertices>0||baseline.testedCalfVertices===0){
+            fit004State="incomplete-footwell";allPassed=false;break;
+          }
+          if(baseline.worstPenetrationMetres<=0 ||
+            baseline.worstPenetrationMetres>0.22){
+            fit004State="outside-feasible-range";allPassed=false;break;
+          }
+          const chain:JointChain=side==="left"?
+            ["leftThigh","leftCalf","leftFoot"]:
+            ["rightThigh","rightCalf","rightFoot"];
+          const start=side==="left"?leftFootTarget:rightFootTarget;
+          // Start near the observed real-shoe deficit. Increment only when
+          // the actual final mesh clearance remains unacceptable.
+          const first=baseline.worstPenetrationMetres+0.016;
+          let accepted=false;
+          for(let attempt=0;attempt<4;attempt++){
+            restore();
+            // Reapply any other side's already verified correction.
+            for(const acceptedSide of ["left","right"] as const){
+              if(proposed[acceptedSide]<=0)continue;
+              const other:JointChain=acceptedSide==="left"?
+                ["leftThigh","leftCalf","leftFoot"]:
+                ["rightThigh","rightCalf","rightFoot"];
+              const t=(acceptedSide==="left"?leftFootTarget:rightFootTarget).clone();
+              t.y+=proposed[acceptedSide];
+              solveChain(mapped.found,other,t);
+            }
+            const candidate=Math.min(0.22,first+attempt*0.016);
+            const target=start.clone();target.y+=candidate;
+            if(!solveChain(mapped.found,chain,target))continue;
+            const verified=shoe.measureLowerLeg(floor)[side];
+            if(verified.state==="clear" && verified.worstPenetrationMetres<=0.003){
+              proposed[side]=candidate;accepted=true;break;
+            }
+          }
+          if(!accepted){fit004State="candidate-rejected";allPassed=false;}
+        }
+        if(allPassed){
+          const verification=shoe.measureLowerLeg(floor);
+          if((["left","right"] as const).every(side=>verification[side].state==="clear")){
+            offsetLift=proposed;
+            fit004Final=verification;
+            fit004State="floor-clear-not-cabin-certified";
+          }else{restore();fit004State="post-calibration-rejected";}
+        }else restore();
+      }else if(fit004State==="floor-clear-not-cabin-certified"){
+        const valid=(["left","right"] as const).every(side=>current[side].state==="clear");
+        fit004Final=current;
+        if(!valid){
+          offsetLift={left:0,right:0};
+          fit004State="motion-regression-disabled";
+        }
       }
     }
     // Sample the visibly deformed shoe geometry *after* AR1 IK; keep this
@@ -344,7 +429,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   return {
     setCabin(next:TransformNode|null,active:boolean,
       mode:"feet"|"hands"|"both"="both",fitCabin=false,
-      kind:VehicleCabinKind="ferrari"){
+      kind:VehicleCabinKind="ferrari",fit004=false){
       if(!active||!next){
         for(const [node,rotation] of cachedBaseline) {
           node.rotationQuaternion=rotation.clone();
@@ -352,21 +437,33 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         cachedBaseline.clear();
       }
       const changed=cabin!==next||correctionMode!==mode||enabled!==active ||
-        cabinFitEnabled!==fitCabin || cabinKind!==kind;
+        cabinFitEnabled!==fitCabin || cabinFit004Enabled!==fit004 || cabinKind!==kind;
       if(changed){
         cachedLocalTargets=null;
         cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
         rimContacts=wheelNode&&next?steeringRimContacts(wheelNode,next):null;
-        cabinFitEnabled=active&&fitCabin;
+        cabinFit004Enabled=active&&fit004;
+        cabinFitEnabled=active&&fitCabin&&!cabinFit004Enabled;
         cabinKind=kind;
-        floor=cabinFitEnabled&&next?VehicleCabinFloor.fromVehicle(next,kind):null;
-        shoe=cabinFitEnabled?new SkinnedFootGeometry(skeleton,skinnedMeshes):null;
+        floor=(cabinFitEnabled||cabinFit004Enabled)&&next?
+          VehicleCabinFloor.fromVehicle(next,kind):null;
+        shoe=(cabinFitEnabled||cabinFit004Enabled)?
+          new SkinnedFootGeometry(skeleton,skinnedMeshes):null;
         sampledFrames=0;offsetLift={left:0,right:0};footResult=[];
+        fit004Attempts=0;fit004Baseline=null;fit004Final=null;
+        fit004State=cabinFit004Enabled?"pending":"disabled";
       }
       correctionMode=mode;enabled=active;
       if(changed)state=zero();
     },
     report:()=>({...state,correctionMode,
+      cabinFit004:{enabled:cabinFit004Enabled,status:fit004State,
+        attempts:fit004Attempts,
+        floor:floor?.status()??null,
+        baseline:fit004Baseline,final:fit004Final,
+        verifiedTargetLiftsMetres:{...offsetLift},
+        note:"Floor and lower-leg clearance evidence only; full cabin hull and driving acceptance pending"},
+
       cabinFit003:{enabled:cabinFitEnabled,kind:cabinKind,
         floor:floor?.status()??null,skin:shoe?.evidence()??null,
         footResults:footResult.map(row=>({...row})),
@@ -393,7 +490,8 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       scene.onBeforeAnimationsObservable.remove(beforeAnimation);
       cabin=null;wheelNode=null;rimContacts=null;enabled=false;
       cachedBaseline.clear();cachedLocalTargets=null;floor=null;shoe=null;footResult=[];
-      cabinFitEnabled=false;offsetLift={left:0,right:0};
+      cabinFitEnabled=false;cabinFit004Enabled=false;offsetLift={left:0,right:0};
+      fit004State="disabled";
     },
   };
 }
