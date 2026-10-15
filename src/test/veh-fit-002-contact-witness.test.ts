@@ -95,7 +95,7 @@ describe("VEH-FIT-002 G0 actual world contact witnesses", () => {
       const pivot=new TransformNode("source:"+name,scene);
       pivot.parent=anchor;
       pivot.position.set(i%2?0.7:-0.7,0.35,i<2?-1.5:1.5);
-      const tire=MeshBuilder.CreateCylinder("tread:"+name,
+      const tire=MeshBuilder.CreateCylinder("tire:"+name,
         {diameter:0.64,height:0.18},scene);
       tire.rotation.x=Math.PI/2;tire.parent=pivot;
       tires.push(tire);
