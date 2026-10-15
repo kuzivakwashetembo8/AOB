@@ -19,7 +19,10 @@ export interface DriverWorldPose {
 }
 export const FERRARI_SEAT_POSITION = Object.freeze({
   driverSideFraction:0.20,
-  cabinForwardFraction:-0.12,
+  // Stage 1 seat-fit trial: shift 0.08 vehicle-length (~0.36 m in the
+  // current 4.53 m Ferrari) rearward, toward the backrest. Only this
+  // fore/aft parameter changes; hip, leg and arm animation stays original.
+  cabinForwardFraction:-0.04,
   aboveRoadHeightFraction:0.56,
   // UAL authored character faces +Z when its pedestrian root yaw is zero.
   // The Ferrari's local front is -Z, requiring a 180-degree facing offset.
