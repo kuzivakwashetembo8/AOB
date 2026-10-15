@@ -32,7 +32,7 @@ describe("VEH-FIT-002 G0 actual world contact witnesses", () => {
       const tire = MeshBuilder.CreateCylinder("tire:" + name,
         { diameter: 0.64, height: 0.18 }, scene);
       tire.parent = pivot;
-      tire.rotation.x = Math.PI / 2;
+      tire.rotation.z = Math.PI / 2;
     }
     const car = new FirstDriveTrial(physics, anchor, { x: 2, y: 1.5, z: 4.53 });
     // Rapier 0.21 updates broad-phase/query state on a physics tick.
@@ -67,7 +67,7 @@ describe("VEH-FIT-002 G0 actual world contact witnesses", () => {
         name.startsWith("wheel_f")?-1.3:1.3);
       const mesh=MeshBuilder.CreateCylinder("tire-"+name,
         {diameter:0.64,height:0.18},scene);
-      mesh.parent=pivot;mesh.rotation.x=Math.PI/2;
+      mesh.parent=pivot;mesh.rotation.z=Math.PI/2;
     }
     const car=new FirstDriveTrial(physics,anchor,{x:2,y:1.5,z:4.53},
       FERRARI_STREET_PROFILE,FERRARI_WHEEL_MAPPING,true,true);
@@ -97,7 +97,7 @@ describe("VEH-FIT-002 G0 actual world contact witnesses", () => {
       pivot.position.set(i%2?0.7:-0.7,0.35,i<2?-1.5:1.5);
       const tire=MeshBuilder.CreateCylinder("tire:"+name,
         {diameter:0.64,height:0.18},scene);
-      tire.rotation.x=Math.PI/2;tire.parent=pivot;
+      tire.rotation.z=Math.PI/2;tire.parent=pivot;
       tires.push(tire);
     }
     const car=new FirstDriveTrial(physics,anchor,{x:2,y:1.5,z:4.53},
