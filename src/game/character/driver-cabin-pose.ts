@@ -275,10 +275,14 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         }
         cachedBaseline.clear();
       }
-      if(cabin!==next||correctionMode!==mode||enabled!==active)cachedLocalTargets=null;
-      cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
-      rimContacts=wheelNode&&next?steeringRimContacts(wheelNode,next):null;
-      correctionMode=mode;enabled=active;state=zero();
+      const changed=cabin!==next||correctionMode!==mode||enabled!==active;
+      if(changed){
+        cachedLocalTargets=null;
+        cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
+        rimContacts=wheelNode&&next?steeringRimContacts(wheelNode,next):null;
+      }
+      correctionMode=mode;enabled=active;
+      if(changed)state=zero();
     },
     report:()=>({...state,correctionMode,
       footwellLandmarksVerified:false,steeringPalmContactVerified:false,
