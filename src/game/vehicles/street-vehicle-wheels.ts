@@ -38,6 +38,7 @@ type WheelPart = {
   readonly radiusMetres: number;
   readonly initialPosition: Vector3;
   readonly treadBelowPivotWorldY: number | null;
+  readonly treadMeshes: readonly AbstractMesh[];
   suspensionTravelWorldY: number;
 };
 const median = (sizes: number[]) => sizes.sort((a, b) => a - b)[1] ?? 0;
@@ -112,7 +113,7 @@ export class StreetVehicleWheelRig {
         corner, node, base, priorQuaternion, originalEuler: node.rotation.clone(),
         radiusMetres, initialPosition: node.position.clone(),
         treadBelowPivotWorldY: Number.isFinite(treadY)?treadY-pivotY:null,
-        suspensionTravelWorldY:0,
+        treadMeshes:treadParts,suspensionTravelWorldY:0,
       });
     }
     this.parts = parts;
@@ -144,6 +145,30 @@ export class StreetVehicleWheelRig {
     ys.sort((a,b)=>a-b);
     const median=(ys[1]!+ys[2]!)*0.5;
     return Math.abs(median)<1.5 ? median : null;
+  }
+
+  /** Actual four tire bottom witnesses in world coordinates after wheel spin.
+   * Avoid the stale at-instantiation pivot radius: source wheel mesh geometry
+   * in the live GLB changes AABB height under wheel yaw/spin.
+   * Cached descendants keep this bounded to 4 wheel groups, not whole scene.
+   */
+  sampleTireTreads(): ReadonlyArray<{
+    corner:WheelCorner;position:Vector3;bottomY:number;
+  }> {
+    if(!this.ready)return [];
+    const samples:{corner:WheelCorner;position:Vector3;bottomY:number}[]=[];
+    for(const part of this.parts){
+      part.node.computeWorldMatrix(true);
+      const pos=part.node.getAbsolutePosition().clone();
+      let bottom=Infinity;
+      for(const mesh of part.treadMeshes){
+        mesh.computeWorldMatrix(true);
+        bottom=Math.min(bottom,mesh.getBoundingInfo().boundingBox.minimumWorld.y);
+      }
+      if(!Number.isFinite(bottom))return [];
+      samples.push({corner:part.corner,position:pos,bottomY:bottom});
+    }
+    return samples;
   }
 
   get wheelCount(): number { return this.parts.length; }
@@ -185,6 +210,13 @@ export class StreetVehicleWheelRig {
       if(part.treadBelowPivotWorldY===null)continue;
       part.node.computeWorldMatrix(true);
       const pivot=part.node.getAbsolutePosition();
+      let actualTreadY=Infinity;
+      for(const mesh of part.treadMeshes) {
+        mesh.computeWorldMatrix(true);
+        actualTreadY=Math.min(actualTreadY,
+          mesh.getBoundingInfo().boundingBox.minimumWorld.y);
+      }
+      if(!Number.isFinite(actualTreadY))continue;
       const support=grounded?sample({x:pivot.x,y:pivot.y+0.45,z:pivot.z}):null;
       // Do not reach toward unsupported air or objects above tire axle.
       const plausible=support!==null&&Number.isFinite(support)&&
@@ -192,8 +224,7 @@ export class StreetVehicleWheelRig {
       let correction=0;
       if(plausible) {
         const visualTop=support!<0.055?support!+0.030:support!;
-        const tread=pivot.y+part.treadBelowPivotWorldY;
-        correction=visualTop+0.006-tread;
+        correction=visualTop+0.006-actualTreadY;
       } else {
         // Relax smoothly back to authored pivot when off the ground.
         correction=-part.suspensionTravelWorldY;
