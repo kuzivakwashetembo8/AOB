@@ -7,6 +7,7 @@ import { AbstractMesh, Scene, TransformNode, Vector3 } from "@babylonjs/core";
 import type { LoadedMeridiaCharacter } from "../character/voight-humanoid-trial";
 import type { FirstDriveTrial } from "./first-drive-trial";
 import { findDriverBones, DRIVER_LIMB_ROLES } from "../character/driver-limb-landmarks";
+import { sampleRenderedVehicleSurface } from "./vehicle-road-surface";
 
 type P = { x: number; y: number; z: number };
 const p = (v: P): P => ({ x: v.x, y: v.y, z: v.z });
@@ -27,93 +28,47 @@ type WheelWitness = {
   visualSupportKind: "road" | "sidewalk" | "unknown";
   visualSupportGapMetres: number | null;
   meshCount: number;
-  supportStatus: "measured" | "no-road" | "no-wheel" | "no-collider";
+  contactEvidence:"verified-shape"|"unverified-mesh"|"unavailable";
+  surfaceId:string|null;
+  supportStatus: "measured" | "no-road" | "no-wheel" | "no-tire" | "no-collider";
 };
-function roadVisualTop(scene: Scene, point: P): number | null {
-  let highest: number | null = null;
-  for (const mesh of scene.meshes) {
-    // First Light asphalt mesh is a thin box, deliberately NOT a Rapier collider.
-    const asphalt = mesh.name.startsWith("generated-parity-") &&
-      mesh.name.endsWith("-road");
-    const polygon = mesh.name.startsWith("generated-asphalt:");
-    if (!asphalt && !polygon) continue;
-    mesh.computeWorldMatrix(true);
-    const bounds = mesh.getBoundingInfo().boundingBox;
-    if (point.x < bounds.minimumWorld.x - 0.001 ||
-      point.x > bounds.maximumWorld.x + 0.001 ||
-      point.z < bounds.minimumWorld.z - 0.001 ||
-      point.z > bounds.maximumWorld.z + 0.001) continue;
-    // Polygon AABBs may include triangles outside the road. They are
-    // explicitly marked unsupported until the generated road has a true query.
-    if (polygon) continue;
-    highest = Math.max(highest ?? -Infinity, bounds.maximumWorld.y);
-  }
-  return highest;
-}
-function sidewalkVisualTop(scene:Scene,point:P):number|null {
-  let top:number|null=null;
-  for(const mesh of scene.meshes){
-    if(!mesh.name.startsWith("generated-parity-") ||
-      !mesh.name.includes("-walk"))continue;
-    mesh.computeWorldMatrix(true);
-    const b=mesh.getBoundingInfo().boundingBox;
-    if(point.x>=b.minimumWorld.x && point.x<=b.maximumWorld.x &&
-      point.z>=b.minimumWorld.z && point.z<=b.maximumWorld.z)
-      top=Math.max(top??-Infinity,b.maximumWorld.y);
-  }
-  return top;
-}
-function descendantMeshes(node: TransformNode): AbstractMesh[] {
-  return [
-    ...(node instanceof AbstractMesh ? [node] : []),
-    ...node.getChildMeshes(false),
-  ].filter(mesh => mesh.getTotalVertices() > 0);
-}
-function wheelWitness(scene: Scene, car: FirstDriveTrial, name: string): WheelWitness {
-  const pivot = car.anchor.getDescendants(false).find(node =>
-    node instanceof TransformNode && tagged(node.name, name));
-  const empty = (supportStatus: WheelWitness["supportStatus"]): WheelWitness => ({
-    name, pivot: null, treadBottomY: null, estimatedRadius: null,
-    roadVisualTopY: null, collisionTopY: null,
-    visualTreadGapMetres: null, colliderRoadDeltaMetres: null,
+function wheelWitness(scene:Scene,car:FirstDriveTrial,name:string):WheelWitness {
+  const pivot=car.anchor.getDescendants(false).find(n=>
+    n instanceof TransformNode && tagged(n.name,name));
+  const empty=(reason:WheelWitness["supportStatus"]):WheelWitness=>({
+    name,pivot:null,treadBottomY:null,estimatedRadius:null,roadVisualTopY:null,
+    collisionTopY:null,visualTreadGapMetres:null,colliderRoadDeltaMetres:null,
     visualSupportTopY:null,visualSupportKind:"unknown",visualSupportGapMetres:null,
-    meshCount: 0, supportStatus,
+    meshCount:0,contactEvidence:"unavailable",surfaceId:null,supportStatus:reason,
   });
-  if (!(pivot instanceof TransformNode)) return empty("no-wheel");
+  if(!(pivot instanceof TransformNode))return empty("no-wheel");
   pivot.computeWorldMatrix(true);
-  const position = pivot.getAbsolutePosition();
-  const parts = descendantMeshes(pivot);
-  if (!parts.length) return { ...empty("no-wheel"), pivot: p(position) };
-  let minY = Infinity, minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-  for (const mesh of parts) {
-    mesh.computeWorldMatrix(true);
-    const b = mesh.getBoundingInfo().boundingBox;
-    minY = Math.min(minY, b.minimumWorld.y);
-    minX = Math.min(minX, b.minimumWorld.x);
-    maxX = Math.max(maxX, b.maximumWorld.x);
-    minZ = Math.min(minZ, b.minimumWorld.z);
-    maxZ = Math.max(maxZ, b.maximumWorld.z);
-  }
-  if (![minY, minX, maxX, minZ, maxZ].every(Number.isFinite)) return empty("no-wheel");
-  const roadY = roadVisualTop(scene, position);
-  const walkY = sidewalkVisualTop(scene,position);
-  const visualTop=walkY??roadY;
-  // Measured AABB dimensions are reported, not assumed to be perfect tire radii.
-  const radius = Math.max(0, Math.min(maxX - minX, maxZ - minZ)) * 0.5;
-  const probe = car.probeWheelSupport(position.x, position.y + 0.4, position.z);
-  const supportY = probe?.topY ?? null;
-  const status: WheelWitness["supportStatus"] =
-    visualTop === null ? "no-road" : supportY === null ? "no-collider" : "measured";
+  const center=pivot.getAbsolutePosition();
+  const index=wheelNames.indexOf(name as typeof wheelNames[number]);
+  const sample=car.sampleTireContactTreads()[index];
+  const meta=car.status.tireContactEvidence[index];
+  if(!sample||sample.corner!==["frontLeft","frontRight","rearLeft","rearRight"][index])
+    return {...empty("no-tire"),pivot:p(center)};
+  const surface=sampleRenderedVehicleSurface(scene,center.x,center.z);
+  const ray=car.probeWheelSupport(center.x,center.y+0.45,center.z);
+  const renderedY=surface?.y??null;
+  const physicsY=ray?.topY??null;
+  const support= !surface?"no-road":physicsY===null?"no-collider":"measured";
   return {
-    name, pivot: p(position), treadBottomY: minY, estimatedRadius: radius,
-    roadVisualTopY: roadY, collisionTopY: supportY,
-    visualTreadGapMetres: roadY === null ? null : minY - roadY,
-    colliderRoadDeltaMetres: roadY === null || supportY === null
-      ? null : roadY - supportY,
-    visualSupportTopY:visualTop,
-    visualSupportKind: walkY!==null?"sidewalk":roadY!==null?"road":"unknown",
-    visualSupportGapMetres:visualTop===null?null:minY-visualTop,
-    meshCount:parts.length,supportStatus:status,
+    name,pivot:p(center),treadBottomY:sample.bottomY,
+    estimatedRadius:meta?.radiusLocal??null,
+    roadVisualTopY:surface?.kind==="asphalt"?surface.y:null,
+    collisionTopY:physicsY,
+    visualTreadGapMetres:surface?.kind==="asphalt"?sample.bottomY-surface.y:null,
+    colliderRoadDeltaMetres:surface?.kind==="asphalt"&&physicsY!==null?
+      surface.y-physicsY:null,
+    visualSupportTopY:renderedY,
+    visualSupportKind:surface?.kind==="asphalt"?"road":
+      surface?.kind==="sidewalk"?"sidewalk":"unknown",
+    visualSupportGapMetres:renderedY===null?null:sample.bottomY-renderedY,
+    meshCount:meta?.vertexCount??0,
+    contactEvidence:meta?.confidence??"unavailable",
+    surfaceId:surface?.name??null,supportStatus:support,
   };
 }
 function humanoidBones(character: LoadedMeridiaCharacter | null) {
@@ -201,7 +156,7 @@ export function measureVehicleFit002(scene: Scene, car: FirstDriveTrial | null,
     steeringWheel,
     wristToWheelCenter,
     limitations: [
-      "AABB wheel tread is an approximation under steering/rotation; it must be visually checked.",
+      "Tire contact uses a spin-independent vertex-derived radial envelope; an unidentified rubber mesh is explicitly unverified.",
       "Wheel steering rim geometry may lack a named independent GLB node.",
       "A bone landmark is not an actual sole/palm contact surface.",
       "Contact samples are measured only when the report function is called.",
