@@ -217,19 +217,30 @@ export class GTDGameRuntime implements GameRuntime {
     // calibrated relative to CSS canvas dimensions * devicePixelRatio.
     // Full physical density increases raster work and is always opt-in.
     const diagnosticParams = new URLSearchParams(window.location.search);
-    this.seatTrialEnabled = diagnosticParams.get("gtdSeat001") === "1";
-    this.fit002Enabled = diagnosticParams.get("gtdVehFit002") === "1" && !productionHostnameForFit002(window.location.hostname);
+    // FIT004 owner acceptance: promote only the seated driver, AR1 joint
+    // fitting and measured lower-leg clearance on the canonical production
+    // domain. Every accepted layer can be explicitly disabled for rollback.
+    // Leave experimental road-ground and wheel-travel mechanisms behind
+    // their original non-production flags until independently accepted.
+    const releasedDrivingFit=productionHostnameForFit002(window.location.hostname);
+    this.seatTrialEnabled=releasedDrivingFit
+      ? diagnosticParams.get("gtdSeat001")!=="0"
+      : diagnosticParams.get("gtdSeat001")==="1";
+    this.fit002Enabled=diagnosticParams.get("gtdVehFit002")==="1" &&
+      !releasedDrivingFit;
     const fitPoseMode=diagnosticParams.get("gtdFitPose002");
-    this.driverPose002Enabled = ["1","feet","hands"].includes(fitPoseMode??"") &&
-      !productionHostnameForFit002(window.location.hostname);
+    this.driverPose002Enabled=releasedDrivingFit
+      ? fitPoseMode!=="0"
+      : ["1","feet","hands"].includes(fitPoseMode??"");
     this.driverPose002Mode=fitPoseMode==="feet"?"feet":
       fitPoseMode==="hands"?"hands":"both";
     this.cabinFit003Enabled=this.driverPose002Enabled &&
       diagnosticParams.get("gtdCabinFit003")==="1" &&
-      !productionHostnameForFit002(window.location.hostname);
-    this.cabinFit004Enabled=this.driverPose002Enabled &&
-      diagnosticParams.get("gtdCabinFit004")==="1" &&
-      !productionHostnameForFit002(window.location.hostname);
+      !releasedDrivingFit;
+    this.cabinFit004Enabled=this.driverPose002Enabled && (
+      releasedDrivingFit
+        ? diagnosticParams.get("gtdCabinFit004")!=="0"
+        : diagnosticParams.get("gtdCabinFit004")==="1");
     this.groundFit002Enabled = diagnosticParams.get("gtdFitGround002") === "1" && !productionHostnameForFit002(window.location.hostname);
     this.wheelSupport002Enabled = diagnosticParams.get("gtdFitWheel002") === "1" && !productionHostnameForFit002(window.location.hostname);
     // Only explicit FL-4 diagnostics may exceed native device pixels.
