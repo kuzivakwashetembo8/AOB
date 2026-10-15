@@ -67,7 +67,8 @@ function wheelWitness(scene:Scene,car:FirstDriveTrial,name:string):WheelWitness 
       surface?.kind==="sidewalk"?"sidewalk":"unknown",
     visualSupportGapMetres:renderedY===null?null:sample.bottomY-renderedY,
     meshCount:meta?.vertexCount??0,
-    contactEvidence:meta?.confidence??"unavailable",
+    contactEvidence:meta?.confidence==="verified-shape"?"verified-shape":
+      meta?.confidence==="unverified-mesh"?"unverified-mesh":"unavailable",
     surfaceId:surface?.name??null,supportStatus:support,
   };
 }
