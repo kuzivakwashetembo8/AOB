@@ -1,0 +1,98 @@
+# GTD-VEH-CABIN-FIT-004 — Targeted Lower-Limb Recovery
+
+Date: 2026-10-15
+Status: OWNER VISUALLY ACCEPTED FIT004 LOWER-LIMB PATCH; MERGE AND VERCEL DEPLOYMENT AUTHORIZED. WHEEL-GROUNDING REMAINS OPEN.
+Owner authorization: "Utilize document to attempt new patch."
+Source: [GTD-VEH-CABIN-FIT-003 Deep Root-Cause Investigation](./GTD-VEH-CABIN-FIT-003-Deep-Root-Cause-Investigation-2026-10-15.md)
+
+## 1. Intent and preserved baseline
+
+The owner explicitly authorized a *new patch attempt* based on the deep investigation. This is a **separately gated primary-leg recovery attempt**. The previously owner-accepted AR1 seat-back/head/torso alignment remains unchanged. No whole-model translation, humanoid shrinking, geometry hiding, Ferrari height/scale adjustment or implicit production promotion is permitted.
+
+Implementation branch: `exp/veh-cabin-fit-004-recovery-20261015`, derived from the rejected Cabin Fit 003 branch. The accepted AR1 experiment remains a separate intact preview.
+
+### Engineering separation
+
+- **Primary — lower-leg penetration:** This experimental patch addresses the actual sampled shoe and calf geometry, replacing the Fit 003 one-point/80-mm refusal.
+- **Secondary — floating Ferrari:** **NOT CHANGED.** The separate Rapier full-cuboid/autostep root-cause candidate requires an independent solution and verification. Cabin Fit 004 cannot certify wheel-to-road contact.
+- **Future vehicles:** Ferrari uses its dedicated imported carpet geometry. Buggy has no verified cabin profile; it remains fail-closed rather than inheriting Ferrari measurements.
+- **Status:** G4 NOT CLOSED, G6 NOT STARTED, `main` unchanged.
+
+## 2. Implemented code
+
+1. `src/game/character/skinned-foot-geometry.ts`: retain original foot/toe sampling and additionally enumerate actual `calf_l/r`-weighted skinned vertices using the imported UAL bone mapping. Return per-foot *and* per-calf floor deficits, covered/uncovered vertex counts, and source mesh identity. Calf geometry outside the imported carpet footprint is reported as **unmeasured**, not treated as verified inside the cabin.
+2. `src/game/character/cabin-fit-004-policy.ts`: plan a finite set of candidate **foot target offsets based on observed deformation**, bounded by 220 mm in the experiment. This is not a new absolute seat height, and it is **not** approval to apply 220 mm to arbitrary new vehicles or in all circumstances.
+3. `src/game/character/driver-cabin-pose.ts`: only after AR1's accepted leg/head/torso positioning, perform a measured lower-limb candidate search. Use the existing parent-parity-safe two-link IK solver for each candidate, verify *actual deformed foot and calf surfaces*, restore thigh/calf quaternions on failure, and accept only when both feet meet real carpet coverage and measured floor clearance. Remain opt-in via `gtdCabinFit004=1`.
+4. `src/game/vehicles/vehicle-cabin-envelope.ts`: provide a coherent frame-local floor sampler, avoiding per-vertex recalculation of the car-to-world inverse. This does not change Ferrari geometry.
+5. `src/game/core/gtd-runtime.ts` and `src/game/character/voight-humanoid-trial.ts`: wire new opt-in separately; no fit parameter yields the accepted pre-existing behavior.
+6. `src/test/veh-cabin-fit-004.test.ts`: finite measured candidate calculation, missing-footwell or calf-refusal conditions, and saturation bounds.
+
+## 3. Actual imported-asset evidence (read-only headless)
+
+The implementation was bundled in an isolated Vercel sandbox, then loaded into **Babylon.js 9.29.0 NullEngine** with the pinned Ferrari GLB and UAL `Driving_Loop`. The reconstructed scene preserved the real Ferrari fitting transform and the GTD character root/seat normalization.
+
+| Metric | Failed Fit003 baseline | Candidate Fit004 |
+| --- | ---: | ---: |
+| Left shoe Y minus carpet Y | −139.1 mm | **+38.0 mm** |
+| Right shoe Y minus carpet Y | −137.9 mm | **+28.8 mm** |
+| Left floor-deficit-derived foot target shift | 0 mm | **165.1 mm** |
+| Right floor-deficit-derived foot target shift | 0 mm | **163.9 mm** |
+| Sampled foot vertices per side | 98 | 98 |
+| Sampled calf vertices per side | 157 | 157 |
+| Left measured foot/calf points penetrating after candidate | nonzero | **0** |
+| Right measured foot/calf points penetrating after candidate | nonzero | **0** |
+| Left calf points with no carpet support triangle | not certified | **12** |
+| Right calf points with no carpet support triangle | not certified | **0** |
+| Status | `too-deep`, zero lift | `floor-clear-not-cabin-certified` |
+
+**Interpretation:** The new method solved the measured shoe and calf vs. carpet-floor condition for the imported reconstruction without altering seat/head/torso or the vehicle. This does **NOT** establish complete three-dimensional occupancy of the underbody, side panels, firewall, pedal box and all unmeasured calf vertices. It also does not establish the rendered browser state, walking/exit cycle, multiple vehicle positions, or mobile runtime behavior.
+
+**Headless performance observation:** Over 85 test frames, total sample render time was ~279 ms; average ~3.3 ms, p95 ~4.9 ms, maximum **~60.7 ms** with three frames above 16 ms. This is an isolated Node NullEngine timing, **not a measured desktop/mobile frame budget**. It identifies a calibration hitch risk that should be checked or amortized before acceptance, especially on mobile.
+
+## 4. Reproducible preview and gate
+
+Target query flags (after a successful deployment):
+`/game?gtdSeat001=1&gtdVehFit002=1&gtdFitPose002=1&gtdFitGround002=1&gtdCabinFit004=1`
+
+Compare against the exact same preview host **without** `gtdCabinFit004=1` to isolate the effect of the new fitter. Never turn on `gtdCabinFit003=1` simultaneously for an acceptance claim. The older accepted AR1 preview remains independently available.
+
+Runtime diagnostic:
+`window.__GTD_VEH_FIT_002_REPORT__?.().character.fittedDrivingPose.cabinFit004`
+
+Expected successful intermediate state: `floor-clear-not-cabin-certified`, with both sides' real witnessed foot/calf counts and `verifiedTargetLiftsMetres`. Any missing, rejected or unstable candidate must be reported, not concealed as success.
+
+**Owner visual review matrix:** low side/underside, overhead, left/right front-quarter, idling and driving, exit/re-board, different road locations, and mobile landscape. Compare body, head and hands against AR1. The floating-car secondary failure remains explicitly open and must be measured independently, not conflated with the new foot solver.
+
+## 5. Rollback / release contract
+
+- Do not merge this experimental result until the owner visually accepts it.
+- If feet remain visible: report actual `cabinFit004` status, attempted target shifts, uncovered vertices, and matched screenshot; preserve accepted AR1. Do not arbitrarily raise the 220-mm candidate cap.
+- If the car still floats: record it as the independent **wheel-support** failure; this patch does not change Rapier or vehicle ground calibration.
+- If a new leg pose destabilizes animation/exit or causes a hitch, reject this candidate and revert to the AR1 control.
+- Only after both legs and wheel support satisfy G1–G4 test **and actual rendered** criteria may G6 be reconsidered.
+
+## 6. Current verification log
+
+The actual imported asset and headless lower-leg clearance tests **PASS for the sampled floor surface**. Full TypeScript/Vitest Vercel build and human browser visual results are tracked separately; green build tests do not close this release gate.
+
+## 7. Owner visual acceptance and release authorization — 2026-10-15
+
+**Owner decision:** “The implementation was successful, document it then merge this implementation with main and deploy to Vercel.” This explicitly authorizes promotion of the tested Fit 004 implementation to `main` and Vercel production after preserving the acceptance record and completing the merge/deployment checks.
+
+**Visual evidence:** Three screenshots supplied by the owner in this chat, captured during the Fit 004 preview at South Ward / Mercer Street, with in-game times approximately 15:46, 16:32 and 17:10. Views include a close low side/front view, a low rear/underside view, and a second side/front angle. In all three, Voight's upper body retains the accepted seated position; the previously conspicuous yellow shoes/legs protruding beneath the car are no longer apparent. The owner explicitly accepted the implementation. Screenshot binaries remain attached to the originating chat, not copied into GitHub by this documentation commit.
+
+**Acceptance classification:** **FIT004 LOWER-LIMB VISUAL ACCEPTED; RELEASE AUTHORIZED.** This supersedes the pre-review “experimental/visual pending” statement for the leg-fitting workstream. The prior Fit 003 failure register remains part of the engineering record and is *not* retroactively changed to PASS.
+
+**What passed:** visibly retained AR1 seat/head/torso configuration; no visible lower-leg exposure in supplied angles; independent actual-imported-asset reconstruction cleared measured foot/calf floor contacts; bounded opt-in correction and rollback remained in source; automated build/tests passed on the inspected preview deployment.
+
+**What these screenshots cannot prove:** multi-location four-wheel tread contact and Rapier support throughout a drive, a sealed 3D interior for the Ferrari, all unmeasured carpet-outside calf points, or mobile-device frame timing. The second screenshot uses a low rear viewpoint; that is useful evidence, but does not independently close the historically observed vehicle floating issue. Treat the **wheel-grounding workstream as open**, without reclassifying the accepted Fit004 seating correction as failed.
+
+**Promotion scope:** The branch includes AR1 mechanisms, failed Fit 003 historical code behind its own opt-in flag, Fit 004, tests and documentation. Because the accepted seat fit was previously preview-only, the release explicitly enables the **accepted seating, AR1 pose and Fit004 clearance** by default on canonical production hostname `grand-theft-division.vercel.app`. Preview behavior remains opt-in. Individual rollback controls remain `?gtdSeat001=0`, `?gtdFitPose002=0` or `?gtdCabinFit004=0`; all three are on by default only on that canonical production host. Unaccepted `gtdFitGround002`, `gtdFitWheel002` and legacy Fit003 remain disabled on production. Other project aliases do not inherit canonical-host defaults unless separately authorized.
+
+**Production verification:** After merge, verify `main` commit and READY production deployment. Check that `/game` loads and the feature-gated Fit004 route remains available. **A successful production build is not an independent live-device review**; record any subsequent owner/mobile verification separately. G6 should remain closed until the outstanding G1–G4 vehicle integrity gates are expressly accepted.
+
+### Production promotion control — post-acceptance release integration
+
+The production default enablement is a **targeted change to `src/game/core/gtd-runtime.ts`**, not an assertion that unresolved vehicle physics has passed. It is included only because merging preview-only flags without enabling them would leave the deployed `/game` visually unchanged, contrary to the user-approved promotion of successful seating.
+
+A deployment to `grand-theft-division.vercel.app/game` must show the accepted driver without experimental query flags. Validate its root URL, then optionally test `?gtdCabinFit004=0` for immediate feature rollback. Do **not** enable automatic car-ground fitting on production as part of this release. The historical success/failure reports remain intact.

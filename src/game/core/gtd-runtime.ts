@@ -20,6 +20,13 @@ import type {
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FirstDriveTrial } from "../vehicles/first-drive-trial";
+import { ferrariSeatWorldPose } from "../vehicles/driver-seat-placement";
+import { measureVehicleFit002 } from "../vehicles/vehicle-fit-diagnostics";
+import { FERRARI_STREET_PROFILE } from "../vehicles/street-vehicle-physics";
+import { FERRARI_WHEEL_MAPPING } from "../vehicles/street-vehicle-wheels";
+function productionHostnameForFit002(name: string) {
+  return name === "grand-theft-division.vercel.app";
+}
 import { canInitializePlayerVehicle } from "../vehicles/drive-availability";
 import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha, FERRARI_REAR_CAMERA_BETA, FERRARI_REAR_CAMERA_RADIUS } from "../vehicles/ferrari-camera";
 import { nearestSportsCar, stationaryDisembark, type Point3 } from "../vehicles/local-boarding";
@@ -93,6 +100,15 @@ export class GTDGameRuntime implements GameRuntime {
   private importedCarProbe: ImportedCarProbe | null = null;
   private readonly sportsCars=new Map<string,FirstDriveTrial>();
   private drivingTrial: FirstDriveTrial | null = null;
+  private seatTrialEnabled = false;
+  private fit002Enabled = false;
+  private driverPose002Enabled = false;
+  private cabinFit003Enabled = false;
+  private cabinFit004Enabled = false;
+  private driverPose002Mode: "feet"|"hands"|"both" = "both";
+  private groundFit002Enabled = false;
+  private wheelSupport002Enabled = false;
+  private seatedDriverActive = false;
   private enteredAt: Point3 | null = null;
   private carEnteredAt: Point3 | null = null;
   private worldRenderWarmup: WorldRenderWarmup | null = null;
@@ -201,6 +217,32 @@ export class GTDGameRuntime implements GameRuntime {
     // calibrated relative to CSS canvas dimensions * devicePixelRatio.
     // Full physical density increases raster work and is always opt-in.
     const diagnosticParams = new URLSearchParams(window.location.search);
+    // FIT004 owner acceptance: promote only the seated driver, AR1 joint
+    // fitting and measured lower-leg clearance on the canonical production
+    // domain. Every accepted layer can be explicitly disabled for rollback.
+    // Leave experimental road-ground and wheel-travel mechanisms behind
+    // their original non-production flags until independently accepted.
+    const releasedDrivingFit=productionHostnameForFit002(window.location.hostname);
+    this.seatTrialEnabled=releasedDrivingFit
+      ? diagnosticParams.get("gtdSeat001")!=="0"
+      : diagnosticParams.get("gtdSeat001")==="1";
+    this.fit002Enabled=diagnosticParams.get("gtdVehFit002")==="1" &&
+      !releasedDrivingFit;
+    const fitPoseMode=diagnosticParams.get("gtdFitPose002");
+    this.driverPose002Enabled=releasedDrivingFit
+      ? fitPoseMode!=="0"
+      : ["1","feet","hands"].includes(fitPoseMode??"");
+    this.driverPose002Mode=fitPoseMode==="feet"?"feet":
+      fitPoseMode==="hands"?"hands":"both";
+    this.cabinFit003Enabled=this.driverPose002Enabled &&
+      diagnosticParams.get("gtdCabinFit003")==="1" &&
+      !releasedDrivingFit;
+    this.cabinFit004Enabled=this.driverPose002Enabled && (
+      releasedDrivingFit
+        ? diagnosticParams.get("gtdCabinFit004")!=="0"
+        : diagnosticParams.get("gtdCabinFit004")==="1");
+    this.groundFit002Enabled = diagnosticParams.get("gtdFitGround002") === "1" && !productionHostnameForFit002(window.location.hostname);
+    this.wheelSupport002Enabled = diagnosticParams.get("gtdFitWheel002") === "1" && !productionHostnameForFit002(window.location.hostname);
     // Only explicit FL-4 diagnostics may exceed native device pixels.
     // Never override ordinary players' saved graphics preferences.
     const initialCanvasBounds = host.getBoundingClientRect();
@@ -432,6 +474,25 @@ export class GTDGameRuntime implements GameRuntime {
           });
         (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: () => ReturnType<LoadedMeridiaCharacter["report"]> })
           .__GTD_CHARACTER_TRIAL_REPORT__ = () => trial.report();
+        if (this.fit002Enabled) {
+          (window as Window & { __GTD_VEH_FIT_002_DRIVER__?: () => unknown })
+            .__GTD_VEH_FIT_002_DRIVER__ = () => this.characterTrial?.driverContactReport() ?? null;
+          (window as Window & { __GTD_VEH_FIT_002_REPORT__?: () => unknown })
+            .__GTD_VEH_FIT_002_REPORT__ = () => measureVehicleFit002(
+              scene, this.drivingTrial, this.characterTrial, this.fit002Enabled,
+            );
+        }
+        (window as Window & { __GTD_VEH_SEAT_001_REPORT__?: () => unknown })
+          .__GTD_VEH_SEAT_001_REPORT__ = () => ({
+            schema:"gtd.veh-seat-001.ual-driving-loop.v1",
+            enabled:this.seatTrialEnabled,
+            drivingClipAvailable:this.characterTrial?.report().drivingClipAvailable ?? false,
+            seatedDriverActive:this.seatedDriverActive,
+            activeAnimation:this.characterTrial?.report().activeAnimation ?? null,
+            driving:this.context==="driving",
+            vehicle:this.drivingTrial?.status ?? null,
+            note:"Presentation-only trial; car steering, speed and collision are identical to main.",
+          });
     } catch (error) {
       this.emit({ type: "load-checkpoint", id: "voight", status: "failed",
         detail: error instanceof Error ? error.message : String(error) });
@@ -561,7 +622,7 @@ export class GTDGameRuntime implements GameRuntime {
             car=new FirstDriveTrial(physics,anchor,{
               x:slot.finalVisualMetres.width,y:slot.finalVisualMetres.height,
               z:slot.finalVisualMetres.length,
-            });
+            },FERRARI_STREET_PROFILE,FERRARI_WHEEL_MAPPING,this.groundFit002Enabled,this.wheelSupport002Enabled);
             firstLight.releaseParkedCarCollider(slot.id);
             this.sportsCars.set(slot.id,car);
           }catch(error){
@@ -639,12 +700,17 @@ export class GTDGameRuntime implements GameRuntime {
     window.removeEventListener("resize", this.resize);
     this.worldRenderWarmup?.cancel();
     this.worldRenderWarmup = null;
+    if(this.seatedDriverActive)this.characterTrial?.exitDrivingPose();
+    this.seatedDriverActive=false;
     for(const car of this.sportsCars.values())car.dispose();
     this.sportsCars.clear();
     this.drivingTrial=null;
     this.enteredAt=null;
     this.carEnteredAt=null;
     delete (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: unknown }).__GTD_DRIVE_TRIAL_REPORT__;
+    delete (window as Window & { __GTD_VEH_SEAT_001_REPORT__?: unknown }).__GTD_VEH_SEAT_001_REPORT__;
+    delete (window as Window & { __GTD_VEH_FIT_002_REPORT__?: unknown }).__GTD_VEH_FIT_002_REPORT__;
+    delete (window as Window & { __GTD_VEH_FIT_002_DRIVER__?: unknown }).__GTD_VEH_FIT_002_DRIVER__;
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
@@ -657,6 +723,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.movementInputEvents = [];
     this.movementInputRepeatCount = 0;
     this.gaitEvents = [];
+    this.characterTrial?.disposeDriverContact();
     this.characterTrial = null;
     this.removeFL4EvidenceExport?.();
     this.removeFL4EvidenceExport = null;
@@ -829,6 +896,8 @@ export class GTDGameRuntime implements GameRuntime {
         return;
       }
       physics.setPlayerPosition(position);
+      if(this.seatedDriverActive)this.characterTrial?.exitDrivingPose();
+      this.seatedDriverActive=false;
       voight.root.position.set(position.x,position.y,position.z);
       this.camera?.target.set(position.x,position.y+0.55,position.z);
       this.context="walking";
@@ -852,7 +921,18 @@ export class GTDGameRuntime implements GameRuntime {
     if(!car)return;
     this.enteredAt={...actor};this.carEnteredAt={...car.pose};
     this.drivingTrial=car;this.context="driving";
-    voight.root.setEnabled(false);
+    // Only this isolated experiment attempts a visible seated driver.
+    // A missing binary animation falls back to the EXACT L0 hidden-driver
+    // presentation; it never applies an improvised pose to the live character.
+    this.seatedDriverActive=this.seatTrialEnabled &&
+      (this.characterTrial?.enterDrivingPose() ?? false);
+    voight.root.setEnabled(this.seatedDriverActive);
+    if(this.seatedDriverActive){
+      this.syncFerrariDriverSeat(car);
+      this.characterTrial?.setDrivingCabin(
+        car.anchor,this.driverPose002Enabled,this.driverPose002Mode,
+        this.cabinFit003Enabled&&!this.cabinFit004Enabled,"ferrari",this.cabinFit004Enabled);
+    }
     this.move={x:0,y:0};
     this.preferredCameraRadius=FERRARI_REAR_CAMERA_RADIUS;
     const p=car.pose;
@@ -864,6 +944,19 @@ export class GTDGameRuntime implements GameRuntime {
     }
     this.publishSnapshot(0);
     this.emit({type:"interaction",label:"Ferrari driving · WASD / arrows · F exit when stopped"});
+  }
+
+  /** Pure vehicle-relative presentation. Physics remains the unchanged L0
+   * Rapier actor; there is no second collider or velocity source for Voight. */
+  private syncFerrariDriverSeat(car:FirstDriveTrial) {
+    const voight=this.voight;
+    if(!voight)return;
+    const seat=ferrariSeatWorldPose({
+      x:car.anchor.position.x,y:car.anchor.position.y,
+      z:car.anchor.position.z,yaw:car.headingYaw,
+    },car.dimensions);
+    voight.root.position.set(seat.x,seat.y,seat.z);
+    voight.root.rotation.y=seat.yaw;
   }
 
   private schedule() {
@@ -918,6 +1011,10 @@ export class GTDGameRuntime implements GameRuntime {
       // controller owns the step until world physics is centrally refactored.
       physics.movePlayer({ x: 0, y: 0, z: 0 });
       trial.finish(dt);
+      if(this.seatedDriverActive){
+        this.syncFerrariDriverSeat(trial);
+        this.characterTrial?.updateDrivingPose(dt);
+      }
       const position = trial.pose;
       this.world?.update(dt, position);
       camera.target.set(position.x, position.y + 0.7, position.z);

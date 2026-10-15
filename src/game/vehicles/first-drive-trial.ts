@@ -8,6 +8,7 @@
  */
 import RAPIER from "@dimforge/rapier3d-compat";
 import { TransformNode } from "@babylonjs/core";
+import { sampleRenderedVehicleSurface } from "./vehicle-road-surface";
 import type { MeridianPhysics } from "../physics/rapier-world";
 import { stepDriveControl, type DriveState } from "./drive-kinematics";
  import { vehicleFootprintsOverlap } from "./street-vehicle-barriers";
@@ -59,6 +60,14 @@ export class StreetVehicleActor {
   private highestObservedUnsupportedGap = 0;
   private warningEmitted = false;
   private destroyed = false;
+  private chassisFloorOffsetMetres = 0.035;
+  private treadAligned = false;
+  private readonly groundCalibrationEnabled: boolean;
+  private contactCalibrationVerified = false;
+  private roadCalibrationFrame = 0;
+  private roadCalibrationCorrection = 0;
+  private roadCalibrationReason = "not-attempted";
+  private readonly visualWheelSupportEnabled: boolean;
 
   constructor(
     private readonly physics: MeridianPhysics,
@@ -66,7 +75,11 @@ export class StreetVehicleActor {
     readonly dimensions: DriveTrialDimensions,
     private readonly profile: StreetVehiclePhysicsProfile = FERRARI_STREET_PROFILE,
     wheelMapping: StreetVehicleWheelMapping = FERRARI_WHEEL_MAPPING,
+    alignChassisToRealTires = false,
+    visualWheelSupportEnabled = false,
   ) {
+    this.visualWheelSupportEnabled = visualWheelSupportEnabled;
+    this.groundCalibrationEnabled = alignChassisToRealTires;
     if (![dimensions.x, dimensions.y, dimensions.z].every(n => Number.isFinite(n) && n > 0)) {
       throw new Error("Ferrari trial requires the imported visual's real calibrated bounds");
     }
@@ -105,6 +118,49 @@ export class StreetVehicleActor {
     // The car-specific asset adapter is the only Ferrari-named dependency.
     // The wheel quaternion system is reusable with a sedan's wheel mapping.
     this.wheelRig = new StreetVehicleWheelRig(anchor, wheelMapping);
+    if (alignChassisToRealTires) {
+      const tread = this.wheelRig.contactTreadFloorRelativeToAnchor();
+      if (tread !== null) {
+        // The imported model floor != actual tire tread (observed 18cm
+        // divergence on real Ferrari). Align box support to the real tire.
+        // Keep the accepted drivetrain and curb/no-step controller unchanged.
+        this.chassisFloorOffsetMetres = tread;
+        this.treadAligned = true;
+        // At the First Light road spawn the Rapier support plane is Y=0.
+        // Prevent a new collider starting below that support plane. Once
+        // driving, Rapier remains the authoritative body-height solver.
+        this.anchor.position.y = Math.max(anchor.position.y, 0.021 - tread);
+        const at = this.body.translation();
+        const raised = {
+          x: at.x,
+          y: this.anchor.position.y + dimensions.y / 2 + tread,
+          z: at.z,
+        };
+        this.body.setTranslation(raised, true);
+        this.body.setNextKinematicTranslation(raised);
+      }
+    }
+  }
+
+  /** VEH-FIT-002 G0. One explicit, nonmutating Rapier ray per requested wheel.
+   * The driven chassis is excluded so the result describes world support. */
+  probeWheelSupport(x: number, startY: number, z: number):
+    { topY: number; rayDistance: number } | null {
+    if (this.destroyed || ![x, startY, z].every(Number.isFinite)) return null;
+    const hit = this.physics.world.castRay(
+      new RAPIER.Ray({ x, y: startY, z }, { x: 0, y: -1, z: 0 }),
+      4, true, undefined, undefined, this.collider,
+    );
+    return hit && Number.isFinite(hit.timeOfImpact)
+      ? { topY: startY - hit.timeOfImpact, rayDistance: hit.timeOfImpact }
+      : null;
+  }
+
+  /** AR1-G0 real-wheel contact results; unavailable geometry yields [].
+   * Exposes data to diagnostics without permitting geometry mutation. */
+  sampleTireContactTreads(){return this.wheelRig.sampleTireTreads();}
+  get verifiedTireProfiles(){
+    return this.wheelRig.contactProfileEvidence.every(x=>x.confidence==="verified-shape");
   }
 
   get pose(): VehicleWorldPoint { return this.body.translation(); }
@@ -123,6 +179,14 @@ export class StreetVehicleActor {
     distanceMetres: this.distanceMetres,
     classId: this.profile.classId,
     curbMaxMetres: this.profile.maxCurbAutostepMetres,
+    treadAligned: this.treadAligned,
+    chassisFloorOffsetMetres: this.chassisFloorOffsetMetres,
+    visualWheelSupportEnabled: this.visualWheelSupportEnabled,
+    roadContactCalibrationVerified: this.contactCalibrationVerified,
+    roadCalibrationCorrectionMetres: this.roadCalibrationCorrection,
+    roadCalibrationReason: this.roadCalibrationReason,
+    tireContactEvidence:this.wheelRig.contactProfileEvidence,
+    visualWheelTravel: this.wheelRig.visualWheelTravelMetres,
   }; }
 
   prepare(dt: number, steering: number, moveY: number) {
@@ -207,12 +271,69 @@ export class StreetVehicleActor {
     // tick; physics.world.step() remains owned by MeridianPhysics.movePlayer().
   }
 
+  /**
+   * G3 live witness: the imported Ferrari's tire-to-anchor height measured
+   * during asset instantiation was ~zero, but on an actual driven road frame
+   * the tire treads were 0.129 m *below* the asphalt. A physics-box spawn
+   * calibration cannot be trusted without checking the live tire geometry.
+   *
+   * Calibrate the VISUAL-to-CHASSIS mapping once, only when all four
+   * independent contacts agree on level roadway, never while straddling a
+   * sidewalk, curb, garage threshold or midair. Preserve the Rapier body
+   * and collision response; this does not teleport the physical vehicle.
+   */
+  private settleMeasuredTireFloor():void{
+    if(!this.groundCalibrationEnabled||this.contactCalibrationVerified||this.destroyed)return;
+    if(Math.abs(this.speedMps)>2)return;
+    if(++this.roadCalibrationFrame%12!==0)return;
+    if(!this.verifiedTireProfiles){
+      this.roadCalibrationReason="unverified-tire-mesh";return;
+    }
+    const tires=this.wheelRig.sampleTireTreads();
+    if(tires.length!==4){this.roadCalibrationReason="missing-tire-geometry";return;}
+    const surfaces=tires.map(t=>sampleRenderedVehicleSurface(
+      this.anchor.getScene(),t.position.x,t.position.z));
+    if(surfaces.some(x=>!x||x.kind!=="asphalt")){
+      this.roadCalibrationReason="missing-or-nonasphalt-surface";return;
+    }
+    const physics=tires.map(t=>this.probeWheelSupport(
+      t.position.x,t.position.y+0.45,t.position.z)?.topY);
+    if(physics.some(y=>y===undefined||!Number.isFinite(y))){
+      this.roadCalibrationReason="no-physical-contact";return;
+    }
+    const offsets=surfaces.map((surface,i)=>surface!.y-physics[i]!);
+    if(offsets.some(n=>n< -0.02||n>0.11)){
+      this.roadCalibrationReason="surface-collider-mismatch";return;
+    }
+    const treadYs=tires.map(t=>t.bottomY);
+    if(Math.max(...treadYs)-Math.min(...treadYs)>0.045||
+      Math.max(...surfaces.map(x=>x!.y))-Math.min(...surfaces.map(x=>x!.y))>0.025){
+      this.roadCalibrationReason="noncoplanar-support";return;
+    }
+    const needed=surfaces.map((x,i)=>x!.y+0.006-treadYs[i]!);
+    const spread=Math.max(...needed)-Math.min(...needed);
+    if(spread>0.025){
+      this.roadCalibrationReason="inconsistent-tire-corrections";return;
+    }
+    const correction=needed.reduce((a,b)=>a+b,0)/4;
+    if(!Number.isFinite(correction)||Math.abs(correction)>0.22){
+      this.roadCalibrationReason="out-of-range";return;
+    }
+    // Keep Rapier body authoritative; adjust ONLY the visual-anchor/chassis
+    // mapping after four matched rendered and physical support witnesses.
+    this.anchor.position.y+=correction;
+    this.chassisFloorOffsetMetres-=correction;
+    this.roadCalibrationCorrection=correction;
+    this.contactCalibrationVerified=true;
+    this.roadCalibrationReason="four-asphalt-witnesses";
+  }
+
   finish(dt: number) {
     if (this.destroyed) return;
     const translation = this.body.translation();
     const q = this.body.rotation();
     this.anchor.position.set(
-      translation.x, translation.y - this.dimensions.y / 2 - 0.035, translation.z,
+      translation.x, translation.y - this.dimensions.y / 2 - this.chassisFloorOffsetMetres, translation.z,
     );
     this.anchor.rotation.y = 2 * Math.atan2(q.y, q.w);
     const travelled = Math.hypot(
@@ -225,6 +346,11 @@ export class StreetVehicleActor {
       travelled * (this.drive.speedMps < 0 ? -1 : 1),
       this.drive.steeringRadians,
     );
+    this.settleMeasuredTireFloor();
+    if(this.visualWheelSupportEnabled) {
+      this.wheelRig.alignVisualWheelContacts(dt,p=>this.probeWheelSupport(
+        p.x,p.y,p.z)?.topY??null,this.vertical.grounded);
+    }
     if (!Number.isFinite(dt) || ![translation.x, translation.y, translation.z,
       this.headingYaw].every(Number.isFinite)) {
       throw new Error("VM-G02: Nonfinite or invalid simulated vehicle pose");

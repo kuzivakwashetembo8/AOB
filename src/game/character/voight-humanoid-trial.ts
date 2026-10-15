@@ -9,6 +9,7 @@ import {
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import type { VoightPrototype } from "./voight";
+import { createDriverCabinPose } from "./driver-cabin-pose";
 import { selectFlightPose, type FlightPoseInput } from "./locomotion/flight-pose";
 import {
   GaitContinuityController,
@@ -46,6 +47,7 @@ export interface CharacterTrialReport {
   readonly visualForwardDeg: number;
   readonly gaitState: string;
   readonly gaitTransitionCount: number;
+  readonly drivingClipAvailable: boolean;
 }
 
 /**
@@ -87,12 +89,26 @@ function preferredClip(groups: AnimationGroup[], choices: readonly string[]): An
   return null;
 }
 
+/** Binary capability gate. A demo configuration alone cannot prove a
+ * particular pinned GLB actually includes the requested animation clip. */
+export function selectUalDrivingLoop<T extends {name:string}>(groups:readonly T[]):T|null {
+  return groups.find(group=>group.name.toLowerCase()==="driving_loop")??null;
+}
+
 export type LoadedMeridiaCharacter = VoightPrototype & {
   readonly witness: Mesh;
   readonly report: () => CharacterTrialReport;
   updateAnimation: (inputs: GaitInputs) => GaitDecision;
   updateFlightAnimation: (inputs: FlightPoseInput & { dt: number }) => void;
   setVisualForward: (degrees: number) => void;
+  enterDrivingPose: () => boolean;
+  updateDrivingPose: (dt: number) => void;
+  exitDrivingPose: () => void;
+  setDrivingCabin: (anchor: TransformNode | null, enabled: boolean,
+    mode?: "feet"|"hands"|"both",fitCabin?: boolean,
+    kind?: "ferrari"|"buggy"|"unknown",fit004?: boolean) => void;
+  driverContactReport: () => unknown;
+  disposeDriverContact: () => void;
 };
 
 export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMeridiaCharacter> {
@@ -161,15 +177,20 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     flyHoverRight: preferredClip(imported.animationGroups, ["flyHoverRight"]),
     flyHoverUp: preferredClip(imported.animationGroups, ["flyHoverUp", "flyUp"]),
     flyHoverDown: preferredClip(imported.animationGroups, ["flyHoverDown", "flyDown"]),
+    // Three Player Controller's UAL specimen config requests this exact
+    // animation. Check the imported binary's groups, not just demo metadata.
+    driving: selectUalDrivingLoop(imported.animationGroups),
   };
   if (!clips.idle || !clips.walk) {
     throw new Error("UAL trial failed: no compatible idle/walking animation clips");
   }
+  const driverPose = createDriverCabinPose(scene, imported.skeletons[0]!, witness, root, skinned);
   imported.animationGroups.forEach(group => group.stop());
   let active: AnimationGroup | null = null;
   let outgoing: AnimationGroup | null = null;
   let blend = 1;
   let activeName = "idle";
+  let drivingPoseActive = false;
   const gaitController = new GaitContinuityController();
   let lastGait: GaitDecision | null = null;
 
@@ -222,6 +243,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     witness,
     report: (): CharacterTrialReport => ({
       ...reportInfo, activeAnimation: activeName, visualForwardDeg,
+      drivingClipAvailable: clips.driving !== null,
       gaitState: lastGait?.state ?? "idle",
       gaitTransitionCount: lastGait?.transitionCount ?? 0,
     }),
@@ -231,6 +253,30 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       if (!Number.isFinite(degrees)) return;
       visualForwardDeg = Math.max(-180, Math.min(180, degrees));
       visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
+    },
+    setDrivingCabin(anchor, enabled, mode = "both",fitCabin = false,kind = "ferrari",fit004 = false) {
+      driverPose.setCabin(anchor, enabled, mode,fitCabin,kind,fit004);
+    },
+    driverContactReport: () => driverPose.report(),
+    disposeDriverContact: () => driverPose.dispose(),
+    enterDrivingPose() {
+      // Fail closed: on an incompatible UAL binary do not synthesize an
+      // unverified seated pose or change the imported locomotion clips.
+      if (!clips.driving) return false;
+      drivingPoseActive = true;
+      switchTo(clips.driving, "driving");
+      advanceBlend(0.18);
+      return true;
+    },
+    updateDrivingPose(dt) {
+      if (drivingPoseActive) advanceBlend(dt);
+    },
+    exitDrivingPose() {
+      if (!drivingPoseActive) return;
+      drivingPoseActive = false;
+      driverPose.setCabin(null, false);
+      switchTo(clips.idle!, "idle");
+      advanceBlend(0.18);
     },
     updateFlightAnimation(inputs) {
       const pose = selectFlightPose(inputs);
