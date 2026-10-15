@@ -104,6 +104,7 @@ export class GTDGameRuntime implements GameRuntime {
   private fit002Enabled = false;
   private driverPose002Enabled = false;
   private cabinFit003Enabled = false;
+  private cabinFit004Enabled = false;
   private driverPose002Mode: "feet"|"hands"|"both" = "both";
   private groundFit002Enabled = false;
   private wheelSupport002Enabled = false;
@@ -225,6 +226,9 @@ export class GTDGameRuntime implements GameRuntime {
       fitPoseMode==="hands"?"hands":"both";
     this.cabinFit003Enabled=this.driverPose002Enabled &&
       diagnosticParams.get("gtdCabinFit003")==="1" &&
+      !productionHostnameForFit002(window.location.hostname);
+    this.cabinFit004Enabled=this.driverPose002Enabled &&
+      diagnosticParams.get("gtdCabinFit004")==="1" &&
       !productionHostnameForFit002(window.location.hostname);
     this.groundFit002Enabled = diagnosticParams.get("gtdFitGround002") === "1" && !productionHostnameForFit002(window.location.hostname);
     this.wheelSupport002Enabled = diagnosticParams.get("gtdFitWheel002") === "1" && !productionHostnameForFit002(window.location.hostname);
@@ -916,7 +920,7 @@ export class GTDGameRuntime implements GameRuntime {
       this.syncFerrariDriverSeat(car);
       this.characterTrial?.setDrivingCabin(
         car.anchor,this.driverPose002Enabled,this.driverPose002Mode,
-        this.cabinFit003Enabled,"ferrari");
+        this.cabinFit003Enabled&&!this.cabinFit004Enabled,"ferrari",this.cabinFit004Enabled);
     }
     this.move={x:0,y:0};
     this.preferredCameraRadius=FERRARI_REAR_CAMERA_RADIUS;
