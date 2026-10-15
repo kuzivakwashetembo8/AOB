@@ -13,8 +13,9 @@ describe("VEH-FIT-002 G1-G2 driving pose isolation",()=>{
    const adapter=createDriverCabinPose(scene,skeleton,mesh,root);
    try{
      expect(adapter.report().status).toBe("disabled");
-     adapter.setCabin(cabin,true);
+     adapter.setCabin(cabin,true,"feet");
      scene.render();
+     expect(adapter.report().correctionMode).toBe("feet");
      const report=adapter.report();
      expect(report.status).toBe("missing-rig");
      expect(report.appliedLimbs).toEqual([]);
