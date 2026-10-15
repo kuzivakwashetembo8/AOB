@@ -102,6 +102,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   let cabin:TransformNode|null=null;
   let wheelNode:AbstractMesh|null=null;
   let enabled=false;
+  let correctionMode: "feet"|"hands"|"both" = "both";
   const cachedBaseline=new Map<TransformNode,Quaternion>();
   const zero=():DriverContactState=>({
     enabled,status:enabled?"missing-wheel":"disabled",appliedLimbs:[],
@@ -153,6 +154,8 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     const actual:DriverContactState["actual"]={};
     const errorMetres:DriverContactState["errorMetres"]={};
     for(const limb of desired) {
+      if(correctionMode==="feet"&&limb.role.endsWith("Hand"))continue;
+      if(correctionMode==="hands"&&limb.role.endsWith("Foot"))continue;
       targets[limb.role]=point(limb.to);
       if(solveChain(mapped.found,limb.chain,limb.to))appliedLimbs.push(limb.role);
       const tip=mapped.found[limb.chain[2]];
@@ -166,7 +169,8 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       targets,actual,errorMetres};
   });
   return {
-    setCabin(next:TransformNode|null,active:boolean){
+    setCabin(next:TransformNode|null,active:boolean,
+      mode:"feet"|"hands"|"both"="both"){
       if(!active||!next){
         for(const [node,rotation] of cachedBaseline) {
           node.rotationQuaternion=rotation.clone();
@@ -174,9 +178,9 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         cachedBaseline.clear();
       }
       cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
-      enabled=active;state=zero();
+      correctionMode=mode;enabled=active;state=zero();
     },
-    report:()=>({...state,sourceBones:Object.entries(mapped.found)
+    report:()=>({...state,correctionMode,sourceBones:Object.entries(mapped.found)
       .map(([role,bone])=>({role,name:bone?.name,linked:!!bone?.getTransformNode()})),
       skeletonName:skeleton.name,witnessName:witness.name}),
     dispose(){
