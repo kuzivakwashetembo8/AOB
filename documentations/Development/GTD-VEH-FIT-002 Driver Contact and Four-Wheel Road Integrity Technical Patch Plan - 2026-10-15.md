@@ -289,3 +289,29 @@ Vercel build pipeline `npx tsc --noEmit && npx vitest run && npm run build`: **P
 The optional A/B controls use `gtdFitPose002=feet` or `hands`, or `1` for both, `gtdFitGround002=1` for real tread-derived collider alignment and `gtdFitWheel002=1` for per-wheel visual contact. `gtdVehFit002=1` exposes `window.__GTD_VEH_FIT_002_REPORT__()` containing both original and enhanced wheel and skeleton contact metrics, including `fittedDrivingPose`.
 
 **Overall status:** G1/G2/G3 code: implemented and automated-verified, NOT yet visually accepted. G4 automated: PASS; G4 desktop/mobile acceptance: PENDING. Production main: unchanged. **G6 documentation gate: CLOSED** until owner-visible G1–G4 acceptance, with no invented G6 work.
+
+
+## 13. Owner visual rejection, second geometry sample, and corrective implementation (2026-10-15)
+
+**Gate decision:** G4 **REJECTED by direct owner screenshots and live `gtd.veh-fit-002.contact.v1` telemetry.** This supersedes any interpretation that the prior 283/283 automated PASS established real-model correctness. G6 remains embargoed until renewed G1–G4 testing and owner visual acceptance.
+
+**Evidence:** Owner's four screenshots of preview `gtd-ap7tug0i3` with full G1–G3 flags enabled, plus a copied 572-line contact report from the actual UAL/Ferrari runtime. Car at rest: visual anchor `(-25.644403, 0.018824, 9.181983)`; yaw `1.45379`; Ferrari `2.3681 × 1.3584 × 4.53 m`; `grounded=true`; speed 0 m/s.
+
+| Physical/visual check | Reported value | Consequence |
+| --- | --- | --- |
+| Four real tires on flat road | signed gap -0.128759/-0.128759/-0.128760/-0.128760 m | **ALL FOUR tires penetrate rendered asphalt ~129 mm** although collision tops at Y≈0 and visible road top at Y≈0.030 |
+| Constructor chassis tire mapping | `treadAligned=true`, `chassisFloorOffsetMetres≈+0.0000004` | Initial calibration accepted an incorrect near-zero tread/reference offset; later real tread at Y≈-0.09876 relative to visual anchor Y≈+0.01882 |
+| G3 visual travel | 0.014–0.017 m | Stale cached pivot-to-tread height supplied false near-contact condition, so wheel travel did not correct a real 129-mm penetration |
+| Skeleton | All 16 mapped limb roles present, `missing:[]` | The original GLB bone-name discovery issue is solved; no missing-joint explanation for continued limb failure |
+| G1 left/right foot target errors | 1.2953 m / 0.9881 m | Target generated from `wheelCenter + forward*0.18`, beyond the natural footwell/reachable bone chain, shoes protrude from lower body |
+| G2 left/right hand errors | 0.4711 m / 0.2931 m | 9/3 grip targets too far from seated UAL shoulders to satisfy the two-bone reach guard; **neither hand listed under `appliedLimbs`** |
+| G1 status | `status=active`, `appliedLimbs=[leftFoot,rightFoot]` | False success classification: IK function reported **attempted**, not **converged**, even with error greater than one metre |
+
+**Corrective source changes, pending new verification:**
+
+1. **G1/G2** `driver-cabin-pose.ts`: the foot target planner now uses *actual hips* plus 0.37m forward and anatomically contained Y instead of locating feet beyond the steering wheel. Hand grip candidates are derived from each hand's nearest reachable section of the *actual* wheel rim rather than fixed, unreachable 9/3 points. Post-solve residual errors are checked; only <=0.06m residual counts as `appliedLimbs`, otherwise status explicitly becomes `out-of-tolerance`. Pure target-planner regression tests reproduce the owner's measured hips/wrists/rim instead of fabricated perfect coordinates.
+2. **G3** `street-vehicle-wheels.ts`: cache actual descendant wheel meshes and **resample current transformed tire tread bottom Y** after spinning/steering. Remove stale constructor pivot-to-tread offset as the authoritative wheel support value.
+3. **G3** `first-drive-trial.ts`: when enabled, compare all FOUR tire treads to independent Rapier support while stopped/slow on *confirmed flat roadway*. A single bounded, fail-closed recalibration aligns visual anchor-to-chassis floor only when four support rays are at the true Y≈0 street level (not sidewalk Y=.11 or a curb) and the tread heights agree. Physics body remains authoritative and is not teleported. New regression fixture deliberately reproduces ~129mm post-instantiation geometry mismatch and expects flat-road correction without masking irregular-road states.
+4. **G4** New `veh-fit-002-live-targets.test.ts` checks foot target reach/forward direction and nearest-rim hand targets from the exact rejected live joint/steering center. Expanded `veh-fit-002-contact-witness.test.ts` checks the missed calibration. Build and in-browser validation remain required.
+
+**Important limits:** No guarantee that the actual UAL animator responds geometrically to the IK corrections until new live post-fix errors and screenshots establish it. The flat-road one-time calibration does not constitute a full four-wheel suspension solver. If the four support heights differ (sidewalk/curb), the offset reconciliation deliberately refuses to infer a single contradictory tire floor. Preserve approved seat root `cabinForwardFraction=-0.04`, usual driving, walking, no-step garage protection, mobile presentation, and original physics. No production merge. **G6 remains CLOSED.**
