@@ -1,7 +1,7 @@
 # GTD-VEH-SEAT-001 — UAL Driving Loop Milestone and Ferrari Seat-Fit Findings
 
 **Recorded:** 2026-10-15  
-**Status:** Initial seated driver visually accepted as a working foundation; **seat fit remains incomplete**. Posture refinements are **not authorized for implementation yet**.  
+**Status:** Initial seated driver visually accepted as a working foundation; **seat fit remains incomplete**. **Stage 1 rearward-only root adjustment implemented on the isolated preview branch; awaiting visual acceptance.** Leg and arm changes are deferred until this single-variable trial is reviewed.  
 **Branch:** `exp/veh-seat-001-ual-driving-loop-20261015`  
 **Baseline:** `main` at `24a1ab738c650ebf7e71b40fed628ea80a154c78` (Ferrari L0 physics unchanged).  
 **Preview observed:** https://gtd-r31oppt1w-interlinkglobaltech.vercel.app/game?gtdSeat001=1  
@@ -29,7 +29,7 @@ Current Ferrari seat configuration:
 ```ts
 export const FERRARI_SEAT_POSITION = {
   driverSideFraction: 0.20,
-  cabinForwardFraction: -0.12,
+  cabinForwardFraction: -0.04, // Stage 1 preview, formerly -0.12
   aboveRoadHeightFraction: 0.56,
   headingOffsetRadians: Math.PI,
 };
@@ -74,9 +74,9 @@ Wheel-road penetration is a separate vehicle grounding/collider/contact issue. I
 
 This observation belongs in the later **wheel/road alignment gate** of VEH-PHYS-001; it is **not** a prerequisite for proceeding with small cabin-only seat-position adjustments, as long as their validation explicitly distinguishes the two defects.
 
-## 5. Narrow sequential next steps — proposals, not implementation authorization
+## 5. Narrow sequential next steps — Stage 1 authorized; subsequent stages remain separate
 
-1. **Rearward seat-root calibration only.** Keep `Driving_Loop` and Ferrari L0 unchanged. Adjust the `cabinForwardFraction` or a small equivalent car-local offset in `driver-seat-placement.ts`, with one parameter changed per preview. Compare side, top-down and rear views. Reject any change that worsens road visibility, seat/roof alignment or boarding/exit.
+1. **Rearward seat-root calibration only — IMPLEMENTED FOR REVIEW.** `cabinForwardFraction` changed from `-0.12` to `-0.04`, a rearward shift of `0.08 × car length` (~0.36 metres for the 4.53-metre Ferrari). Keep `Driving_Loop` and Ferrari L0 unchanged. Compare side, top-down and rear views on the preview; reject if it worsens driver fit or boarding/exit. No vertical root adjustment, bone pose, arm, leg, vehicle wheel, car physics or collision changes were bundled.
 2. **If required: footwell pose fitting only.** With the improved root offset frozen, measure foot positions relative to Ferrari floor/pedals. Attempt the smallest existing-clip-compatible lower-body adjustment. Do not raise the whole character merely to conceal feet.
 3. **If required: steering-wheel arm fit only.** Adjust arm targets/bend after legs are settled. Keep elbows partially bent and hands near the wheel without overextending shoulders.
 4. **Owner confirmation and acceptance.** Recheck boarding, idle driving, turns, moving car and exit. Side views must show no foot-through-ground/chassis; overhead must show head/torso clearance and natural hand positioning. Only then consider promoting the seat experiment to continuous development.
@@ -90,6 +90,6 @@ This observation belongs in the later **wheel/road alignment gate** of VEH-PHYS-
 
 **Not accepted as final:** exposed feet; compressed windshield/steering-wheel clearance; hand/pedal precision; wheel-road penetration.
 
-**Current action:** This document alone. **No seat offset, skeleton animation, game logic or physics corrections are implemented by this recording.** Await the owner's separate authorization for the first, single-variable seat-root refinement.
+**Current action:** First, single-variable seat-root refinement implemented under owner authorization. Await **visual approval or rejection** of the rearward offset before any leg, footwell or hand/steering-wheel change. The UAL `Driving_Loop`, Ferrari physics, wheel contact, and all non-seat world generation remain unchanged.
 
-**Status:** Seating mechanism demonstrated; posture calibration next; wheel-grounding defect captured as separate deferred work.
+**Status:** Seating mechanism demonstrated; rearward pose placement submitted for visual review; arms/legs still require independent follow-on decisions; wheel-grounding defect remains a deferred physics issue.
