@@ -5,6 +5,7 @@
  * reported, never replaced by rotating the whole car mesh.
  */
 import { AbstractMesh, Quaternion, TransformNode, Vector3 } from "@babylonjs/core";
+import { buildTireContactProfile, tireContactBottomY, type TireContactProfile } from "./wheel-contact-geometry";
 
 export type WheelCorner = "frontLeft" | "frontRight" | "rearLeft" | "rearRight";
 export interface StreetVehicleWheelMapping {
@@ -39,6 +40,7 @@ type WheelPart = {
   readonly initialPosition: Vector3;
   readonly treadBelowPivotWorldY: number | null;
   readonly treadMeshes: readonly AbstractMesh[];
+  readonly tireProfile:TireContactProfile|null;
   suspensionTravelWorldY: number;
 };
 const median = (sizes: number[]) => sizes.sort((a, b) => a - b)[1] ?? 0;
@@ -104,16 +106,14 @@ export class StreetVehicleWheelRig {
         ...(node instanceof AbstractMesh ? [node] : []),
         ...node.getChildMeshes(false),
       ].filter(m=>m.getTotalVertices()>0);
-      let treadY=Infinity;
-      for(const mesh of treadParts) {
-        mesh.computeWorldMatrix(true);
-        treadY=Math.min(treadY,mesh.getBoundingInfo().boundingBox.minimumWorld.y);
-      }
+      const tireProfile=buildTireContactProfile(node,treadParts,mapping.spinAxis);
+      const sampled=tireProfile?tireContactBottomY(node.getWorldMatrix(),tireProfile,mapping.spinAxis):null;
+      const treadY=sampled??Infinity;
       parts.push({
         corner, node, base, priorQuaternion, originalEuler: node.rotation.clone(),
         radiusMetres, initialPosition: node.position.clone(),
         treadBelowPivotWorldY: Number.isFinite(treadY)?treadY-pivotY:null,
-        treadMeshes:treadParts,suspensionTravelWorldY:0,
+        treadMeshes:treadParts,tireProfile,suspensionTravelWorldY:0,
       });
     }
     this.parts = parts;
@@ -124,49 +124,35 @@ export class StreetVehicleWheelRig {
    * minY or a fixed +0.035m. Returns null for foreign/partial GLBs. Samples
    * unanimated world transforms once at instantiation; no per-frame mesh scan. */
   contactTreadFloorRelativeToAnchor(): number | null {
-    if (!this.ready) return null;
-    this.visualAnchor.computeWorldMatrix(true);
-    const ys: number[] = [];
-    for (const wheel of this.parts) {
-      const parts = [
-        ...(wheel.node instanceof AbstractMesh ? [wheel.node] : []),
-        ...wheel.node.getChildMeshes(false),
-      ].filter(m => m.getTotalVertices() > 0);
-      if(!parts.length) return null;
-      let minY=Infinity;
-      for(const mesh of parts) {
-        mesh.computeWorldMatrix(true);
-        minY=Math.min(minY,mesh.getBoundingInfo().boundingBox.minimumWorld.y);
-      }
-      if(!Number.isFinite(minY))return null;
-      ys.push(minY-this.visualAnchor.position.y);
-    }
-    if(Math.max(...ys)-Math.min(...ys)>0.065)return null;
-    ys.sort((a,b)=>a-b);
-    const median=(ys[1]!+ys[2]!)*0.5;
-    return Math.abs(median)<1.5 ? median : null;
+    const samples=this.sampleTireTreads();
+    if(samples.length!==4 ||
+      this.parts.some(p=>p.tireProfile?.confidence!=="verified-shape"))return null;
+    const ys=samples.map(p=>p.bottomY-this.visualAnchor.position.y).sort((a,b)=>a-b);
+    if(ys[3]!-ys[0]!>0.065)return null;
+    return (ys[1]!+ys[2]!)*0.5;
   }
-
-  /** Actual four tire bottom witnesses in world coordinates after wheel spin.
-   * Avoid the stale at-instantiation pivot radius: source wheel mesh geometry
-   * in the live GLB changes AABB height under wheel yaw/spin.
-   * Cached descendants keep this bounded to 4 wheel groups, not whole scene.
+  get contactProfileEvidence(){
+    return this.parts.map(p=>({
+      corner:p.corner,source:p.tireProfile?.source??"missing",
+      confidence:p.tireProfile?.confidence??"unavailable",
+      radiusLocal:p.tireProfile?.radius??null,
+      vertexCount:p.tireProfile?.vertexCount??0,
+    }));
+  }
+  /** Spin-independent analytic radial tire support, NOT an AABB corner.
+   * Returns no witnesses when an imported wheel shape cannot be isolated.
    */
-  sampleTireTreads(): ReadonlyArray<{
-    corner:WheelCorner;position:Vector3;bottomY:number;
-  }> {
+  sampleTireTreads():ReadonlyArray<{corner:WheelCorner;position:Vector3;bottomY:number}>{
     if(!this.ready)return [];
     const samples:{corner:WheelCorner;position:Vector3;bottomY:number}[]=[];
     for(const part of this.parts){
+      if(!part.tireProfile)return [];
       part.node.computeWorldMatrix(true);
-      const pos=part.node.getAbsolutePosition().clone();
-      let bottom=Infinity;
-      for(const mesh of part.treadMeshes){
-        mesh.computeWorldMatrix(true);
-        bottom=Math.min(bottom,mesh.getBoundingInfo().boundingBox.minimumWorld.y);
-      }
-      if(!Number.isFinite(bottom))return [];
-      samples.push({corner:part.corner,position:pos,bottomY:bottom});
+      const pivot=part.node.getAbsolutePosition().clone();
+      const bottomY=tireContactBottomY(part.node.getWorldMatrix(),
+        part.tireProfile,this.mapping.spinAxis);
+      if(bottomY===null)return [];
+      samples.push({corner:part.corner,position:pivot,bottomY});
     }
     return samples;
   }
@@ -210,13 +196,11 @@ export class StreetVehicleWheelRig {
       if(part.treadBelowPivotWorldY===null)continue;
       part.node.computeWorldMatrix(true);
       const pivot=part.node.getAbsolutePosition();
-      let actualTreadY=Infinity;
-      for(const mesh of part.treadMeshes) {
-        mesh.computeWorldMatrix(true);
-        actualTreadY=Math.min(actualTreadY,
-          mesh.getBoundingInfo().boundingBox.minimumWorld.y);
-      }
-      if(!Number.isFinite(actualTreadY))continue;
+      // Never move wheels based on an unproven rubber/tire mesh identity.
+      if(part.tireProfile?.confidence!=="verified-shape")continue;
+      const actualTreadY=tireContactBottomY(part.node.getWorldMatrix(),
+        part.tireProfile,this.mapping.spinAxis);
+      if(actualTreadY===null)continue;
       const support=grounded?sample({x:pivot.x,y:pivot.y+0.45,z:pivot.z}):null;
       // Do not reach toward unsupported air or objects above tire axle.
       const plausible=support!==null&&Number.isFinite(support)&&
