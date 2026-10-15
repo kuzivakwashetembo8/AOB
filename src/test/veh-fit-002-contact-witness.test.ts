@@ -33,6 +33,8 @@ describe("VEH-FIT-002 G0 actual world contact witnesses", () => {
       tire.rotation.x = Math.PI / 2;
     }
     const car = new FirstDriveTrial(physics, anchor, { x: 2, y: 1.5, z: 4.53 });
+    // Rapier 0.21 updates broad-phase/query state on a physics tick.
+    physics.movePlayer({ x: 0, y: 0, z: 0 });
     try {
       const actual = measureVehicleFit002(scene, car, null, true);
       expect(actual.available).toBe(true);
