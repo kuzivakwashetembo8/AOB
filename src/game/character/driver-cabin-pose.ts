@@ -90,9 +90,8 @@ function solveChain(
 ):boolean {
   const [root,mid,end]=chain.map(r=>bones[r]);
   if(!root||!mid||!end)return false;
-  const joints=[root.getTransformNode(),mid.getTransformNode(),end.getTransformNode()];
-  if(joints.some(n=>!n))return false;
-  const [a,b,c]=joints as TransformNode[];
+  const a=root.getTransformNode(),b=mid.getTransformNode(),c=end.getTransformNode();
+  if(!a||!b||!c)return false;
   a.computeWorldMatrix(true);b.computeWorldMatrix(true);c.computeWorldMatrix(true);
   const limbLength=Vector3.Distance(a.getAbsolutePosition(),b.getAbsolutePosition())+
     Vector3.Distance(b.getAbsolutePosition(),c.getAbsolutePosition());
