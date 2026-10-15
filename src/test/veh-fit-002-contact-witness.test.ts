@@ -86,6 +86,9 @@ describe("VEH-FIT-002 G0 actual world contact witnesses", () => {
     const physics=await MeridianPhysics.create();
     physics.setPlayerPosition({x:30,y:0.92,z:30});
     const floor=physics.addStaticBox({x:0,y:-0.12,z:0},{x:20,y:0.12,z:20});
+    const road=MeshBuilder.CreateBox("generated-parity-main-road",
+      {width:20,height:0.03,depth:10},scene);
+    road.position.y=0.015;
     const anchor=new TransformNode("ferrari",scene);
     const tires=[] as ReturnType<typeof MeshBuilder.CreateCylinder>[];
     for(const [i,name] of ["wheel_fl","wheel_fr","wheel_rl","wheel_rr"].entries()){
