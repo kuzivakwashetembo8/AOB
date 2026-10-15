@@ -37,6 +37,42 @@ function wheelLandmark(m:AbstractMesh|null) {
   if(!Number.isFinite(radius)||radius<0.08||radius>0.5)return null;
   return {center:bounds.centerWorld.clone(),radius};
 }
+/** Deterministic, testable target geometry from the live UAL hip/wrist
+ * positions and the real Ferrari rim. Never extend feet past the wheel.
+ */
+export function planDriverContactTargets(args:{
+  leftHip:Vector3;rightHip:Vector3;leftHand:Vector3;rightHand:Vector3;
+  wheelCenter:Vector3;wheelRadius:number;vehicleFloorY:number;
+}) {
+  const {leftHip,rightHip,leftHand,rightHand,wheelCenter,wheelRadius,vehicleFloorY}=args;
+  const midpoint=leftHip.add(rightHip).scale(0.5);
+  const forward=wheelCenter.subtract(midpoint);forward.y=0;
+  if(forward.lengthSquared()<0.01||!Number.isFinite(wheelRadius)||wheelRadius<=0)
+    return null;
+  forward.normalize();
+  const footY=Math.max(vehicleFloorY+0.22,midpoint.y-0.22);
+  const leftFoot=leftHip.add(forward.scale(0.37));
+  const rightFoot=rightHip.add(forward.scale(0.37));
+  leftFoot.y=footY;
+  rightFoot.y=footY;
+  function nearestRim(hand:Vector3,hip:Vector3) {
+    const toward=hand.subtract(wheelCenter);toward.y=0;
+    if(toward.lengthSquared()<0.003){
+      toward.copyFrom(hip.subtract(wheelCenter));toward.y=0;
+    }
+    if(toward.lengthSquared()<0.003) toward.copyFrom(forward.negate());
+    toward.normalize();
+    const target=wheelCenter.add(toward.scale(wheelRadius*0.92));
+    target.y=wheelCenter.y-0.045;
+    return target;
+  }
+  return {
+    leftFoot,rightFoot,
+    leftHand:nearestRim(leftHand,leftHip),
+    rightHand:nearestRim(rightHand,rightHip),
+  };
+}
+
 type PositionedBone = {name:string; getTransformNode():TransformNode|null};
 function boneWorld(b:PositionedBone):Vector3|null {
   const node=b.getTransformNode();
@@ -118,6 +154,9 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       !mapped.found.leftHand||!mapped.found.rightHand) {
       state={...zero(),status:"missing-rig"};return;
     }
+    if(!Number.isFinite(characterRoot.getAbsolutePosition().y)) {
+      state={...zero(),status:"out-of-tolerance"};return;
+    }
     const wheel=wheelLandmark(wheelNode);
     if(!wheel){state={...zero(),status:"missing-wheel"};return;}
     const hipL=mapped.found.leftThigh?boneWorld(mapped.found.leftThigh):null;
@@ -130,35 +169,16 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     // Driver's actual pelvis, not the standing character root or the wheel,
     // determines where the forward pedals can be reached. The previous
     // wheel + forward*0.18 position was 1.0–1.3 m from the animated feet.
-    const midpoint=hipL.add(hipR).scale(0.5);
-    const toward=wheel.center.subtract(midpoint);toward.y=0;
-    if(toward.lengthSquared()<0.01){
+    const targets=planDriverContactTargets({
+      leftHip:hipL,rightHip:hipR,leftHand:handL,rightHand:handR,
+      wheelCenter:wheel.center,wheelRadius:wheel.radius,
+      vehicleFloorY:cabin.position.y,
+    });
+    if(!targets) {
       state={...zero(),status:"out-of-tolerance"};return;
     }
-    toward.normalize();
-    const footFloorY=Math.max(cabin.position.y+0.22,midpoint.y-0.22);
-    const leftFootTarget=hipL.add(toward.scale(0.37));
-    const rightFootTarget=hipR.add(toward.scale(0.37));
-    leftFootTarget.y=footFloorY;
-    rightFootTarget.y=footFloorY;
-
-    // The near segment of the REAL wheel rim is reachable from a seated
-    // shoulder. Two fixed 9/3 grips were farther from the UAL arms than their
-    // combined bone length. Derive nearest points from existing wrist poses.
-    function nearestRim(hand:Vector3, alternate:Vector3) {
-      const delta=hand.subtract(wheel!.center);
-      delta.y=0;
-      if(delta.lengthSquared()<0.003){
-        delta.copyFrom(alternate.subtract(wheel!.center));delta.y=0;
-      }
-      if(delta.lengthSquared()<0.003)delta.copyFrom(toward.negate());
-      delta.normalize();
-      const target=wheel!.center.add(delta.scale(wheel!.radius*0.92));
-      target.y=wheel!.center.y-0.045;
-      return target;
-    }
-    const leftGrip=nearestRim(handL,hipL);
-    const rightGrip=nearestRim(handR,hipR);
+    const {leftFoot:leftFootTarget,rightFoot:rightFootTarget,
+      leftHand:leftGrip,rightHand:rightGrip}=targets;
 
     // Snapshots allow complete restoration when player leaves vehicle.
     cachedBaseline.clear();
