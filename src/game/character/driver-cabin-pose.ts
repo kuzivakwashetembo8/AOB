@@ -11,6 +11,8 @@ import {
 import type { Mesh, Skeleton, Observer } from "@babylonjs/core";
 import { findDriverBones, type DriverLimbRole } from "./driver-limb-landmarks";
 import { applyAimStep, rotationOf } from "./driver-joint-space";
+import { SkinnedFootGeometry, type FootSide } from "./skinned-foot-geometry";
+import { VehicleCabinFloor, planSoleClearance, type VehicleCabinKind } from "../vehicles/vehicle-cabin-envelope";
 
 export type DriverContactState = {
   enabled: boolean;
@@ -152,7 +154,7 @@ function solveChain(
 }
 /** Returns driver-only observer with explicit lifetime; no per-frame scene searches. */
 export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh,
-  characterRoot:TransformNode) {
+  characterRoot:TransformNode, skinnedMeshes:readonly Mesh[]=[witness]) {
   const mapped=findDriverBones(skeleton);
   let cabin:TransformNode|null=null;
   let wheelNode:AbstractMesh|null=null;
@@ -160,6 +162,15 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   let enabled=false;
   let correctionMode: "feet"|"hands"|"both" = "both";
   let cachedLocalTargets:ReturnType<typeof planDriverContactTargets>|null=null;
+  let cabinFitEnabled=false;
+  let cabinKind:VehicleCabinKind="unknown";
+  let floor:VehicleCabinFloor|null=null;
+  let shoe:SkinnedFootGeometry|null=null;
+  let sampledFrames=0;
+  let offsetLift:Record<FootSide,number>={left:0,right:0};
+  type FootResult={side:FootSide;state:string;soleY:number|null;floorY:number|null;
+    penetrationMetres:number|null;liftAppliedMetres:number;sourceMesh:string|null};
+  let footResult:FootResult[]=[];
   const cachedBaseline=new Map<TransformNode,Quaternion>();
   const zero=():DriverContactState=>({
     enabled,status:enabled?"missing-wheel":"disabled",appliedLimbs:[],
@@ -229,6 +240,12 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     }
     const {leftFoot:leftFootTarget,rightFoot:rightFootTarget,
       leftHand:leftGrip,rightHand:rightGrip}=plannedTargets;
+    // Only the opt-in fitting layer changes foot goals; accepted AR1 is the
+    // identity path when no verified cabin is available.
+    if(cabinFitEnabled && floor?.evidence==="verified-floor-mesh" && shoe?.available){
+      leftFootTarget.y+=offsetLift.left;
+      rightFootTarget.y+=offsetLift.right;
+    }
 
     // Snapshots allow complete restoration when player leaves vehicle.
     cachedBaseline.clear();
@@ -261,6 +278,64 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         if(attempted && error<=0.02)appliedLimbs.push(limb.role);
       }
     }
+    // Sample the visibly deformed shoe geometry *after* AR1 IK; keep this
+    // bounded and occasional (never scan both meshes on every render).
+    if(cabinFitEnabled && shoe?.available && floor?.evidence==="verified-floor-mesh" &&
+      (++sampledFrames % 20 === 0)) {
+      const soles=shoe.measure();
+      const outcomes:FootResult[]=[];
+      for(const side of ["left","right"] as const){
+        const sole=soles[side];
+        const contact=sole?floor.sample(sole.world):null;
+        const row:FootResult={
+          side,state:!sole?"missing-shoe":contact?.evidence??"missing-floor",
+          soleY:sole?.world.y??null,floorY:contact?.floorY??null,
+          penetrationMetres:null,liftAppliedMetres:offsetLift[side],
+          sourceMesh:sole?.sourceMesh??null,
+        };
+        if(sole&&contact?.evidence==="verified-floor-mesh"&&contact.floorY!==null){
+          const clearance=floor.definition.clearanceMetres;
+          row.penetrationMetres=Math.max(0,contact.floorY+clearance-sole.world.y);
+          const plan=planSoleClearance(sole.world.y,contact.floorY,clearance,
+            floor.definition.maxSoleLiftMetres,offsetLift[side]);
+          row.state=plan.kind;
+          if(plan.kind==="adjust"){
+            const thigh=mapped.found[side==="left"?"leftThigh":"rightThigh"]?.getTransformNode();
+            const calf=mapped.found[side==="left"?"leftCalf":"rightCalf"]?.getTransformNode();
+            if(thigh&&calf){
+              const beforeThigh=rotationOf(thigh),beforeCalf=rotationOf(calf);
+              const oldClearance=row.penetrationMetres;
+              const lifted=(side==="left"?leftFootTarget:rightFootTarget).clone();
+              lifted.y+=plan.lift;
+              const roles:JointChain=side==="left"?
+                ["leftThigh","leftCalf","leftFoot"]:
+                ["rightThigh","rightCalf","rightFoot"];
+              const solved=solveChain(mapped.found,roles,lifted);
+              const measured=solved?shoe.measure()[side]:null;
+              const post=measured?floor.sample(measured.world):null;
+              const newPenetration=measured&&post?.floorY!==null&&post?.floorY!==undefined?
+                Math.max(0,post.floorY+clearance-measured.world.y):Infinity;
+              if(solved && Number.isFinite(newPenetration) &&
+                newPenetration+0.002<oldClearance) {
+                offsetLift[side]+=plan.lift;
+                row.liftAppliedMetres=offsetLift[side];
+                row.state=newPenetration<=0.003?"clear":"improved";
+                row.penetrationMetres=newPenetration;
+                row.soleY=measured?.world.y??row.soleY;
+                row.floorY=post?.floorY??row.floorY;
+              } else {
+                // One candidate cannot undo the successful head/torso/AR1 fit.
+                thigh.rotationQuaternion=beforeThigh;
+                calf.rotationQuaternion=beforeCalf;
+                row.state="rolled-back";
+              }
+            }else row.state="missing-bones";
+          }
+        }
+        outcomes.push(row);
+      }
+      footResult=outcomes;
+    }
     const unresolved=Object.entries(errorMetres)
       .some(([,error])=>error>0.02);
     state={enabled:true,status:unresolved?"out-of-tolerance":"contact-only-unverified-cabin",
@@ -268,23 +343,37 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   });
   return {
     setCabin(next:TransformNode|null,active:boolean,
-      mode:"feet"|"hands"|"both"="both"){
+      mode:"feet"|"hands"|"both"="both",fitCabin=false,
+      kind:VehicleCabinKind="ferrari"){
       if(!active||!next){
         for(const [node,rotation] of cachedBaseline) {
           node.rotationQuaternion=rotation.clone();
         }
         cachedBaseline.clear();
       }
-      const changed=cabin!==next||correctionMode!==mode||enabled!==active;
+      const changed=cabin!==next||correctionMode!==mode||enabled!==active ||
+        cabinFitEnabled!==fitCabin || cabinKind!==kind;
       if(changed){
         cachedLocalTargets=null;
         cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
         rimContacts=wheelNode&&next?steeringRimContacts(wheelNode,next):null;
+        cabinFitEnabled=active&&fitCabin;
+        cabinKind=kind;
+        floor=cabinFitEnabled&&next?VehicleCabinFloor.fromVehicle(next,kind):null;
+        shoe=cabinFitEnabled?new SkinnedFootGeometry(skeleton,skinnedMeshes):null;
+        sampledFrames=0;offsetLift={left:0,right:0};footResult=[];
       }
       correctionMode=mode;enabled=active;
       if(changed)state=zero();
     },
     report:()=>({...state,correctionMode,
+      cabinFit003:{enabled:cabinFitEnabled,kind:cabinKind,
+        floor:floor?.status()??null,skin:shoe?.evidence()??null,
+        footResults:footResult.map(row=>({...row})),
+        acceptedLiftMetres:{...offsetLift},
+        isComplete:footResult.length===2&&footResult.every(r=>
+          r.state==="clear"&&r.penetrationMetres!==null&&r.penetrationMetres<=0.003)},
+
       footwellLandmarksVerified:false,steeringPalmContactVerified:false,
       rimMeshSource:rimContacts?.sourceMesh??null,
       rimVerticesCalibrated:rimContacts!==null,
@@ -302,7 +391,9 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     dispose(){
       scene.onBeforeRenderObservable.remove(observer);
       scene.onBeforeAnimationsObservable.remove(beforeAnimation);
-      cabin=null;wheelNode=null;rimContacts=null;enabled=false;cachedBaseline.clear();cachedLocalTargets=null;
+      cabin=null;wheelNode=null;rimContacts=null;enabled=false;
+      cachedBaseline.clear();cachedLocalTargets=null;floor=null;shoe=null;footResult=[];
+      cabinFitEnabled=false;offsetLift={left:0,right:0};
     },
   };
 }
