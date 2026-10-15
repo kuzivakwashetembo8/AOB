@@ -36,6 +36,9 @@ type WheelPart = {
   readonly priorQuaternion: Quaternion | null;
   readonly originalEuler: Vector3;
   readonly radiusMetres: number;
+  readonly initialPosition: Vector3;
+  readonly treadBelowPivotWorldY: number | null;
+  suspensionTravelWorldY: number;
 };
 const median = (sizes: number[]) => sizes.sort((a, b) => a - b)[1] ?? 0;
 
@@ -94,9 +97,22 @@ export class StreetVehicleWheelRig {
       // node.rotation.x/z mutations. Store the original orientation once and
       // update the actual quaternion so all four wheels visibly animate.
       node.rotationQuaternion = base.clone();
+      node.computeWorldMatrix(true);
+      const pivotY=node.getAbsolutePosition().y;
+      const treadParts = [
+        ...(node instanceof AbstractMesh ? [node] : []),
+        ...node.getChildMeshes(false),
+      ].filter(m=>m.getTotalVertices()>0);
+      let treadY=Infinity;
+      for(const mesh of treadParts) {
+        mesh.computeWorldMatrix(true);
+        treadY=Math.min(treadY,mesh.getBoundingInfo().boundingBox.minimumWorld.y);
+      }
       parts.push({
         corner, node, base, priorQuaternion, originalEuler: node.rotation.clone(),
-        radiusMetres,
+        radiusMetres, initialPosition: node.position.clone(),
+        treadBelowPivotWorldY: Number.isFinite(treadY)?treadY-pivotY:null,
+        suspensionTravelWorldY:0,
       });
     }
     this.parts = parts;
@@ -154,10 +170,60 @@ export class StreetVehicleWheelRig {
     }
   }
 
+  /**
+   * G3 prototype: each *real imported wheel pivot* follows its corresponding
+   * Rapier contact surface with bounded visible suspension travel. Chassis
+   * support and physics remain KCC-owned. Road paint sits ~3cm above Rapier
+   * floor; sidewalk visual and collision tops match. Never falsely infer
+   * contact from the full-car cuboid alone.
+   */
+  alignVisualWheelContacts(dt: number,
+    sample: (point:{x:number;y:number;z:number})=>number|null,
+    grounded: boolean):void {
+    if(!this.ready||!Number.isFinite(dt)||dt<=0)return;
+    for(const part of this.parts) {
+      if(part.treadBelowPivotWorldY===null)continue;
+      part.node.computeWorldMatrix(true);
+      const pivot=part.node.getAbsolutePosition();
+      const support=grounded?sample({x:pivot.x,y:pivot.y+0.45,z:pivot.z}):null;
+      // Do not reach toward unsupported air or objects above tire axle.
+      const plausible=support!==null&&Number.isFinite(support)&&
+        support<=pivot.y+0.18&&support>=pivot.y-1.05;
+      let correction=0;
+      if(plausible) {
+        const visualTop=support!<0.055?support!+0.030:support!;
+        const tread=pivot.y+part.treadBelowPivotWorldY;
+        correction=visualTop+0.006-tread;
+      } else {
+        // Relax smoothly back to authored pivot when off the ground.
+        correction=-part.suspensionTravelWorldY;
+      }
+      const maxStep=Math.min(0.025,dt*0.65);
+      const change=Math.max(-maxStep,Math.min(maxStep,correction));
+      const target=Math.max(-0.13,Math.min(0.13,
+        part.suspensionTravelWorldY+change));
+      const delta=target-part.suspensionTravelWorldY;
+      if(Math.abs(delta)<0.0001)continue;
+      const parent=part.node.parent;
+      const matrix=parent?parent.getWorldMatrix().clone().invert():null;
+      const move=matrix?Vector3.TransformNormal(new Vector3(0,delta,0),matrix)
+        :new Vector3(0,delta,0);
+      part.node.position.addInPlace(move);
+      part.node.computeWorldMatrix(true);
+      part.suspensionTravelWorldY=target;
+    }
+  }
+
+  get visualWheelTravelMetres() {
+    return this.parts.map(p=>({corner:p.corner,travel:p.suspensionTravelWorldY}));
+  }
+
   dispose(): void {
     for (const part of this.parts) {
       part.node.rotationQuaternion = part.priorQuaternion?.clone() ?? null;
       if (!part.priorQuaternion) part.node.rotation.copyFrom(part.originalEuler);
+      part.node.position.copyFrom(part.initialPosition);
+      part.suspensionTravelWorldY=0;
     }
   }
 }
