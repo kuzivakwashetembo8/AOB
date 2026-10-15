@@ -3,7 +3,7 @@
  * Ferrari and pinned UAL rig. Only invoked from an explicit browser console
  * diagnostic. There is no per-frame telemetry, asset mutation or network I/O.
  */
-import { AbstractMesh, Mesh, Scene, TransformNode, Vector3 } from "@babylonjs/core";
+import { AbstractMesh, Scene, TransformNode, Vector3 } from "@babylonjs/core";
 import type { LoadedMeridiaCharacter } from "../character/voight-humanoid-trial";
 import type { FirstDriveTrial } from "./first-drive-trial";
 
@@ -129,8 +129,8 @@ function steeringWheelWitness(car: FirstDriveTrial) {
   const meshes = candidates.filter(n => n instanceof AbstractMesh && n.getTotalVertices() > 0);
   const source = meshes[0] ?? candidates[0];
   if (!source) return { found: false, label: null, center: null, radius: null };
-  source.computeWorldMatrix(true);
   if (source instanceof AbstractMesh && source.getTotalVertices() > 0) {
+    source.computeWorldMatrix(true);
     const b = source.getBoundingInfo().boundingBox;
     return { found: true, label: source.name,
       center: p(b.centerWorld), radius: Math.max(b.extendSizeWorld.x, b.extendSizeWorld.y, b.extendSizeWorld.z) };
@@ -145,7 +145,6 @@ export function measureVehicleFit002(scene: Scene, car: FirstDriveTrial | null,
     schema: "gtd.veh-fit-002.contact.v1", enabled,
     available: false, reason: enabled ? "not-driving" : "diagnostic-disabled",
   };
-  scene.incrementRenderId();
   const wheels = wheelNames.map(n => wheelWitness(scene, car, n));
   const boneReport = humanoidBones(character);
   const allGaps = wheels.map(w => w.visualTreadGapMetres).filter(
