@@ -18,7 +18,7 @@ describe("VEH-FIT-002 G4 live-model target geometry from rejected owner sample",
     expect(targets).not.toBeNull();
     if(!targets)throw new Error("missing targets");
     for(const [hip,foot] of [[leftHip,targets.leftFoot],
-      [rightHip,targets.rightFoot]]){
+      [rightHip,targets.rightFoot]] as [Vector3,Vector3][]) {
       expect(Vector3.Distance(hip,foot)).toBeLessThan(0.48);
       expect(foot.y).toBeGreaterThan(0.2);
       expect(foot.y).toBeLessThan(hip.y);
@@ -44,7 +44,7 @@ describe("VEH-FIT-002 G4 live-model target geometry from rejected owner sample",
     expect(targets).not.toBeNull();
     if(!targets)throw new Error("missing targets");
     for(const [hand,target] of [[leftHand,targets.leftHand],
-      [rightHand,targets.rightHand]]){
+      [rightHand,targets.rightHand]] as [Vector3,Vector3][]) {
       expect(Vector3.Distance(hand,target)).toBeLessThan(0.25);
       expect(Math.hypot(target.x-wheel.x,target.z-wheel.z))
         .toBeCloseTo(0.18165284*0.92,3);
