@@ -14,7 +14,7 @@ import { applyAimStep, rotationOf } from "./driver-joint-space";
 
 export type DriverContactState = {
   enabled: boolean;
-  status: "disabled" | "missing-rig" | "missing-wheel" | "active" | "out-of-tolerance";
+  status: "disabled" | "missing-rig" | "missing-wheel" | "contact-only-unverified-cabin" | "out-of-tolerance";
   appliedLimbs: string[];
   missing: string[];
   targets: Record<string, {x:number;y:number;z:number}>;
@@ -224,7 +224,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     }
     const unresolved=Object.entries(errorMetres)
       .some(([,error])=>error>0.02);
-    state={enabled:true,status:unresolved?"out-of-tolerance":"active",
+    state={enabled:true,status:unresolved?"out-of-tolerance":"contact-only-unverified-cabin",
       appliedLimbs,missing:[...mapped.missing],targets,actual,errorMetres};
   });
   return {
@@ -240,7 +240,17 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
       correctionMode=mode;enabled=active;state=zero();
     },
-    report:()=>({...state,correctionMode,sourceBones:Object.entries(mapped.found)
+    report:()=>({...state,correctionMode,
+      footwellLandmarksVerified:false,steeringPalmContactVerified:false,
+      actualParentFrames:Object.entries(mapped.found).map(([role,bone])=>{
+        const parent=bone?.getTransformNode()?.parent;
+        parent?.computeWorldMatrix(true);
+        const determinant=parent?parent.getWorldMatrix().determinant():null;
+        return {role,sourceBone:bone?.name??null,
+          parentName:parent?.name??null,parentDeterminant:determinant,
+          reflected:determinant===null?null:determinant<0};
+      }),
+      sourceBones:Object.entries(mapped.found)
       .map(([role,bone])=>({role,name:bone?.name,linked:!!bone?.getTransformNode()})),
       skeletonName:skeleton.name,witnessName:witness.name}),
     dispose(){
