@@ -23,20 +23,56 @@ export type DriverContactState = {
 };
 const point=(v: Vector3)=>({x:v.x,y:v.y,z:v.z});
 const clamp=(v:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,v));
-function findWheelMesh(anchor:TransformNode): AbstractMesh|null {
-  const node=anchor.getDescendants(false).find(n=>
-    n instanceof AbstractMesh && n.getTotalVertices()>0 &&
-    /steer.{0,12}wheel|steering|volante/i.test(n.name));
-  return node instanceof AbstractMesh ? node : null;
+/** On the pinned Ferrari, steering_leather is the actual rim (mesh 23);
+ * steering_carbon is inner trim, not a valid palm-to-rim contact target. */
+function findWheelMesh(anchor:TransformNode):AbstractMesh|null{
+  const candidates=anchor.getDescendants(false).filter(n=>
+    n instanceof AbstractMesh && n.getTotalVertices()>0) as AbstractMesh[];
+  return candidates.find(n=>/steering_leather$/i.test(n.name)) ??
+    candidates.find(n=>/steer.{0,12}wheel|steering|volante/i.test(n.name)) ?? null;
 }
 function wheelLandmark(m:AbstractMesh|null) {
   if(!m)return null;
   m.computeWorldMatrix(true);
-  const bounds=m.getBoundingInfo().boundingBox;
-  const radius=Math.max(bounds.extendSizeWorld.x,
-    bounds.extendSizeWorld.y,bounds.extendSizeWorld.z);
+  const b=m.getBoundingInfo().boundingBox;
+  const radius=Math.max(b.extendSizeWorld.x,b.extendSizeWorld.y,b.extendSizeWorld.z);
   if(!Number.isFinite(radius)||radius<0.08||radius>0.5)return null;
-  return {center:bounds.centerWorld.clone(),radius};
+  return {center:b.centerWorld.clone(),radius};
+}
+/** Real mesh-vertex points on the steering leather, not a horizontal circle
+ * created from world axes. Computed once and retained in Ferrari local frame.
+ */
+function steeringRimContacts(m:AbstractMesh,car:TransformNode){
+  const verts=m.getVerticesData("position");
+  if(!verts||verts.length<24)return null;
+  m.computeWorldMatrix(true);car.computeWorldMatrix(true);
+  const matrix=m.getWorldMatrix(),inv=car.getWorldMatrix().clone().invert();
+  const center=m.getBoundingInfo().boundingBox.centerWorld.clone();
+  const right=Vector3.TransformNormal(Vector3.Right(),car.getWorldMatrix()).normalize();
+  const worldVerts:Vector3[]=[];
+  let lateralExtent=0;
+  // Only evaluated on boarding, never per gameplay frame.
+  for(let i=0;i<verts.length-2;i+=3){
+    const w=Vector3.TransformCoordinates(
+      new Vector3(verts[i]!,verts[i+1]!,verts[i+2]!),matrix);
+    worldVerts.push(w);
+    lateralExtent=Math.max(lateralExtent,Math.abs(Vector3.Dot(w.subtract(center),right)));
+  }
+  if(lateralExtent<0.07||lateralExtent>0.5)return null;
+  const choose=(sign:number)=>{
+    const target=center.add(right.scale(sign*lateralExtent*0.74))
+      .add(Vector3.Up().scale(lateralExtent*0.28));
+    let best:Vector3|null=null,dist=Infinity;
+    for(const point of worldVerts){
+      const offset=Vector3.Dot(point.subtract(center),right);
+      if(sign*offset<0.07)continue;
+      const d=Vector3.DistanceSquared(target,point);
+      if(d<dist){best=point;dist=d;}
+    }
+    return best?Vector3.TransformCoordinates(best,inv):null;
+  };
+  const left=choose(-1),rightGrip=choose(1);
+  return left&&rightGrip?{left,right:rightGrip,sourceMesh:m.name}:null;
 }
 /** Deterministic, testable target geometry from the live UAL hip/wrist
  * positions and the real Ferrari rim. Never extend feet past the wheel.
@@ -120,6 +156,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   const mapped=findDriverBones(skeleton);
   let cabin:TransformNode|null=null;
   let wheelNode:AbstractMesh|null=null;
+  let rimContacts:ReturnType<typeof steeringRimContacts>|null=null;
   let enabled=false;
   let correctionMode: "feet"|"hands"|"both" = "both";
   let cachedLocalTargets:ReturnType<typeof planDriverContactTargets>|null=null;
@@ -174,8 +211,10 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         cachedLocalTargets={
           leftFoot:Vector3.TransformCoordinates(initial.leftFoot,inverse),
           rightFoot:Vector3.TransformCoordinates(initial.rightFoot,inverse),
-          leftHand:Vector3.TransformCoordinates(initial.leftHand,inverse),
-          rightHand:Vector3.TransformCoordinates(initial.rightHand,inverse),
+          leftHand:rimContacts?.left.clone() ??
+            Vector3.TransformCoordinates(initial.leftHand,inverse),
+          rightHand:rimContacts?.right.clone() ??
+            Vector3.TransformCoordinates(initial.rightHand,inverse),
         };
       }
     }
@@ -238,10 +277,13 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       }
       if(cabin!==next||correctionMode!==mode||enabled!==active)cachedLocalTargets=null;
       cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
+      rimContacts=wheelNode&&next?steeringRimContacts(wheelNode,next):null;
       correctionMode=mode;enabled=active;state=zero();
     },
     report:()=>({...state,correctionMode,
       footwellLandmarksVerified:false,steeringPalmContactVerified:false,
+      rimMeshSource:rimContacts?.sourceMesh??null,
+      rimVerticesCalibrated:rimContacts!==null,
       actualParentFrames:Object.entries(mapped.found).map(([role,bone])=>{
         const parent=bone?.getTransformNode()?.parent;
         parent?.computeWorldMatrix(true);
@@ -256,7 +298,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     dispose(){
       scene.onBeforeRenderObservable.remove(observer);
       scene.onBeforeAnimationsObservable.remove(beforeAnimation);
-      cabin=null;wheelNode=null;enabled=false;cachedBaseline.clear();cachedLocalTargets=null;
+      cabin=null;wheelNode=null;rimContacts=null;enabled=false;cachedBaseline.clear();cachedLocalTargets=null;
     },
   };
 }
