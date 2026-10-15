@@ -1,7 +1,7 @@
 # GTD-VEH-FIT-002 — Driver Contact and Four-Wheel Road Integrity: Root-Cause Audit and Staged Patch Plan
 
 **Date:** 2026-10-15 (SAST)  
-**Status:** G0 through G3 implemented under explicit owner authorization on isolated experiment branch; **G4 automated and human visual acceptance in progress**. No production merge. This preserves original historical plan and adds progress sections below.  
+**CURRENT STATUS (2026-10-15): G4 VISUAL ACCEPTANCE FAILED; PATCHING PAUSED BY OWNER.** G1–G3 code exists on the isolated experiment branch but is NOT accepted. Automated results remain historical; no further corrective source changes, deployments, main merge, production release or G6 initiation without a new owner directive. See Section 14 and the [G4 failure register](./GTD-VEH-FIT-002%20G4%20Visual%20Failure%20Register%20and%20Patch%20Freeze%20-%202026-10-15.md).  
 **Repository:** `interlinkglobal/GTD`  
 **Documentation branch:** `exp/veh-seat-001-ual-driving-loop-20261015` (never automatically promote this plan to main)  
 **Runtime baseline:** `929bbd46327433b6807534e3731562fdde562625`  
@@ -328,3 +328,21 @@ https://gtd-f9qnp8sij-interlinkglobaltech.vercel.app/game?gtdSeat001=1&gtdVehFit
 **Explicit unverified gates:** This does NOT establish real GLB foot penetration clearance or true palm contact in the running browser, nor wheel support at the sidewalk/curb mixed-level case. The owner must capture low-side and overhead views again and examine `window.__GTD_VEH_FIT_002_REPORT__?.()`: expect `car.status.roadContactCalibrationVerified=true` on an ordinary flat-street stopped sample, four finite `visualSupportGapMetres` close to zero, and `character.fittedDrivingPose` showing measured residual errors no longer at the previously rejected 0.99–1.30 m feet / 0.29–0.47 m hands. `appliedLimbs` now means error <=0.06 m rather than “solver attempted”, and `out-of-tolerance` is an explicit failure status.
 
 **G4:** Automated PASS, real desktop/mobile visual validation PENDING; preserve backward seat calibration. **G6:** no new code and no invented specification; documentation milestone remains pending the user's visual gate. Main/production unchanged.
+
+
+## 14. Final owner rejection — all current corrective work frozen (2026-10-15)
+
+**Override of earlier implementation permission:** The owner supplied three additional screenshots and a full actual-game telemetry dump from preview `gtd-f9qnp8sij`, then instructed: **“Document all the recent failure modes then pause patching.”** This is now the current instruction. It **supersedes** any earlier statement in Sections 10–13.1 to resume immediately after measurements.
+
+**Primary failure register:** [GTD-VEH-FIT-002 G4 Visual Failure Register and Patch Freeze - 2026-10-15.md](./GTD-VEH-FIT-002%20G4%20Visual%20Failure%20Register%20and%20Patch%20Freeze%20-%202026-10-15.md). This dedicated document records eight failure modes with their visual witnesses, exact numeric telemetry, regression history, uncertainty, source references, and remaining questions.
+
+**Latest measurable rejection facts:**
+- UAL driving animation and all limb bones resolve, but `fittedDrivingPose.status="out-of-tolerance"`, `appliedLimbs=[]`. Residuals: left/right feet **0.8887/0.7128 m**, left/right hands **0.8220/0.7379 m**. Both boots and hands remain visibly outside Ferrari bodywork.
+- `steeringWheel.found=true`; wrist-to-wheel-*centre* distances about **0.992/0.898 m**; no actual grip established.
+- Four imported wheel mesh bottoms at **Y≈−0.180 m**, physical Rapier supports at **Y≈0**; all four corresponding **visual surface measurements are null**. Thus there is no valid signed actual tire-to-*visible*-asphalt measurement in the latest sample even though car appears unsupported in the screenshots.
+- `roadContactCalibrationVerified=true` and `roadCalibrationCorrectionMetres≈−0.0733 m` coexist with missing visible-road witnesses; that boolean is a calibration event, **not validation of true visual contact**.
+- Latest screenshot query omitted `gtdFitWheel002=1`, so `visualWheelSupportEnabled=false` and all wheel travel=0. The final run tests the **ground calibration** and pose, not the optional per-wheel visual suspension.
+- The previous experimental preview failed visual acceptance with all four visual tire gaps about **−0.12876 m**. The final preview adds an unresolved no-road diagnostic state; **do not report it as a proven numerical tire clearance fix**.
+- The last full automatic verification `287/287` across `72` files and Vercel READY **does not outweigh the live G4 rejection**.
+
+**Gate state and explicit freeze:** G0 evidence captured; G1 FAILED; G2 FAILED; G3 FAILED/UNPROVEN; G4 FAILED and **ON HOLD**. Preserve the accepted rearward seatback/root configuration. **No more patching, optimization, diagnostic code changes, branch promotion or Vercel preview generation until the owner explicitly authorizes resumed work.** No new G6 source or documentation scope; **G6 CLOSED**. Production `main` unchanged.
