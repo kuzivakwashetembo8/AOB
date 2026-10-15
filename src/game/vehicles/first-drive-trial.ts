@@ -8,6 +8,7 @@
  */
 import RAPIER from "@dimforge/rapier3d-compat";
 import { TransformNode } from "@babylonjs/core";
+import { sampleRenderedVehicleSurface } from "./vehicle-road-surface";
 import type { MeridianPhysics } from "../physics/rapier-world";
 import { stepDriveControl, type DriveState } from "./drive-kinematics";
  import { vehicleFootprintsOverlap } from "./street-vehicle-barriers";
@@ -65,6 +66,7 @@ export class StreetVehicleActor {
   private contactCalibrationVerified = false;
   private roadCalibrationFrame = 0;
   private roadCalibrationCorrection = 0;
+  private roadCalibrationReason = "not-attempted";
   private readonly visualWheelSupportEnabled: boolean;
 
   constructor(
@@ -154,6 +156,13 @@ export class StreetVehicleActor {
       : null;
   }
 
+  /** AR1-G0 real-wheel contact results; unavailable geometry yields [].
+   * Exposes data to diagnostics without permitting geometry mutation. */
+  sampleTireContactTreads(){return this.wheelRig.sampleTireTreads();}
+  get verifiedTireProfiles(){
+    return this.wheelRig.contactProfileEvidence.every(x=>x.confidence==="verified-shape");
+  }
+
   get pose(): VehicleWorldPoint { return this.body.translation(); }
   get headingYaw() { return this.anchor.rotation.y; }
   get speedMps() { return this.drive.speedMps; }
@@ -175,6 +184,8 @@ export class StreetVehicleActor {
     visualWheelSupportEnabled: this.visualWheelSupportEnabled,
     roadContactCalibrationVerified: this.contactCalibrationVerified,
     roadCalibrationCorrectionMetres: this.roadCalibrationCorrection,
+    roadCalibrationReason: this.roadCalibrationReason,
+    tireContactEvidence:this.wheelRig.contactProfileEvidence,
     visualWheelTravel: this.wheelRig.visualWheelTravelMetres,
   }; }
 
@@ -271,27 +282,50 @@ export class StreetVehicleActor {
    * sidewalk, curb, garage threshold or midair. Preserve the Rapier body
    * and collision response; this does not teleport the physical vehicle.
    */
-  private settleMeasuredTireFloor(): void {
-    if(!this.groundCalibrationEnabled||this.contactCalibrationVerified||
-      this.destroyed||Math.abs(this.speedMps)>5)return;
+  private settleMeasuredTireFloor():void{
+    if(!this.groundCalibrationEnabled||this.contactCalibrationVerified||this.destroyed)return;
+    if(Math.abs(this.speedMps)>2)return;
     if(++this.roadCalibrationFrame%12!==0)return;
+    if(!this.verifiedTireProfiles){
+      this.roadCalibrationReason="unverified-tire-mesh";return;
+    }
     const tires=this.wheelRig.sampleTireTreads();
-    if(tires.length!==4)return;
-    const hits=tires.map(tire=>this.probeWheelSupport(
-      tire.position.x,tire.position.y+0.45,tire.position.z)?.topY);
-    if(hits.some(y=>y===undefined||!Number.isFinite(y)||Math.abs(y!)>0.012))
-      return; // Only flat road (Y=0), not sidewalk top Y=.11.
-    const treads=tires.map(t=>t.bottomY).sort((a,b)=>a-b);
-    if(treads[3]!-treads[0]!>0.045)return;
-    const treadY=(treads[1]!+treads[2]!)*0.5;
-    const roadTop=0.030; // generated-parity main road render top
-    const correction=roadTop+0.006-treadY;
-    if(!Number.isFinite(correction)||Math.abs(correction)>0.22)return;
-    // Prevent a second, contradictory calibration by wheel suspension.
+    if(tires.length!==4){this.roadCalibrationReason="missing-tire-geometry";return;}
+    const surfaces=tires.map(t=>sampleRenderedVehicleSurface(
+      this.anchor.getScene(),t.position.x,t.position.z));
+    if(surfaces.some(x=>!x||x.kind!=="asphalt")){
+      this.roadCalibrationReason="missing-or-nonasphalt-surface";return;
+    }
+    const physics=tires.map(t=>this.probeWheelSupport(
+      t.position.x,t.position.y+0.45,t.position.z)?.topY);
+    if(physics.some(y=>y===undefined||!Number.isFinite(y))){
+      this.roadCalibrationReason="no-physical-contact";return;
+    }
+    const offsets=surfaces.map((surface,i)=>surface!.y-physics[i]!);
+    if(offsets.some(n=>n< -0.02||n>0.11)){
+      this.roadCalibrationReason="surface-collider-mismatch";return;
+    }
+    const treadYs=tires.map(t=>t.bottomY);
+    if(Math.max(...treadYs)-Math.min(...treadYs)>0.045||
+      Math.max(...surfaces.map(x=>x!.y))-Math.min(...surfaces.map(x=>x!.y))>0.025){
+      this.roadCalibrationReason="noncoplanar-support";return;
+    }
+    const needed=surfaces.map((x,i)=>x!.y+0.006-treadYs[i]!);
+    const spread=Math.max(...needed)-Math.min(...needed);
+    if(spread>0.025){
+      this.roadCalibrationReason="inconsistent-tire-corrections";return;
+    }
+    const correction=needed.reduce((a,b)=>a+b,0)/4;
+    if(!Number.isFinite(correction)||Math.abs(correction)>0.22){
+      this.roadCalibrationReason="out-of-range";return;
+    }
+    // Keep Rapier body authoritative; adjust ONLY the visual-anchor/chassis
+    // mapping after four matched rendered and physical support witnesses.
     this.anchor.position.y+=correction;
     this.chassisFloorOffsetMetres-=correction;
     this.roadCalibrationCorrection=correction;
     this.contactCalibrationVerified=true;
+    this.roadCalibrationReason="four-asphalt-witnesses";
   }
 
   finish(dt: number) {
