@@ -1,11 +1,12 @@
 import { describe,expect,it } from "vitest";
-import { MeshBuilder,NullEngine,Scene,Skeleton,TransformNode } from "@babylonjs/core";
+import { FreeCamera,MeshBuilder,NullEngine,Scene,Skeleton,TransformNode,Vector3 } from "@babylonjs/core";
 import { createDriverCabinPose } from "../game/character/driver-cabin-pose";
 
 describe("VEH-FIT-002 G1-G2 driving pose isolation",()=>{
  it("fails closed on foreign skeleton without replacing locomotion",()=>{
    const engine=new NullEngine();
    const scene=new Scene(engine);
+   new FreeCamera("test-camera",new Vector3(0,1,-4),scene);
    const skeleton=new Skeleton("foreign","foreign",scene);
    const mesh=MeshBuilder.CreateBox("dummy",{size:1},scene);
    const root=new TransformNode("root",scene);
