@@ -1,7 +1,7 @@
 # GTD-VEH-FIT-002 — Driver Contact and Four-Wheel Road Integrity: Root-Cause Audit and Staged Patch Plan
 
 **Date:** 2026-10-15 (SAST)  
-**Status:** DOCUMENTATION AND SOURCE-LEVEL VERIFICATION ONLY. **NOT AUTHORIZED FOR IMPLEMENTATION.**  
+**Status:** G0 through G3 implemented under explicit owner authorization on isolated experiment branch; **G4 automated and human visual acceptance in progress**. No production merge. This preserves original historical plan and adds progress sections below.  
 **Repository:** `interlinkglobal/GTD`  
 **Documentation branch:** `exp/veh-seat-001-ual-driving-loop-20261015` (never automatically promote this plan to main)  
 **Runtime baseline:** `929bbd46327433b6807534e3731562fdde562625`  
@@ -15,7 +15,7 @@ The owner's four desktop screenshots show (1) a now acceptable rearward seat-bac
 
 **No changes to production or runtime have been made in this work item.** Source files and tests were inspected, but no GLB bone-pose telemetry, four-wheel road probes, browser console export, device profiling or in-engine test was executed. Distinguish a proven absent constraint from an unmeasured offset. Do not call an exact measured wrist/foot/tire displacement “verified” until a live diagnostic supplies it.
 
-Full authorization will require owner approval for each proposed implementation stage; this planning directive authorizes the document only. Preserve main, all approved South Ward content, and manual intentional Vercel releases.
+Historical preauthorization condition: this initial plan required the owner's approval. **Superseded by the owner's subsequent explicit authorization of G0 through G4.** Preserve main, all approved South Ward content, and manual intentional Vercel releases.
 
 ## 1. Root causes: source-proved facts versus measurements still required
 
@@ -212,3 +212,60 @@ Paste the copied JSON and matching location screenshot into the development conv
 **Build evidence:** A G0 preview was requested on Vercel from `5e9d9c7` (READY at https://gtd-k7h1dipba-interlinkglobaltech.vercel.app/game?gtdSeat001=1&gtdVehFit002=1). The initial fixture run (`41c373d`) correctly failed one new test because the synthetic Rapier query pipeline had not been stepped before sampling. The corrected fixture (`ba35e945`) has passed the project's Vercel production-style build gate, which executes `npx tsc --noEmit && npx vitest run && npm run build`. The new G0 preview is **READY**: https://gtd-7hem47h4u-interlinkglobaltech.vercel.app/game?gtdSeat001=1&gtdVehFit002=1. This verifies the build and automated suite, not the actual live GLB bone, tire or steering-wheel measurements. The G0 build is not visual approval of the yet-unimplemented G1–G3 patches.
 
 **Control:** Owner authorization for G1–G4 stands. Resume implementation after the real G0 telemetry has established the missing geometric measurements, without requesting redundant authorization.
+
+
+## 11. Authorized implementation and actual source witness — October 15, 2026
+
+**Input:** The owner supplied five captured frames of the G0 diagnostic preview and an exact live `gtd.veh-fit-002.contact.v1` JSON from a stopped Ferrari after ~57 m of travel. Vehicle pose at the measured stop: visual anchor `(-21.3946,0.19306,11.3973)`, yaw `4.75403`; chassis dimensions `(2.3681,1.3584,4.53)`; KCC `grounded=true` although wheel support varied side-to-side.
+
+**Actual support map (metres):**
+
+| Wheel | Bottom tread Y | Visual asphalt | Rapier support Y | Visual road gap | Surface explanation |
+|--|--:|--:|--:|--:|--|
+| Front left | 0.04464 | N/A | 0.11000 | N/A | Sidewalk-side support, not asphalt; visual sidewalk top Y=0.11 |
+| Front right | 0.04754 | 0.03000 | ~0.00000 | +0.01754 | Tire floats ~17.5 mm above rendered asphalt |
+| Rear left | 0.04464 | N/A | 0.11000 | N/A | Sidewalk-side support, not asphalt; visual sidewalk top Y=0.11 |
+| Rear right | 0.04464 | 0.03000 | ~0.00000 | +0.01464 | Tire floats ~14.6 mm above rendered asphalt |
+
+The 0.11-m raised sidewalk physically supports one pair of wheels while the opposite pair sits over ground whose Rapier top is 0.0 m. **A single rigid, yaw-only full-chassis collider cannot independently conform all tire contacts to differing surface heights.** The imported wheel geometry also has a local tread minimum about 0.148 m **below** the visual anchor at the observed pose; the old chassis collider bottom was 0.035 m **above** the anchor. Thus collider floor and true tire floor were ~0.183 m apart for this reference pose (geometry-sampled, not a guessed wheel radius).
+
+**Human skeleton:** Old G0 probe matched only `spine_01` because it assumed Mixamo-style labels such as `LeftUpLeg`; this pinned specimen uses Unreal-style source naming conventions. Generic fuzzy substring matching was rejected. A scoped alias resolver now covers `pelvis`, `thigh_l/r`, `calf_l/r`, `foot_l/r`, `ball_l/r`, `upperarm_l/r`, `lowerarm_l/r`, `hand_l/r` and the Mixamo alternatives. The new diagnostic exposes the source skeleton's entire real bone name inventory for subsequent direct verification, rather than claiming a hand or foot is correctly fitted merely because it has a candidate alias.
+
+**Steering wheel:** Real GLB rim-part mesh `steering_carbon` found, center `(-21.0177,1.0716,11.7447)`, reported bounding radius ~0.18165 m. This is a geometry candidate, **not certified finger contact**; per-hand clearance is included in the new live pose diagnostic.
+
+### 11.1 G1/G2 implementation (feature-gated)
+
+- `src/game/character/driver-limb-landmarks.ts`: deterministic source name-to-joint mapping with partial-rig fail-closed behavior.
+- `src/game/character/driver-cabin-pose.ts`: Babylon before-render pose adapter attached to the **actual imported rig**. It samples a cached steering-wheel mesh and solves two-bone calf/thigh-to-foot and forearm/upperarm-to-hand chains using parent-local quaternion updates, bounded rotation steps, and explicit reach limits. Foot targets go forward inside the cockpit, above the original underside reference; wheel grips use the actual measured rim mesh. No mesh hiding, no synthetic character.
+- `voight-humanoid-trial.ts` and `gtd-runtime.ts`: driving-only lifecycle binding, walking/flight restoration and observer cleanup. The accepted `cabinForwardFraction=-0.04` root remains unchanged.
+- **A/B flags:** `gtdFitPose002=feet` for G1 only, `gtdFitPose002=hands` for G2 only, `gtdFitPose002=1` for both. Each requires the original `gtdSeat001=1` flag. All pose fitting is **disabled by default**. The live geometry report includes active mode, source bones, applied limb chains, world-space contact targets and residual contact errors.
+- **Acceptance open:** Real UAL joint binding, collision-free feet, and visual steering contact must still be inspected in browser, not declared from source/typecheck alone.
+
+### 11.2 G3 implementation (feature-gated)
+
+- `street-vehicle-wheels.ts` now measures the minimum actual mesh tread geometry of each of four imported wheels; the median per-wheel tread-to-anchor offset is accepted only when all 4 agree within 65 mm. An unknown/partial foreign rig leaves the existing physics intact.
+- `first-drive-trial.ts` can align the physical full-chassis cuboid bottom with that measured tread plane, instead of the fixed +35-mm origin offset, on `gtdFitGround002=1`. This also settles an initial imported car above its known First Light ground support to prevent collider spawn penetration. The Rapier move, curb protection, garage sill guard, and one-world-step ownership remain unchanged.
+- Separately, `gtdFitWheel002=1` permits limited 130-mm independent *visual wheel suspension travel*: four downward Rapier supports exclude the vehicle chassis; each actual wheel pivot is shifted toward the rendered asphalt/support surface with bounded per-step motion. The raycaster cannot certify traction; chassis KCC stays authoritative. This is an L0.5 contact presentation adapter, **not** four rigid-body springs or a claim of force-based driving physics.
+- G0 diagnostic now reports which tires sit over raised sidewalk versus rendered asphalt; no-road is not a false deficiency if that wheel is located over a sidewalk. Four independent tread-to-visual-support errors can be inspected after correcting pose.
+- **Acceptance open:** The actual Ferrari and world must meet stable tread/surface gaps in three streets and curb/threshold conditions without unnatural spring droop. Any case that needs more than bounded prototype suspension must be escalated, not hidden. No final acceptance without actual game screenshots.
+
+### 11.3 G4 regression gates and release controls
+
+New automated suites:
+- `veh-fit-002-bone-mapping.test.ts`: Unreal/UAL naming plus importer prefixes and incomplete foreign rig.
+- `veh-fit-002-pose-lifecycle.test.ts`: foreign-rig fail-closed, feet-only mode, cleanup on driver exit.
+- `veh-fit-002-suspension.test.ts`: mesh-derived tire base, independent raised-side versus road-side travel, bounded displacement, relaxation and unchanged chassis root.
+- `veh-fit-002-contact-witness.test.ts`: ground/visible asphalt discrepancy, opt-in disabled state, and corrected actor collider calibration with real synthetic tire meshes.
+- Existing `veh-seat-001-ual-driving-loop.test.ts`, `ferrari-rapier-world-integration.test.ts`, `street-vehicle-wheels-grounding.test.ts` and mobile/world integration tests remain mandatory. Vercel project build gate runs `npx tsc --noEmit && npx vitest run && npm run build`.
+
+**Evidence rule:** Vercel READY confirms TypeScript, tests and bundle, not the live GLB fit or desktop/mobile visual acceptance. Record exact deployment SHA, successful test totals and owner screenshots separately. Do not merge main or publish a production release without that review.
+
+**Combined preview flags:**
+```
+/game?gtdSeat001=1&gtdVehFit002=1&gtdFitPose002=1&gtdFitGround002=1&gtdFitWheel002=1
+```
+For controlled comparisons, toggle just one `gtdFitPose002` mode and either/both G3 flags.
+
+**G4 rejection triggers:** visibly protruding shoes or shins; floating/non-gripping hands; persistent wheel/road separation or tire intrusion on the intended support surface; regression to acceptable backrest alignment; failure to exit back to original walking animation; curb/garage no-step regression; severe mobile frame drops.
+
+**G6 embargo:** The owner specified that G6 only becomes available **in documentation** *after G1–G4 pass tests*. There is currently no implemented or defined G6 milestone here. Do not introduce G6 source code or invent G6 scope. The G6 documentation gate remains CLOSED until G4 automated and live visual acceptance is recorded.
