@@ -35,3 +35,23 @@ G4: TypeScript/Vitest/build and isolated Vercel preview; collect owner visual ev
 G6 remains closed under the original VEH-FIT-002 agreement until G1–G4 visual acceptance.
 
 No main merge or replacement of the accepted AR1 preview. Document new results/limitations here after tests.
+
+
+## Implementation evidence and verification — 2026-10-15
+
+**Source commit:** `0c46cfb14a5a6bd74d5ebfca1988dc70b343eed8` on `exp/veh-cabin-fit-003-20261015`, branched from the accepted AR1 experiment. **Vercel build:** `dpl_AFEW4AWeGS7use8yQ6Z7usevh7pT` — READY. TypeScript and full Vitest build gate passed: **74 test files / 297 tests, zero failures**. The five new interior-boundary/policy tests passed; source code bundles into the PWA. This automated result alone **does not** establish live shoe containment.
+
+**New implementation:**
+- `src/game/vehicles/vehicle-cabin-envelope.ts`: imported-mesh-backed floor maps, triangulated carpet footprint, car-local coordinates that travel with the vehicle, and specimen identity. An uncalibrated Buggy explicitly returns `uncalibrated-vehicle` rather than inheriting Ferrari data. The actual Buggy GLB has seats and pedals but does not present a verified dedicated carpet/floor support material matching the Ferrari; pending calibration.
+- `src/game/character/skinned-foot-geometry.ts`: reads actual *current CPU-skinned* foot/toe vertex positions from the pinned UAL skeleton. This is distinct from heel/ankle joint positions and does not hide/skew meshes.
+- `src/game/character/driver-cabin-pose.ts`: retains all accepted AR1 transformations, head/torso/seat alignment, animation phases and hand fitting; opt-in `cabinFit003` checks the real floor and both deformed shoe bottoms on a bounded 20-frame sample interval. Only a real, modest positive sole penetration (<=80 mm) can propose a targeted lower-leg solve. Each candidate must improve the measured sole clearance; otherwise both lower-leg joint rotations restore to their prior successful AR1 state. No vehicle Y adjustment, no torso/arm/global character adjustment.
+- `voight-humanoid-trial.ts` passes both actual UAL skinned meshes rather than treating a bone as a shoe sole. `gtd-runtime.ts` wires only the explicit `gtdCabinFit003=1` preview parameter. Without it the existing AR1 behavior remains unchanged.
+- `src/test/veh-cabin-fit-003.test.ts` tests real-triangle surface sampling, moving-car transforms, missing Buggy calibration, nonexistent floor coverage and safe bounded correction plans.
+
+**Pinned real-asset audit (isolated Babylon.js 9.29.0 NullEngine):** Git blob hashes matched the earlier AR1 audit for the pinned UAL/Ferrari GLBs. The Ferrari `carpet` mesh yielded **180 horizontal-support triangles**, with sampled source cabin heights approximately Y=**0.216–0.231 m** in common forward-cabin positions, rising outside that region as the real geometry dictates. The UAL foot-sole witness located **98 foot/toe-dominated skinned vertices per side** across `Mannequin_primitive0` and `Mannequin_primitive1`. Using `skeleton.prepare(true)`, changing a real foot bone quaternion changed the CPU-skinned positions; this verifies that the probe can follow animated geometry, unlike the previous unskinned ankle-point approximation. It is **not** a numeric measurement of the successful in-game screenshot's residual shoe penetration; the live runtime must provide that.
+
+**Isolated preview:** https://gtd-jmuh4d25r-interlinkglobaltech.vercel.app/game?gtdSeat001=1&gtdVehFit002=1&gtdFitPose002=1&gtdFitGround002=1&gtdCabinFit003=1
+
+**A/B baseline:** Remove only `gtdCabinFit003=1` from the test link to preserve the original accepted AR1 pose. Diagnostic `window.__GTD_VEH_FIT_002_REPORT__?.().character.fittedDrivingPose.cabinFit003` supplies the vehicle floor identity, shoe vertex evidence, the specific foot side(s), witnessed signed penetration and accepted per-side lift. Unknown geometry is a failed witness, not a completed fit. Examine live *low-side and overhead* screenshots and the report for any remaining foot protrusion; check exit and re-board, driving animation, sidewalk/curb and mobile before closing G4.
+
+**Acceptance state:** Source integration and 297 automated tests PASS. Real gameplay visual fit **PENDING**. Existing owner-accepted AR1 seat posture remains the reference; production `main` unchanged. **G6 remains closed.**
