@@ -6,12 +6,12 @@
 import { AbstractMesh, Scene, TransformNode, Vector3 } from "@babylonjs/core";
 import type { LoadedMeridiaCharacter } from "../character/voight-humanoid-trial";
 import type { FirstDriveTrial } from "./first-drive-trial";
+import { findDriverBones, DRIVER_LIMB_ROLES } from "../character/driver-limb-landmarks";
 
 type P = { x: number; y: number; z: number };
 const p = (v: P): P => ({ x: v.x, y: v.y, z: v.z });
 const finite = (n: number | null) => n === null || Number.isFinite(n);
 const wheelNames = ["wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr"] as const;
-const normalize = (name: string) => name.toLowerCase().replace(/[^a-z]/g, "");
 const tagged = (actual: string, suffix: string) =>
   actual.split(":").pop()?.toLowerCase().trim() === suffix;
 type WheelWitness = {
@@ -98,30 +98,22 @@ function humanoidBones(character: LoadedMeridiaCharacter | null) {
   const skinned = character.witness;
   const skeleton = skinned.skeleton;
   if (!skeleton) return { available: false, limbs: [], missing: ["skeleton"] };
-  const probes = [
-    "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase",
-    "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase",
-    "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand",
-    "RightShoulder", "RightArm", "RightForeArm", "RightHand",
-    "Hips", "Spine",
-  ];
+  const mapped = findDriverBones(skeleton);
   const limbs: { role: string; sourceBone: string; location: P }[] = [];
   const missing: string[] = [];
-  for (const target of probes) {
-    const key = normalize(target);
-    const bone = skeleton.bones.find(b => {
-      const id = normalize(b.name);
-      return id === key || id.endsWith(key);
-    });
+  for (const target of DRIVER_LIMB_ROLES) {
+    const bone = mapped.found[target];
     if (!bone) { missing.push(target); continue; }
     try {
-      const pos = bone.getAbsolutePosition(skinned);
+      const transform = bone.getTransformNode();
+      const pos = transform ? transform.getAbsolutePosition() :
+        bone.getAbsolutePosition(skinned);
       if ([pos.x, pos.y, pos.z].every(Number.isFinite))
         limbs.push({ role: target, sourceBone: bone.name, location: p(pos) });
       else missing.push(target);
     } catch { missing.push(target); }
   }
-  return { available: limbs.length > 0, limbs, missing };
+  return { available: limbs.length > 0, limbs, missing, sourceBoneNames: skeleton.bones.map(b => b.name) };
 }
 function steeringWheelWitness(car: FirstDriveTrial) {
   const candidates = car.anchor.getDescendants(false).filter(n =>
@@ -151,7 +143,7 @@ export function measureVehicleFit002(scene: Scene, car: FirstDriveTrial | null,
     (n): n is number => n !== null && Number.isFinite(n));
   const steeringWheel = steeringWheelWitness(car);
   const currentWristPositions = boneReport.limbs.filter(l =>
-    l.role === "LeftHand" || l.role === "RightHand");
+    l.role === "leftHand" || l.role === "rightHand");
   const wristToWheelCenter = steeringWheel.center === null ? [] :
     currentWristPositions.map(l => ({
       role: l.role,
