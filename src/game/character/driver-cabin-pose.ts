@@ -169,16 +169,16 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     // Driver's actual pelvis, not the standing character root or the wheel,
     // determines where the forward pedals can be reached. The previous
     // wheel + forward*0.18 position was 1.0–1.3 m from the animated feet.
-    const targets=planDriverContactTargets({
+    const plannedTargets=planDriverContactTargets({
       leftHip:hipL,rightHip:hipR,leftHand:handL,rightHand:handR,
       wheelCenter:wheel.center,wheelRadius:wheel.radius,
       vehicleFloorY:cabin.position.y,
     });
-    if(!targets) {
+    if(!plannedTargets) {
       state={...zero(),status:"out-of-tolerance"};return;
     }
     const {leftFoot:leftFootTarget,rightFoot:rightFootTarget,
-      leftHand:leftGrip,rightHand:rightGrip}=targets;
+      leftHand:leftGrip,rightHand:rightGrip}=plannedTargets;
 
     // Snapshots allow complete restoration when player leaves vehicle.
     cachedBaseline.clear();
