@@ -22,6 +22,8 @@ import { MeridianPhysics } from "../physics/rapier-world";
 import { FirstDriveTrial } from "../vehicles/first-drive-trial";
 import { ferrariSeatWorldPose } from "../vehicles/driver-seat-placement";
 import { measureVehicleFit002 } from "../vehicles/vehicle-fit-diagnostics";
+import { FERRARI_STREET_PROFILE } from "../vehicles/street-vehicle-physics";
+import { FERRARI_WHEEL_MAPPING } from "../vehicles/street-vehicle-wheels";
 function productionHostnameForFit002(name: string) {
   return name === "grand-theft-division.vercel.app";
 }
@@ -101,6 +103,7 @@ export class GTDGameRuntime implements GameRuntime {
   private seatTrialEnabled = false;
   private fit002Enabled = false;
   private driverPose002Enabled = false;
+  private groundFit002Enabled = false;
   private seatedDriverActive = false;
   private enteredAt: Point3 | null = null;
   private carEnteredAt: Point3 | null = null;
@@ -213,6 +216,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.seatTrialEnabled = diagnosticParams.get("gtdSeat001") === "1";
     this.fit002Enabled = diagnosticParams.get("gtdVehFit002") === "1" && !productionHostnameForFit002(window.location.hostname);
     this.driverPose002Enabled = diagnosticParams.get("gtdFitPose002") === "1" && !productionHostnameForFit002(window.location.hostname);
+    this.groundFit002Enabled = diagnosticParams.get("gtdFitGround002") === "1" && !productionHostnameForFit002(window.location.hostname);
     // Only explicit FL-4 diagnostics may exceed native device pixels.
     // Never override ordinary players' saved graphics preferences.
     const initialCanvasBounds = host.getBoundingClientRect();
@@ -592,7 +596,7 @@ export class GTDGameRuntime implements GameRuntime {
             car=new FirstDriveTrial(physics,anchor,{
               x:slot.finalVisualMetres.width,y:slot.finalVisualMetres.height,
               z:slot.finalVisualMetres.length,
-            });
+            },FERRARI_STREET_PROFILE,FERRARI_WHEEL_MAPPING,this.groundFit002Enabled);
             firstLight.releaseParkedCarCollider(slot.id);
             this.sportsCars.set(slot.id,car);
           }catch(error){
