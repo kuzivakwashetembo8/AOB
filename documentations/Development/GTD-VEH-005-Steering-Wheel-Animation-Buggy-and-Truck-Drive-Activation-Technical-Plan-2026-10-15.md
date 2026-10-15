@@ -1,3 +1,5 @@
+> **SUPERSEDED BY GTD-VEH-005 V2 (2026-10-15) — HISTORICAL REFERENCE ONLY; DO NOT IMPLEMENT FROM THIS VERSION.** The owner clarified that “truck” referred to the existing Buggy, not a third vehicle. The owner also established that the universal vehicle physics/ground-support foundation must be corrected and accepted before steering-wheel animation or Buggy driving is implemented. This V1 plan's SW-first order and all TR-* stages are withdrawn. Use the [V2 Universal Vehicle Foundation 1.0 and Buggy Integration Plan](./GTD-VEH-005-V2-Universal-Vehicle-Foundation-1.0-and-Buggy-Integration-Technical-Plan-2026-10-15.md). **V2 remains documentation-only; security review and separate implementation authorization are still pending.**
+
 # GTD-VEH-005 — Steering Wheel Animation, Buggy Activation and Truck Drivability
 
 Date: 2026-10-15
