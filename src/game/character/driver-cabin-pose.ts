@@ -12,6 +12,7 @@ import type { Mesh, Skeleton, Observer } from "@babylonjs/core";
 import { findDriverBones, type DriverLimbRole } from "./driver-limb-landmarks";
 import { applyAimStep, rotationOf } from "./driver-joint-space";
 import { SkinnedFootGeometry, type FootSide } from "./skinned-foot-geometry";
+import { planCabinFit004Candidates, FIT004_MAX_FOOT_TARGET_LIFT_METRES } from "./cabin-fit-004-policy";
 import { VehicleCabinFloor, planSoleClearance, type VehicleCabinKind } from "../vehicles/vehicle-cabin-envelope";
 
 export type DriverContactState = {
@@ -309,12 +310,13 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
           if(baseline.state==="clear")continue;
           // Foot vertices must all have real carpet support; a missing
           // footprint is an unknown, not a clearance success.
-          if(baseline.unmeasuredFootVertices>0||baseline.testedCalfVertices===0){
-            fit004State="incomplete-footwell";allPassed=false;break;
-          }
-          if(baseline.worstPenetrationMetres<=0 ||
-            baseline.worstPenetrationMetres>0.22){
-            fit004State="outside-feasible-range";allPassed=false;break;
+          const plan=planCabinFit004Candidates({
+            worstPenetrationMetres:baseline.worstPenetrationMetres,
+            missingFootVertices:baseline.unmeasuredFootVertices,
+            measuredCalfVertices:baseline.testedCalfVertices,
+          });
+          if(plan.status!=="eligible"){
+            fit004State=plan.status;allPassed=false;break;
           }
           const chain:JointChain=side==="left"?
             ["leftThigh","leftCalf","leftFoot"]:
@@ -322,9 +324,8 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
           const start=side==="left"?leftFootTarget:rightFootTarget;
           // Start near the observed real-shoe deficit. Increment only when
           // the actual final mesh clearance remains unacceptable.
-          const first=baseline.worstPenetrationMetres+0.016;
           let accepted=false;
-          for(let attempt=0;attempt<4;attempt++){
+          for(const candidate of plan.candidates){
             restore();
             // Reapply any other side's already verified correction.
             for(const acceptedSide of ["left","right"] as const){
@@ -336,7 +337,6 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
               t.y+=proposed[acceptedSide];
               solveChain(mapped.found,other,t);
             }
-            const candidate=Math.min(0.22,first+attempt*0.016);
             const target=start.clone();target.y+=candidate;
             if(!solveChain(mapped.found,chain,target))continue;
             const verified=shoe.measureLowerLeg(floor)[side];
@@ -459,6 +459,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     report:()=>({...state,correctionMode,
       cabinFit004:{enabled:cabinFit004Enabled,status:fit004State,
         attempts:fit004Attempts,
+        maximumTargetLiftMetres:FIT004_MAX_FOOT_TARGET_LIFT_METRES,
         floor:floor?.status()??null,
         baseline:fit004Baseline,final:fit004Final,
         verifiedTargetLiftsMetres:{...offsetLift},
