@@ -9,6 +9,7 @@ import {
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import type { VoightPrototype } from "./voight";
+import { createDriverCabinPose } from "./driver-cabin-pose";
 import { selectFlightPose, type FlightPoseInput } from "./locomotion/flight-pose";
 import {
   GaitContinuityController,
@@ -103,6 +104,9 @@ export type LoadedMeridiaCharacter = VoightPrototype & {
   enterDrivingPose: () => boolean;
   updateDrivingPose: (dt: number) => void;
   exitDrivingPose: () => void;
+  setDrivingCabin: (anchor: TransformNode | null, enabled: boolean) => void;
+  driverContactReport: () => unknown;
+  disposeDriverContact: () => void;
 };
 
 export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMeridiaCharacter> {
@@ -178,6 +182,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
   if (!clips.idle || !clips.walk) {
     throw new Error("UAL trial failed: no compatible idle/walking animation clips");
   }
+  const driverPose = createDriverCabinPose(scene, imported.skeletons[0]!, witness, root);
   imported.animationGroups.forEach(group => group.stop());
   let active: AnimationGroup | null = null;
   let outgoing: AnimationGroup | null = null;
@@ -247,6 +252,9 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       visualForwardDeg = Math.max(-180, Math.min(180, degrees));
       visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
     },
+    setDrivingCabin(anchor, enabled) { driverPose.setCabin(anchor, enabled); },
+    driverContactReport: () => driverPose.report(),
+    disposeDriverContact: () => driverPose.dispose(),
     enterDrivingPose() {
       // Fail closed: on an incompatible UAL binary do not synthesize an
       // unverified seated pose or change the imported locomotion clips.
@@ -262,6 +270,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     exitDrivingPose() {
       if (!drivingPoseActive) return;
       drivingPoseActive = false;
+      driverPose.setCabin(null, false);
       switchTo(clips.idle!, "idle");
       advanceBlend(0.18);
     },
