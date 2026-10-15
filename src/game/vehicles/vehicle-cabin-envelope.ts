@@ -119,26 +119,35 @@ export class VehicleCabinFloor {
       polygons.length?"verified-floor-mesh":"invalid-floor-geometry",
       polygons,low);
   }
-  sample(world:Vector3):Sample{
+  /** Coherent, single-frame car-relative sampler. Avoid computing/inverting
+   * the live vehicle matrix independently for every shoe/calf vertex.
+   */
+  createFrameSampler():(world:Vector3)=>Sample {
     if(this.evidence!=="verified-floor-mesh")
-      return {evidence:this.evidence,floorY:null,surface:this.meshName};
+      return ()=>({evidence:this.evidence,floorY:null,surface:this.meshName});
     this.anchor.computeWorldMatrix(true);
-    const matrix=this.anchor.getWorldMatrix();
-    const local=Vector3.TransformCoordinates(world,matrix.clone().invert());
-    let localFloor=Infinity;
-    for(const poly of this.polygons){
-      const y=interpolateXZ(local.x,local.z,poly);
-      if(y!==null&&y>=this.floorMinimum-0.01&&
-         y<=this.floorMinimum+this.definition.maxFloorReliefMetres)
-        localFloor=Math.min(localFloor,y);
-    }
-    if(!Number.isFinite(localFloor))
-      return {evidence:"outside-floor-footprint",floorY:null,surface:this.meshName};
-    const projected=Vector3.TransformCoordinates(
-      new Vector3(local.x,localFloor,local.z),matrix);
-    return Number.isFinite(projected.y)?
-      {evidence:"verified-floor-mesh",floorY:projected.y,surface:this.meshName}:
-      {evidence:"invalid-floor-geometry",floorY:null,surface:this.meshName};
+    const matrix=this.anchor.getWorldMatrix().clone();
+    const inverse=matrix.clone().invert();
+    return (world:Vector3):Sample=>{
+      const local=Vector3.TransformCoordinates(world,inverse);
+      let localFloor=Infinity;
+      for(const poly of this.polygons){
+        const y=interpolateXZ(local.x,local.z,poly);
+        if(y!==null&&y>=this.floorMinimum-0.01&&
+           y<=this.floorMinimum+this.definition.maxFloorReliefMetres)
+          localFloor=Math.min(localFloor,y);
+      }
+      if(!Number.isFinite(localFloor))
+        return {evidence:"outside-floor-footprint",floorY:null,surface:this.meshName};
+      const projected=Vector3.TransformCoordinates(
+        new Vector3(local.x,localFloor,local.z),matrix);
+      return Number.isFinite(projected.y)?
+        {evidence:"verified-floor-mesh",floorY:projected.y,surface:this.meshName}:
+        {evidence:"invalid-floor-geometry",floorY:null,surface:this.meshName};
+    };
+  }
+  sample(world:Vector3):Sample {
+    return this.createFrameSampler()(world);
   }
   status(){return {kind:this.kind,evidence:this.evidence,
     floorMesh:this.meshName,triangleCount:this.polygons.length,
