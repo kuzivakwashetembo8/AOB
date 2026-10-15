@@ -1,7 +1,7 @@
 # GTD-VEH-CABIN-FIT-004 — Targeted Lower-Limb Recovery
 
 Date: 2026-10-15
-Status: EXPERIMENTAL PATCH IMPLEMENTED; REAL BROWSER VISUAL ACCEPTANCE PENDING
+Status: OWNER VISUALLY ACCEPTED FIT004 LOWER-LIMB PATCH; MERGE AND VERCEL DEPLOYMENT AUTHORIZED. WHEEL-GROUNDING REMAINS OPEN.
 Owner authorization: "Utilize document to attempt new patch."
 Source: [GTD-VEH-CABIN-FIT-003 Deep Root-Cause Investigation](./GTD-VEH-CABIN-FIT-003-Deep-Root-Cause-Investigation-2026-10-15.md)
 
@@ -74,3 +74,19 @@ Expected successful intermediate state: `floor-clear-not-cabin-certified`, with 
 ## 6. Current verification log
 
 The actual imported asset and headless lower-leg clearance tests **PASS for the sampled floor surface**. Full TypeScript/Vitest Vercel build and human browser visual results are tracked separately; green build tests do not close this release gate.
+
+## 7. Owner visual acceptance and release authorization — 2026-10-15
+
+**Owner decision:** “The implementation was successful, document it then merge this implementation with main and deploy to Vercel.” This explicitly authorizes promotion of the tested Fit 004 implementation to `main` and Vercel production after preserving the acceptance record and completing the merge/deployment checks.
+
+**Visual evidence:** Three screenshots supplied by the owner in this chat, captured during the Fit 004 preview at South Ward / Mercer Street, with in-game times approximately 15:46, 16:32 and 17:10. Views include a close low side/front view, a low rear/underside view, and a second side/front angle. In all three, Voight's upper body retains the accepted seated position; the previously conspicuous yellow shoes/legs protruding beneath the car are no longer apparent. The owner explicitly accepted the implementation. Screenshot binaries remain attached to the originating chat, not copied into GitHub by this documentation commit.
+
+**Acceptance classification:** **FIT004 LOWER-LIMB VISUAL ACCEPTED; RELEASE AUTHORIZED.** This supersedes the pre-review “experimental/visual pending” statement for the leg-fitting workstream. The prior Fit 003 failure register remains part of the engineering record and is *not* retroactively changed to PASS.
+
+**What passed:** visibly retained AR1 seat/head/torso configuration; no visible lower-leg exposure in supplied angles; independent actual-imported-asset reconstruction cleared measured foot/calf floor contacts; bounded opt-in correction and rollback remained in source; automated build/tests passed on the inspected preview deployment.
+
+**What these screenshots cannot prove:** multi-location four-wheel tread contact and Rapier support throughout a drive, a sealed 3D interior for the Ferrari, all unmeasured carpet-outside calf points, or mobile-device frame timing. The second screenshot uses a low rear viewpoint; that is useful evidence, but does not independently close the historically observed vehicle floating issue. Treat the **wheel-grounding workstream as open**, without reclassifying the accepted Fit004 seating correction as failed.
+
+**Promotion scope:** The branch includes AR1 mechanisms, failed Fit 003 historical code behind its own opt-in flag, Fit 004 as a separately flagged experiment (`gtdCabinFit004=1`), tests and documentation. User authorizes merging *this implementation*; this merge does not by itself authorize silently enabling experimental query-parameter flags for every production visitor. Maintain baseline behavior unless runtime flag routing is separately changed and verified.
+
+**Production verification:** After merge, verify `main` commit and READY production deployment. Check that `/game` loads and the feature-gated Fit004 route remains available. **A successful production build is not an independent live-device review**; record any subsequent owner/mobile verification separately. G6 should remain closed until the outstanding G1–G4 vehicle integrity gates are expressly accepted.
