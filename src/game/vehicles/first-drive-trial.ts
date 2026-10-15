@@ -59,6 +59,8 @@ export class StreetVehicleActor {
   private highestObservedUnsupportedGap = 0;
   private warningEmitted = false;
   private destroyed = false;
+  private chassisFloorOffsetMetres = 0.035;
+  private treadAligned = false;
 
   constructor(
     private readonly physics: MeridianPhysics,
@@ -66,6 +68,7 @@ export class StreetVehicleActor {
     readonly dimensions: DriveTrialDimensions,
     private readonly profile: StreetVehiclePhysicsProfile = FERRARI_STREET_PROFILE,
     wheelMapping: StreetVehicleWheelMapping = FERRARI_WHEEL_MAPPING,
+    alignChassisToRealTires = false,
   ) {
     if (![dimensions.x, dimensions.y, dimensions.z].every(n => Number.isFinite(n) && n > 0)) {
       throw new Error("Ferrari trial requires the imported visual's real calibrated bounds");
@@ -105,6 +108,28 @@ export class StreetVehicleActor {
     // The car-specific asset adapter is the only Ferrari-named dependency.
     // The wheel quaternion system is reusable with a sedan's wheel mapping.
     this.wheelRig = new StreetVehicleWheelRig(anchor, wheelMapping);
+    if (alignChassisToRealTires) {
+      const tread = this.wheelRig.contactTreadFloorRelativeToAnchor();
+      if (tread !== null) {
+        // The imported model floor != actual tire tread (observed 18cm
+        // divergence on real Ferrari). Align box support to the real tire.
+        // Keep the accepted drivetrain and curb/no-step controller unchanged.
+        this.chassisFloorOffsetMetres = tread;
+        this.treadAligned = true;
+        // At the First Light road spawn the Rapier support plane is Y=0.
+        // Prevent a new collider starting below that support plane. Once
+        // driving, Rapier remains the authoritative body-height solver.
+        this.anchor.position.y = Math.max(anchor.position.y, 0.021 - tread);
+        const at = this.body.translation();
+        const raised = {
+          x: at.x,
+          y: this.anchor.position.y + dimensions.y / 2 + tread,
+          z: at.z,
+        };
+        this.body.setTranslation(raised, true);
+        this.body.setNextKinematicTranslation(raised);
+      }
+    }
   }
 
   /** VEH-FIT-002 G0. One explicit, nonmutating Rapier ray per requested wheel.
@@ -137,6 +162,8 @@ export class StreetVehicleActor {
     distanceMetres: this.distanceMetres,
     classId: this.profile.classId,
     curbMaxMetres: this.profile.maxCurbAutostepMetres,
+    treadAligned: this.treadAligned,
+    chassisFloorOffsetMetres: this.chassisFloorOffsetMetres,
   }; }
 
   prepare(dt: number, steering: number, moveY: number) {
@@ -226,7 +253,7 @@ export class StreetVehicleActor {
     const translation = this.body.translation();
     const q = this.body.rotation();
     this.anchor.position.set(
-      translation.x, translation.y - this.dimensions.y / 2 - 0.035, translation.z,
+      translation.x, translation.y - this.dimensions.y / 2 - this.chassisFloorOffsetMetres, translation.z,
     );
     this.anchor.rotation.y = 2 * Math.atan2(q.y, q.w);
     const travelled = Math.hypot(
