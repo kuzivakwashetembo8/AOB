@@ -103,6 +103,33 @@ export class StreetVehicleWheelRig {
     this.absentNames = missing;
   }
 
+  /** Physical chassis box floor is based on actual tire tread, not model AABB
+   * minY or a fixed +0.035m. Returns null for foreign/partial GLBs. Samples
+   * unanimated world transforms once at instantiation; no per-frame mesh scan. */
+  contactTreadFloorRelativeToAnchor(): number | null {
+    if (!this.ready) return null;
+    this.visualAnchor.computeWorldMatrix(true);
+    const ys: number[] = [];
+    for (const wheel of this.parts) {
+      const parts = [
+        ...(wheel.node instanceof AbstractMesh ? [wheel.node] : []),
+        ...wheel.node.getChildMeshes(false),
+      ].filter(m => m.getTotalVertices() > 0);
+      if(!parts.length) return null;
+      let minY=Infinity;
+      for(const mesh of parts) {
+        mesh.computeWorldMatrix(true);
+        minY=Math.min(minY,mesh.getBoundingInfo().boundingBox.minimumWorld.y);
+      }
+      if(!Number.isFinite(minY))return null;
+      ys.push(minY-this.visualAnchor.position.y);
+    }
+    if(Math.max(...ys)-Math.min(...ys)>0.065)return null;
+    ys.sort((a,b)=>a-b);
+    const median=(ys[1]!+ys[2]!)*0.5;
+    return Math.abs(median)<1.5 ? median : null;
+  }
+
   get wheelCount(): number { return this.parts.length; }
   get frontWheelCount(): number {
     return this.parts.filter(p => p.corner === "frontLeft" || p.corner === "frontRight").length;
