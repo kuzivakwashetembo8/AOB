@@ -21,6 +21,10 @@ import type {
 import { MeridianPhysics } from "../physics/rapier-world";
 import { FirstDriveTrial } from "../vehicles/first-drive-trial";
 import { ferrariSeatWorldPose } from "../vehicles/driver-seat-placement";
+import { measureVehicleFit002 } from "../vehicles/vehicle-fit-diagnostics";
+function productionHostnameForFit002(name: string) {
+  return name === "grand-theft-division.vercel.app";
+}
 import { canInitializePlayerVehicle } from "../vehicles/drive-availability";
 import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha, FERRARI_REAR_CAMERA_BETA, FERRARI_REAR_CAMERA_RADIUS } from "../vehicles/ferrari-camera";
 import { nearestSportsCar, stationaryDisembark, type Point3 } from "../vehicles/local-boarding";
@@ -95,6 +99,7 @@ export class GTDGameRuntime implements GameRuntime {
   private readonly sportsCars=new Map<string,FirstDriveTrial>();
   private drivingTrial: FirstDriveTrial | null = null;
   private seatTrialEnabled = false;
+  private fit002Enabled = false;
   private seatedDriverActive = false;
   private enteredAt: Point3 | null = null;
   private carEnteredAt: Point3 | null = null;
@@ -205,6 +210,7 @@ export class GTDGameRuntime implements GameRuntime {
     // Full physical density increases raster work and is always opt-in.
     const diagnosticParams = new URLSearchParams(window.location.search);
     this.seatTrialEnabled = diagnosticParams.get("gtdSeat001") === "1";
+    this.fit002Enabled = diagnosticParams.get("gtdVehFit002") === "1" && !productionHostnameForFit002(window.location.hostname);
     // Only explicit FL-4 diagnostics may exceed native device pixels.
     // Never override ordinary players' saved graphics preferences.
     const initialCanvasBounds = host.getBoundingClientRect();
@@ -436,6 +442,12 @@ export class GTDGameRuntime implements GameRuntime {
           });
         (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: () => ReturnType<LoadedMeridiaCharacter["report"]> })
           .__GTD_CHARACTER_TRIAL_REPORT__ = () => trial.report();
+        if (this.fit002Enabled) {
+          (window as Window & { __GTD_VEH_FIT_002_REPORT__?: () => unknown })
+            .__GTD_VEH_FIT_002_REPORT__ = () => measureVehicleFit002(
+              scene, this.drivingTrial, this.characterTrial, this.fit002Enabled,
+            );
+        }
         (window as Window & { __GTD_VEH_SEAT_001_REPORT__?: () => unknown })
           .__GTD_VEH_SEAT_001_REPORT__ = () => ({
             schema:"gtd.veh-seat-001.ual-driving-loop.v1",
@@ -663,6 +675,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.carEnteredAt=null;
     delete (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: unknown }).__GTD_DRIVE_TRIAL_REPORT__;
     delete (window as Window & { __GTD_VEH_SEAT_001_REPORT__?: unknown }).__GTD_VEH_SEAT_001_REPORT__;
+    delete (window as Window & { __GTD_VEH_FIT_002_REPORT__?: unknown }).__GTD_VEH_FIT_002_REPORT__;
     this.importedCarProbe?.dispose();
     this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
