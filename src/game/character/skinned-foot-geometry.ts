@@ -108,11 +108,15 @@ export class SkinnedFootGeometry {
   measureLowerLeg(floor:VehicleCabinFloor):Record<FootSide,LowerLegClearance>{
     const result={} as Record<FootSide,LowerLegClearance>;
     this.skeleton.prepare(true);
-    const verts=this.sources.map(s=>({
-      witness:s,
-      positions:s.mesh.getPositionData(true,false),
-      matrix:s.mesh.getWorldMatrix().clone(),
-    }));
+    const sampleAt=floor.createFrameSampler();
+    const verts=this.sources.map(s=>{
+      s.mesh.computeWorldMatrix(true);
+      return {
+        witness:s,
+        positions:s.mesh.getPositionData(true,false),
+        matrix:s.mesh.getWorldMatrix().clone(),
+      };
+    });
     for(const side of ["left","right"] as const){
       let feet=0,calves=0,footChecked=0,calfChecked=0;
       let footBad=0,calfBad=0,worst=0,witnessMesh:string|null=null;
@@ -128,7 +132,7 @@ export class SkinnedFootGeometry {
             const world=Vector3.TransformCoordinates(
               new Vector3(positions[j]!,positions[j+1]!,positions[j+2]!),matrix);
             if(![world.x,world.y,world.z].every(Number.isFinite))continue;
-            const sample=floor.sample(world);
+            const sample=sampleAt(world);
             if(sample.evidence!=="verified-floor-mesh"||sample.floorY===null)continue;
             if(part==="foot")footChecked++;else calfChecked++;
             const penetration=sample.floorY+floor.definition.clearanceMetres-world.y;
