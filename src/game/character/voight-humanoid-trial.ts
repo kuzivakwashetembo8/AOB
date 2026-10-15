@@ -88,6 +88,12 @@ function preferredClip(groups: AnimationGroup[], choices: readonly string[]): An
   return null;
 }
 
+/** Binary capability gate. A demo configuration alone cannot prove a
+ * particular pinned GLB actually includes the requested animation clip. */
+export function selectUalDrivingLoop<T extends {name:string}>(groups:readonly T[]):T|null {
+  return groups.find(group=>group.name.toLowerCase()==="driving_loop")??null;
+}
+
 export type LoadedMeridiaCharacter = VoightPrototype & {
   readonly witness: Mesh;
   readonly report: () => CharacterTrialReport;
@@ -167,8 +173,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     flyHoverDown: preferredClip(imported.animationGroups, ["flyHoverDown", "flyDown"]),
     // Three Player Controller's UAL specimen config requests this exact
     // animation. Check the imported binary's groups, not just demo metadata.
-    driving: imported.animationGroups.find(group =>
-      group.name.toLowerCase() === "driving_loop") ?? null,
+    driving: selectUalDrivingLoop(imported.animationGroups),
   };
   if (!clips.idle || !clips.walk) {
     throw new Error("UAL trial failed: no compatible idle/walking animation clips");
