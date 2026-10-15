@@ -1,6 +1,6 @@
 # GTD-VEH-CABIN-FIT-003 — Interior Boundaries and Foot Containment
 
-Date: 2026-10-15. Status: IMPLEMENTATION AUTHORIZED; isolated experiment only.
+Date: 2026-10-15. **CURRENT STATUS: IMPLEMENTATION FAILED OWNER VISUAL REVIEW — HOLD; documentation only.** Automated build/test PASS, live character-foot containment FAIL (primary), tire/road grounding after forward movement FAIL (secondary). AR1 remains the accepted baseline; no production merge. [See failure register](./GTD-VEH-CABIN-FIT-003-Visual-Rejection-and-Failure-Modes-2026-10-15.md).
 Baseline: AR1 owner-approved seating on `exp/veh-seat-001-ual-driving-loop-20261015`.
 Implementation branch: `exp/veh-cabin-fit-003-20261015`.
 
@@ -54,4 +54,19 @@ No main merge or replacement of the accepted AR1 preview. Document new results/l
 
 **A/B baseline:** Remove only `gtdCabinFit003=1` from the test link to preserve the original accepted AR1 pose. Diagnostic `window.__GTD_VEH_FIT_002_REPORT__?.().character.fittedDrivingPose.cabinFit003` supplies the vehicle floor identity, shoe vertex evidence, the specific foot side(s), witnessed signed penetration and accepted per-side lift. Unknown geometry is a failed witness, not a completed fit. Examine live *low-side and overhead* screenshots and the report for any remaining foot protrusion; check exit and re-board, driving animation, sidewalk/curb and mobile before closing G4.
 
-**Acceptance state:** Source integration and 297 automated tests PASS. Real gameplay visual fit **PENDING**. Existing owner-accepted AR1 seat posture remains the reference; production `main` unchanged. **G6 remains closed.**
+**Acceptance state, as of the build:** Source integration and 297 automated tests PASS. **Superseded by owner visual rejection below: fitting FAILED and secondary grounding FAILED.** Existing owner-accepted AR1 seat posture remains the reference; production `main` unchanged. **G6 remains closed.**
+
+
+## Owner visual rejection — 2026-10-15 (current acceptance gate)
+
+**Disposition:** **FAILED — STOP Cabin Fit 003.** Five owner-provided screenshots of the actual `gtd-jmuh4d25r` preview supersede the provisional visual-PENDING status of this document.
+
+**Full failure record:** [GTD-VEH-CABIN-FIT-003 Visual Rejection and Failure Modes - 2026-10-15](./GTD-VEH-CABIN-FIT-003-Visual-Rejection-and-Failure-Modes-2026-10-15.md).
+
+1. **PRIMARY: Leg/foot escape persists.** Yellow/orange limb geometry remains outside the Ferrari's underside despite the new triangulated cabin carpet and CPU-skinned foot witnesses. This is the dominant unsolved problem; G4 cannot be accepted. The exact leaked vertex, limb segment and mismatch with carpet/underbody have **not** been physically measured from these screenshots.
+2. **SECONDARY: Ferrari visibly floats after moving forward.** Tire/road separation is clear from a low viewing angle looking upward. Overhead or direct side views may mask it, so they are insufficient to prove four-wheel contact. The owner observed this during/after forward driving. Do not claim that Cabin Fit 003 caused the floating absent a controlled A/B and live wheel-contact telemetry.
+3. **Technical versus visual acceptance must remain separate.** `297/297` automated tests and Vercel READY remain true of this rejected code build. They **do not** establish realistic fitting or grounding.
+4. **Accepted baseline preserved:** The owner-approved AR1 primary seated posture remains a success and must not be undone for a quick cosmetic change. Buggy and other vehicle cabin profiles are unverified.
+5. **Action boundary:** This message requests **documentation of failure only**. No gameplay source patches, no re-tuning, no new deployment, no `main` merge. Keep the rejected experiment reproducible. G6 remains closed.
+
+**Next phase, only if authorized:** diagnose external foot/calf/shoe mesh against a complete cabin and underbody volume, then separately diagnose wheel-to-road contact with low-angle view and live Babylon/Rapier measurements.
