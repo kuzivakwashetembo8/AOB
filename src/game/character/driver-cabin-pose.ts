@@ -10,6 +10,7 @@ import {
 } from "@babylonjs/core";
 import type { Mesh, Skeleton, Observer } from "@babylonjs/core";
 import { findDriverBones, type DriverLimbRole } from "./driver-limb-landmarks";
+import { applyAimStep, rotationOf } from "./driver-joint-space";
 
 export type DriverContactState = {
   enabled: boolean;
@@ -80,54 +81,37 @@ function boneWorld(b:PositionedBone):Vector3|null {
   node.computeWorldMatrix(true);
   return node.getAbsolutePosition().clone();
 }
-function aim(
-  from: PositionedBone, next: PositionedBone, to: Vector3,
-  maxRadians=0.45,
-) {
-  const node=from.getTransformNode();
-  if(!node)return false;
-  const a=boneWorld(from),b=boneWorld(next);
-  if(!a||!b)return false;
-  const original=b.subtract(a),desired=to.subtract(a);
-  const len=original.length(),targetLen=desired.length();
-  if(len<0.015||targetLen<0.015)return false;
-  original.scaleInPlace(1/len);desired.scaleInPlace(1/targetLen);
-  const dot=clamp(Vector3.Dot(original,desired),-1,1);
-  const theta=Math.min(maxRadians,Math.acos(dot));
-  if(theta<0.0004)return false;
-  const worldAxis=Vector3.Cross(original,desired);
-  if(worldAxis.lengthSquared()<1e-9)return false;
-  worldAxis.normalize();
-  // Rotate in the joint parent's local space, not in Ferrari or Babylon world
-  // coordinates: the imported glTF bones are nested and frequently pre-rotated.
-  const parent=node.parent;
-  const inv=parent ? parent.getWorldMatrix().clone().invert() : Matrix.Identity();
-  const localAxis=Vector3.TransformNormal(worldAxis,inv);
-  if(localAxis.lengthSquared()<1e-8)return false;
-  localAxis.normalize();
-  const delta=Quaternion.RotationAxis(localAxis,theta);
-  const base=node.rotationQuaternion?.clone() ??
-    Quaternion.FromEulerAngles(node.rotation.x,node.rotation.y,node.rotation.z);
-  node.rotationQuaternion=delta.multiply(base).normalize();
-  node.computeWorldMatrix(true);
-  return true;
-}
 type JointChain = [DriverLimbRole,DriverLimbRole,DriverLimbRole];
+/** Return true only on a converged, finite candidate. Any failed chain is
+ * rolled back to its animation-only baseline; no outward limb deformation. */
 function solveChain(
   bones: ReturnType<typeof findDriverBones>["found"],
-  chain: JointChain, target: Vector3,
+  chain: JointChain,target:Vector3,
 ):boolean {
   const [root,mid,end]=chain.map(r=>bones[r]);
   if(!root||!mid||!end)return false;
-  const a=boneWorld(root),b=boneWorld(mid),c=boneWorld(end);
-  if(!a||!b||!c)return false;
-  // Prevent impossible limb reach and violent retargeting on foreign rigs.
-  const length=a.subtract(b).length()+b.subtract(c).length();
-  const reach=target.subtract(a).length();
-  if(length<0.15||reach>length*1.07)return false;
-  for(let k=0;k<5;k++){
-    aim(mid,end,target,0.22);
-    aim(root,end,target,0.19);
+  const joints=[root.getTransformNode(),mid.getTransformNode(),end.getTransformNode()];
+  if(joints.some(n=>!n))return false;
+  const [a,b,c]=joints as TransformNode[];
+  a.computeWorldMatrix(true);b.computeWorldMatrix(true);c.computeWorldMatrix(true);
+  const limbLength=Vector3.Distance(a.getAbsolutePosition(),b.getAbsolutePosition())+
+    Vector3.Distance(b.getAbsolutePosition(),c.getAbsolutePosition());
+  const reach=Vector3.Distance(a.getAbsolutePosition(),target);
+  if(!Number.isFinite(reach)||limbLength<0.15||reach>limbLength+0.001)return false;
+  const originalA=rotationOf(a),originalB=rotationOf(b);
+  const before=Vector3.Distance(c.getAbsolutePosition(),target);
+  for(let i=0;i<10;i++){
+    if(Vector3.Distance(c.getAbsolutePosition(),target)<=0.02)break;
+    applyAimStep(b,c,target,0.15);
+    applyAimStep(a,c,target,0.15);
+  }
+  c.computeWorldMatrix(true);
+  const after=Vector3.Distance(c.getAbsolutePosition(),target);
+  if(!Number.isFinite(after)||after>0.02||after>before+1e-4){
+    a.rotationQuaternion=originalA;
+    b.rotationQuaternion=originalB;
+    c.computeWorldMatrix(true);
+    return false;
   }
   return true;
 }
@@ -139,6 +123,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   let wheelNode:AbstractMesh|null=null;
   let enabled=false;
   let correctionMode: "feet"|"hands"|"both" = "both";
+  let cachedLocalTargets:ReturnType<typeof planDriverContactTargets>|null=null;
   const cachedBaseline=new Map<TransformNode,Quaternion>();
   const zero=():DriverContactState=>({
     enabled,status:enabled?"missing-wheel":"disabled",appliedLimbs:[],
@@ -148,6 +133,13 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   const linkedNodes=[...new Set(Object.values(mapped.found).map(b=>b?.getTransformNode())
     .filter((n):n is TransformNode=>n instanceof TransformNode))];
   // Listener is active only when used; no work during walking/flight.
+  // Undo the prior frame's procedural pose BEFORE Babylon evaluates Driving_Loop.
+  // This also protects tracks which are not keyed every animation frame.
+  const beforeAnimation=scene.onBeforeAnimationsObservable.add(()=>{
+    if(!enabled)return;
+    for(const [node,original] of cachedBaseline)node.rotationQuaternion=original.clone();
+    cachedBaseline.clear();
+  });
   const observer:Observer<Scene>=scene.onBeforeRenderObservable.add(()=>{
     if(!enabled||!cabin)return;
     if(!mapped.found.leftThigh||!mapped.found.rightThigh||
@@ -169,11 +161,31 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     // Driver's actual pelvis, not the standing character root or the wheel,
     // determines where the forward pedals can be reached. The previous
     // wheel + forward*0.18 position was 1.0–1.3 m from the animated feet.
-    const plannedTargets=planDriverContactTargets({
-      leftHip:hipL,rightHip:hipR,leftHand:handL,rightHand:handR,
-      wheelCenter:wheel.center,wheelRadius:wheel.radius,
-      vehicleFloorY:cabin.position.y,
-    });
+    // Contact targets are captured once in the Ferrari's own local frame.
+    // Recomputing from already-corrected hands causes moving-target feedback.
+    cabin.computeWorldMatrix(true);
+    if(!cachedLocalTargets){
+      const initial=planDriverContactTargets({
+        leftHip:hipL,rightHip:hipR,leftHand:handL,rightHand:handR,
+        wheelCenter:wheel.center,wheelRadius:wheel.radius,
+        vehicleFloorY:cabin.position.y,
+      });
+      if(initial){
+        const inverse=cabin.getWorldMatrix().clone().invert();
+        cachedLocalTargets={
+          leftFoot:Vector3.TransformCoordinates(initial.leftFoot,inverse),
+          rightFoot:Vector3.TransformCoordinates(initial.rightFoot,inverse),
+          leftHand:Vector3.TransformCoordinates(initial.leftHand,inverse),
+          rightHand:Vector3.TransformCoordinates(initial.rightHand,inverse),
+        };
+      }
+    }
+    const plannedTargets=cachedLocalTargets?{
+      leftFoot:Vector3.TransformCoordinates(cachedLocalTargets.leftFoot,cabin.getWorldMatrix()),
+      rightFoot:Vector3.TransformCoordinates(cachedLocalTargets.rightFoot,cabin.getWorldMatrix()),
+      leftHand:Vector3.TransformCoordinates(cachedLocalTargets.leftHand,cabin.getWorldMatrix()),
+      rightHand:Vector3.TransformCoordinates(cachedLocalTargets.rightHand,cabin.getWorldMatrix()),
+    }:null;
     if(!plannedTargets) {
       state={...zero(),status:"out-of-tolerance"};return;
     }
@@ -208,11 +220,11 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         const error=Vector3.Distance(current,limb.to);
         errorMetres[limb.role]=error;
         // Attempting an IK solve is NOT equivalent to making contact.
-        if(attempted && error<=0.06)appliedLimbs.push(limb.role);
+        if(attempted && error<=0.02)appliedLimbs.push(limb.role);
       }
     }
     const unresolved=Object.entries(errorMetres)
-      .some(([,error])=>error>0.06);
+      .some(([,error])=>error>0.02);
     state={enabled:true,status:unresolved?"out-of-tolerance":"active",
       appliedLimbs,missing:[...mapped.missing],targets,actual,errorMetres};
   });
@@ -225,6 +237,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         }
         cachedBaseline.clear();
       }
+      if(cabin!==next||correctionMode!==mode||enabled!==active)cachedLocalTargets=null;
       cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
       correctionMode=mode;enabled=active;state=zero();
     },
@@ -233,7 +246,8 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       skeletonName:skeleton.name,witnessName:witness.name}),
     dispose(){
       scene.onBeforeRenderObservable.remove(observer);
-      cabin=null;wheelNode=null;enabled=false;cachedBaseline.clear();
+      scene.onBeforeAnimationsObservable.remove(beforeAnimation);
+      cabin=null;wheelNode=null;enabled=false;cachedBaseline.clear();cachedLocalTargets=null;
     },
   };
 }
