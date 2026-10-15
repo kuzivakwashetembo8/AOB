@@ -81,4 +81,43 @@ describe("VEH-FIT-002 G0 actual world contact witnesses", () => {
       car.dispose();floor.dispose();physics.destroy();scene.dispose();engine.dispose();
     }
   },30000);
+  it("corrects a 129 mm live tire penetration missed by the original chassis calibration",async()=>{
+    const engine=new NullEngine(),scene=new Scene(engine);
+    const physics=await MeridianPhysics.create();
+    physics.setPlayerPosition({x:30,y:0.92,z:30});
+    const floor=physics.addStaticBox({x:0,y:-0.12,z:0},{x:20,y:0.12,z:20});
+    const anchor=new TransformNode("ferrari",scene);
+    const tires=[] as ReturnType<typeof MeshBuilder.CreateCylinder>[];
+    for(const [i,name] of ["wheel_fl","wheel_fr","wheel_rl","wheel_rr"].entries()){
+      const pivot=new TransformNode("source:"+name,scene);
+      pivot.parent=anchor;
+      pivot.position.set(i%2?0.7:-0.7,0.35,i<2?-1.5:1.5);
+      const tire=MeshBuilder.CreateCylinder("tread:"+name,
+        {diameter:0.64,height:0.18},scene);
+      tire.rotation.x=Math.PI/2;tire.parent=pivot;
+      tires.push(tire);
+    }
+    const car=new FirstDriveTrial(physics,anchor,{x:2,y:1.5,z:4.53},
+      FERRARI_STREET_PROFILE,FERRARI_WHEEL_MAPPING,true,false);
+    try {
+      // Source-on-the-road geometry differs from the import-time AABB
+      // (the user's four live tires measured -0.129 m signed gap).
+      tires.forEach(t=>t.position.y-=0.129);
+      expect(car.status.roadContactCalibrationVerified).toBe(false);
+      for(let i=0;i<14;i++){
+        car.prepare(1/60,0,0);
+        physics.movePlayer({x:0,y:0,z:0});
+        car.finish(1/60);
+      }
+      expect(car.status.roadContactCalibrationVerified).toBe(true);
+      expect(car.status.roadCalibrationCorrectionMetres).toBeGreaterThan(0.10);
+      const measurements=measureVehicleFit002(scene,car,null,true);
+      if(!("wheelContact" in measurements))throw new Error("missing wheels");
+      measurements.wheelContact.forEach(w=>
+        expect(Math.abs(w.visualTreadGapMetres??1)).toBeLessThan(0.02));
+    }finally {
+      car.dispose();floor.dispose();physics.destroy();scene.dispose();engine.dispose();
+    }
+  },30000);
+
 });
