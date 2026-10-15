@@ -100,20 +100,20 @@ This observation belongs in the later **wheel/road alignment gate** of VEH-PHYS-
 
 ## 7. Stage 1 visual verification and failure analysis — 2026-10-15
 
-**Evidence:** Owner's four screenshots of the exact Stage 1 Vercel preview (\`gtd-8ovbu8kiu\`, \`/game?gtdSeat001=1\`), including straight side, rear-oblique overhead and lower side views of the Ferrari near the Mercer Street brick building. No screenshots were inserted into Git; the source evidence is the owner's review conversation. All claims below separate **what the screenshots show** from **what code proves** from **what still requires live measurement**.
+**Evidence:** Owner's four screenshots of the exact Stage 1 Vercel preview (`gtd-8ovbu8kiu`, `/game?gtdSeat001=1`), including straight side, rear-oblique overhead and lower side views of the Ferrari near the Mercer Street brick building. No screenshots were inserted into Git; the source evidence is the owner's review conversation. All claims below separate **what the screenshots show** from **what code proves** from **what still requires live measurement**.
 
 ### 7.1 Accepted successful behavior
 
 - **PASS — root moved rearward into the seat back.** The owner specifically confirms Voight is now seated against the backrest appropriately. The side and overhead views show the head and torso farther from the forward windshield/dashboard region than in the preceding trial. This accepts **only the fore/aft root-position experiment**, not the complete seated animation or collision.
-- **PASS — character renders when the experiment is enabled.** The screenshots demonstrate the actual humanoid in the cockpit with \`?gtdSeat001=1\`. Earlier unflagged testing hid the driver by design and was not a regression.
-- **PASS — measured change is isolated.** \`src/game/vehicles/driver-seat-placement.ts\` changed \`cabinForwardFraction\` from \`-0.12\` to \`-0.04\`: \`+0.08 × 4.53 m ≈ 0.36 m\` rearward in the model's local frame. Driver lateral fraction (0.20), height fraction (0.56) and yaw offset (π) remain unchanged. Existing pose-selection and Ferrari drive physics were not altered by VEH-SEAT-001.
+- **PASS — character renders when the experiment is enabled.** The screenshots demonstrate the actual humanoid in the cockpit with `?gtdSeat001=1`. Earlier unflagged testing hid the driver by design and was not a regression.
+- **PASS — measured change is isolated.** `src/game/vehicles/driver-seat-placement.ts` changed `cabinForwardFraction` from `-0.12` to `-0.04`: `+0.08 × 4.53 m ≈ 0.36 m` rearward in the model's local frame. Driver lateral fraction (0.20), height fraction (0.56) and yaw offset (π) remain unchanged. Existing pose-selection and Ferrari drive physics were not altered by VEH-SEAT-001.
 - **Not evaluated as passed:** real wheel/road contact, pedal positioning, exact steering-wheel grip, boarding/exit under all conditions, collision behavior while moving, performance on mobile.
 
 ### 7.2 Failure A — exposed feet/lower legs (confirmed)
 
 **Observed:** Feet and portions of the lower legs remain visibly below the Ferrari's underbody. At least one lower leg/foot appears down at road level in the low side views even though the character's torso is inside the cabin.
 
-**Cause supported by current code:** Stage 1 translates/rotates only the whole humanoid root (\`ferrariSeatWorldPose\` -> \`syncFerrariDriverSeat\`). It does **not** change the original GLB \`Driving_Loop\` animation or independently drive ankle, knee, hip or foot targets. The prior vertically protruding leg pose is therefore preserved; the root's Y stays \`vehicle.y + 0.56 × vehicle.height\`. Horizontal backrest correction cannot alone reliably fit the rig's feet into this Ferrari's lower cockpit.
+**Cause supported by current code:** Stage 1 translates/rotates only the whole humanoid root (`ferrariSeatWorldPose` -> `syncFerrariDriverSeat`). It does **not** change the original GLB `Driving_Loop` animation or independently drive ankle, knee, hip or foot targets. The prior vertically protruding leg pose is therefore preserved; the root's Y stays `vehicle.y + 0.56 × vehicle.height`. Horizontal backrest correction cannot alone reliably fit the rig's feet into this Ferrari's lower cockpit.
 
 **Unmeasured:** The local/world bone transforms of hips, knees, ankles and soles relative to the imported Ferrari's actual floor/footwell, and any foot pose that is currently occluded by the body. Exact degree and distribution of penetration cannot be inferred from screenshots.
 
@@ -123,9 +123,9 @@ This observation belongs in the later **wheel/road alignment gate** of VEH-PHYS-
 
 **Observed:** The arms are extended in a plausible driving direction, but the hands do not visibly touch/grasp the steering wheel. The owner accepts the general reach, not the missing contact.
 
-**Cause supported by current code:** \`loadMeridiaCharacterTrial\` selects the imported \`Driving_Loop\` and plays its existing bone animation. \`enterDrivingPose()\` merely switches the clip. The seat-fit experiment only transforms the root and has **no steering-wheel-local targets**, left/right hand position calculation or arm/wrist calibration. Rearward translation naturally increases the distance from the hands to the wheel unless the animation or wheel-target attachment is separately aligned.
+**Cause supported by current code:** `loadMeridiaCharacterTrial` selects the imported `Driving_Loop` and plays its existing bone animation. `enterDrivingPose()` merely switches the clip. The seat-fit experiment only transforms the root and has **no steering-wheel-local targets**, left/right hand position calculation or arm/wrist calibration. Rearward translation naturally increases the distance from the hands to the wheel unless the animation or wheel-target attachment is separately aligned.
 
-**Unmeasured:** True steering wheel position/rotation in the imported Ferrari rig and both hands' world-space pose across idle/turning animation frames. No claim that the imported \`Driving_Loop\` includes wheel-contact constraints.
+**Unmeasured:** True steering wheel position/rotation in the imported Ferrari rig and both hands' world-space pose across idle/turning animation frames. No claim that the imported `Driving_Loop` includes wheel-contact constraints.
 
 **Candidate later corrective gate (NOT authorized):** Measure steering-wheel grip target and both wrists, then try a minimally scoped arm/shoulder/elbow animation retarget or overlay with slightly bent elbows; avoid locked-reaching arms or a full IK subsystem unless simpler constraints fail. Evaluate after footwell fit.
 
@@ -134,10 +134,10 @@ This observation belongs in the later **wheel/road alignment gate** of VEH-PHYS-
 **Observed:** The low side views show conspicuous space between the road and one or more tire bottoms, making the car appear to hover. Previous observations separately showed intermittent tire penetration. Screenshots establish a **visual contact failure**, not the precise Rapier collision surface or a permanent airborne state.
 
 **Known mechanism and limitation from code:**
-- \`src/game/vehicles/first-drive-trial.ts\` instantiates a **kinematic position-based rigid body** with a single full-car **cuboid collider** (\`x/2, y/2, z/2\`) whose center is derived from the visual anchor plus half vehicle height and a 0.035-m offset. Movement/contact is computed for that collider by Rapier's kinematic character controller. This is *not* four-tire suspension.
-- \`src/game/vehicles/street-vehicle-physics.ts\` applies downward travel with ground snap, gravity and bounded curb autostep; \`StreetVehicleActor.finish()\` transfers the chassis body pose back to the imported visual anchor. Autostep or non-wheel collider support may lift the whole vehicle above the location where the rendered tires should contact asphalt; the low viewpoint reveals the difference.
-- \`src/game/vehicles/street-vehicle-wheels.ts\` rotates and steers imported wheel pivots; its measured/fallback wheel radii are used for *animation*, not to choose chassis ground height. It has no per-wheel contact constraints or suspension model.
-- \`first-drive-trial.ts\` exposes \`grounded\`, \`airborneSeconds\` and \`maxUnsupportedGroundGapMetres\`, but its diagnostic support ray is sampled beneath the **chassis centre** with respect to the collider bottom. That value alone cannot establish all four tire-tread gaps or distinguish tire intersection from chassis support on nearby curbs/geometry.
+- `src/game/vehicles/first-drive-trial.ts` instantiates a **kinematic position-based rigid body** with a single full-car **cuboid collider** (`x/2, y/2, z/2`) whose center is derived from the visual anchor plus half vehicle height and a 0.035-m offset. Movement/contact is computed for that collider by Rapier's kinematic character controller. This is *not* four-tire suspension.
+- `src/game/vehicles/street-vehicle-physics.ts` applies downward travel with ground snap, gravity and bounded curb autostep; `StreetVehicleActor.finish()` transfers the chassis body pose back to the imported visual anchor. Autostep or non-wheel collider support may lift the whole vehicle above the location where the rendered tires should contact asphalt; the low viewpoint reveals the difference.
+- `src/game/vehicles/street-vehicle-wheels.ts` rotates and steers imported wheel pivots; its measured/fallback wheel radii are used for *animation*, not to choose chassis ground height. It has no per-wheel contact constraints or suspension model.
+- `first-drive-trial.ts` exposes `grounded`, `airborneSeconds` and `maxUnsupportedGroundGapMetres`, but its diagnostic support ray is sampled beneath the **chassis centre** with respect to the collider bottom. That value alone cannot establish all four tire-tread gaps or distinguish tire intersection from chassis support on nearby curbs/geometry.
 
 **Root-cause assessment:** **Confirmed architectural mismatch** between chassis-box contact and tire contact; **not yet proven** which concrete factor dominates these screenshots. Possible contributors to test separately include wheel-center/radius versus body-box bottom offsets, imported asset floor-normalization, curb/sidewalk collision under the chassis box, active autostep or temporary airborne movement, and inconsistencies between road render height and Rapier ground top. Avoid attributing every case to one factor without contact probes.
 
@@ -145,10 +145,10 @@ This observation belongs in the later **wheel/road alignment gate** of VEH-PHYS-
 
 ### 7.5 Validation gaps, priorities and change boundary
 
-- **Tests present:** unit checks that the \`Driving_Loop\` name is selected when present, that the Ferrari seat root follows translation/heading, and that the rearward root displacement is 0.08 vehicle-length for four vehicle yaws.
+- **Tests present:** unit checks that the `Driving_Loop` name is selected when present, that the Ferrari seat root follows translation/heading, and that the rearward root displacement is 0.08 vehicle-length for four vehicle yaws.
 - **Tests absent:** in-engine skeleton bone-to-car mesh floor clearance, hand-to-steering-wheel contact, and four-wheel road contact based on mesh and Rapier geometry. Consequently, passing TypeScript/Vitest/Vercel build gates could not demonstrate visible fit; the user's screenshots are the acceptance evidence.
 - **Order proposed, NOT authorized:** (1) keep accepted fore/aft seat-back root constant; inspect and calibrate footwell/leg pose, (2) inspect and calibrate two hand/wheel contacts, (3) independently diagnose car wheel-to-road support across locations and curbs. The physics item can be planned separately without mixing its patch with character animation.
-- **Preserve:** existing UAL model/working \`Driving_Loop\`, boarding/exit lifecycle, accepted Stage 1 rearward offset, Ferrari drive handling and physics until a specifically scoped authorization is given.
+- **Preserve:** existing UAL model/working `Driving_Loop`, boarding/exit lifecycle, accepted Stage 1 rearward offset, Ferrari drive handling and physics until a specifically scoped authorization is given.
 - **Awaiting owner instructions:** This documentation records findings only. No changes to character pose, assets, runtime logic, collision, ground, wheels, tests, deployment or production promotion are approved by this record.
 
 **Stage 1 decision:** **Rearward torso/backrest alignment ACCEPTED. Overall seated-driver presentation NOT ACCEPTED. Physical four-wheel road contact NOT ACCEPTED.** Investigation documented; implementation paused.
