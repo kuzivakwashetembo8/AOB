@@ -315,3 +315,16 @@ The optional A/B controls use `gtdFitPose002=feet` or `hands`, or `1` for both, 
 4. **G4** New `veh-fit-002-live-targets.test.ts` checks foot target reach/forward direction and nearest-rim hand targets from the exact rejected live joint/steering center. Expanded `veh-fit-002-contact-witness.test.ts` checks the missed calibration. Build and in-browser validation remain required.
 
 **Important limits:** No guarantee that the actual UAL animator responds geometrically to the IK corrections until new live post-fix errors and screenshots establish it. The flat-road one-time calibration does not constitute a full four-wheel suspension solver. If the four support heights differ (sidewalk/curb), the offset reconciliation deliberately refuses to infer a single contradictory tire floor. Preserve approved seat root `cabinForwardFraction=-0.04`, usual driving, walking, no-step garage protection, mobile presentation, and original physics. No production merge. **G6 remains CLOSED.**
+
+
+### 13.1 Second corrective preview — automated gate PASS, visual acceptance pending
+
+**Source commit deployed:** `9fd9d76c092c8dea01a18fb945b9ff753522373c` on the isolated `exp/veh-seat-001-ual-driving-loop-20261015` branch. **Vercel deployment:** `dpl_4ZMc3Ro2kWxtVjoRmrxJVmej7XER`, status READY, HTTP 200 for the exact combined test URL:
+
+https://gtd-f9qnp8sij-interlinkglobaltech.vercel.app/game?gtdSeat001=1&gtdVehFit002=1&gtdFitPose002=1&gtdFitGround002=1&gtdFitWheel002=1
+
+**Build evidence:** `npx tsc --noEmit && npx vitest run && npm run build` completed successfully; **72 test files passed / 287 tests passed, 0 failed**. The new `veh-fit-002-live-targets` tests (3) confirm target reach geometry from the owner's measured UAL/Ferrari coordinates. The expanded `veh-fit-002-contact-witness` fixture (4) confirms the original 129-mm tire penetration can be detected and corrected after post-import mesh geometry changes **when four wheel contacts are on level road**. The first new synthetic contact test failed due to its own omitted visible asphalt scene mesh; the final test correctly includes both rendered road top (Y=0.030 m) and Rapier floor (Y=0). No test assertions were removed to obtain a green run.
+
+**Explicit unverified gates:** This does NOT establish real GLB foot penetration clearance or true palm contact in the running browser, nor wheel support at the sidewalk/curb mixed-level case. The owner must capture low-side and overhead views again and examine `window.__GTD_VEH_FIT_002_REPORT__?.()`: expect `car.status.roadContactCalibrationVerified=true` on an ordinary flat-street stopped sample, four finite `visualSupportGapMetres` close to zero, and `character.fittedDrivingPose` showing measured residual errors no longer at the previously rejected 0.99–1.30 m feet / 0.29–0.47 m hands. `appliedLimbs` now means error <=0.06 m rather than “solver attempted”, and `out-of-tolerance` is an explicit failure status.
+
+**G4:** Automated PASS, real desktop/mobile visual validation PENDING; preserve backward seat calibration. **G6:** no new code and no invented specification; documentation milestone remains pending the user's visual gate. Main/production unchanged.
