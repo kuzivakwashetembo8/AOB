@@ -22,11 +22,14 @@ export type DriverContactState = {
 };
 const point=(v: Vector3)=>({x:v.x,y:v.y,z:v.z});
 const clamp=(v:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,v));
-function wheelLandmark(anchor:TransformNode) {
-  const m=anchor.getDescendants(false).find(n =>
+function findWheelMesh(anchor:TransformNode): AbstractMesh|null {
+  const node=anchor.getDescendants(false).find(n=>
     n instanceof AbstractMesh && n.getTotalVertices()>0 &&
     /steer.{0,12}wheel|steering|volante/i.test(n.name));
-  if(!(m instanceof AbstractMesh))return null;
+  return node instanceof AbstractMesh ? node : null;
+}
+function wheelLandmark(m:AbstractMesh|null) {
+  if(!m)return null;
   m.computeWorldMatrix(true);
   const bounds=m.getBoundingInfo().boundingBox;
   const radius=Math.max(bounds.extendSizeWorld.x,
@@ -87,8 +90,8 @@ function solveChain(
   const reach=target.subtract(a).length();
   if(length<0.15||reach>length*1.07)return false;
   for(let k=0;k<5;k++){
-    aim(mid,end,target,0.45);
-    aim(root,end,target,0.38);
+    aim(mid,end,target,0.22);
+    aim(root,end,target,0.19);
   }
   return true;
 }
@@ -97,6 +100,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   characterRoot:TransformNode) {
   const mapped=findDriverBones(skeleton);
   let cabin:TransformNode|null=null;
+  let wheelNode:AbstractMesh|null=null;
   let enabled=false;
   const cachedBaseline=new Map<TransformNode,Quaternion>();
   const zero=():DriverContactState=>({
@@ -113,7 +117,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       !mapped.found.leftHand||!mapped.found.rightHand) {
       state={...zero(),status:"missing-rig"};return;
     }
-    const wheel=wheelLandmark(cabin);
+    const wheel=wheelLandmark(wheelNode);
     if(!wheel){state={...zero(),status:"missing-wheel"};return;}
     const rootPos=characterRoot.getAbsolutePosition();
     const toward=wheel.center.subtract(rootPos);toward.y=0;
@@ -169,14 +173,15 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         }
         cachedBaseline.clear();
       }
-      cabin=next;enabled=active;state=zero();
+      cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
+      enabled=active;state=zero();
     },
     report:()=>({...state,sourceBones:Object.entries(mapped.found)
       .map(([role,bone])=>({role,name:bone?.name,linked:!!bone?.getTransformNode()})),
       skeletonName:skeleton.name,witnessName:witness.name}),
     dispose(){
       scene.onBeforeRenderObservable.remove(observer);
-      cabin=null;enabled=false;cachedBaseline.clear();
+      cabin=null;wheelNode=null;enabled=false;cachedBaseline.clear();
     },
   };
 }
