@@ -105,7 +105,8 @@ export type LoadedMeridiaCharacter = VoightPrototype & {
   updateDrivingPose: (dt: number) => void;
   exitDrivingPose: () => void;
   setDrivingCabin: (anchor: TransformNode | null, enabled: boolean,
-    mode?: "feet"|"hands"|"both") => void;
+    mode?: "feet"|"hands"|"both",fitCabin?: boolean,
+    kind?: "ferrari"|"buggy"|"unknown") => void;
   driverContactReport: () => unknown;
   disposeDriverContact: () => void;
 };
@@ -183,7 +184,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
   if (!clips.idle || !clips.walk) {
     throw new Error("UAL trial failed: no compatible idle/walking animation clips");
   }
-  const driverPose = createDriverCabinPose(scene, imported.skeletons[0]!, witness, root);
+  const driverPose = createDriverCabinPose(scene, imported.skeletons[0]!, witness, root, skinned);
   imported.animationGroups.forEach(group => group.stop());
   let active: AnimationGroup | null = null;
   let outgoing: AnimationGroup | null = null;
@@ -253,7 +254,9 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       visualForwardDeg = Math.max(-180, Math.min(180, degrees));
       visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
     },
-    setDrivingCabin(anchor, enabled, mode = "both") { driverPose.setCabin(anchor, enabled, mode); },
+    setDrivingCabin(anchor, enabled, mode = "both",fitCabin = false,kind = "ferrari") {
+      driverPose.setCabin(anchor, enabled, mode,fitCabin,kind);
+    },
     driverContactReport: () => driverPose.report(),
     disposeDriverContact: () => driverPose.dispose(),
     enterDrivingPose() {
