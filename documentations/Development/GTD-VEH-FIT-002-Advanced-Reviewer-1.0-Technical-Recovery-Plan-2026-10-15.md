@@ -407,3 +407,44 @@ Mathematical examples in Section 4 are explanatory counterexamples. They are not
 ## 12. Decision requested after submission
 
 Review this plan as the proposed recovery scope. Implementation remains at 0%, G4 remains on hold, and G6 remains closed. The first implementation deliverable, if authorized, is the actual-asset baseline and one-chain transform proof. Target tuning and ground correction follow only after their stated evidence gates.
+
+
+## 13. Authorized implementation and actual pinned-asset witness — 2026-10-15
+
+**Authorization:** The owner expressly authorized implementation of the full AR1 recovery plan and requested a new preview. This supersedes the document's original implementation-freeze language solely for AR1-0 through AR1-7. It does not constitute acceptance of the rendered correction or permission to merge `main`. All implementation commits carry the required `[Advanced-Reviewer 1.0]` prefix and reviewer trailer.
+
+### 13.1 AR1-0 — real binary evidence (COMPLETE for asset identity and mechanism)
+
+An isolated Vercel Node 24 sandbox downloaded exactly the branch-pinned GLBs and verified their Git blob SHA-1 identifiers:
+
+| GLB | Bytes | Verified Git blob SHA |
+| --- | ---: | --- |
+| Quaternius `ual.glb` | 3,749,364 | `e236f349526637a5c829c408d48ce9d8fcde9cff` |
+| Ferrari `ferrari.glb` | 1,681,572 | `435197c5f9b56e08c114505ee019dedbc3d033a3` |
+
+Both binaries were loaded in Babylon.js **9.29.0 NullEngine** (using a Node FileReader shim and locally supplied Draco decoder for the Ferrari's required `KHR_draco_mesh_compression`). Real UAL parent world determinants: `pelvis≈−0.99999988`, `thigh_l≈−0.99999994`, `calf_l≈−1.00000148`, `foot_l≈−1.00000137`, `upperarm_l≈−1.00000002`, `lowerarm_l≈−1.00000029`, `hand_l≈−1.00000031`. **The suspected reflected parent hierarchy is therefore confirmed on the actual imported specimen, not merely a mathematical hypothetical.**
+
+On that imported UAL rig, one positive bounded hip correction using the new parity-aware `applyAimStep` reduced the sampled foot-target residual from **0.0894427 m to 0.0359137 m** (`parentDet≈−1`). This verifies direction improvement for one particular reachable target at one sampled pose. It does **not** establish completed footwell fitting or all-animation-frame IK convergence.
+
+The Ferrari GLB loaded with 58 source nodes; all four named `wheel_fl/fr/rl/rr` pivots have 6 child meshes each, including an explicit `tire` mesh using material `Tires`. The true `steering_leather` mesh is a distinct outer rim; `steering_carbon` is not the rubber/leather grip ring. Its wheel pivots have source Y≈0.358 m and imported tire geometry radius≈0.358 m. Draco-decoded source tire mesh vertex clouds each contain **1000 positions**; front tire local width≈0.2474 m, rear width≈0.2722 m. The real Babylon imported front-left tire yielded `radiusLocal≈0.3580423632`, half-width≈`0.1237117723`, confidence `verified-shape`, and measured spin-independent bottom height variation **≈0.00000681 m** across rolls 0, 22.5, 45, 90, 180 and 360 degrees. This satisfies the mechanism's spin-invariance premise, not the final in-game road-contact gate.
+
+**Explicit limits:** This is a live imported-asset NullEngine and compressed-mesh audit, not a browser GPU/skinning screenshot, a 53-clip-cycle motion study or fully calibrated seat/cabin floor envelope. Those remain G4 evidence requirements.
+
+### 13.2 Implemented changes by stage
+
+| Stage | Implementation | Current evidence / remaining gate |
+| --- | --- | --- |
+| AR1-0 | Source hash, actual GLB hierarchy and determinant check; contact reporter now exposes actual joint-parent reflection signs, confidence and geometry IDs | Real binary identification and mirror hierarchy established; full asset fitting scene still awaits desktop |
+| AR1-1 | New `driver-joint-space.ts`: transform BOTH directions into parent's local frame before cross product; reject singular/nonuniform frames and worsening candidates; transactional correction rollback; remove prior procedural rotations before Babylon's animation update | Reflected-parity synthetic regressions and real imported UAL single-chain step PASS; full clip-cycle constraint acceptance pending |
+| AR1-2 | `driver-cabin-pose.ts` retains accepted rearward seat root and performs bounded ankle/knee fitting with static car-local trial targets, rollback and explicit residual thresholds | Implemented, but the target is still a **provisional heel/footwell proposal**, not verified real mesh containment; no G1 closure yet |
+| AR1-3 | Prefer actual `steering_leather` rim; sample vertex-backed left/right grip anchors at boarding, cache in Ferrari-local coordinates, avoid previous inner-carbon spherical/horizontal approximation | Implemented; true palm-vs-rim orientation and clearance need owner-facing verification |
+| AR1-4 | New `wheel-contact-geometry.ts`: per-pivot vertex-derived round-tire radial support independent of wheel roll; unverified mesh identity fails closed. Existing wheel-height consumers and diagnostics use the same representation | Actual imported Ferrari wheel with rotation sweep PASS to 0.007 mm variation; local rubber material and mesh identity established |
+| AR1-5 | New `vehicle-road-surface.ts`: genuine parity-road bounds and generated asphalt polygon triangle containment; `first-drive-trial.ts` calibration accepts **four named, matching** visual-asphalt + physical support witnesses; removes hardcoded inferred `roadTop=0.030` acceptance | Synthetic Rapier/road tests pass in prior build; full Mercer and mixed-sidewalk scene coverage pending |
+| AR1-6 | Focused parity, rollback, tire-spin, surface-null and legacy full-suite tests; optional wheel travel remains isolated behind `gtdFitWheel002` | Automated Vercel gate and real desktop/mobile review tracked separately; no silent G4 completion |
+| AR1-7 | Intentional Vercel deployment from exact code commit; current reviewer ownership and G4 status recorded | Preview and owner visual decision required; `main` not promoted |
+
+The preview remains separately feature-gated. The initial review should enable `gtdSeat001=1&gtdVehFit002=1&gtdFitPose002=1&gtdFitGround002=1` and leave `gtdFitWheel002` **off** for clean KCC visual-road calibration. Later inspect optional wheel travel in a separate A/B, not as a concealed prerequisite.
+
+**Acceptance protocol:** The real in-game report must show properly found rubber tire evidence and four asphalt IDs, with non-null physical and rendered contact witnesses and no exterior limbs. `fittedDrivingPose.status="contact-only-unverified-cabin"` is **not full acceptance** even if joint endpoint residuals are small: actual boot/palm surface and cabin containment remain visually unverified. Owner screenshots can reject the result regardless of test count.
+
+**G6:** Still CLOSED until the AR1 combined implementation satisfies the pre-existing G1–G4 automated **and real rendered** acceptance criteria. No G6 content has been invented or implemented.
