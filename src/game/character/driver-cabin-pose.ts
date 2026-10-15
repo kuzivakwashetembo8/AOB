@@ -13,7 +13,7 @@ import { findDriverBones, type DriverLimbRole } from "./driver-limb-landmarks";
 
 export type DriverContactState = {
   enabled: boolean;
-  status: "disabled" | "missing-rig" | "missing-wheel" | "active";
+  status: "disabled" | "missing-rig" | "missing-wheel" | "active" | "out-of-tolerance";
   appliedLimbs: string[];
   missing: string[];
   targets: Record<string, {x:number;y:number;z:number}>;
@@ -120,22 +120,45 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     }
     const wheel=wheelLandmark(wheelNode);
     if(!wheel){state={...zero(),status:"missing-wheel"};return;}
-    const rootPos=characterRoot.getAbsolutePosition();
-    const toward=wheel.center.subtract(rootPos);toward.y=0;
-    if(toward.length()<0.08)return;
+    const hipL=mapped.found.leftThigh?boneWorld(mapped.found.leftThigh):null;
+    const hipR=mapped.found.rightThigh?boneWorld(mapped.found.rightThigh):null;
+    const handL=mapped.found.leftHand?boneWorld(mapped.found.leftHand):null;
+    const handR=mapped.found.rightHand?boneWorld(mapped.found.rightHand):null;
+    if(!hipL||!hipR||!handL||!handR) {
+      state={...zero(),status:"missing-rig"};return;
+    }
+    // Driver's actual pelvis, not the standing character root or the wheel,
+    // determines where the forward pedals can be reached. The previous
+    // wheel + forward*0.18 position was 1.0–1.3 m from the animated feet.
+    const midpoint=hipL.add(hipR).scale(0.5);
+    const toward=wheel.center.subtract(midpoint);toward.y=0;
+    if(toward.lengthSquared()<0.01){
+      state={...zero(),status:"out-of-tolerance"};return;
+    }
     toward.normalize();
-    const right=new Vector3(Math.cos(cabin.rotation.y),0,-Math.sin(cabin.rotation.y));
-    // Retarget feet *forward* of hips, well inside the lower Ferrari cockpit.
-    // Physical floor is not assumed: the target is bounded above the
-    // imported car's normalized lowest body point and is subject to G4 review.
-    const footBase=wheel.center.add(toward.scale(0.18));
-    footBase.y=cabin.position.y+0.32;
-    const leftFootTarget=footBase.add(right.scale(-0.14));
-    const rightFootTarget=footBase.add(right.scale(0.14));
-    const leftGrip=wheel.center.add(right.scale(-wheel.radius*0.70));
-    const rightGrip=wheel.center.add(right.scale(wheel.radius*0.70));
-    leftGrip.y+=wheel.radius*0.10;
-    rightGrip.y+=wheel.radius*0.10;
+    const footFloorY=Math.max(cabin.position.y+0.22,midpoint.y-0.22);
+    const leftFootTarget=hipL.add(toward.scale(0.37));
+    const rightFootTarget=hipR.add(toward.scale(0.37));
+    leftFootTarget.y=footFloorY;
+    rightFootTarget.y=footFloorY;
+
+    // The near segment of the REAL wheel rim is reachable from a seated
+    // shoulder. Two fixed 9/3 grips were farther from the UAL arms than their
+    // combined bone length. Derive nearest points from existing wrist poses.
+    function nearestRim(hand:Vector3, alternate:Vector3) {
+      const delta=hand.subtract(wheel!.center);
+      delta.y=0;
+      if(delta.lengthSquared()<0.003){
+        delta.copyFrom(alternate.subtract(wheel!.center));delta.y=0;
+      }
+      if(delta.lengthSquared()<0.003)delta.copyFrom(toward.negate());
+      delta.normalize();
+      const target=wheel!.center.add(delta.scale(wheel!.radius*0.92));
+      target.y=wheel!.center.y-0.045;
+      return target;
+    }
+    const leftGrip=nearestRim(handL,hipL);
+    const rightGrip=nearestRim(handR,hipR);
 
     // Snapshots allow complete restoration when player leaves vehicle.
     cachedBaseline.clear();
@@ -157,16 +180,21 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       if(correctionMode==="feet"&&limb.role.endsWith("Hand"))continue;
       if(correctionMode==="hands"&&limb.role.endsWith("Foot"))continue;
       targets[limb.role]=point(limb.to);
-      if(solveChain(mapped.found,limb.chain,limb.to))appliedLimbs.push(limb.role);
+      const attempted=solveChain(mapped.found,limb.chain,limb.to);
       const tip=mapped.found[limb.chain[2]];
       const current=tip?boneWorld(tip):null;
-      if(current){
+      if(current) {
         actual[limb.role]=point(current);
-        errorMetres[limb.role]=Vector3.Distance(current,limb.to);
+        const error=Vector3.Distance(current,limb.to);
+        errorMetres[limb.role]=error;
+        // Attempting an IK solve is NOT equivalent to making contact.
+        if(attempted && error<=0.06)appliedLimbs.push(limb.role);
       }
     }
-    state={enabled:true,status:"active",appliedLimbs,missing:[...mapped.missing],
-      targets,actual,errorMetres};
+    const unresolved=Object.entries(errorMetres)
+      .some(([,error])=>error>0.06);
+    state={enabled:true,status:unresolved?"out-of-tolerance":"active",
+      appliedLimbs,missing:[...mapped.missing],targets,actual,errorMetres};
   });
   return {
     setCabin(next:TransformNode|null,active:boolean,
