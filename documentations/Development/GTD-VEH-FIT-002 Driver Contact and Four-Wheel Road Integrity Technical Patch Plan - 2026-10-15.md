@@ -269,3 +269,23 @@ For controlled comparisons, toggle just one `gtdFitPose002` mode and either/both
 **G4 rejection triggers:** visibly protruding shoes or shins; floating/non-gripping hands; persistent wheel/road separation or tire intrusion on the intended support surface; regression to acceptable backrest alignment; failure to exit back to original walking animation; curb/garage no-step regression; severe mobile frame drops.
 
 **G6 embargo:** The owner specified that G6 only becomes available **in documentation** *after G1–G4 pass tests*. There is currently no implemented or defined G6 milestone here. Do not introduce G6 source code or invent G6 scope. The G6 documentation gate remains CLOSED until G4 automated and live visual acceptance is recorded.
+
+
+## 12. G4 automated QA result and owner-facing visual gate — 2026-10-15
+
+**Source commit inspected and built:** `ed5c04a3b716ab80d7ede242e4b3facf6288e6dd` on `exp/veh-seat-001-ual-driving-loop-20261015`. Manual Vercel preview deployment `dpl_E33jfHBMF93yguJB2DocbuTV9E2v`: **READY**, HTTP 200 from `/game` with combined experimental flags. Preview:
+
+https://gtd-ap7tug0i3-interlinkglobaltech.vercel.app/game?gtdSeat001=1&gtdVehFit002=1&gtdFitPose002=1&gtdFitGround002=1&gtdFitWheel002=1
+
+Vercel build pipeline `npx tsc --noEmit && npx vitest run && npm run build`: **PASS — 71 test files / 283 tests, 0 failures, build successful**. The G1/G2 source naming, isolated pose lifecycle, G3 wheel-floor and independent contact fixture, and G0 synthetic witness all passed. Previous headless fixture failure `No camera defined` was corrected by creating a real Babylon `FreeCamera`; it was not a runtime game fault. This test gate does **not** include a separate `npm run lint` invocation.
+
+**Human and device acceptance remains open.** A successful NullEngine rig test does not prove that the pinned real UAL mesh visually fits this Ferrari, that the wheel/body presentation is plausible over the 0.11-m mixed sidewalk-road profile, or that mobile performance is acceptable. The owner must inspect the exact READY preview. Expected verification in an actual browser:
+1. Low side view: no soles/shins visible beneath car, no body float or curb-related tire penetration.
+2. Rear-oblique top view: both palms contact the real steering rim; elbows are not locked or unnaturally contorted; torso remains against the accepted backrest.
+3. Drive/turn/reverse, cross curb/road positions and stop: all four tread gaps align with the actual supported road/sidewalk, no persistent spring overextension.
+4. Exit/enter and walk: original locomotion pose and safe boarding lifecycle restored.
+5. Mobile landscape: playable and no material performance/quality regression.
+
+The optional A/B controls use `gtdFitPose002=feet` or `hands`, or `1` for both, `gtdFitGround002=1` for real tread-derived collider alignment and `gtdFitWheel002=1` for per-wheel visual contact. `gtdVehFit002=1` exposes `window.__GTD_VEH_FIT_002_REPORT__()` containing both original and enhanced wheel and skeleton contact metrics, including `fittedDrivingPose`.
+
+**Overall status:** G1/G2/G3 code: implemented and automated-verified, NOT yet visually accepted. G4 automated: PASS; G4 desktop/mobile acceptance: PENDING. Production main: unchanged. **G6 documentation gate: CLOSED** until owner-visible G1–G4 acceptance, with no invented G6 work.
