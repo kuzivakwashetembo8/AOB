@@ -61,6 +61,10 @@ export class StreetVehicleActor {
   private destroyed = false;
   private chassisFloorOffsetMetres = 0.035;
   private treadAligned = false;
+  private readonly groundCalibrationEnabled: boolean;
+  private contactCalibrationVerified = false;
+  private roadCalibrationFrame = 0;
+  private roadCalibrationCorrection = 0;
   private readonly visualWheelSupportEnabled: boolean;
 
   constructor(
@@ -73,6 +77,7 @@ export class StreetVehicleActor {
     visualWheelSupportEnabled = false,
   ) {
     this.visualWheelSupportEnabled = visualWheelSupportEnabled;
+    this.groundCalibrationEnabled = alignChassisToRealTires;
     if (![dimensions.x, dimensions.y, dimensions.z].every(n => Number.isFinite(n) && n > 0)) {
       throw new Error("Ferrari trial requires the imported visual's real calibrated bounds");
     }
@@ -168,6 +173,8 @@ export class StreetVehicleActor {
     treadAligned: this.treadAligned,
     chassisFloorOffsetMetres: this.chassisFloorOffsetMetres,
     visualWheelSupportEnabled: this.visualWheelSupportEnabled,
+    roadContactCalibrationVerified: this.contactCalibrationVerified,
+    roadCalibrationCorrectionMetres: this.roadCalibrationCorrection,
     visualWheelTravel: this.wheelRig.visualWheelTravelMetres,
   }; }
 
@@ -253,6 +260,40 @@ export class StreetVehicleActor {
     // tick; physics.world.step() remains owned by MeridianPhysics.movePlayer().
   }
 
+  /**
+   * G3 live witness: the imported Ferrari's tire-to-anchor height measured
+   * during asset instantiation was ~zero, but on an actual driven road frame
+   * the tire treads were 0.129 m *below* the asphalt. A physics-box spawn
+   * calibration cannot be trusted without checking the live tire geometry.
+   *
+   * Calibrate the VISUAL-to-CHASSIS mapping once, only when all four
+   * independent contacts agree on level roadway, never while straddling a
+   * sidewalk, curb, garage threshold or midair. Preserve the Rapier body
+   * and collision response; this does not teleport the physical vehicle.
+   */
+  private settleMeasuredTireFloor(): void {
+    if(!this.groundCalibrationEnabled||this.contactCalibrationVerified||
+      this.destroyed||Math.abs(this.speedMps)>5)return;
+    if(++this.roadCalibrationFrame%12!==0)return;
+    const tires=this.wheelRig.sampleTireTreads();
+    if(tires.length!==4)return;
+    const hits=tires.map(tire=>this.probeWheelSupport(
+      tire.position.x,tire.position.y+0.45,tire.position.z)?.topY);
+    if(hits.some(y=>y===undefined||!Number.isFinite(y)||Math.abs(y!)>0.012))
+      return; // Only flat road (Y=0), not sidewalk top Y=.11.
+    const treads=tires.map(t=>t.bottomY).sort((a,b)=>a-b);
+    if(treads[3]!-treads[0]!>0.045)return;
+    const treadY=(treads[1]!+treads[2]!)*0.5;
+    const roadTop=0.030; // generated-parity main road render top
+    const correction=roadTop+0.006-treadY;
+    if(!Number.isFinite(correction)||Math.abs(correction)>0.22)return;
+    // Prevent a second, contradictory calibration by wheel suspension.
+    this.anchor.position.y+=correction;
+    this.chassisFloorOffsetMetres-=correction;
+    this.roadCalibrationCorrection=correction;
+    this.contactCalibrationVerified=true;
+  }
+
   finish(dt: number) {
     if (this.destroyed) return;
     const translation = this.body.translation();
@@ -271,6 +312,7 @@ export class StreetVehicleActor {
       travelled * (this.drive.speedMps < 0 ? -1 : 1),
       this.drive.steeringRadians,
     );
+    this.settleMeasuredTireFloor();
     if(this.visualWheelSupportEnabled) {
       this.wheelRig.alignVisualWheelContacts(dt,p=>this.probeWheelSupport(
         p.x,p.y,p.z)?.topY??null,this.vertical.grounded);
