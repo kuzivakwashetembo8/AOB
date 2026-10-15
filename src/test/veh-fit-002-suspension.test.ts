@@ -8,7 +8,7 @@ function fixture(){
   for(const [i,name] of ["wheel_fl","wheel_fr","wheel_rl","wheel_rr"].entries()){
     const wheel=new TransformNode("source:"+name,scene);
     wheel.parent=anchor;wheel.position.set(i%2?0.7:-0.7,0.35,i<2?-1.2:1.2);
-    const tread=MeshBuilder.CreateCylinder("tread:"+name,
+    const tread=MeshBuilder.CreateCylinder("tire:"+name,
       {diameter:0.64,height:0.18},scene);
     tread.rotation.x=Math.PI/2;tread.parent=wheel;
   }
