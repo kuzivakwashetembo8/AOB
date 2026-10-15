@@ -31,6 +31,23 @@ const definition=(kind:VehicleCabinKind):VehicleCabinDefinition=>
   {kind:"unknown",floorMeshSuffix:null,floorMaterial:null,
    maxFloorReliefMetres:0.28,clearanceMetres:0.010,maxSoleLiftMetres:0.080};
 
+export type SoleClearancePlan =
+  | {kind:"clear";lift:0}
+  | {kind:"adjust";lift:number}
+  | {kind:"unverified"|"too-deep"|"limit-reached";lift:0};
+/** No arbitrary hiding, vehicle lifting or global humanoid shifts. */
+export function planSoleClearance(
+  soleY:number,floorY:number,clearance:number,maxLift:number,spent:number,
+):SoleClearancePlan {
+  if(![soleY,floorY,clearance,maxLift,spent].every(Number.isFinite) ||
+    clearance<0||maxLift<=0||spent<0)return {kind:"unverified",lift:0};
+  const missing=floorY+clearance-soleY;
+  if(missing<=0.003)return {kind:"clear",lift:0};
+  if(missing>maxLift+0.001)return {kind:"too-deep",lift:0};
+  if(spent+missing>maxLift+0.001)return {kind:"limit-reached",lift:0};
+  return {kind:"adjust",lift:missing};
+}
+
 type Triangle={a:Vector3;b:Vector3;c:Vector3};
 type Sample={evidence:CabinEvidence;floorY:number|null;surface:string|null};
 function interpolateXZ(x:number,z:number,t:Triangle):number|null{
