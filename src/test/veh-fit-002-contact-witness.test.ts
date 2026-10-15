@@ -105,7 +105,9 @@ describe("VEH-FIT-002 G0 actual world contact witnesses", () => {
     try {
       // Source-on-the-road geometry differs from the import-time AABB
       // (the user's four live tires measured -0.129 m signed gap).
-      tires.forEach(t=>t.position.y-=0.129);
+      // Relocate four genuine wheel pivots after initial asset fit (not child
+      // mesh vertices, whose cached rubber profile is authored at import).
+      tires.forEach(t=>(t.parent as TransformNode).position.y-=0.129);
       expect(car.status.roadContactCalibrationVerified).toBe(false);
       for(let i=0;i<14;i++){
         car.prepare(1/60,0,0);
