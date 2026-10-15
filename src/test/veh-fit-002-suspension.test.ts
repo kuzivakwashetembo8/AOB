@@ -10,7 +10,7 @@ function fixture(){
     wheel.parent=anchor;wheel.position.set(i%2?0.7:-0.7,0.35,i<2?-1.2:1.2);
     const tread=MeshBuilder.CreateCylinder("tire:"+name,
       {diameter:0.64,height:0.18},scene);
-    tread.rotation.x=Math.PI/2;tread.parent=wheel;
+    tread.rotation.z=Math.PI/2;tread.parent=wheel;
   }
   const rig=new StreetVehicleWheelRig(anchor,FERRARI_WHEEL_MAPPING);
   return {engine,scene,anchor,rig,dispose(){rig.dispose();scene.dispose();engine.dispose();}};
