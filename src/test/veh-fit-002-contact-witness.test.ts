@@ -30,6 +30,7 @@ describe("VEH-FIT-002 G0 actual world contact witnesses", () => {
       const tire = MeshBuilder.CreateCylinder("tire:" + name,
         { diameter: 0.64, height: 0.18 }, scene);
       tire.parent = pivot;
+      tire.rotation.x = Math.PI / 2;
     }
     const car = new FirstDriveTrial(physics, anchor, { x: 2, y: 1.5, z: 4.53 });
     try {
