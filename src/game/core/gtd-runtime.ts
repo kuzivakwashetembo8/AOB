@@ -103,6 +103,7 @@ export class GTDGameRuntime implements GameRuntime {
   private seatTrialEnabled = false;
   private fit002Enabled = false;
   private driverPose002Enabled = false;
+  private cabinFit003Enabled = false;
   private driverPose002Mode: "feet"|"hands"|"both" = "both";
   private groundFit002Enabled = false;
   private wheelSupport002Enabled = false;
@@ -222,6 +223,9 @@ export class GTDGameRuntime implements GameRuntime {
       !productionHostnameForFit002(window.location.hostname);
     this.driverPose002Mode=fitPoseMode==="feet"?"feet":
       fitPoseMode==="hands"?"hands":"both";
+    this.cabinFit003Enabled=this.driverPose002Enabled &&
+      diagnosticParams.get("gtdCabinFit003")==="1" &&
+      !productionHostnameForFit002(window.location.hostname);
     this.groundFit002Enabled = diagnosticParams.get("gtdFitGround002") === "1" && !productionHostnameForFit002(window.location.hostname);
     this.wheelSupport002Enabled = diagnosticParams.get("gtdFitWheel002") === "1" && !productionHostnameForFit002(window.location.hostname);
     // Only explicit FL-4 diagnostics may exceed native device pixels.
@@ -910,7 +914,9 @@ export class GTDGameRuntime implements GameRuntime {
     voight.root.setEnabled(this.seatedDriverActive);
     if(this.seatedDriverActive){
       this.syncFerrariDriverSeat(car);
-      this.characterTrial?.setDrivingCabin(car.anchor,this.driverPose002Enabled,this.driverPose002Mode);
+      this.characterTrial?.setDrivingCabin(
+        car.anchor,this.driverPose002Enabled,this.driverPose002Mode,
+        this.cabinFit003Enabled,"ferrari");
     }
     this.move={x:0,y:0};
     this.preferredCameraRadius=FERRARI_REAR_CAMERA_RADIUS;
