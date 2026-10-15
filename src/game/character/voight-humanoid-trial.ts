@@ -46,6 +46,7 @@ export interface CharacterTrialReport {
   readonly visualForwardDeg: number;
   readonly gaitState: string;
   readonly gaitTransitionCount: number;
+  readonly drivingClipAvailable: boolean;
 }
 
 /**
@@ -93,6 +94,9 @@ export type LoadedMeridiaCharacter = VoightPrototype & {
   updateAnimation: (inputs: GaitInputs) => GaitDecision;
   updateFlightAnimation: (inputs: FlightPoseInput & { dt: number }) => void;
   setVisualForward: (degrees: number) => void;
+  enterDrivingPose: () => boolean;
+  updateDrivingPose: (dt: number) => void;
+  exitDrivingPose: () => void;
 };
 
 export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMeridiaCharacter> {
@@ -161,6 +165,10 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     flyHoverRight: preferredClip(imported.animationGroups, ["flyHoverRight"]),
     flyHoverUp: preferredClip(imported.animationGroups, ["flyHoverUp", "flyUp"]),
     flyHoverDown: preferredClip(imported.animationGroups, ["flyHoverDown", "flyDown"]),
+    // Three Player Controller's UAL specimen config requests this exact
+    // animation. Check the imported binary's groups, not just demo metadata.
+    driving: imported.animationGroups.find(group =>
+      group.name.toLowerCase() === "driving_loop") ?? null,
   };
   if (!clips.idle || !clips.walk) {
     throw new Error("UAL trial failed: no compatible idle/walking animation clips");
@@ -170,6 +178,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
   let outgoing: AnimationGroup | null = null;
   let blend = 1;
   let activeName = "idle";
+  let drivingPoseActive = false;
   const gaitController = new GaitContinuityController();
   let lastGait: GaitDecision | null = null;
 
@@ -222,6 +231,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
     witness,
     report: (): CharacterTrialReport => ({
       ...reportInfo, activeAnimation: activeName, visualForwardDeg,
+      drivingClipAvailable: clips.driving !== null,
       gaitState: lastGait?.state ?? "idle",
       gaitTransitionCount: lastGait?.transitionCount ?? 0,
     }),
@@ -231,6 +241,24 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       if (!Number.isFinite(degrees)) return;
       visualForwardDeg = Math.max(-180, Math.min(180, degrees));
       visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
+    },
+    enterDrivingPose() {
+      // Fail closed: on an incompatible UAL binary do not synthesize an
+      // unverified seated pose or change the imported locomotion clips.
+      if (!clips.driving) return false;
+      drivingPoseActive = true;
+      switchTo(clips.driving, "driving");
+      advanceBlend(0.18);
+      return true;
+    },
+    updateDrivingPose(dt) {
+      if (drivingPoseActive) advanceBlend(dt);
+    },
+    exitDrivingPose() {
+      if (!drivingPoseActive) return;
+      drivingPoseActive = false;
+      switchTo(clips.idle!, "idle");
+      advanceBlend(0.18);
     },
     updateFlightAnimation(inputs) {
       const pose = selectFlightPose(inputs);
