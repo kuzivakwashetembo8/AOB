@@ -191,3 +191,24 @@ Performance: compare median and P95 frame time, per-frame contact-query count, a
 **Closure requirements:** Feet and lower legs do not visibly leak beneath the car, both hands make credible steering-wheel contact without straight elbows, all four tires rest on the rendered asphalt when physical contact is expected (without sinking or persistent gaps), existing South Ward physics and walking/boarding remain intact, and preview passes owner desktop/mobile verification.
 
 **Next action:** Await explicit owner authorization. No runtime patch, preview generation, merge, release or production change under this research-and-planning request.
+
+
+## 10. Implementation progress / diagnostic handoff — 2026-10-15
+
+**Owner instruction:** Authorized G0 through G4. This authorization enables implementation in order, but **does not convert an unmeasured joint/wheel geometry guess into evidence or automatically approve production promotion**.
+
+**Implemented G0:** An opt-in, on-demand `?gtdVehFit002=1` witness, created in `src/game/vehicles/vehicle-fit-diagnostics.ts`, queries actual wheel pivot descendants, world-space bounding geometry, visual parity asphalt tops, and Rapier downward support rays that exclude the Ferrari's own chassis. It also collects available UAL named bone landmarks, current driving animation and a steering-wheel candidate if the actual imported node is discoverable. This performs no per-frame scans or car/character mutations. A synthetic four-wheel/road regression fixture was added as `src/test/veh-fit-002-contact-witness.test.ts`.
+
+**G0 browser handoff:** On the G0 preview, open `/game?gtdSeat001=1&gtdVehFit002=1`, board the Ferrari, then run in browser DevTools:
+
+```js
+copy(JSON.stringify(window.__GTD_VEH_FIT_002_REPORT__?.(), null, 2));
+```
+
+Paste the copied JSON and matching location screenshot into the development conversation. Repeat at one location with conspicuous wheel clearance and at one location with tire intrusion, if reproducible. The report function is absent unless the experiment was explicitly enabled. If `steeringWheel.found=false` or `character.bones.missing` includes expected joints, stop and inventory the actual imported GLB; do not guess identity/positions.
+
+**G1–G3:** Not yet applied because G0's live actual-model contact distances (not available in a headless repository audit) are required for selecting correct arm/leg targets and discriminating chassis-contact versus road-surface causes. Source-level structural issues are confirmed, but exact correction values are not. G4 full user-facing visual acceptance remains pending. No production deployment or main merge made.
+
+**Build evidence:** A G0 preview was requested on Vercel from `5e9d9c7` (READY at https://gtd-k7h1dipba-interlinkglobaltech.vercel.app/game?gtdSeat001=1&gtdVehFit002=1). A newer preview was requested for `41c373d` to include the synthetic fixture; record its final build/test verdict and exact preview URL after deployment finishes. The G0 build is not visual approval of the yet-unimplemented G1–G3 patches.
+
+**Control:** Owner authorization for G1–G4 stands. Resume implementation after the real G0 telemetry has established the missing geometric measurements, without requesting redundant authorization.
