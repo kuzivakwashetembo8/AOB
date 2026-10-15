@@ -1,0 +1,193 @@
+# GTD-VEH-FIT-002 — Driver Contact and Four-Wheel Road Integrity: Root-Cause Audit and Staged Patch Plan
+
+**Date:** 2026-10-15 (SAST)  
+**Status:** DOCUMENTATION AND SOURCE-LEVEL VERIFICATION ONLY. **NOT AUTHORIZED FOR IMPLEMENTATION.**  
+**Repository:** `interlinkglobal/GTD`  
+**Documentation branch:** `exp/veh-seat-001-ual-driving-loop-20261015` (never automatically promote this plan to main)  
+**Runtime baseline:** `929bbd46327433b6807534e3731562fdde562625`  
+**Accepted visual preview:** https://gtd-8ovbu8kiu-interlinkglobaltech.vercel.app/game?gtdSeat001=1  
+**Accepted invariant:** Stage-1 driver root `cabinForwardFraction=-0.04` and the visually improved seat-back/torso relationship.  
+**Related evidence:** `documentations/Development/GTD-VEH-SEAT-001 Accepted Driving Loop Milestone and Seat-Fit Findings - 2026-10-15.md`; `documentations/Development/GTD-WORLD-002 Ferrari L0 Physics Hardening - 2026-10-12.md`; `documentations/Development/GTD-WORLD-003 Main Audit and Six-System Implementation Plan - 2026-10-13.md`.
+
+## 0. Decision and strict boundary
+
+The owner's four desktop screenshots show (1) a now acceptable rearward seat-back position, (2) feet/lower legs visible beneath the Ferrari, (3) hands close to but not touching the steering wheel, and (4) wheels intermittently hovering above the asphalt, with prior episodes of wheel intrusion. This plan addresses those as **two character-presentation faults plus one physically independent vehicle-support fault**. They are NOT a single origin-offset problem.
+
+**No changes to production or runtime have been made in this work item.** Source files and tests were inspected, but no GLB bone-pose telemetry, four-wheel road probes, browser console export, device profiling or in-engine test was executed. Distinguish a proven absent constraint from an unmeasured offset. Do not call an exact measured wrist/foot/tire displacement “verified” until a live diagnostic supplies it.
+
+Full authorization will require owner approval for each proposed implementation stage; this planning directive authorizes the document only. Preserve main, all approved South Ward content, and manual intentional Vercel releases.
+
+## 1. Root causes: source-proved facts versus measurements still required
+
+### RC-01 — lower legs/feet intersect vehicle underside
+
+**Direct evidence:** `src/game/vehicles/driver-seat-placement.ts` computes one XYZ/yaw pose for the whole humanoid. Its only Stage-1 change was local cabin fore/aft fraction `-0.12 -> -0.04`: `0.08 × 4.53 m ≈ 0.3624 m` toward the backrest. `aboveRoadHeightFraction=0.56` and lateral fraction `0.20` remain unchanged. `src/game/core/gtd-runtime.ts::syncFerrariDriverSeat` applies that one root transform. `src/game/character/voight-humanoid-trial.ts` loads a pinned UAL GLB and switches to its exact `Driving_Loop`, with no hip/knee/ankle/foot adjustment or car-local footwell target.
+
+**Verified explanatory mechanism:** changing the character's entire fore/aft position cannot independently modify where the animated feet fall relative to the seat cushion/floor/pedals. The binary's generic driving pose is not retargeted to this Ferrari's cabin. Pedestrian normalization sets character height to `1.78 m` and its normalized visual origin to a fixed `-0.9 m` offset; neither is a driving-specific calibration.
+
+**Not verified without runtime measurement:** exact penetration depth; whether one/both sole geometries cross the floor; source hip/ankle frame coordinates; accurate footwell floor height; influence of car heave on the screenshots. Do not attribute all exposed feet to car suspension: a correctly grounded car can still have invalid leg posing.
+
+### RC-02 — hands hover instead of gripping the wheel
+
+**Direct evidence:** `enterDrivingPose()` only switches skeletal animation groups. The `Driving_Loop` is a generic clip; there is no per-Ferrari wheel-hub/grip transform, two wrist contact targets, arm calibration layer, hand/finger grip stage or frame-update contact solver. The `0.3624 m` backward translation also moves the unchanged animated hands away from an unmoved steering wheel.
+
+**Verified explanatory mechanism:** there is no positional contact constraint to enforce coincidence of the two hands and real steering wheel at any driving frame. A generic driving reach need not terminate at this GLB's steering-wheel rim.
+
+**Not verified without measurement:** actual wrist-to-grip distances, which side fails by how much, whether hands are oriented toward rim, whether a simple shoulder/elbow overlay can reach without unnatural extension, and whether the steering rim has a stable pivot in this GLB.
+
+### RC-03 — visual tire/road contact does not follow the chassis simulation
+
+**Geometry and contact audit:**
+1. `src/game/world/first-light-runtime-source.ts` selects `generated-first-light` at runtime.
+2. `src/game/world-generation/urban-surface-renderer.ts` draws `generated-parity-main-road` as a box with centre Y `0.015`, thickness `0.030`, visual top **Y=0.030 m**; rear road centre `0.018`, thickness `0.035`, top **Y=0.0355 m**. Visible centerline and crosswalk boxes are additional nonphysical overlays.
+3. `src/game/world/generated-first-light-world.ts::createGround` creates the actual broad Rapier floor box at Y `-0.12` with half-height `0.12`, physical top **Y=0**. `registerUrbanNavigationCollision` registers curbs and selected sidewalk tops, **not the visual asphalt boxes**. Thus asphalt support and asphalt pixels are not an identical surface.
+4. `src/game/experiments/imported-car-evaluation.ts::modelBounds` normalizes the Ferrari's floor with the **global minY among all imported meshes**, not with four actual wheel-tread minima; it separately applies trial shape multipliers **width ×1.05** and **height ×1.10** (through the asset fit). The normalized model floor therefore need not equal each tire bottom.
+5. `src/game/vehicles/first-drive-trial.ts` creates ONE kinematic full-car cuboid collider with its centre at `anchor.y + dimensions.y/2 + 0.035`, i.e. its initial collider bottom is 0.035 m above visual-anchor Y. The kinematic character controller is created with a `0.02 m` offset. After each physics step, the same 0.035-m mapping is reversed to update the visual anchor.
+6. Car driving uses `computeColliderMovement` for this cuboid, with `maxCurbAutostepMetres=0.24`, `groundSnapMetres=0.25`, bounded climb and gravity. Clearance is calculated relative to a **chassis box**, not the four actual wheel contact patches; the entire car can be lifted when the chassis collides with a curb/sidewalk. Earlier real-world run recorded maximum centre support gap `0.24418357610702512 m`; this was a **historical run maximum**, not proof of hovering at the moment sampled.
+7. `src/game/vehicles/street-vehicle-wheels.ts` finds wheel pivots and uses measured/fallback radii to animate roll/steer only. It does not use those radii for collider floor support, vehicle pitch/roll, or wheel-ground sampling. `StreetVehicleActor.finish()` casts a **single downward support ray beneath chassis centre**, so its `grounded` status and maximum gap cannot certify tire contact for each wheel.
+8. `src/game/physics/rapier-world.ts` advances Rapier once in `movePlayer()`; the driver branch of `gtd-runtime.ts` already uses prepare -> world step -> finish. Keep single-step ownership in any patch.
+
+**Verified explanatory mechanism:** four different reference systems (rendered asphalt height, broad collision floor height, cuboid bottom/skin, imported model/tire position) are not bound by a tire-contact invariant. The car can be “grounded” at a chassis contact and nevertheless render wheels above/below the pictured road. The ~3-cm source-level main-road visual/physics separation and explicit 3.5-cm chassis offset are exact constants. They are **not** proof that their sum is the observed hover gap; skin behavior, asset wheel-minY, curb contacts and live pose must be measured.
+
+**Still open:** Which collider actually supports each screenshot frame (world floor, 21-cm curb, 11-cm sidewalk, garage threshold or other world geometry)? Signed vertical gap under each tire? Which mesh vertex is the current imported asset's floorY? Are apparent wheel penetrations due to rendered road versus physical floor, or collider movement/transient autostep? Avoid declaring a single variable or adding a blanket upward/downward offset until telemetry resolves this.
+
+### RC-04 — automated validation did not inspect the actual visual geometry
+
+The current `src/test/veh-seat-001-ual-driving-loop.test.ts` tests clip-name selection and root pose mathematics. `src/test/ferrari-rapier-world-integration.test.ts` tests directional driving, curbs, thresholds and exit on a NullEngine scene with a **dummy car TransformNode**; `src/test/street-vehicle-wheels-grounding.test.ts` checks quaternion pivots and vertical policy, not wheel contact against live Ferrari geometry. Therefore a READY deployment and passing tests cannot establish footwell clearance, wrist-on-wheel contact or road/tire contact. The verification gap is a distinct root contributor to the regression reaching human review.
+
+## 2. Stage dependency and approval gates
+
+Use separate commits/preview checks; stages never silently absorb another discipline:
+
+| Gate | Scope | Expected deliverable | Requires owner implementation approval? |
+| --- | --- | --- | --- |
+| G0 | Read-only geometry witness of existing running rig/car/road | Complete world-space contact measurements, screenshot/diagnostic correlation; identify highest contributing mechanisms | Yes, before writing instrumentation |
+| G1 | Footwell/lower-limb adjustment only | Legs face pedals, soles stay inside footwell; preserve accepted torso and exterior world | Separate approval |
+| G2 | Steering rim/wrist/arm adjustment only | Both hands touch actual wheel rim, relaxed elbows, no reach beyond natural length | Separate approval |
+| G3 | Vehicle support/visual wheel integrity only | Four wheel tread/road top contacts satisfy tolerance over straight roads/curbs; no tire penetration or float | Separate approval |
+| G4 | Integrated desktop/mobile and performance acceptance | Complete regression matrix, field evidence and owner sign-off | Separate release/merge authorization |
+
+**Recommended order:** G0 -> G1 -> G2 -> G3 -> G4. G3 may be developed independently in its own branch after G0, but do not merge fixes into one unreviewable commit. The user retains control of every implementation gate.
+
+## 3. G0 — instrumentation and direct verification specification
+
+Create a reversible, read-only `VEH-FIT-002` diagnostic behind `?gtdVehFit002=1` on a nonproduction preview, or export measurements in the console without any persistent UI overlay. Preserve existing `?gtdSeat001=1` to render the driver. Never send user diagnostics off device automatically.
+
+### 3.1 Common coordinate and reference capture
+
+On real imported GLBs, sample **Babylon world matrices after skeletal animation evaluation**, including all ancestor transformations: Ferrari anchor, shape scaling, orientation and imported origin; Voight root, visual-root normalization and pose; actual wheel pivot orientations. Report axis convention, units (metres), Y-up, wheel-local front sign, timestamps, and sampled frame state.
+
+Freeze stable scene references once per model load; avoid repeated `getChildMeshes()` and full skeleton scans every frame. Resolve named wheel pivots using existing mapping, then inspect descendant tire mesh vertices/bounds only during diagnostic sampling. Locate steering wheel rim/center and driver's seat/backrest/floor/footwell with either existing imported node landmarks **if real nodes exist**, or explicit noninvented mesh geometry landmarks chosen during one-time asset inspection. If geometry is not separable, report `unresolved` rather than fabricate a node name or contact point.
+
+Resolve UAL left/right hip, knee, ankle, toe/sole, shoulder, elbow, wrist and hand landmarks from the imported actual skeleton (possibly via skinned vertices when suitable). Report bone presence, local and world transforms, active animation `Driving_Loop`, normalization and blend state. Never assume Mixamo names or a universal skeleton hierarchy.
+
+### 3.2 Signed contact and penetration witnesses
+
+- `footSoleToFloor`: signed distance along a verified cockpit floor normal from each actual foot sole to the local target footwell surface; include forward-in-footwell containment, calf/shin intersections where possible, and visibility below the Ferrari underside. Negative means penetrated.
+- `wristToGrip`: 3D distance between each current palm contact marker and independently measured left/right wheel-grip target, plus elbow flexion angle, palm orientation error and maximum reachable arm length.
+- `tireRoadGap[FL,FR,RL,RR]`: world-space tire tread bottom Y minus **rendered asphalt top at each actual wheel X/Z**, with matched physical Rapier support hit Y, hit collider identity/category, wheel radius, source mesh tread bounds, chassis collider bottom and KCC `grounded`.
+- Record visual-vs-physical asphalt surface delta, live chassis/root vertical offsets, support gap, vertical velocity, curb-autostep and snap state; distinguish center support from all-four-wheel contact.
+- For each metric record `available:true/false`; display invalid data as `unmeasured`, never silently default to zero.
+
+**Test matrix:** straight main Mercer road, Foundry rear road, side Workshop road, painted lines, near curb (without touching), 21-cm curb approach/ascent/descent, protected 22-cm garage sill, idle on level street, forward/reverse, 90°/180° headings, turns, and a safe drop-off if geometry exists. Sample several stopped frames and a bounded moving trace to distinguish static calibration from transient flight. Compare matching low side / overhead / rear screenshots.
+
+**G0 exit:** A signed contact table for all real feet, wrists and tires; proof of actual scene references and which world mesh/collider was hit; diagnosis for visual tire float versus prior sinking; short raw diagnostic export with sensitive/unrelated user data excluded. If unavailable, stop and report missing witness before choosing offsets.
+
+## 4. G1 — footwell fitting: minimal pose correction
+
+**Goal:** Keep body seated against approved backrest while feet enter the cockpit floor/pedal space. No vehicle vertical lift and no root fore/aft rollback.
+
+1. Freeze `FERRARI_SEAT_POSITION.cabinForwardFraction=-0.04`, along with seat lateral fraction/yaw and existing character height. Convert the measured footwell geometry from Ferrari local into Voight/UAL visual and skeleton coordinate spaces with full matrix composition, including nonuniform Ferrari scale.
+2. Identify footwell floor and feasible calf-to-pedal path. Compute intended left/right foot contact destinations inside available footwell volume and below dashboard, with knees flexed and no visible shins outside the body. Treat any true car mesh floor clearance as inviolable; do not “fix” by hiding mesh materials.
+3. Prefer a deterministic **small additive correction layered after the imported `Driving_Loop`** for hip/knee/ankle rotations, scoped to driving only. Check bone IDs and animation group target ownership; an additive track must be applied in a reliable per-frame animation phase so that the underlying GLB clip does not overwrite it.
+4. If direct bone calibration cannot satisfy the measured limb geometry, evaluate a limited existing-rig two-bone leg solver (hip/knee/ankle) with stable knee bend and joint limits; NOT a replacement humanoid model or a generic procedural character engine. The fallback must be opt-in and isolated. Do not introduce a new GLB or pose system without explicit escalation.
+5. Bound limb motion and avoid unnatural contortions. Disable these overrides on exit, flying/walking or missing clip; restore the canonical original walking animation accurately after any transition.
+6. Test no lower-body visibility under chassis from left/right low side, underneath where possible, overhead and moving camera angles, including braking, reversing, turning, steering and a stopped car. Check body position remains against backrest and arms unaffected.
+
+**Proposed measurable acceptance:** zero visible boot/shin/chassis penetration; floor containment with nonnegative signed clearance except separately intentional sole-to-pedal contact; feet forward relative to hips and anatomically believable knees; accepted torso root remains unchanged. Define numerical tolerance from G0 model resolution, not guess a vertical constant beforehand.
+
+**Touched code (proposal):** `src/game/character/voight-humanoid-trial.ts` (driving-only pose layer), a new `src/game/character/driver-footwell-fit.ts` for tested pose constraints; `src/game/core/gtd-runtime.ts` only for explicit lifecycle binding; dedicated tests for bone-limit matrices and exit restore. `driver-seat-placement.ts` only if G0 proves an independent non-fore/aft correction is necessary, requiring owner reapproval.
+
+## 5. G2 — steering-wheel contact without straight-arm reaching
+
+**Goal:** Hands contact real Ferrari wheel rim with a controlled bend. No fake painted hands or rigidly extended arms.
+
+1. At G0-confirmed real steering wheel center, plane/orientation and radius, define two valid left/right grip points relative to the Ferrari cabin/wheel transform; document grip convention before implementation. If wheel steering rotation animates, update grip points with the **real steering-wheel node** if present; if not, keep them fixed and document that limitation rather than invent mesh motion.
+2. For each frame in driving pose, transform both grip points to the character skeleton frame, compare current wrist/palm positions and reachable joint-angle envelope. Distinguish hand **position**, hand **orientation**, and finger placement; matching one does not imply a real grasp.
+3. First attempt a small driving-only shoulder/elbow/wrist offset or pose overlay layered after the clip. Require visible elbow flexion and a relaxed shoulder angle; retain the successful current overall reach. If unavoidable, introduce a bounded two-bone arm solver per side; lock other bones and keep original UAL skeleton.
+4. Maintain contact through car turns, idle, motion and camera changes; do not conflate vehicle steering input with wheel mesh rotation if the wheel lacks an authored animated pivot. Update contact after the car's final world matrix but before the frame is rendered. Do not write physics velocities or move the car to follow the hands.
+5. Exit/enter failure: no stale steering targets, avatar hand snap after disembark, or duplicated animation observers. Report target missing rather than silently counting a grip as passed.
+
+**Proposed measurable acceptance:** hands visibly touch the steering wheel in top/side/rear interior/exterior frames; both grip errors within a G0-derived tight tolerance (initial engineering objective <= 5 cm for palm contact marker), no outstretched locked elbows and no chest-to-wheel regression. Separate finger fidelity from palm contact; no finger IK unless explicitly approved.
+
+**Touched code (proposal):** new `src/game/character/driver-wheel-hand-fit.ts`, driving clip layer hooks, Ferrari visual-landmark adapter (not direct dependency on a Ferrari-branded skeleton). No new 3D art required unless real wheel markers prove absent.
+
+## 6. G3 — wheel-to-road integrity: physically grounded, visually consistent
+
+**Goal:** Each rendered tire's tread stays at the actual roadway support when stationary and moving; preserve collision correctness and intended 21-cm curb behavior. This is a **separate vehicle-physics task**, not a character foot-height fix.
+
+### 6.1 G3-A: isolate baseline static errors
+
+1. Add G0 comparison assertions: for each tire at rest on flat Mercer, record `renderedRoadTopY`, `RapierRoadTopY`, `tireBottomY`, `wheelCenterY`, fitted radius and `chassisBoxBottomY`. Record current difference between visual road (0.030 m) and global collision floor (0 m).
+2. Determine which vertex sets cause the imported `modelBounds().floorY` minimum. If the lowest rendered model feature is not tire tread, define a car-specific local visual floor-to-wheel contact offset from actual wheel geometry. Do NOT hard-code `0.32 m` wheel radius as a physical truth: fallback radius is an animation value.
+3. Quantify effects separately: full-car box's built-in +0.035 m centre offset, controller 0.02 m margin, asset minY bias, and 0.030/0.0355-m asphalt-to-physical-floor delta. For each potential change, state whether it affects physics body, rendered mesh, road, or diagnostics.
+4. On straight road **only**, choose the smallest coherent correction so the avatar/car world-coordinate systems share one authoritative surface. Prefer explicit visual-road/physical-road agreement or a measured vehicle contact adapter, not an arbitrary global camera/mesh lift. Preserve existing sidewalk/curb physical heights and foot support.
+
+### 6.2 G3-B: four-wheel support invariant
+
+1. After static alignment, extend vehicle support from one centre ray to **four tire-contact footprint probes**, using actual wheel pivot world matrices and geometry-derived radii/lowest tread positions; distinguish road from curb, sidewalk, building and no-step portal colliders.
+2. For each active wheel, cast robust downward support rays/shapes in the authoritative Rapier world; ensure no self-hits, avoid querying decorative meshes, and cap ray ranges. Compare to the corresponding rendered surface height at that XY/XZ point for visual parity.
+3. Produce a desired coherent car pose based on support of the contact set. On level ground use stable height; on shallow uneven ground calculate bounded pitch/roll if necessary; maintain all collision constraints. A four-wheel contact point set may not be coplanar: define suspension or compliance rules so one unsupported wheel is not falsely claimed grounded. **Do not impose four exact contacts when a car physically straddles a high curb or is airborne.**
+4. Preserve safe dynamic behavior: finite bounded vertical velocity and displacement, nonpenetration by swept chassis collider, strict garage no-step footprint protection, 21-cm curb ascent, genuine obstacle blocking and exactly one central Rapier step. On high-speed/drop-off transitions, use controlled landing rather than visible snapping or teleporting.
+5. Investigate whether to keep the existing chassis KCC with a wheel-informed support height correction as a focused GTD L0.5 stage or whether a separate suspension-ready shared vehicle actor is necessary. The second option requires new explicit authorization after an A/B prototype; **do not automatically replace driving physics with a full dynamic four-wheel solver**.
+6. Integrate driver sync against the final car pose. Any pitch/roll extension must propagate via a full relative transform (quaternion/matrix) to the seated avatar so its approved seat-back alignment does not detach on elevation changes. Verify camera look/follow is stable and wheel roll/steer remain working.
+7. Data lifecycle: cache four wheel references, destroy probes cleanly with vehicle, perform measured low-cost contact queries at fixed 60Hz, and do not add per-frame full-scene raycasts against all meshes. Handle missing pivot or missing asphalt gracefully, with truthful diagnostic fault state and safe L0 rollback.
+
+**Proposed contact acceptance on verified flat drivable asphalt:** signed tread-to-visible-road gap targeted within +/-0.015 m at rest for all four tires, no visible floating or sinking at ordinary gameplay camera distance. For moving asphalt, use a G0-derived allowance of at most +/-0.03 m during bounded transient frames where contact is physically expected, with no persistent error; report larger gaps and classify genuine airborne/wheel-lift conditions separately. These are proposed engineering tolerances, **not measurements of the current preview**. Do not count road-paint plane intersections as chassis support.
+
+**Touched code (proposal):** `src/game/vehicles/first-drive-trial.ts`, `street-vehicle-physics.ts`, `street-vehicle-wheels.ts` (read-only wheel geometry accessors, not fake visual rig), `src/game/world/generated-first-light-world.ts` / `urban-surface-renderer.ts` only after G0 confirms the least disruptive surface harmonization, a new vehicle support/contact module, dedicated real Rapier regression fixtures. Avoid changing every South Ward static collider as a workaround.
+
+## 7. Verification contracts: no premature PASS
+
+### Source and deterministic unit tests
+
+- `VEH-SEAT-001`: preserve seat-root -0.04, forward/lateral/yaw axes, all cardinal headings, invalid-number rejection and Ferrari pose-follow test.
+- New character tests: actual mapped skeleton joint set, no override when clip missing, deterministic pose layer after clip, frame-to-frame footwell clearance with captured real-model fixtures, valid elbow angles, grip world matrix under yaw and nonuniform scaling, enter/exit/flight/walking cleanup.
+- New world geometry test: actual generated Mercer main/rear asphalt visual tops and registered broad Rapier floor support; ensure those heights cannot drift silently after fixes.
+- New Rapier + imported wheel contact fixtures: four wheels measured from real geometry (or explicitly recorded fixture mesh), road surface Y != physics Y, car origin normalization minY != tire bottom, curb on one side, shallow drop, no-step garage, red/green support states, steering/rotation, reverse, high-speed collision, initial/late-frame transient, car entering/exiting.
+- Headless tests cannot substitute for rendered screenshots or live GPU timing.
+
+### Whole-app regression and deployment
+
+Run existing `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run build` with repository-approved dependency versions; report counts and failures without guessing. Validate ready preview build from the exact head commit for each stage; do not confuse README/doc-only commits with actual runtime validation.
+
+On real browser, inspect daytime and night views (lighting cannot hide the test), desktop high-density and mobile landscape/low-power. Verify flat street, sidewalk crossing, protected garage, spawn, nearby buildings, walking, flying, boarding, idle driving, turns, reversing, braking, stop-and-exit, player/camera viewpoint and renderer responsiveness. Record before/after static captures with the same vehicle X/Z/yaw and time-of-day; save diagnostic contact table. Require no new shader/world visibility regression, no freeze, no duplicate skeletons or long-lived observers.
+
+Performance: compare median and P95 frame time, per-frame contact-query count, active meshes and memory/GC trend to **measured baseline** under equal graphics settings. Do not assert an arbitrary mobile FPS PASS from unit tests. If cost regresses materially, reduce diagnostic overhead first; if contact solver still exceeds agreed device budget, stop at gate and reassess scope.
+
+**Release policy:** Stage branches first; manual Vercel preview after passing gates; user desktop acceptance; user mobile acceptance; separate explicit authorization to merge/deploy main. The source Ferrari and UAL specimen remain evaluation assets with unresolved final product licensing/art sign-off.
+
+## 8. Failure modes and reversible controls
+
+| Failure mode | Guardrail | Rollback |
+| --- | --- | --- |
+| Pose adjustments get overwritten by UAL `Driving_Loop` | Apply scoped layer in tested phase after clip evaluation; verify each sampled frame | Turn off G1/G2 trial switch; restore unchanged clip |
+| Feet hidden instead of fitted | Validate actual geometry distances and low-side visibility; no mesh/material masking | Restore G1 pose and keep accepted root |
+| Arm reach mechanically impossible | Measure maximum reach and limits before solving; abort if no plausible grip | Restore G2 pose without changing seat |
+| Misidentified GLB wheel/steering nodes | Validate real names, mesh descendants, coordinate handedness and transforms | Keep original adapter and report missing landmarks |
+| Chassis floats due to edge/curb contact | Compare four support identities and full chassis swept collider; handle transitional wheel lift | Return to original KCC vehicle actor |
+| Car sinks after global ground adjustment | Never shift world/roads wholesale without exact visual + Rapier parity and pedestrian regression | Revert isolated road/support change |
+| KCC and wheel solver both move body | Keep one authoritative vehicle translation and one world step; forbid duplicate motion writes | Disable new contact policy |
+| New pitch/roll detaches driver/camera | Recompute child pose from full vehicle world matrix, preserve established seat-back fit | Disable orientation extension |
+| Missing asset/clip on mobile | Fail explicitly, no synthetic PASS or obsolete placeholder actor | Keep original L0 hidden-driver behavior if clip absent |
+| Performance regression / memory leak | Cache nodes, bounded probes, dispose observers and diagnostics; measure P95/GC | Disable feature flag per stage |
+
+## 9. Owner decision checklist (not implementation approval)
+
+**Already approved:** Backrest/torso improvement from the `0.08 × length` rearward root translation. Retain it.
+
+**Pending stage-specific approval:** G0 live diagnostics; G1 lower-leg fitting; G2 wheel-grip fitting; G3 tire/road support and possible narrow road-collider alignment; G4 integrated acceptance and promotion. A document commit does not authorize implementing any of these.
+
+**Closure requirements:** Feet and lower legs do not visibly leak beneath the car, both hands make credible steering-wheel contact without straight elbows, all four tires rest on the rendered asphalt when physical contact is expected (without sinking or persistent gaps), existing South Ward physics and walking/boarding remain intact, and preview passes owner desktop/mobile verification.
+
+**Next action:** Await explicit owner authorization. No runtime patch, preview generation, merge, release or production change under this research-and-planning request.
