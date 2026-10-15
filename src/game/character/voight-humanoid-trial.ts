@@ -104,7 +104,8 @@ export type LoadedMeridiaCharacter = VoightPrototype & {
   enterDrivingPose: () => boolean;
   updateDrivingPose: (dt: number) => void;
   exitDrivingPose: () => void;
-  setDrivingCabin: (anchor: TransformNode | null, enabled: boolean) => void;
+  setDrivingCabin: (anchor: TransformNode | null, enabled: boolean,
+    mode?: "feet"|"hands"|"both") => void;
   driverContactReport: () => unknown;
   disposeDriverContact: () => void;
 };
@@ -252,7 +253,7 @@ export async function loadMeridiaCharacterTrial(scene: Scene): Promise<LoadedMer
       visualForwardDeg = Math.max(-180, Math.min(180, degrees));
       visualRoot.rotation.y = visualForwardDeg * Math.PI / 180;
     },
-    setDrivingCabin(anchor, enabled) { driverPose.setCabin(anchor, enabled); },
+    setDrivingCabin(anchor, enabled, mode = "both") { driverPose.setCabin(anchor, enabled, mode); },
     driverContactReport: () => driverPose.report(),
     disposeDriverContact: () => driverPose.dispose(),
     enterDrivingPose() {
