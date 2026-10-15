@@ -448,3 +448,49 @@ The preview remains separately feature-gated. The initial review should enable `
 **Acceptance protocol:** The real in-game report must show properly found rubber tire evidence and four asphalt IDs, with non-null physical and rendered contact witnesses and no exterior limbs. `fittedDrivingPose.status="contact-only-unverified-cabin"` is **not full acceptance** even if joint endpoint residuals are small: actual boot/palm surface and cabin containment remain visually unverified. Owner screenshots can reject the result regardless of test count.
 
 **G6:** Still CLOSED until the AR1 combined implementation satisfies the pre-existing G1–G4 automated **and real rendered** acceptance criteria. No G6 content has been invented or implemented.
+
+
+## 14. Owner-accepted seated recovery and residual foot leak — 2026-10-15
+
+**Outcome classification:** **MAJOR SUCCESS — PRIMARY SEATED POSITION ACCEPTED; MINOR RESIDUAL FOOT CLIPPING OPEN.** This is a new owner-observed milestone following Section 13 and **supersedes the earlier “overall seating unsuccessful” visual conclusion** for this AR1 preview only. Earlier failures remain preserved as historical evidence; they must not be deleted or silently reclassified as successful.
+
+**Owner instruction:** “The problem has been largely solved. Voight is sitting successfully in the intended position however his feet are slightly peaking from underneath the car. This is the exact patch you don't want to just jump into because it is small, we must not risk breaking a success mode for a quick fix. Document that the solution worked however Voight's feet is slightly leaking outside of the bottom of the car.”
+
+### 14.1 Accepted visual result and evidence
+
+- **Preview:** https://gtd-7r0gftpf1-interlinkglobaltech.vercel.app/game?gtdFitGround002=1&gtdSeat001=1&gtdVehFit002=1&gtdFitPose002=1
+- **Experiment branch:** `exp/veh-seat-001-ual-driving-loop-20261015`.
+- **Preview's previously reported code commit:** `4d6ad7228b99f9288ca5ea8768be77b64b1ab95e`; deployment `dpl_7Wb7Sqg3Wx8BNqv4i3dtxiDKRf3Y` was reported READY. This documentation update is **not** a new deployment.
+- **Submitted evidence:** Two owner screenshots of the running desktop/browser preview, captured 2026-10-15 approximately **16:34** and **16:39** local, at **South Ward / Foundry Lane** during in-game night. Screenshots are attached to the conversation; their binary content has not been copied into the repository.
+- **Owner-accepted:** Voight now appears to occupy the **intended seated position inside the Ferrari**. The previous severe out-of-cabin body/arm displacement is not visible in these two images. The head and upper torso appear appropriately seated behind the windshield and the character remains visibly inside the driver cabin.
+- **Residual visible defect:** At least one small yellow/orange **foot or boot section remains visible below the Ferrari's lower body / undercarriage**, most apparent from the low-rear/side angle. The original owner describes the feet as **slightly peeking from underneath**. This is a localized mesh-containment issue in the otherwise accepted driving pose, not grounds to undo the recovered seated position.
+- **Limits of the evidence:** These screenshots and owner assessment establish **successful primary seated appearance**. They do **not** establish millimetre-accurate footwell clearance, both hands' exact palm contact with the steering wheel, four-wheel road contact at multiple locations, driving/exit cycles, or mobile performance. No new diagnostic JSON accompanied these two images; do not invent distances or declare full G4 acceptance.
+
+**Feature-flag control:** The displayed URL includes `gtdFitGround002=1`, `gtdSeat001=1`, `gtdVehFit002=1`, and `gtdFitPose002=1`. It **does not** include `gtdFitWheel002=1`. The latter visual wheel-travel subsystem remains outside this screenshot's test scope.
+
+### 14.2 Success-preservation contract
+
+**Freeze the visibly accepted cabin posture as the new observational baseline.** Specifically:
+
+1. Preserve the accepted seat-back / head / chest alignment, original character scale, Ferrari import scale, driver root, and current driving animation integration.
+2. Preserve the successful AR1 reflected-joint parent-space conversion, bounded corrections, animation lifecycle ordering and transactional rollback. Do not revert these merely to hide the residual shoes.
+3. Do **not** apply a speculative global Y offset, whole-character translation, uniform shrink, wheel/chassis-height change, animation replacement, mesh hiding or destruction, or arbitrary new inverse-kinematics target to eliminate the small visible piece. Such broad changes risk regressing the larger accepted improvement.
+4. Treat the outstanding issue as **one isolated footwell containment defect** requiring precise visual/mesh evidence and an independently reviewable future correction, not as a justification for immediately rebuilding seating or vehicle physics.
+5. Before any later implementation, preserve reproducible baseline screenshots from equivalent low-side/rear and overhead angles, identify which foot/mesh (if any) crosses which actual underbody surface, and compare against the successful preview using the **same flags and pose**.
+6. Any later candidate must be reversible and acceptance-gated: no exterior feet, no new arm/torso/head drift, no seated pose regression, no car/road or controller regressions, and no meaningful mobile-performance degradation. Evidence must come from the actual imported UAL and Ferrari assets, not synthetic-only tests.
+
+**Authorization boundary:** The user requested **documentation and restraint**, not a new patch. Accordingly **no gameplay code modification, no new build/preview deployment, and no production merge** are authorized by this message. Await an explicit future instruction before investigating by source mutation or fixing the boot leak.
+
+### 14.3 Updated acceptance classification
+
+| Area | Current state | Evidence |
+| --- | --- | --- |
+| Voight principal in-car seat positioning | **SUCCESS — owner accepted visually** | Two new nighttime desktop screenshots and explicit owner approval of intended position |
+| Underbody foot/boot containment | **OPEN — minor visible leak** | Yellow/orange foot geometry protrudes below Ferrari |
+| Hand-to-rim exact contact | **NOT CONFIRMED by these views** | No close diagnostic or targeted grip image |
+| Four-tire rendered road clearance | **NOT CONFIRMED by these views** | No four-wheel geometry/road-contact telemetry |
+| G4 combined acceptance | **PARTIAL; NOT CLOSED** | Core seated appearance passed, residual foot containment and remaining checks open |
+| G6 | **CLOSED** | Prior prerequisite of complete G1–G4 acceptance not satisfied |
+| Production | **UNCHANGED** | Isolated preview branch only |
+
+**Next action:** Hold the accepted implementation unchanged. When the owner explicitly authorizes further work, begin with a diagnosis-only, foot-specific containment assessment; do not jump straight to a patch.
