@@ -35,7 +35,9 @@ const EMPTY:Record<WheelCorner,string>={
   frontLeft:"veh011-missing-front-left",frontRight:"veh011-missing-front-right",
   rearLeft:"veh011-missing-rear-left",rearRight:"veh011-missing-rear-right",
 };
-const approvedWheelName=/(?:^|[^a-z])(?:wheel|tyre|tire)(?:[^a-z]|$)/i;
+// Accept ordinary authoring labels such as Wheel_01, Wheel001, Tire.FR;
+ // ambiguous labels still require measured geometry and four unique corners.
+const approvedWheelName=/(?:^|[^a-z])(?:wheel|tyre|tire)(?:[\s_.-]*\d+)?(?:[^a-z]|$)/i;
 const exclusions=/(?:arch|fender|brake|caliper|steer(?:ing)?wheel|axle|hubcap)/i;
 interface Candidate{
  mesh:AbstractMesh;

@@ -31,6 +31,8 @@ import {
 import { FERRARI_WHEEL_MAPPING } from "../vehicles/street-vehicle-wheels";
 import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig,
   type FiveModelName} from "../vehicles/ambient-fleet-driving-011";
+import {splitOriginalMergedWheelGeometry}
+  from "../vehicles/merged-original-wheel-extraction-012";
 function productionHostnameForFit002(name: string) {
   return name === "grand-theft-division.vercel.app";
 }
@@ -692,17 +694,30 @@ export class GTDGameRuntime implements GameRuntime {
           const name:FiveModelName=rover?"Range Rover":extra!;
           let actor:FirstDriveTrial|null=null;
           try {
-            const wheels=rover?prepareRangeRoverWheelRig(parked.anchor):
+            const discovered=rover?prepareRangeRoverWheelRig(parked.anchor):
               prepareNativeFleetWheelRig(parked.anchor,extra!);
+            // The Defender's source has a single Draco mesh. First try exact
+            // original independent meshes; only then attempt non-procedural
+            // separation of four symmetric tire islands from that source.
+            // A failed audit leaves the original geometry completely intact.
+            const separated=!rover&&discovered.identified!==4
+              ?splitOriginalMergedWheelGeometry(parked.anchor,
+                extraDriveProfile(extra!).wheelRadiusFallbackMetres)
+              :null;
+            const mapping=separated?.mapping??discovered.mapping;
+            const wheelCount=separated?.identified===4?4:discovered.identified;
             actor=new FirstDriveTrial(physics,parked.anchor,dims,
               rover?RANGE_ROVER_STREET_PROFILE:extraDriveProfile(extra!),
-              wheels.mapping,false,false);
+              mapping,false,false);
             parked.releaseStaticCollider();
             this.sportsCars.set(parked.spec.id,actor);
             this.driveVehicleNames.set(parked.spec.id,name);
-            if(wheels.identified!==4)
-              console.warn("[VEH011] Original wheels not independently rigged",
-                parked.spec.id,wheels);
+            if(wheelCount!==4)
+              console.warn("[VEH012] Model has no validated four-wheel animation",
+                parked.spec.id,{discovered,split:separated?.reason??"not-required"});
+            else console.info("[VEH012] Four real wheel meshes ready",
+              parked.spec.id,{source:separated?.reason??"independent-source-nodes",
+                extractedSourceTriangles:separated?.separatedTriangles??0});
           }catch(error){
             actor?.dispose();
             console.error("[VEH011] Cannot initialize original driving actor",
