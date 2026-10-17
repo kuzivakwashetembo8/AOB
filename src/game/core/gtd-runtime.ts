@@ -31,6 +31,7 @@ import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig,
   type FiveModelName} from "../vehicles/ambient-fleet-driving-011";
 import {splitOriginalMergedWheelGeometry}
   from "../vehicles/merged-original-wheel-extraction-012";
+import {evaluateWheelRigAdmission} from "../vehicles/mvrs-wheel-admission-001";
 function productionHostnameForFit002(name: string) {
   return name === "grand-theft-division.vercel.app";
 }
@@ -628,19 +629,27 @@ export class GTDGameRuntime implements GameRuntime {
                 extraDriveProfile(extra!).wheelRadiusFallbackMetres)
               :null;
             const mapping=separated?.mapping??discovered.mapping;
-            const wheelCount=separated?.identified===4?4:discovered.identified;
+            const admission=evaluateWheelRigAdmission(
+              parked.anchor,mapping,null,true);
+            if(!admission.qualified){
+              console.warn("[WHEEL-001] No drivable wheel rig; keeping original parked",
+                parked.spec.id,admission.code,{
+                  discovery:discovered.description,
+                  extraction:separated?.reason??"not-attempted",
+                });
+              continue;
+            }
+            const wheelCount=admission.wheelCount;
             actor=new FirstDriveTrial(physics,parked.anchor,dims,
               rover?RANGE_ROVER_STREET_PROFILE:extraDriveProfile(extra!),
               mapping,false,false);
             parked.releaseStaticCollider();
             this.sportsCars.set(parked.spec.id,actor);
             this.driveVehicleNames.set(parked.spec.id,name);
-            if(wheelCount!==4)
-              console.warn("[VEH012] Model has no validated four-wheel animation",
-                parked.spec.id,{discovered,split:separated?.reason??"not-required"});
-            else console.info("[VEH012] Four real wheel meshes ready",
+            console.info("[WHEEL-001] Four original-wheel nodes structurally ready",
               parked.spec.id,{source:separated?.reason??"independent-source-nodes",
-                extractedSourceTriangles:separated?.separatedTriangles??0});
+                extractedSourceTriangles:separated?.separatedTriangles??0,
+                qualification:"preview-only; owner visual acceptance pending"});
           }catch(error){
             actor?.dispose();
             console.error("[VEH011] Cannot initialize original driving actor",
