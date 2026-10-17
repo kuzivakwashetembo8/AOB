@@ -17,7 +17,17 @@ const SOURCES=[
  ["land-rover-defender-001","public/Land rover defender 001.glb"],
  ["dodge-hp","public/dodge_HP.glb"],
 ];
-function analyzePositions(pos,idx){
+function analyzePositions(sourcePositions,idx,matrix){
+ const pos=new Float32Array(sourcePositions.length);
+ // GLB accessor coordinates are source-local. Toyota and Defender use an
+ // actual +90 degree X glTF node transform (source Y is length, not height).
+ // Always measure wheel geometry in source-world (+Y up) coordinates.
+ for(let i=0;i<sourcePositions.length;i+=3){
+   const x=sourcePositions[i],y=sourcePositions[i+1],z=sourcePositions[i+2];
+   pos[i]=matrix[0]*x+matrix[4]*y+matrix[8]*z+matrix[12];
+   pos[i+1]=matrix[1]*x+matrix[5]*y+matrix[9]*z+matrix[13];
+   pos[i+2]=matrix[2]*x+matrix[6]*y+matrix[10]*z+matrix[14];
+ }
  const n=Math.floor(pos.length/3),t=Math.floor(idx.length/3);
  if(n<12||t<4)return {error:"insufficient-geometry"};
  const B=[Infinity,-Infinity,Infinity,-Infinity,Infinity,-Infinity];
@@ -112,7 +122,11 @@ async function main(){
        const p=primitive.getAttribute("POSITION")?.getArray();
        const i=primitive.getIndices()?.getArray();
        if(!p||!i){item.primitives.push({error:"missing-position-or-indices"});continue;}
-       item.primitives.push(analyzePositions(p,i));
+       const owner=roots.listNodes().find(n=>n.getMesh()===mesh);
+       if(!owner)throw Error("source mesh has no owning glTF node");
+       item.sourceNode=owner.getName();
+       item.sourceWorldTransform=[...owner.getWorldMatrix()].map(v=>+v.toFixed(6));
+       item.primitives.push(analyzePositions(p,i,owner.getWorldMatrix()));
      }
      item.state=item.primitives.some(p=>p.error)
        ?"repair-required":item.primitives.every(p=>p.status==="inspect-wheel-candidates")
