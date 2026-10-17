@@ -56,7 +56,8 @@ describe("VEH-012 honest native tire extraction",()=>{
      const rig=new StreetVehicleWheelRig(r.anchor,result.mapping!);
      expect(rig.ready).toBe(true);
      rig.update(.7,.18);
-     const hubs=r.anchor.getDescendants(false).filter(n=>n.name.startsWith("veh012-actual-hub-"));
+     const hubs=r.anchor.getDescendants(false).filter((n):n is TransformNode=>
+       n instanceof TransformNode && n.name.startsWith("veh012-actual-hub-"));
      expect(hubs).toHaveLength(4);
      expect(hubs.every(h=>h.rotationQuaternion!==null)).toBe(true);
      rig.dispose();
