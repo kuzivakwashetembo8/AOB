@@ -10,7 +10,7 @@ import {initialStartupChecklist,applyStartupCheckpoint,startupCompletion}
 
 describe("VEH-013 — remove Ferrari/Buggy without breaking native vehicles",()=>{
  it("game runtime cannot invoke the retired remote importer or construct a Ferrari actor",()=>{
-   const runtime=readFileSync(new URL("../game/core/gtd-runtime.ts",import.meta.url),"utf8");
+   const runtime=readFileSync("src/game/core/gtd-runtime.ts","utf8");
    expect(runtime).not.toContain("beginImportedCarEvaluation");
    expect(runtime).not.toContain("this.importedCarProbe");
    expect(runtime).not.toContain('slot.source==="sports"');
