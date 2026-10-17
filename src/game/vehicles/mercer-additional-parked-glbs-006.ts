@@ -15,6 +15,7 @@ export type MercerExtra006Spec=Readonly<{
   width:number;height:number;length:number;yaw:number;
   /** A visually parked asset must never be constructed as a Rover drive actor. */
   visualOnly?:boolean;
+  sourceBytesKnown?:number;
 }>;
 
 export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
@@ -22,6 +23,7 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
     id:"gtd-veh006-mercer-range-rover",label:"Range Rover Sport 2018",
     url:"/Range%20Rover%20Sports%202018%20(.GLB).glb",
     x:-5.45,z:10.55,width:2.03,height:1.80,length:4.85,yaw:Math.PI/2,
+    sourceBytesKnown:24349788,
   },
   {
     id:"gtd-veh008-mercer-toyota-hilux",label:"Toyota Hilux 002",
@@ -30,6 +32,7 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
     // plus a clearance gap for walking around both parking specimens.
     x:-13.45,z:10.55,width:2.15,height:1.87,length:5.25,yaw:Math.PI/2,
     visualOnly:true,
+    sourceBytesKnown:17214188,
   },
 ] as const;
 
@@ -100,6 +103,8 @@ export function createMercerExtraParkedGLBs(
     let inst:ReturnType<AssetContainer["instantiateModelsToScene"]>|null=null;
     let closed=false;
     let drivingDimensions:{readonly x:number;readonly y:number;readonly z:number}|null=null;
+    let containerReadyMs:number|null=null,instantiateMs:number|null=null;
+    const loadStartedAt=performance.now();
     const modelRoot=new TransformNode("mercer-extra-visual:"+spec.id,scene);
     modelRoot.parent=anchor;
     const ready=(async()=>{
@@ -107,6 +112,8 @@ export function createMercerExtraParkedGLBs(
       const glb=await (load?load(spec.url,scene):loadAssetContainerAsync(spec.url,scene));
       if(closed){glb.dispose();return;}
       container=glb;
+      containerReadyMs=performance.now()-loadStartedAt;
+      const instantiationStartedAt=performance.now();
       // A single independent owner GLB per slot. Leave embedded paint,
       // windows, wheel shaders and textures untouched.
       // A drivable GLB needs independent wheel Mesh nodes, not InstancedMesh
@@ -148,8 +155,10 @@ export function createMercerExtraParkedGLBs(
           z:fit.dimensions.length/2},
         spec.yaw,
       );
+      instantiateMs=performance.now()-instantiationStartedAt;
     })();
     return {spec,anchor,ready,
+      get loadTelemetry(){return {containerReadyMs,instantiateMs};},
       get drivingDimensions(){return drivingDimensions;},
       /** Transfer physical ownership to StreetVehicleActor only AFTER the
        * live Rapier actor has been successfully constructed. Idempotent. */

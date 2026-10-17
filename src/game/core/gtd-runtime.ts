@@ -624,6 +624,21 @@ export class GTDGameRuntime implements GameRuntime {
       if(isGeneratedFirstLightWorld(firstLight)&&firstLight.rangeRoverReviewReady)
         await firstLight.rangeRoverReviewReady;
       if (this.host !== host || this.engine !== engine) return;
+      // LOAD-061: measure genuine GLB work; not synthetic loading progress.
+      for(const source of this.importedCarProbe?.report().assetSources??[]) {
+        this.emit({type:"asset-observation",assetId:source.id,
+          sourceKind:"remote-glb",sourceBytesKnown:source.bytes,
+          containerReadyMs:source.loadMs,instantiateMs:null,
+          result:source.status==="loaded"?"loaded":"failed"});
+      }
+      if(isGeneratedFirstLightWorld(firstLight)) {
+        for(const parked of firstLight.rangeRoverReview?.instances??[]) {
+          this.emit({type:"asset-observation",assetId:parked.spec.id,
+            sourceKind:"local-glb",sourceBytesKnown:parked.spec.sourceBytesKnown??null,
+            containerReadyMs:parked.loadTelemetry.containerReadyMs,
+            instantiateMs:parked.loadTelemetry.instantiateMs,result:"loaded"});
+        }
+      }
       // EXP-VEH-002 / GTD-WORLD-002: owner desktop-accepted Ferrari L0
       // promoted to main for default production/mobile validation on 2026-10-12.
       // This is a DEVELOPMENT SPECIMEN, not a commercial-asset rights clearance.

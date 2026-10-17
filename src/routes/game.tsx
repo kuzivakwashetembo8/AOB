@@ -24,6 +24,7 @@ import {
   DEFAULT_TRAVEL_HEADING, normalizeHeadingSettings,
 } from "@/game/character/locomotion/travel-heading";
 import type { GameAction } from "@/game/core/types";
+import { StartupTelemetry } from "@/lib/startup-telemetry";
 import { initialStartupChecklist, applyStartupCheckpoint } from "@/game/core/loading-checklist";
 import {
   StartupBudgetStopwatch, STARTUP_LOAD_BUDGET_SECONDS,
@@ -56,6 +57,7 @@ function GamePage() {
   const [loaded, setLoaded] = useState(false);
   const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
   const stopwatch = useRef(new StartupBudgetStopwatch());
+  const telemetry = useRef<StartupTelemetry | null>(null);
   const [loadElapsedSeconds, setLoadElapsedSeconds] = useState(0);
   const [loadCompletedSeconds, setLoadCompletedSeconds] = useState<number | null>(null);
   const [showLoadResult, setShowLoadResult] = useState(true);
@@ -91,14 +93,21 @@ function GamePage() {
   // phase, including the release check and all real GLB imports. This is
   // independent of render loops and cannot affect simulation frame timing.
   useEffect(() => {
-    stopwatch.current.start(performance.now());
+    const started=performance.now();
+    stopwatch.current.start(started);
+    telemetry.current ??= new StartupTelemetry(started);
+    const onPageHide=()=>{void telemetry.current?.finish("aborted",true);};
+    window.addEventListener("pagehide",onPageHide);
     const update = () => {
       if (stopwatch.current.completed) return;
       setLoadElapsedSeconds(stopwatch.current.elapsedSecondsAt(performance.now()));
     };
     update();
     const interval = window.setInterval(update, 250);
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("pagehide",onPageHide);
+    };
   }, []);
   // Keep final pass/fail result onscreen briefly after the world becomes
   // playable, rather than hiding the critical timing on the first frame.
@@ -111,11 +120,14 @@ function GamePage() {
     let cancelled = false;
     const unsubscribe = bridge.subscribeEvent((event) => {
       if (event.type === "interaction") setInteraction(event.label ?? "");
+      if(event.type==="asset-observation")telemetry.current?.asset(event);
       if (event.type === "load-checkpoint") {
+        telemetry.current?.checkpoint(event);
         setChecklist((entries) => applyStartupCheckpoint(entries, event));
         setRuntimeDetail(event.detail?.toUpperCase() ?? event.id.replace(/-/g, " ").toUpperCase());
         if (event.id === "first-frame" && event.status === "done") {
           const measuredSeconds = stopwatch.current.stop(performance.now());
+          void telemetry.current?.finish("playable");
           setLoadElapsedSeconds(measuredSeconds);
           setLoadCompletedSeconds(measuredSeconds);
           const verdict = describeStartupBudget(measuredSeconds);
@@ -128,6 +140,7 @@ function GamePage() {
         }
       }
       if (event.type === "error") {
+        void telemetry.current?.finish("failed");
         setRuntimeDetail(event.message.toUpperCase());
       }
     });
@@ -137,7 +150,10 @@ function GamePage() {
         if (!host) return;
         // Before expensive GLB/physics boot, validate the latest APPROVED
         // deployment; never equate GitHub main with an un-deployed release.
+        telemetry.current?.stageStart("version_handshake");
         const version = await checkGameStartupVersion();
+        telemetry.current?.stageEnd("version_handshake",version==="retry-needed"?"failed":"done");
+        if(version==="retry-needed")void telemetry.current?.finish("failed");
         if (cancelled || version === "reload") return;
         if (version === "retry-needed") {
           setVersionBlocked(true);
@@ -155,6 +171,7 @@ function GamePage() {
         bridge.start();
       } catch (error) {
         console.error("GTD runtime bootstrap failed", error);
+        void telemetry.current?.finish("failed");
         setRuntimeDetail("RUNTIME BOOT FAILED");
         setBootstrapError(error instanceof Error ? error.message : String(error));
       }
