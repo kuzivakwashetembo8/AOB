@@ -34,6 +34,22 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
     visualOnly:true,
     sourceBytesKnown:17214188,
   },
+  {
+    // Owner's original Defender model, static only pending visual acceptance.
+    id:"gtd-veh009-mercer-land-rover-defender",label:"Land Rover Defender 001",
+    url:"/Land%20rover%20defender%20001.glb",
+    x:-31.9,z:10.55,width:2.10,height:2.02,length:4.75,yaw:Math.PI/2,
+    visualOnly:true,
+    sourceBytesKnown:426228,
+  },
+  {
+    // Source name is Dodge HP; the exact vehicle variant is not yet verified.
+    id:"gtd-veh010-mercer-dodge-hp",label:"Dodge HP",
+    url:"/dodge_HP.glb",
+    x:-39.7,z:10.55,width:2.06,height:1.87,length:5.10,yaw:Math.PI/2,
+    visualOnly:true,
+    sourceBytesKnown:1954504,
+  },
 ] as const;
 
 export function validateMercerExtraPlacements(items:readonly StreetContextItem[]){

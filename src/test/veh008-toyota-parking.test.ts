@@ -12,7 +12,26 @@ describe("VEH-008 Toyota Hilux static visual parking on Mercer",()=>{
     expect(rover?.visualOnly).not.toBe(true);
     expect(toyota?.visualOnly).toBe(true);
     expect(toyota?.url).toBe("/toyota%20hilux%20002.glb");
-    expect(MERCER_EXTRA_GLB_SPECS).toHaveLength(2);
+    expect(MERCER_EXTRA_GLB_SPECS).toHaveLength(4);
+  });
+  it("preserves both new original GLBs without enabling driving",()=>{
+    const defender=MERCER_EXTRA_GLB_SPECS.find(p=>p.id==="gtd-veh009-mercer-land-rover-defender");
+    const dodge=MERCER_EXTRA_GLB_SPECS.find(p=>p.id==="gtd-veh010-mercer-dodge-hp");
+    expect(defender).toMatchObject({
+      url:"/Land%20rover%20defender%20001.glb",
+      sourceBytesKnown:426228,visualOnly:true,
+    });
+    expect(dodge).toMatchObject({
+      url:"/dodge_HP.glb",sourceBytesKnown:1954504,visualOnly:true,
+    });
+    expect(new Set(MERCER_EXTRA_GLB_SPECS.map(p=>p.id)).size).toBe(4);
+    expect(MERCER_EXTRA_GLB_SPECS.filter(p=>p.visualOnly!==true)).toHaveLength(1);
+  });
+  it("checks all four imported specimens against Mercer road/props and mutual clearances",()=>{
+    const plan=planStreetContext(FIRST_LIGHT_CITY_SPEC);
+    const slots=validateMercerExtraPlacements(plan.items);
+    expect(slots).toHaveLength(4);
+    for(const p of slots)expect(p.z).toBe(10.55);
   });
   it("checks actual generated Mercer road/props and a non-overlapping Rover gap",()=>{
     const plan=planStreetContext(FIRST_LIGHT_CITY_SPEC);

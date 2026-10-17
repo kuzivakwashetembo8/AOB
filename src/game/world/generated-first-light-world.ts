@@ -480,10 +480,9 @@ export function createGeneratedFirstLightWorld(
       .map((item) => [item.id, item] as const),
   );
   const contextCollision = registerStreetContextCollision(physics, streetPlan, parkedCollisionHandles);
-  // VEH-007 owner directive: Sedan development delegated/pending, remove its
-  // render, asset network request and physical collider entirely. The secondary
-  // ergoninane GLB is also deferred. Only the Range Rover is loaded, behind
-  // its own explicit preview flag, then eligible for live driving ownership.
+  // VEH-007–010: Range Rover remains the only drivable member of this
+  // extra-GLB review family. Toyota, Defender and Dodge are static originals.
+  // Deferred Sedan and ergoninane remain absent. Preserve the world and spawn.
   const rangeRoverReview=options.enableRangeRoverDriveReview
     ? createMercerExtraParkedGLBs(scene,physics,streetPlan.items)
     : null;
