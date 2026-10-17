@@ -73,7 +73,8 @@ describe("VEH-011 owner-original driving support",()=>{
          before.get(name)!)).toBeLessThan(.0001);
      }
      rig.update(.85,.22);
-     const pivots=anchor.getDescendants(false).filter(n=>n.name.startsWith("veh011-hub"));
+     const pivots=anchor.getDescendants(false).filter((n):n is TransformNode=>
+       n instanceof TransformNode && n.name.startsWith("veh011-hub"));
      expect(pivots).toHaveLength(4);
      expect(pivots.every(n=>n.rotationQuaternion!==null)).toBe(true);
      rig.dispose();
