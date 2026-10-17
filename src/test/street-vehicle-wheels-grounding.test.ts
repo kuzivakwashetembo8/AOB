@@ -61,7 +61,11 @@ describe("GTD reusable street vehicle wheel/grounding contracts", () => {
   });
   it("new cars default to world-yaw instead of arbitrary model-specific sign", () => {
     const map: StreetVehicleWheelMapping = {
-      ...FERRARI_WHEEL_MAPPING, steeringMode: undefined, steeringSign: 1,
+      wheelNames: FERRARI_WHEEL_MAPPING.wheelNames,
+      spinAxis: FERRARI_WHEEL_MAPPING.spinAxis,
+      steerAxis: FERRARI_WHEEL_MAPPING.steerAxis,
+      fallbackRadiusMetres: FERRARI_WHEEL_MAPPING.fallbackRadiusMetres,
+      steeringSign: 1, // No steeringMode: default world-yaw must override this.
     };
     const s = makeRig(map);
     try {
@@ -84,8 +88,9 @@ describe("GTD reusable street vehicle wheel/grounding contracts", () => {
       const expected = Quaternion.RotationAxis(localUp, -0.27);
       expect(Math.abs(Quaternion.Dot(q, expected))).toBeCloseTo(1, 6);
       const start = Vector3.TransformNormal(Vector3.Forward(), parent);
-      const localTurn = Vector3.TransformNormal(
-        Vector3.Forward(), Matrix.FromQuaternion(q));
+      const rotation = Matrix.Identity();
+      Matrix.FromQuaternionToRef(q, rotation);
+      const localTurn = Vector3.TransformNormal(Vector3.Forward(), rotation);
       const turned = Vector3.TransformNormal(localTurn, parent);
       const wanted = Vector3.TransformNormal(start, Matrix.RotationY(-0.27));
       expect(Vector3.Distance(turned, wanted)).toBeLessThan(1e-5);
