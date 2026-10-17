@@ -29,7 +29,7 @@ const approach = (current: number, target: number, change: number) =>
 
 export function stepDriveControl(
   state: DriveState, input: DriveInput, dt: number,
-  steeringResponseRadiansPerSecond = DRIVE_LIMITS.steeringResponseRadiansPerSecond,
+  steeringResponseRadiansPerSecond: number = DRIVE_LIMITS.steeringResponseRadiansPerSecond,
 ): DriveState & { readonly yawRateRadiansPerSecond: number } {
   const step = clamp(dt, 0, 1 / 20);
   const throttle = clamp(input.throttle, -1, 1);
