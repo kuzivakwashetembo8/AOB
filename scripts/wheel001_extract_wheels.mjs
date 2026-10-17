@@ -74,14 +74,42 @@ function identify(g){
   candidates[k].push(c);
  }
  if(corners.some(k=>!candidates[k].length))throw Error("four-real-wheel-rings-not-identified");
- const chosen={};
- for(const k of corners){
-  candidates[k].sort((a,b)=>b.ext[1]*b.ext[long]-a.ext[1]*a.ext[long]);
-  chosen[k]=candidates[k][0];
+ // Match the SAME diameter and axle height across all four real wheel
+ // positions, rather than taking the largest circle at each corner (which
+ // can select a headlight, wheel arch or a tire's distinct inner rim).
+ const radius=c=>Math.max(c.ext[1],c.ext[long]);
+ const options={};
+ for(const k of corners)
+   options[k]=candidates[k].sort((a,b)=>radius(b)-radius(a)).slice(0,24);
+ let chosen=null,best=Infinity;
+ for(const first of options.frontLeft){
+   const proposal={frontLeft:first};
+   let score=0,possible=true;
+   for(const k of ["frontRight","rearLeft","rearRight"]){
+     const reference=radius(first);
+     const matched=options[k]
+       .map(c=>{
+         const r=Math.abs(radius(c)-reference)/reference;
+         const y=Math.abs(c.center[1]-first.center[1])/reference;
+         const axle=k==="frontRight"
+           ?Math.abs(c.center[long]-first.center[long])/reference:0;
+         return {c,penalty:5*r+3*y+2*axle};
+       }).sort((a,b)=>a.penalty-b.penalty)[0];
+     if(!matched||
+       Math.abs(radius(matched.c)-reference)>reference*.20||
+       Math.abs(matched.c.center[1]-first.center[1])>reference*.28){
+       possible=false;break;
+     }
+     proposal[k]=matched.c;score+=matched.penalty;
+   }
+   if(!possible)continue;
+   if(Math.abs(proposal.rearLeft.center[long]-
+               proposal.rearRight.center[long])>radius(first)*.36)continue;
+   // Prefer large genuine tire rings among equally symmetric options.
+   score-=radius(first)/Math.max(.001,dim[1])*2;
+   if(score<best){best=score;chosen=proposal;}
  }
- const diam=corners.map(k=>Math.max(chosen[k].ext[1],chosen[k].ext[long]));
- if(Math.max(...diam)-Math.min(...diam)>.20*Math.max(...diam))
-  throw Error("wheel-radii-not-consistent");
+ if(!chosen)throw Error("no-four-symmetric-source-tire-rings");
  const selected={},consumed=new Set();
  for(const k of corners){
   const c=chosen[k],r=Math.max(c.ext[1],c.ext[long])*.51,parts=[];
@@ -181,8 +209,8 @@ async function main(){
   report.vehicles.push(item);
   try{
    const output=await convert(bytes,model,io);
-   if(output.glb.length>Math.max(bytes.length*4,8_000_000))
-    throw Error("derived-asset-over-4x-source-size");
+   if(output.glb.length>Math.max(bytes.length*8,16_000_000))
+    throw Error("derived-asset-too-large:"+output.glb.length);
    await writeFile(dst,output.glb);
    item.status="rig-candidate-needs-visual-acceptance";
    item.qualifiedSha256=sha(output.glb);
