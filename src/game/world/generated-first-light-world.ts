@@ -81,6 +81,8 @@ export interface GeneratedFirstLightWorld {
 
 export interface GeneratedFirstLightWorldOptions {
   readonly enableLandUsePreview?: boolean;
+  /** Omit retired parked car stand-ins and colliders from the active game. */
+  readonly includeLegacyParkedCars?: boolean;
   readonly enableTreePlace001?: boolean;
   readonly treeBudget?: ForestryBudget;
   readonly treeDensityFocus?: ForestryDensityFocus;
@@ -157,12 +159,14 @@ function registerStreetContextCollision(
   physics: MeridianPhysics,
   plan: StreetContextPlan,
   parkedHandles?: Map<string, StaticCollisionHandle>,
+  includeLegacyParkedCars = true,
 ): StaticCollisionHandle[] {
   const handles: StaticCollisionHandle[] = [];
 
   for (const item of plan.items) {
     switch (item.kind) {
       case "parked-car": {
+        if (!includeLegacyParkedCars) break;
         const parkedHandle = physics.addStaticBox(
           { x: item.position.x, y: 0.76, z: item.position.z },
           {
@@ -441,7 +445,8 @@ export function createGeneratedFirstLightWorld(
   const streetContext = createGeneratedStreetContext(
     scene,
     FIRST_LIGHT_CITY_SPEC,
-    { skipPocketParkGround: options.enableLandUsePreview ?? false, plan: streetPlan },
+    { skipPocketParkGround: options.enableLandUsePreview ?? false,
+      skipParkedCars: options.includeLegacyParkedCars === false, plan: streetPlan },
   );
   const materialLibrary = new BuildingMaterialLibrary(scene);
   const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC).map((spec) =>
@@ -479,7 +484,10 @@ export function createGeneratedFirstLightWorld(
       .filter((item) => item.kind === "parked-car")
       .map((item) => [item.id, item] as const),
   );
-  const contextCollision = registerStreetContextCollision(physics, streetPlan, parkedCollisionHandles);
+  const contextCollision = registerStreetContextCollision(
+    physics, streetPlan, parkedCollisionHandles,
+    options.includeLegacyParkedCars !== false,
+  );
   // VEH-007–010: Range Rover remains the only drivable member of this
   // extra-GLB review family. Toyota, Defender and Dodge are static originals.
   // Deferred Sedan and ergoninane remain absent. Preserve the world and spawn.

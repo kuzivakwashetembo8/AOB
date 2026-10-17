@@ -7,9 +7,9 @@ export const STARTUP_CHECKS = [
   { id: "physics", label: "Initialize collision physics" },
   { id: "world", label: "Generate South Ward" },
   { id: "voight", label: "Place Voight" },
-  { id: "vehicle-loader", label: "Initialize GLTF vehicle loader" },
-  { id: "vehicle-offroad", label: "Load and place off-road vehicles" },
-  { id: "vehicle-sports", label: "Load and place sports cars" },
+  { id: "vehicle-loader", label: "Load native fleet vehicles" },
+  { id: "vehicle-offroad", label: "Retired off-road imports (removed)" },
+  { id: "vehicle-sports", label: "Retired sports imports (removed)" },
   { id: "first-frame", label: "Render first completed scene" },
 ] as const;
 

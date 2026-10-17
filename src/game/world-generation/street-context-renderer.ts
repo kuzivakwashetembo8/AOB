@@ -720,7 +720,7 @@ function createPocketParkSurface(
 export function createGeneratedStreetContext(
   scene: Scene,
   city: CitySpec,
-  options: { readonly skipPocketParkGround?: boolean; readonly plan?: StreetContextPlan } = {},
+  options: { readonly skipPocketParkGround?: boolean; readonly skipParkedCars?: boolean; readonly plan?: StreetContextPlan } = {},
 ): GeneratedStreetContext {
   const plan = options.plan ?? planStreetContext(city);
   const meshes: Mesh[] = [];
@@ -827,7 +827,7 @@ export function createGeneratedStreetContext(
       addShrub(scene, item, meshes, nodes, foliage);
     } else if (item.kind === "streetlight") {
       addStreetlight(scene, item, meshes, nodes, metal, glow);
-    } else if (item.kind === "parked-car") {
+    } else if (item.kind === "parked-car" && !options.skipParkedCars) {
       addParkedCar(scene, item, meshes, nodes, paint, dark, glass);
     } else if (item.kind === "bench") {
       addBench(scene, item, meshes, nodes, wood);

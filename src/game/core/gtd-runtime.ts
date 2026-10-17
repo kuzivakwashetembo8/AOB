@@ -22,13 +22,11 @@ import { MeridianPhysics } from "../physics/rapier-world";
 import { FirstDriveTrial } from "../vehicles/first-drive-trial";
 import { ferrariSeatWorldPose } from "../vehicles/driver-seat-placement";
 import { measureVehicleFit002 } from "../vehicles/vehicle-fit-diagnostics";
-import { FERRARI_STREET_PROFILE } from "../vehicles/street-vehicle-physics";
 import {
   RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig,
   rangeRoverDriveEnabled,
   rangeRoverDriverSeatWorldPose,rangeRoverRearCameraAlpha,
 } from "../vehicles/range-rover-drive-007";
-import { FERRARI_WHEEL_MAPPING } from "../vehicles/street-vehicle-wheels";
 import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig,
   type FiveModelName} from "../vehicles/ambient-fleet-driving-011";
 import {splitOriginalMergedWheelGeometry}
@@ -36,7 +34,6 @@ import {splitOriginalMergedWheelGeometry}
 function productionHostnameForFit002(name: string) {
   return name === "grand-theft-division.vercel.app";
 }
-import { canInitializePlayerVehicle } from "../vehicles/drive-availability";
 import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha, FERRARI_REAR_CAMERA_BETA, FERRARI_REAR_CAMERA_RADIUS } from "../vehicles/ferrari-camera";
 import { nearestSportsCar, stationaryDisembark, type Point3 } from "../vehicles/local-boarding";
 import { flightFacingPolicy } from "../character/locomotion/flight-pose";
@@ -53,14 +50,6 @@ import {
   mapTouchCameraDrag,
 } from "../input/touch-camera-sensitivity";
 import { mountFL4EvidenceExport } from "../debug/fl4-evidence-export";
-import {
-  resolveVehicleOptimizationMode,
-  shouldRenderAcceptedImportedVehicles,
-} from "../experiments/fl4-vehicle-optimization";
-import {
-  beginImportedCarEvaluation,
-  type ImportedCarProbe,
-} from "../experiments/imported-car-evaluation";
 import {
   ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
   createFirstLightRuntimeWorld,
@@ -107,7 +96,6 @@ export class GTDGameRuntime implements GameRuntime {
   private engine: Engine | null = null;
   private fl4Diagnostics: FL4Diagnostics | null = null;
   private removeFL4EvidenceExport: (() => void) | null = null;
-  private importedCarProbe: ImportedCarProbe | null = null;
   private readonly sportsCars=new Map<string,FirstDriveTrial>();
   private readonly movementArbiter = new MovementInputArbiter();
   private readonly driveVehicleNames=new Map<string,FiveModelName>();
@@ -387,57 +375,22 @@ export class GTDGameRuntime implements GameRuntime {
         schema: "gtd.char001.runtime.v1",
         scene: collectCharacterTrialSceneReport(scene, engine),
         character: this.characterTrial?.report() ?? null,
-        vehicles: this.importedCarProbe?.report() ?? null,
+        vehicles: [...this.sportsCars.entries()].map(([id,car]) => ({
+          id, name: this.driveVehicleNames.get(id) ?? "unknown",
+          wheelRigReady: car.status.wheelRigReady,
+        })),
         warmup: this.worldRenderWarmup?.snapshot() ?? lastTrialWarmup,
         surfaceIsolation: groundIsolation,
       });
     }
-    // Explicit main-branch mobile validation authorized 2026-10-10.
-    // Accepted imported buggy and sports-car GLBs now replace ALL old parked
-    // car graphics in default gameplay, including the public production host.
-    // The importer hides old cars and removes their colliders synchronously;
-    // loading/failure leaves an empty slot, never a procedural stand-in.
-    // A historical procedural comparison is available ONLY by combining
-    // gtdVehicleProbe=baseline and fl4Diagnostics=1 on a NONPRODUCTION host.
-    // Third-party commercial/redistribution rights remain unverified:
-    // production access for mobile QA is NOT a licensing determination.
-    const vehicleMode = diagnosticParams.get("gtdVehicleProbe");
-    const productionHostname = window.location.hostname === "grand-theft-division.vercel.app";
-    const diagnosticsEnabled = diagnosticParams.get("fl4Diagnostics") === "1";
-    const useAcceptedImportedVehicles = shouldRenderAcceptedImportedVehicles(
-      vehicleMode,
-      diagnosticsEnabled,
-      productionHostname,
-    );
-    if (useAcceptedImportedVehicles && isGeneratedFirstLightWorld(firstLight)) {
-      const importedCarProbe = beginImportedCarEvaluation(scene, firstLight, {
-        // VEH-009/010 temporary visual-review branch ONLY. The Buggy is
-        // excluded from the five-model traffic fleet. It was stalled on
-        // raw.githubusercontent.com at 08:55 and need not gate inspecting
-        // Defender/Dodge. REMOVE THIS OPTION BEFORE ANY MAIN PROMOTION.
-        skipOffroadForVisualReview: true,
-        optimizationMode: resolveVehicleOptimizationMode(
-          diagnosticParams.get("fl4VehicleOptimization"),
-          diagnosticsEnabled,
-          // Approved selective-shadow FL-4 closeout renderer is also the
-          // default in the main mobile-validation build, with full detail
-          // available via explicit diagnostics for reversible comparison.
-          productionHostname || diagnosticParams.get("fl4FinalReview") === "1",
-        ),
-        onCheckpoint: (id, status, detail) =>
-          this.emit(detail === undefined
-            ? { type: "load-checkpoint", id, status }
-            : { type: "load-checkpoint", id, status, detail }),
-      });
-      this.importedCarProbe = importedCarProbe;
-      (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: () => ReturnType<ImportedCarProbe["report"]> })
-        .__GTD_VEHICLE_PROBE_REPORT__ = () => importedCarProbe.report();
-    } else {
-      // The historical non-production baseline does not import GLBs.
-      for (const id of ["vehicle-loader", "vehicle-offroad", "vehicle-sports"] as const) {
-        this.emit({ type: "load-checkpoint", id, status: "skipped", detail: "No GLB requested" });
-      }
-    }
+    // VEH-013: retire the remote Ferrari/Buggy importer completely.
+    // No HTTP source requests, static placeholders, or hidden parked colliders.
+    this.emit({ type: "load-checkpoint", id: "vehicle-offroad", status: "skipped",
+      detail: "Retired imported vehicle removed from game" });
+    this.emit({ type: "load-checkpoint", id: "vehicle-sports", status: "skipped",
+      detail: "Retired imported vehicle removed from game" });
+    this.emit({ type: "load-checkpoint", id: "vehicle-loader", status: "running",
+      detail: "Awaiting four original locally stored vehicle models" });
     // FL-4 isolation probes are strictly opt-in, never regular gameplay.
     // noSky tests the sky layer; noShadows tests shadow-pass overhead.
     if (diagnosticParams.get("fl4Diagnostics") === "1") {
@@ -627,53 +580,23 @@ export class GTDGameRuntime implements GameRuntime {
     );
     this.worldRenderWarmup = warmup;
     try {
-      // Preserve real GLTF source/parking/collider completion requirements.
-      if (this.importedCarProbe) await this.importedCarProbe.settled;
-      // Actual Range Rover GLB must load before it becomes a drive actor.
-      if(isGeneratedFirstLightWorld(firstLight)&&firstLight.rangeRoverReviewReady)
+      // Only the original local Range Rover, Hilux, Defender and Dodge
+      // are blocking vehicle imports. No remote Buggy/Ferrari dependency.
+      if (isGeneratedFirstLightWorld(firstLight) && firstLight.rangeRoverReviewReady) {
         await firstLight.rangeRoverReviewReady;
-      if (this.host !== host || this.engine !== engine) return;
-      // LOAD-061: measure genuine GLB work; not synthetic loading progress.
-      for(const source of this.importedCarProbe?.report().assetSources??[]) {
-        this.emit({type:"asset-observation",assetId:source.id,
-          sourceKind:"remote-glb",sourceBytesKnown:source.bytes,
-          containerReadyMs:source.loadMs,instantiateMs:null,
-          result:source.status==="loaded"?"loaded":"failed"});
+        this.emit({ type: "load-checkpoint", id: "vehicle-loader", status: "done",
+          detail: "Four native vehicle GLBs instantiated" });
+      } else {
+        this.emit({ type: "load-checkpoint", id: "vehicle-loader", status: "skipped",
+          detail: "No native vehicle models requested" });
       }
+      if (this.host !== host || this.engine !== engine) return;
       if(isGeneratedFirstLightWorld(firstLight)) {
         for(const parked of firstLight.rangeRoverReview?.instances??[]) {
           this.emit({type:"asset-observation",assetId:parked.spec.id,
             sourceKind:"local-glb",sourceBytesKnown:parked.spec.sourceBytesKnown??null,
             containerReadyMs:parked.loadTelemetry.containerReadyMs,
             instantiateMs:parked.loadTelemetry.instantiateMs,result:"loaded"});
-        }
-      }
-      // EXP-VEH-002 / GTD-WORLD-002: owner desktop-accepted Ferrari L0
-      // promoted to main for default production/mobile validation on 2026-10-12.
-      // This is a DEVELOPMENT SPECIMEN, not a commercial-asset rights clearance.
-      // Import/first-frame gates stay authoritative; no procedural fallback.
-      // Reuse ONE accepted sports GLB and preserve every parked buggy.
-      // Do not require a preview-only query flag or exclude production hosts.
-      if (canInitializePlayerVehicle(
-        this.importedCarProbe !== null,isGeneratedFirstLightWorld(firstLight),
-      ) && this.importedCarProbe && isGeneratedFirstLightWorld(firstLight)) {
-        for(const slot of this.importedCarProbe.report().slots.filter(slot=>
-          slot.source==="sports"&&slot.status==="imported"&&slot.finalVisualMetres)) {
-          const anchor=scene.getTransformNodeByName("vehicle-probe-anchor:"+slot.id);
-          if(!anchor||!slot.finalVisualMetres)continue;
-          let car:FirstDriveTrial|null=null;
-          try {
-            car=new FirstDriveTrial(physics,anchor,{
-              x:slot.finalVisualMetres.width,y:slot.finalVisualMetres.height,
-              z:slot.finalVisualMetres.length,
-            },FERRARI_STREET_PROFILE,FERRARI_WHEEL_MAPPING,this.groundFit002Enabled,this.wheelSupport002Enabled);
-            firstLight.releaseParkedCarCollider(slot.id);
-            this.sportsCars.set(slot.id,car);
-            this.driveVehicleNames.set(slot.id,"Ferrari");
-          }catch(error){
-            car?.dispose();
-            console.error("[VEH-003] Car unavailable",slot.id,error);
-          }
         }
       }
       // VEH-011: all imported originals enter the existing, single Rapier
@@ -763,7 +686,7 @@ export class GTDGameRuntime implements GameRuntime {
       // "loaded" reports during GLB import or first-frame shader preparation.
       this.removeFL4EvidenceExport = mountFL4EvidenceExport(
         () => this.fl4Diagnostics!.report(),
-        () => this.importedCarProbe?.report() ?? null,
+        () => null,
       );
     }
   }
@@ -812,8 +735,6 @@ export class GTDGameRuntime implements GameRuntime {
     delete (window as Window & { __GTD_VEH_SEAT_001_REPORT__?: unknown }).__GTD_VEH_SEAT_001_REPORT__;
     delete (window as Window & { __GTD_VEH_FIT_002_REPORT__?: unknown }).__GTD_VEH_FIT_002_REPORT__;
     delete (window as Window & { __GTD_VEH_FIT_002_DRIVER__?: unknown }).__GTD_VEH_FIT_002_DRIVER__;
-    this.importedCarProbe?.dispose();
-    this.importedCarProbe = null;
     delete (window as Window & { __GTD_VEHICLE_PROBE_REPORT__?: unknown }).__GTD_VEHICLE_PROBE_REPORT__;
     delete (window as Window & { __GTD_CHARACTER_TRIAL_REPORT__?: unknown }).__GTD_CHARACTER_TRIAL_REPORT__;
     delete window.__GTD_CHAR_DIAGNOSTICS__;
