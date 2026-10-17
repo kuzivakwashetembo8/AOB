@@ -64,8 +64,8 @@ describe("UI-DRIVE-009 optional vehicle arrows",()=>{
     const a=new MovementInputArbiter();
     expect(a.apply({type:"move",x:0,y:-1,source:"touch-arrows"})).toEqual({x:0,y:-1});
     expect(a.apply({type:"move",x:0,y:0,source:"keyboard"})).toEqual({x:0,y:-1});
-    expect(a.apply({type:"move",x:-1,y:-1,source:"touch-arrows"})).toEqual({x:-1/Math.sqrt(2),y:-1/Math.sqrt(2)});
-    expect(a.apply({type:"move",x:0,y:0,source:"keyboard-reset"})).toEqual({x:-1/Math.sqrt(2),y:-1/Math.sqrt(2)});
+    expect(a.apply({type:"move",x:-1,y:-1,source:"touch-arrows"})).toEqual({x:-1,y:-1});
+    expect(a.apply({type:"move",x:0,y:0,source:"keyboard-reset"})).toEqual({x:-1,y:-1});
     expect(a.apply({type:"move",x:0,y:0,source:"touch-arrows"})).toEqual({x:0,y:0});
   });
   it("quick tap makes a smaller steering angle than continued hold; release recenters without yaw snap",()=>{

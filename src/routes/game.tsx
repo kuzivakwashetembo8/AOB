@@ -15,7 +15,7 @@ import { useSettings } from "@/ui/menus/settings-state";
 import { SettingsEditor } from "@/ui/menus/settings-editor";
 import { GameHud } from "@/ui/hud/game-hud";
 import { TouchControls } from "@/ui/hud/touch-controls";
-import { checkGameStartupVersion } from "@/lib/game-version-check";
+import { checkGameStartupVersion, retryGameUpdate, continueWithInstalledBuild } from "@/lib/game-version-check";
 import { DesktopControls } from "@/ui/hud/desktop-controls";
 import { BootstrapOverlay } from "@/ui/menus/bootstrap";
 import { downloadCharacterTrialEvidence } from "@/game/character/character-trial-download";
@@ -45,6 +45,7 @@ function GamePage() {
   const [headingSettings, setHeadingSettings] = useState(DEFAULT_TRAVEL_HEADING);
   const [checklist, setChecklist] = useState(initialStartupChecklist);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [versionBlocked, setVersionBlocked] = useState(false);
   const trialBrowserErrors = useRef<string[]>([]);
   const trialEnabled = typeof window !== "undefined" &&
     isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname);
@@ -99,6 +100,7 @@ function GamePage() {
         const version = await checkGameStartupVersion();
         if (cancelled || version === "reload") return;
         if (version === "retry-needed") {
+          setVersionBlocked(true);
           setRuntimeDetail("UPDATE REQUIRES ATTENTION");
           setBootstrapError("An updated build is available but the refresh could not complete. Retry from this screen, or continue with your currently installed build.");
           return;
@@ -349,6 +351,8 @@ function GamePage() {
         <BootstrapOverlay
           entries={checklist}
           error={bootstrapError}
+          onRetryUpdate={versionBlocked ? retryGameUpdate : undefined}
+          onContinueCurrentBuild={versionBlocked ? continueWithInstalledBuild : undefined}
           onDownloadDiagnostics={trialEnabled && bootstrapError
             ? () => downloadCharacterTrialEvidence(bootstrapError, checklist, trialBrowserErrors.current)
             : undefined}

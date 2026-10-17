@@ -19,7 +19,7 @@ export class MovementInputArbiter {
   apply(command: MoveCommand): Movement | null {
     if (!Number.isFinite(command.x) || !Number.isFinite(command.y)) return null;
     const length = Math.hypot(command.x, command.y);
-    const normalized = length > 1
+    const normalized = length > 1 && command.source !== "touch-arrows"
       ? { x: command.x / length, y: command.y / length }
       : { x: command.x, y: command.y };
     const source = channel(command.source);

@@ -25,6 +25,12 @@ export function decideDeployedRelease(
 /** Bounded initial-load check; never runs again while driving. */
 export async function checkGameStartupVersion(): Promise<VersionDecision> {
   if (typeof window === "undefined" || !import.meta.env.PROD) return "current";
+  const urlBefore = new URL(window.location.href);
+  if (urlBefore.searchParams.get("gtd_offline") === "1") {
+    urlBefore.searchParams.delete("gtd_offline");
+    window.history.replaceState(window.history.state, "", urlBefore.toString());
+    return "offline";
+  }
   const running = __GTD_RELEASE_ID__;
   if (!validRelease(running)) return "offline";
   const store = (() => {try{return window.sessionStorage;}catch{return null;}})();

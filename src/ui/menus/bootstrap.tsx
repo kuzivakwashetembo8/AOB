@@ -9,10 +9,14 @@ export function BootstrapOverlay({
   entries,
   error,
   onDownloadDiagnostics,
+  onRetryUpdate,
+  onContinueCurrentBuild,
 }: {
   entries: readonly StartupCheckEntry[];
   error?: string | null;
   onDownloadDiagnostics?: (() => void) | undefined;
+  onRetryUpdate?: (() => void) | undefined;
+  onContinueCurrentBuild?: (() => void) | undefined;
 }) {
   const completion = startupCompletion(entries);
   return (
@@ -71,9 +75,18 @@ export function BootstrapOverlay({
                 Download character trial data (JSON)
               </button>
             )}
-            <button type="button" className="mt-3 text-primary underline" onClick={() => window.location.reload()}>
-              Retry loading
-            </button>
+            {onRetryUpdate ? (
+              <div className="mt-3 flex gap-5">
+                <button type="button" className="text-primary underline" onClick={onRetryUpdate}>Retry update</button>
+                <button type="button" className="text-primary underline" onClick={onContinueCurrentBuild}>
+                  Continue with installed build
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="mt-3 text-primary underline" onClick={() => window.location.reload()}>
+                Retry loading
+              </button>
+            )}
           </div>
         )}
         {!error && (
