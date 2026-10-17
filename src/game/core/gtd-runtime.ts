@@ -657,6 +657,10 @@ export class GTDGameRuntime implements GameRuntime {
       if(this.rangeRoverTrialEnabled&&isGeneratedFirstLightWorld(firstLight)&&
         firstLight.rangeRoverReview) {
         for(const parked of firstLight.rangeRoverReview.instances) {
+          // The Toyota is for static visual assessment only. Its loaded
+          // authentic GLB and static collider remain world-owned. No Rover
+          // suspension, wheel rig or seating logic is applied to the Hilux.
+          if(parked.spec.visualOnly)continue;
           const dims=parked.drivingDimensions;
           if(!dims)throw Error("VEH007 Range Rover GLB bounds unavailable");
           let actor:FirstDriveTrial|null=null;

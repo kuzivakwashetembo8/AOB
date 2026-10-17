@@ -13,6 +13,8 @@ import type {StreetContextItem} from "../world-generation/street-context";
 export type MercerExtra006Spec=Readonly<{
   id:string;label:string;url:string;x:number;z:number;
   width:number;height:number;length:number;yaw:number;
+  /** A visually parked asset must never be constructed as a Rover drive actor. */
+  visualOnly?:boolean;
 }>;
 
 export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
@@ -20,6 +22,14 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
     id:"gtd-veh006-mercer-range-rover",label:"Range Rover Sport 2018",
     url:"/Range%20Rover%20Sports%202018%20(.GLB).glb",
     x:-5.45,z:10.55,width:2.03,height:1.80,length:4.85,yaw:Math.PI/2,
+  },
+  {
+    id:"gtd-veh008-mercer-toyota-hilux",label:"Toyota Hilux 002",
+    url:"/toyota%20hilux%20002.glb",
+    // Same Mercer lane as the Rover, separated by a full vehicle length
+    // plus a clearance gap for walking around both parking specimens.
+    x:-13.45,z:10.55,width:2.15,height:1.87,length:5.25,yaw:Math.PI/2,
+    visualOnly:true,
   },
 ] as const;
 
@@ -144,6 +154,7 @@ export function createMercerExtraParkedGLBs(
       /** Transfer physical ownership to StreetVehicleActor only AFTER the
        * live Rapier actor has been successfully constructed. Idempotent. */
       releaseStaticCollider(){
+        if(spec.visualOnly)throw Error("Static Toyota is not a driving specimen");
         if(closed||!drivingDimensions||!collider)
           throw Error("Range Rover static collider is not ready for transfer");
         collider.dispose();collider=null;
