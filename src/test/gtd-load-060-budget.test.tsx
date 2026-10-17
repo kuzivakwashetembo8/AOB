@@ -19,6 +19,8 @@ describe("GTD-LOAD-060 one-minute first-playable-frame budget",()=>{
   it("classifies exactly 60s as within and 61s as attention budget violation",()=>{
     expect(describeStartupBudget(1)).toEqual({exceeded:false,overBySeconds:0,remainingSeconds:59});
     expect(describeStartupBudget(60).exceeded).toBe(false);
+    expect(describeStartupBudget(60.5).exceeded).toBe(true);
+    expect(describeStartupBudget(60.5).overBySeconds).toBe(1);
     expect(describeStartupBudget(61)).toEqual({exceeded:true,overBySeconds:1,remainingSeconds:0});
     expect(describeStartupBudget(136).overBySeconds).toBe(76);
   });
@@ -30,6 +32,7 @@ describe("GTD-LOAD-060 one-minute first-playable-frame budget",()=>{
     expect(clock.elapsedSecondsAt(60500)).toBe(59);
     expect(clock.elapsedSecondsAt(62600)).toBe(61);
     expect(clock.stop(76400)).toBe(75);
+    expect(clock.stopMilliseconds(180000)).toBe(75400);
     expect(clock.completed).toBe(true);
     expect(clock.elapsedSecondsAt(150000)).toBe(75);
     expect(clock.stop(180000)).toBe(75); // idempotent after first frame

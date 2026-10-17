@@ -11,11 +11,11 @@ export function formatStartupDuration(seconds: number): string {
 }
 export function describeStartupBudget(elapsedSeconds: number) {
   const elapsed = Number.isFinite(elapsedSeconds)
-    ? Math.max(0, Math.floor(elapsedSeconds)) : 0;
+    ? Math.max(0, elapsedSeconds) : 0;
   return {
     exceeded: elapsed > STARTUP_LOAD_BUDGET_SECONDS,
-    overBySeconds: Math.max(0, elapsed - STARTUP_LOAD_BUDGET_SECONDS),
-    remainingSeconds: Math.max(0, STARTUP_LOAD_BUDGET_SECONDS - elapsed),
+    overBySeconds: Math.max(0, Math.ceil(elapsed - STARTUP_LOAD_BUDGET_SECONDS)),
+    remainingSeconds: Math.max(0, Math.ceil(STARTUP_LOAD_BUDGET_SECONDS - elapsed)),
   };
 }
 /** Single stopwatch per route load. Use performance.now() from the caller,
@@ -30,15 +30,22 @@ export class StartupBudgetStopwatch {
     this.startedAtMs = nowMs;
   }
   elapsedSecondsAt(nowMs: number): number {
+    return Math.floor(this.elapsedMillisecondsAt(nowMs)/1000);
+  }
+  elapsedMillisecondsAt(nowMs: number): number {
     if (this.startedAtMs === null) return 0;
     const end = this.stoppedAtMs ?? nowMs;
     if (!Number.isFinite(end)) throw Error("Invalid startup timer timestamp");
-    return Math.max(0, Math.floor((end - this.startedAtMs) / 1000));
+    return Math.max(0, end - this.startedAtMs);
   }
   stop(nowMs: number): number {
     if (this.startedAtMs === null) throw Error("Startup timer not running");
     if (!Number.isFinite(nowMs)) throw Error("Invalid startup timer timestamp");
     this.stoppedAtMs ??= nowMs;
     return this.elapsedSecondsAt(this.stoppedAtMs);
+  }
+  stopMilliseconds(nowMs:number):number {
+    this.stop(nowMs);
+    return this.elapsedMillisecondsAt(nowMs);
   }
 }

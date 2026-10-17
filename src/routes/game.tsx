@@ -100,7 +100,7 @@ function GamePage() {
     window.addEventListener("pagehide",onPageHide);
     const update = () => {
       if (stopwatch.current.completed) return;
-      setLoadElapsedSeconds(stopwatch.current.elapsedSecondsAt(performance.now()));
+      setLoadElapsedSeconds(stopwatch.current.elapsedMillisecondsAt(performance.now())/1000);
     };
     update();
     const interval = window.setInterval(update, 250);
@@ -126,7 +126,7 @@ function GamePage() {
         setChecklist((entries) => applyStartupCheckpoint(entries, event));
         setRuntimeDetail(event.detail?.toUpperCase() ?? event.id.replace(/-/g, " ").toUpperCase());
         if (event.id === "first-frame" && event.status === "done") {
-          const measuredSeconds = stopwatch.current.stop(performance.now());
+          const measuredSeconds = stopwatch.current.stopMilliseconds(performance.now())/1000;
           void telemetry.current?.finish("playable");
           setLoadElapsedSeconds(measuredSeconds);
           setLoadCompletedSeconds(measuredSeconds);
