@@ -26,11 +26,12 @@ function sourceCar(options:{missing?:boolean;attached?:boolean;duplicate?:boolea
   wheel.rotation.z=Math.PI/2;wheel.position.set(.89,.44,1.58);
   wheel.material=paint;components.push(wheel);
  }
+ const bodyIndexCount=body.getTotalIndices();
  const merged=Mesh.MergeMeshes(components,true,true,undefined,false,false)!;
  merged.name="material";
  merged.parent=anchor;
  merged.material=paint;
- return {engine,scene,anchor,merged,paint};
+ return {engine,scene,anchor,merged,paint,bodyIndexCount};
 }
 const dispose=(r:ReturnType<typeof sourceCar>)=>{
  r.anchor.dispose();r.scene.dispose();r.engine.dispose();
@@ -53,6 +54,9 @@ describe("VEH-012 honest native tire extraction",()=>{
      const allIndexCount=realWheels.reduce((n,m)=>n+m.getTotalIndices(),r.merged.getTotalIndices());
      expect(allIndexCount).toBe(originalTotalIndices);
      expect(r.merged.getTotalVertices()).toBe(originalWheelVertices);
+     // The original axle caps/rims are included with the real outer tires,
+     // not left as stationary circles attached to the body.
+     expect(r.merged.getTotalIndices()).toBe(r.bodyIndexCount);
      const rig=new StreetVehicleWheelRig(r.anchor,result.mapping!);
      expect(rig.ready).toBe(true);
      rig.update(.7,.18);

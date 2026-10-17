@@ -22,3 +22,12 @@ If the source geometry is welded to the body or the tires cannot be proved to be
 Run real Chrome and Android previews. For all five cars, check (1) tires actually rotate with movement; (2) fronts visibly steer while rears do not; (3) tire center/road height matches accepted road geometry; (4) rims and tires rotate together, without holes; (5) no chassis/body surface detachment or flicker; (6) reversing correctly reverses wheel roll; (7) steering still changes Rapier trajectory; (8) startup stays under 60s. Preview unit tests alone do NOT constitute visual acceptance.
 
 If four original tire geometries are not separable (especially the Defender), the next authorized step is source GLB mesh editing to create proper wheel nodes, not procedural substitutes.
+
+## Original rim faces (final isolation rule)
+
+The source glTF can merge the rubber tread, outward-facing circular rim and
+inner disc into one material with separate **triangle islands**. VEH-012 groups
+an island with a validated tire only if its complete extent is inside that
+tire's measured cylindrical envelope, it is centered at the real hub, and it
+has a meaningful radial span. Those original surfaces pivot and rotate
+together. Chassis and wheel arches (far outside that envelope) remain intact.

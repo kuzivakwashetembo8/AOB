@@ -199,8 +199,8 @@ export function splitOriginalMergedWheelGeometry(
   const halfWidth=sizeAll.x/2,halfLength=sizeAll.z/2;
   const byCorner=new Map<Corner,Island[]>();
   for(const comp of groups.values()){
-    if(comp.triangles.length<120)continue; // >=40 original source triangles
     comp.center=center(comp);
+    if(comp.triangles.length<120)continue; // >=40 original source triangles
     const d=size(comp),p=comp.center;
     // A radial ring in the wheel plane, not a glass, bumper or body panel.
     if(d.x<.065||d.x>.62||d.y<.42||d.y>1.25||
@@ -257,16 +257,36 @@ export function splitOriginalMergedWheelGeometry(
   const spinAxis=(["x","y","z"] as const)[parts.indexOf(major)]!;
   // Material, attribute streams and intact body are preserved. Only the
   // selected wheel triangles are transferred, at their ORIGINAL vertices.
+  // A real wheel may contain separately indexed circular faces/rims in
+  // addition to the outer tire. Move only source islands INSIDE the verified
+  // radial tire envelope, centered at the measured hub. This retains real
+  // UVs/materials and avoids leaving the original rim visibly static.
   const remove=new Set<number>();
   const wheelIndices=new Map<Corner,number[]>();
   for(const corner of CORNERS){
-    const p=selected.get(corner)!;
-    const selectedIndices=p.triangles;
+    const tire=selected.get(corner)!;
+    const parts=[tire];
+    const axle=tire.center;
+    const reference=tire;
+    for(const comp of groups.values()){
+      if(comp.root===reference.root||comp.triangles.length<12)continue;
+      const d=size(comp);
+      if(d.y<.20||d.z<.20)continue;
+      if(distance(comp.center.x,axle.x)>.20 ||
+         distance(comp.center.y,axle.y)>.15 ||
+         distance(comp.center.z,axle.z)>.15)continue;
+      if(comp.min.x<reference.min.x-.035||comp.max.x>reference.max.x+.035||
+         comp.min.y<reference.min.y-.035||comp.max.y>reference.max.y+.035||
+         comp.min.z<reference.min.z-.035||comp.max.z>reference.max.z+.035)
+        continue;
+      // A component cannot belong to more than one of the four tires.
+      if(remove.has(comp.root))continue;
+      parts.push(comp);
+    }
+    const selectedIndices=parts.flatMap(p=>p.triangles);
     if(selectedIndices.length<120)return failure("wheel-surface-incomplete",1);
     wheelIndices.set(corner,selectedIndices);
-    // Mark triangles by signature, NOT index ownership: other components may
-    // contain a coincident vertex index but must remain intact.
-    remove.add(p.root);
+    for(const part of parts)remove.add(part.root);
   }
   const body:number[]=[];
   for(let i=0;i<indices.length;i+=3){
