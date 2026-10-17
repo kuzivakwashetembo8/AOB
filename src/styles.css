@@ -1636,3 +1636,72 @@ html[data-display="standalone"] body > * {
     bottom: min(115px, 30dvh);
   }
 }
+
+/* GTD-LOAD-060: monotonic, visible one-minute gameplay readiness budget.
+   This is an elapsed clock, not a fabricated % completion estimate. */
+.load-budget-meter {
+  margin: 12px 0 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  background: rgb(0 0 0 / 32%);
+  color: var(--foreground);
+}
+.load-budget-heading,
+.load-budget-variance {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font: 600 10px/1.5 var(--font-mono);
+  letter-spacing: .075em;
+  color: var(--primary);
+}
+.load-budget-face {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: .35em;
+  font: 700 clamp(28px, 6vw, 47px)/1.2 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .03em;
+  margin: 5px 0;
+}
+.load-budget-face output { color: var(--foreground); }
+.load-budget-separator { color: var(--muted-foreground); }
+.load-budget-variance {
+  display: block;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+.load-budget-over { border-color: var(--destructive); }
+.load-budget-over .load-budget-face output,
+.load-budget-over .load-budget-heading,
+.load-budget-over .load-budget-variance { color: var(--destructive); }
+.load-budget-result {
+  position: absolute;
+  z-index: 12;
+  top: max(75px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(390px, 90vw);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 14px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgb(0 0 0 / 78%);
+  color: var(--foreground);
+  font: 700 11px var(--font-mono);
+  text-align: center;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.load-budget-result.load-budget-over { color: var(--destructive); }
+@media (max-height: 500px) and (orientation: landscape) {
+  .load-budget-meter { padding: 7px 10px; margin: 6px 0 12px; }
+  .load-budget-heading,.load-budget-variance { font-size: 9px; }
+  .load-budget-face { font-size: 27px; margin: 1px 0; }
+  .load-budget-result { top: 8px; }
+}
