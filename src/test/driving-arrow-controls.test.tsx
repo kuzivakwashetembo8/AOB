@@ -8,6 +8,14 @@ import { stepDriveControl } from "../game/vehicles/drive-kinematics";
 import { defaults, normalizeDrivingTouchLayout } from "../ui/menus/settings-state";
 import { SettingsEditor } from "../ui/menus/settings-editor";
 
+function pointer(element: Element, type: string, pointerId: number) {
+  // jsdom's fallback fireEvent.pointerDown does not attach a real pointerId.
+  // A native Event with an explicit identifier validates independent fingers.
+  const event = Object.assign(new Event(type,{bubbles:true,cancelable:true}),{
+    pointerId, pointerType:"touch",
+  });
+  fireEvent(element,event);
+}
 afterEach(()=>cleanup());
 describe("UI-DRIVE-009 optional vehicle arrows",()=>{
   it("preserves drag defaults and rejects unrecognized persisted control layouts",()=>{
@@ -47,14 +55,14 @@ describe("UI-DRIVE-009 optional vehicle arrows",()=>{
     const left=screen.getByRole("button",{name:"Steer left"});
     Object.defineProperty(up,"setPointerCapture",{value:vi.fn()});
     Object.defineProperty(left,"setPointerCapture",{value:vi.fn()});
-    fireEvent.pointerDown(up,{pointerId:10});
-    fireEvent.pointerDown(left,{pointerId:11});
+    pointer(up,"pointerdown",10);
+    pointer(left,"pointerdown",11);
     expect(send).toHaveBeenLastCalledWith({type:"move",x:-1,y:-1,source:"touch-arrows"});
-    fireEvent.pointerCancel(left,{pointerId:11});
+    pointer(left,"pointercancel",11);
     expect(send).toHaveBeenLastCalledWith({type:"move",x:0,y:-1,source:"touch-arrows"});
-    fireEvent.lostPointerCapture(up,{pointerId:10});
+    pointer(up,"lostpointercapture",10);
     expect(send).toHaveBeenLastCalledWith({type:"move",x:0,y:0,source:"touch-arrows"});
-    fireEvent.pointerDown(up,{pointerId:12});
+    pointer(up,"pointerdown",12);
     window.dispatchEvent(new Event("blur"));
     expect(send).toHaveBeenLastCalledWith({type:"move",x:0,y:0,source:"touch-arrows"});
     unmount();

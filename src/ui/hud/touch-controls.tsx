@@ -74,6 +74,24 @@ export function DrivingArrowControls({ send, haptics }: { send: Send; haptics: b
 export function Joystick({ send }: { send: Send }) {
   const thumb = useRef<HTMLDivElement>(null);
   const active = useRef<number | null>(null);
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    const reset = () => {
+      if (active.current === null) return;
+      active.current = null;
+      if (thumb.current) thumb.current.style.transform = "translate(0, 0)";
+      sendRef.current({ type:"move",x:0,y:0,source:"touch-joystick" });
+    };
+    const hidden = () => {if(document.hidden)reset();};
+    window.addEventListener("blur",reset);
+    document.addEventListener("visibilitychange",hidden);
+    return () => {
+      window.removeEventListener("blur",reset);
+      document.removeEventListener("visibilitychange",hidden);
+      reset();
+    };
+  }, []);
   const move = (event: PointerEvent<HTMLDivElement>) => {
     if (active.current !== event.pointerId) return;
     const rect = event.currentTarget.getBoundingClientRect();
