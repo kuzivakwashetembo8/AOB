@@ -6,7 +6,15 @@ import tsConfigPaths from "vite-tsconfig-paths";
 import { nitro } from "nitro/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+// REL-010: one SHA shared by the boot bundle and published same-origin manifest.
+const gtdReleaseId = process.env["VERCEL_GIT_COMMIT_SHA"] ??
+  process.env["GITHUB_SHA"] ?? "development";
+const gtdReleaseEnvironment = process.env["VERCEL_ENV"] ?? "development";
 export default defineConfig({
+  define: {
+    __GTD_RELEASE_ID__: JSON.stringify(gtdReleaseId),
+    __GTD_RELEASE_ENV__: JSON.stringify(gtdReleaseEnvironment),
+  },
   plugins: [
     tsConfigPaths(),
     tanstackStart(),

@@ -4,7 +4,7 @@
  * Independently named pivots are required; unavailable pivots are explicitly
  * reported, never replaced by rotating the whole car mesh.
  */
-import { AbstractMesh, Quaternion, TransformNode, Vector3 } from "@babylonjs/core";
+import { AbstractMesh, Matrix, Quaternion, TransformNode, Vector3 } from "@babylonjs/core";
 import { buildTireContactProfile, tireContactBottomY, type TireContactProfile } from "./wheel-contact-geometry";
 
 export type WheelCorner = "frontLeft" | "frontRight" | "rearLeft" | "rearRight";
@@ -12,7 +12,9 @@ export interface StreetVehicleWheelMapping {
   readonly wheelNames: Record<WheelCorner, string>;
   readonly spinAxis: "x" | "y" | "z";
   readonly steerAxis: "x" | "y" | "z";
-  readonly steeringSign: 1 | -1;
+  /** New cars normalize visual front toe against chassis yaw; old rigs can opt out. */
+  readonly steeringMode?: "legacy-local" | "world-yaw";
+  readonly steeringSign?: 1 | -1;
   readonly fallbackRadiusMetres: number;
 }
 export const FERRARI_WHEEL_MAPPING: StreetVehicleWheelMapping = {
@@ -26,6 +28,7 @@ export const FERRARI_WHEEL_MAPPING: StreetVehicleWheelMapping = {
   steerAxis: "z",
   // Matches JS-3D-Car's right-key negative wheelOrientation convention.
   steeringSign: -1,
+  steeringMode: "legacy-local",
   fallbackRadiusMetres: 0.32,
 };
 const axis = (name: "x" | "y" | "z") =>
@@ -43,6 +46,21 @@ type WheelPart = {
   readonly tireProfile:TireContactProfile|null;
   suspensionTravelWorldY: number;
 };
+/**
+ * Standardize visual steering to the accepted chassis/world yaw convention,
+ * regardless of the source GLB parent rotation, pitch or coordinate basis.
+ * Return a rotation in the wheel hub's PARENT frame.
+ */
+export function worldYawSteerQuaternion(parentWorld: Matrix | null, steeringRadians: number): Quaternion {
+  if (!Number.isFinite(steeringRadians)) throw Error("Nonfinite wheel steering");
+  const localUp = parentWorld
+    ? Vector3.TransformNormal(Vector3.Up(), parentWorld.clone().invert())
+    : Vector3.Up();
+  const len = localUp.length();
+  if (!Number.isFinite(len) || len < 1e-6) throw Error("Invalid wheel parent world-up axis");
+  // Accepted Ferrari visual convention: negate the physics steering angle.
+  return Quaternion.RotationAxis(localUp.scale(1 / len), -steeringRadians);
+}
 const median = (sizes: number[]) => sizes.sort((a, b) => a - b)[1] ?? 0;
 
 /** Normalize only established source and importer prefix conventions. */
@@ -171,13 +189,23 @@ export class StreetVehicleWheelRig {
     this.wheelTravelMetres += signedTravelMetres;
     for (const part of this.parts) {
       const rollAngle = this.wheelTravelMetres / part.radiusMetres;
-      const steer = part.corner === "frontLeft" || part.corner === "frontRight"
-        ? this.mapping.steeringSign * steeringRadians : 0;
-      // The source's X roll and Z steer are composed on the original GLTF
-      // quaternion. Rotation happens around each actual named wheel pivot.
-      part.node.rotationQuaternion = part.base
-        .multiply(Quaternion.RotationAxis(axis(this.mapping.steerAxis), steer))
-        .multiply(Quaternion.RotationAxis(axis(this.mapping.spinAxis), rollAngle));
+      const front = part.corner === "frontLeft" || part.corner === "frontRight";
+      const roll = Quaternion.RotationAxis(axis(this.mapping.spinAxis), rollAngle);
+      if (this.mapping.steeringMode === "legacy-local") {
+        // Preserve the accepted Ferrari/Buggy model-specific orientation.
+        const steer = front ? (this.mapping.steeringSign ?? -1) * steeringRadians : 0;
+        part.node.rotationQuaternion = part.base
+          .multiply(Quaternion.RotationAxis(axis(this.mapping.steerAxis), steer))
+          .multiply(roll);
+      } else {
+        // Default for newly imported cars: world-up front steering, BEFORE
+        // the original GLTF hub orientation. Rear hubs remain unsteered.
+        const steer = worldYawSteerQuaternion(
+          part.node.parent?.getWorldMatrix() ?? null,
+          front ? steeringRadians : 0,
+        );
+        part.node.rotationQuaternion = steer.multiply(part.base).multiply(roll);
+      }
     }
   }
 

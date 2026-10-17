@@ -15,6 +15,7 @@ import { useSettings } from "@/ui/menus/settings-state";
 import { SettingsEditor } from "@/ui/menus/settings-editor";
 import { GameHud } from "@/ui/hud/game-hud";
 import { TouchControls } from "@/ui/hud/touch-controls";
+import { checkGameStartupVersion, retryGameUpdate, continueWithInstalledBuild } from "@/lib/game-version-check";
 import { DesktopControls } from "@/ui/hud/desktop-controls";
 import { BootstrapOverlay } from "@/ui/menus/bootstrap";
 import { downloadCharacterTrialEvidence } from "@/game/character/character-trial-download";
@@ -24,6 +25,10 @@ import {
 } from "@/game/character/locomotion/travel-heading";
 import type { GameAction } from "@/game/core/types";
 import { initialStartupChecklist, applyStartupCheckpoint } from "@/game/core/loading-checklist";
+import {
+  StartupBudgetStopwatch, STARTUP_LOAD_BUDGET_SECONDS,
+  formatStartupDuration, describeStartupBudget,
+} from "@/game/core/startup-load-budget";
 export const Route = createFileRoute("/game")({
   head: () =>
     pageHead(
@@ -44,11 +49,16 @@ function GamePage() {
   const [headingSettings, setHeadingSettings] = useState(DEFAULT_TRAVEL_HEADING);
   const [checklist, setChecklist] = useState(initialStartupChecklist);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [versionBlocked, setVersionBlocked] = useState(false);
   const trialBrowserErrors = useRef<string[]>([]);
   const trialEnabled = typeof window !== "undefined" &&
     isMeridiaCharacterTrialRequested(window.location.search, window.location.hostname);
   const [loaded, setLoaded] = useState(false);
   const [runtimeDetail, setRuntimeDetail] = useState("INITIALIZING");
+  const stopwatch = useRef(new StartupBudgetStopwatch());
+  const [loadElapsedSeconds, setLoadElapsedSeconds] = useState(0);
+  const [loadCompletedSeconds, setLoadCompletedSeconds] = useState<number | null>(null);
+  const [showLoadResult, setShowLoadResult] = useState(true);
   const [interaction, setInteraction] = useState("");
   const [lastInput, setLastInput] = useState("STANDBY");
   const navigate = useNavigate();
@@ -77,6 +87,26 @@ function GamePage() {
       window.removeEventListener("unhandledrejection", onRejection);
     };
   }, [trialEnabled]);
+  // Start the one-minute attention-budget clock at the FIRST route loading
+  // phase, including the release check and all real GLB imports. This is
+  // independent of render loops and cannot affect simulation frame timing.
+  useEffect(() => {
+    stopwatch.current.start(performance.now());
+    const update = () => {
+      if (stopwatch.current.completed) return;
+      setLoadElapsedSeconds(stopwatch.current.elapsedSecondsAt(performance.now()));
+    };
+    update();
+    const interval = window.setInterval(update, 250);
+    return () => window.clearInterval(interval);
+  }, []);
+  // Keep final pass/fail result onscreen briefly after the world becomes
+  // playable, rather than hiding the critical timing on the first frame.
+  useEffect(() => {
+    if (!loaded || loadCompletedSeconds === null) return;
+    const timeout = window.setTimeout(() => setShowLoadResult(false), 15_000);
+    return () => window.clearTimeout(timeout);
+  }, [loaded, loadCompletedSeconds]);
   useEffect(() => {
     let cancelled = false;
     const unsubscribe = bridge.subscribeEvent((event) => {
@@ -84,6 +114,18 @@ function GamePage() {
       if (event.type === "load-checkpoint") {
         setChecklist((entries) => applyStartupCheckpoint(entries, event));
         setRuntimeDetail(event.detail?.toUpperCase() ?? event.id.replace(/-/g, " ").toUpperCase());
+        if (event.id === "first-frame" && event.status === "done") {
+          const measuredSeconds = stopwatch.current.stop(performance.now());
+          setLoadElapsedSeconds(measuredSeconds);
+          setLoadCompletedSeconds(measuredSeconds);
+          const verdict = describeStartupBudget(measuredSeconds);
+          // A budget miss is actionable latency, never a fake success or
+          // cause to abort already-settled genuine world asset imports.
+          if (verdict.exceeded) console.warn(
+            "[GTD-LOAD-060] Startup exceeded 60-second attention budget by",
+            verdict.overBySeconds, "seconds",
+          );
+        }
       }
       if (event.type === "error") {
         setRuntimeDetail(event.message.toUpperCase());
@@ -93,6 +135,16 @@ function GamePage() {
       try {
         const host = canvas.current;
         if (!host) return;
+        // Before expensive GLB/physics boot, validate the latest APPROVED
+        // deployment; never equate GitHub main with an un-deployed release.
+        const version = await checkGameStartupVersion();
+        if (cancelled || version === "reload") return;
+        if (version === "retry-needed") {
+          setVersionBlocked(true);
+          setRuntimeDetail("UPDATE REQUIRES ATTENTION");
+          setBootstrapError("An updated build is available but the refresh could not complete. Retry from this screen, or continue with your currently installed build.");
+          return;
+        }
         const { GTDGameRuntime } = await import("@/game/core/gtd-runtime");
         if (cancelled) return;
         const runtime = new GTDGameRuntime();
@@ -324,6 +376,7 @@ function GamePage() {
       {loaded && touch && !paused && (
         <TouchControls
           settings={settings}
+          driving={context === "driving"}
           send={(command) => bridge.command(command)}
           onAction={action}
         />
@@ -336,12 +389,28 @@ function GamePage() {
       )}
       {!loaded && (
         <BootstrapOverlay
+          elapsedSeconds={loadElapsedSeconds}
           entries={checklist}
           error={bootstrapError}
+          onRetryUpdate={versionBlocked ? retryGameUpdate : undefined}
+          onContinueCurrentBuild={versionBlocked ? continueWithInstalledBuild : undefined}
           onDownloadDiagnostics={trialEnabled && bootstrapError
             ? () => downloadCharacterTrialEvidence(bootstrapError, checklist, trialBrowserErrors.current)
             : undefined}
         />
+      )}
+      {loaded && showLoadResult && loadCompletedSeconds !== null && (
+        <div
+          role="status"
+          aria-label="Final game loading time"
+          data-gtd-startup-result={describeStartupBudget(loadCompletedSeconds).exceeded ? "over" : "within"}
+          className={`load-budget-result ${describeStartupBudget(loadCompletedSeconds).exceeded ? "load-budget-over" : ""}`}
+        >
+          <span>LOAD // {formatStartupDuration(loadCompletedSeconds)} / {formatStartupDuration(STARTUP_LOAD_BUDGET_SECONDS)}</span>
+          <span>{describeStartupBudget(loadCompletedSeconds).exceeded
+            ? `OVER TARGET +${formatStartupDuration(describeStartupBudget(loadCompletedSeconds).overBySeconds)}`
+            : `WITHIN TARGET ${formatStartupDuration(describeStartupBudget(loadCompletedSeconds).remainingSeconds)} SPARE`}</span>
+        </div>
       )}
       {paused && (
         <div

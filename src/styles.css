@@ -1545,3 +1545,163 @@ html[data-display="standalone"] body > * {
   }
   .settings-editor-ingame .settings-bottom { flex-wrap: wrap; }
 }
+
+/* UI-DRIVE-009 — independent landscape driving groups; unchanged drag mode. */
+.touch-controls.driving-arrow-mode { height: min(215px, 45dvh); z-index: 5; }
+.driving-arrow-pad { position: absolute; inset: 0; pointer-events: none; }
+.driving-arrows-steer,.driving-arrows-throttle {
+  position: absolute; bottom: 4px; display: flex; gap: clamp(8px,2vw,22px);
+  opacity: var(--control-opacity, .75); transform: scale(var(--control-scale, 1));
+  pointer-events: auto;
+}
+.driving-arrows-steer {
+  left: max(22px, env(safe-area-inset-left)); transform-origin: bottom left;
+}
+.driving-arrows-throttle {
+  right: max(22px, env(safe-area-inset-right)); transform-origin: bottom right;
+  flex-direction: column;
+}
+.driving-arrow-button {
+  width: clamp(52px,8vw,76px); height: clamp(52px,8vw,76px);
+  border: 2px solid var(--border); border-radius: 14px;
+  background: var(--glass); color: var(--foreground);
+  display: grid; place-items: center; touch-action: none;
+  user-select: none; -webkit-user-select: none; pointer-events: auto;
+}
+.driving-arrow-button:active { background: var(--accent); border-color: var(--primary); }
+.touch-controls.driving-arrow-mode .touch-actions {
+  bottom: min(168px,34dvh); right: 50%;
+  transform: translateX(50%) scale(var(--control-scale, 1));
+  transform-origin: bottom center;
+  display: flex; gap: 6px; flex-wrap: nowrap; justify-content: center;
+}
+@media (max-width: 950px) and (orientation: landscape) {
+  .touch-controls.driving-arrow-mode .touch-actions { bottom: min(130px,36dvh); }
+  .touch-controls.driving-arrow-mode .touch-actions .control-button {
+    width: 42px; height: 42px;
+  }
+  .driving-arrow-button { width: 52px; height: 52px; }
+}
+
+/* G.T.D settings-select: Radix accessible menu with same Meridian visual grammar.
+   Popper is always rendered in the page rather than the OS native select picker. */
+.game-setting-select-trigger {
+  min-width: 0;
+  width: 100%;
+  max-width: 220px;
+  min-height: 44px;
+  height: auto;
+  background: var(--card);
+  border-color: var(--border);
+  border-radius: 4px;
+  font: 600 12px var(--font-sans);
+  color: var(--foreground);
+  text-align: left;
+}
+.game-setting-select-content {
+  z-index: 200;
+  min-width: var(--radix-select-trigger-width);
+  max-height: min(330px, 55dvh);
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  color: var(--foreground);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 55%);
+}
+.game-setting-select-option {
+  min-height: 42px;
+  padding-block: 10px;
+  font: 600 13px var(--font-sans);
+  touch-action: manipulation;
+}
+.game-setting-select-option[data-highlighted] {
+  background: var(--accent);
+  color: var(--primary);
+}
+.touch-controls.driving-arrow-mode .touch-actions {
+  bottom: min(134px, 30dvh);
+  left: 50%;
+  right: auto;
+  width: auto;
+  transform: translateX(-50%) scale(var(--control-scale, 1));
+  transform-origin: bottom center;
+}
+.touch-controls.driving-arrow-mode .touch-actions .control-button {
+  width: 52px;
+  height: 52px;
+}
+@media (max-width: 950px) and (orientation: landscape) {
+  .touch-controls.driving-arrow-mode .touch-actions {
+    bottom: min(115px, 30dvh);
+  }
+}
+
+/* GTD-LOAD-060: monotonic, visible one-minute gameplay readiness budget.
+   This is an elapsed clock, not a fabricated % completion estimate. */
+.load-budget-meter {
+  margin: 12px 0 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  background: rgb(0 0 0 / 32%);
+  color: var(--foreground);
+}
+.load-budget-heading,
+.load-budget-variance {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font: 600 10px/1.5 var(--font-mono);
+  letter-spacing: .075em;
+  color: var(--primary);
+}
+.load-budget-face {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: .35em;
+  font: 700 clamp(28px, 6vw, 47px)/1.2 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .03em;
+  margin: 5px 0;
+}
+.load-budget-face output { color: var(--foreground); }
+.load-budget-separator { color: var(--muted-foreground); }
+.load-budget-variance {
+  display: block;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+.load-budget-over { border-color: var(--destructive); }
+.load-budget-over .load-budget-face output,
+.load-budget-over .load-budget-heading,
+.load-budget-over .load-budget-variance { color: var(--destructive); }
+.load-budget-result {
+  position: absolute;
+  z-index: 12;
+  top: max(75px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(390px, 90vw);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 14px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgb(0 0 0 / 78%);
+  color: var(--foreground);
+  font: 700 11px var(--font-mono);
+  text-align: center;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.load-budget-result.load-budget-over { color: var(--destructive); }
+@media (max-height: 500px) and (orientation: landscape) {
+  .load-budget-meter { padding: 7px 10px; margin: 6px 0 12px; }
+  .load-budget-heading,.load-budget-variance { font-size: 9px; }
+  .load-budget-face { font-size: 27px; margin: 1px 0; }
+  .load-budget-result { top: 8px; }
+}

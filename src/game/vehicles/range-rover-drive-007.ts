@@ -129,7 +129,7 @@ export function prepareRangeRoverWheelRig(anchor:TransformNode):RangeRoverWheelE
   if(missing.length){
     const wheelNames:Record<WheelCorner,string>={...unmapped};
     return {mapping:{wheelNames,spinAxis:"z",steerAxis:"y",
-      steeringSign:1,fallbackRadiusMetres:.38},
+      steeringSign:-1,steeringMode:"world-yaw",fallbackRadiusMetres:.38},
       identified:corners.length-missing.length,missing};
   }
   // Validate all genuine wheels before modifying a single hierarchy.
@@ -144,7 +144,7 @@ export function prepareRangeRoverWheelRig(anchor:TransformNode):RangeRoverWheelE
   });
   if(centers.some(x=>x===null)){
     return {mapping:{wheelNames:{...unmapped},spinAxis:"z",steerAxis:"y",
-      steeringSign:1,fallbackRadiusMetres:.38},
+      steeringSign:-1,steeringMode:"world-yaw",fallbackRadiusMetres:.38},
       identified:centers.filter(Boolean).length,
       missing:corners.filter((_,i)=>!centers[i])};
   }
@@ -176,7 +176,7 @@ export function prepareRangeRoverWheelRig(anchor:TransformNode):RangeRoverWheelE
   return {mapping:{wheelNames:{...RANGE_ROVER_HUB_PIVOTS},
     // GLB car longitudinal X and tire axle Z: pivot inherits source parent
     // frame, rather than Meridian's rotated east-west chassis frame.
-    spinAxis:"z",steerAxis:"y",steeringSign:1,
+    spinAxis:"z",steerAxis:"y",steeringSign:-1,steeringMode:"world-yaw",
     fallbackRadiusMetres:.38},
     identified:4,missing:[]};
 }
@@ -239,7 +239,7 @@ export function discoverRangeRoverWheelMapping(anchor:TransformNode):RangeRoverW
     wheelNames:identified===4?names:{...unmapped},
     // The source GLB's car length is local X; wheel axles run along local Z.
     spinAxis:"z",steerAxis:"y",
-    steeringSign:1,fallbackRadiusMetres:.38,
+    steeringSign:-1,steeringMode:"world-yaw",fallbackRadiusMetres:.38,
   },identified,missing:(Object.keys(names) as (keyof typeof names)[])
     .filter(corner=>names[corner]===unmapped[corner])};
 }

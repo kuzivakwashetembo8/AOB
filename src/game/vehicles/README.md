@@ -15,6 +15,9 @@ a sedan asset, tire dynamics, or a commercial Ferrari licensing determination.
 - `street-vehicle-wheels.ts` — imported per-wheel node mapping,
   measured wheel radius and quaternion-based roll/steering that avoids GLTF
   Euler-vs-quaternion incompatibility; missing source pivots are exposed.
+  New GLBs default to world-yaw toe, dynamically converting world-up into the
+  hub parent frame instead of guessing a per-asset steering sign. Ferrari keeps
+  its visually accepted legacy-local convention.
 - `first-drive-trial.ts` — reusable `StreetVehicleActor` that accepts a
   physics profile and wheel mapping. `FirstDriveTrial` is its Ferrari test
   adapter retained for `GTDGameRuntime` compatibility.

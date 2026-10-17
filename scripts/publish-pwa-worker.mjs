@@ -5,7 +5,7 @@
  * though the Vite build prints "dist/sw.js". No runtime network dependency.
  */
 import {
-  copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync,
+  copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 
@@ -45,6 +45,21 @@ if (!existsSync(published)) {
   for (const file of ["sw.js", ...dependencies]) {
     copyFileSync(join(generated, file), join(published, file));
   }
+  // Deploy metadata is written AFTER the Nitro output exists. Static manifests
+  // serve from the same exact Vercel deployment as its immutable JS/CSS chunks.
+  // Neither GitHub main HEAD nor a third-party endpoint is queried at runtime.
+  const releaseId = process.env.VERCEL_GIT_COMMIT_SHA ??
+    process.env.GITHUB_SHA ?? "development";
+  const environment = process.env.VERCEL_ENV ?? "development";
+  if ((process.env.VERCEL === "1" || process.env.VERCEL === "true") &&
+    !/^[a-f\d]{40}$/.test(releaseId)) {
+    throw new Error("[REL-010] Production/preview release requires an immutable Git SHA");
+  }
+  writeFileSync(join(published, "build-version.json"), JSON.stringify({
+    schema: "gtd-release-v1", releaseId, environment,
+    builtAt: new Date().toISOString(),
+  }));
+  console.info("[REL-010] Published immutable deployed release metadata: " + releaseId);
   console.info("[pwa] Published /sw.js and " + dependencies.length +
     " Workbox dependency file(s) to Nitro static output");
 }

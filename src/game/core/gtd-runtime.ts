@@ -88,6 +88,7 @@ import {
   type LoadedMeridiaCharacter,
 } from "../character/voight-humanoid-trial";
 
+import { MovementInputArbiter } from "../input/movement-input-arbiter";
 const FIXED_STEP = 1 / 60;
 const MAX_FRAME_DELTA = 0.1;
 const WALK_SPEED = 3.8;
@@ -104,6 +105,7 @@ export class GTDGameRuntime implements GameRuntime {
   private removeFL4EvidenceExport: (() => void) | null = null;
   private importedCarProbe: ImportedCarProbe | null = null;
   private readonly sportsCars=new Map<string,FirstDriveTrial>();
+  private readonly movementArbiter = new MovementInputArbiter();
   private readonly driveVehicleNames=new Map<string,"Ferrari"|"Range Rover">();
   private rangeRoverTrialEnabled=false;
   private drivingTrial: FirstDriveTrial | null = null;
@@ -655,8 +657,9 @@ export class GTDGameRuntime implements GameRuntime {
       if(this.rangeRoverTrialEnabled&&isGeneratedFirstLightWorld(firstLight)&&
         firstLight.rangeRoverReview) {
         for(const parked of firstLight.rangeRoverReview.instances) {
-          // VEH-008: Toyota is a visual-only original GLB; leave its static
-          // parked collider in world ownership. Never register it as a Rover.
+          // The Toyota is for static visual assessment only. Its loaded
+          // authentic GLB and static collider remain world-owned. No Rover
+          // suspension, wheel rig or seating logic is applied to the Hilux.
           if(parked.spec.visualOnly)continue;
           const dims=parked.drivingDimensions;
           if(!dims)throw Error("VEH007 Range Rover GLB bounds unavailable");
@@ -795,6 +798,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.voight = null;
     this.world = null;
     this.actions.clear();
+    this.movementArbiter.clear();
     this.flightEnabled = false;
     this.pendingTouchLook = { x: 0, y: 0 };
     this.lifecycle = "destroyed";
@@ -805,11 +809,8 @@ export class GTDGameRuntime implements GameRuntime {
 
   command(command: GameCommand): void {
     if (command.type === "move") {
-      const length = Math.hypot(command.x, command.y);
-      const next = length > 1
-        ? { x: command.x / length, y: command.y / length }
-        : { x: command.x, y: command.y };
-      if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) return;
+      const next = this.movementArbiter.apply(command);
+      if (!next) return;
       if (this.characterTrial) {
         const changed = Math.abs(next.x - this.move.x) > 0.0001 ||
           Math.abs(next.y - this.move.y) > 0.0001;
@@ -959,6 +960,7 @@ export class GTDGameRuntime implements GameRuntime {
       this.enteredAt=null;this.carEnteredAt=null;
       voight.root.setEnabled(true);
       this.move={x:0,y:0};
+      this.movementArbiter.clear();
       this.preferredCameraRadius=6.2;
       this.publishSnapshot(0);
       this.emit({type:"interaction",label:"Exited "+leavingName+" at its actual world position"});
@@ -973,6 +975,8 @@ export class GTDGameRuntime implements GameRuntime {
     }
     const car=this.sportsCars.get(nearest.id);
     if(!car)return;
+    this.movementArbiter.clear();
+    this.move={x:0,y:0};
     this.enteredAt={...actor};this.carEnteredAt={...car.pose};
     this.drivingTrial=car;this.context="driving";
     // Only this isolated experiment attempts a visible seated driver.
@@ -1073,7 +1077,11 @@ export class GTDGameRuntime implements GameRuntime {
     if (this.context === "driving" && this.drivingTrial) {
       const trial = this.drivingTrial;
       const previousYaw = trial.headingYaw;
-      trial.prepare(dt, this.move.x, this.move.y);
+      // Arrow touch control ramps like analogue steering (~0.42s to full
+      // lock) while accepted joystick, keyboard and controller retain their
+      // existing response (0.18s). Both use the same vehicle solver.
+      trial.prepare(dt, this.move.x, this.move.y,
+        this.movementArbiter.lastSteeringSource === "touch-arrows" ? 1.2 : undefined);
       // Exactly one Rapier step each fixed tick. The existing character
       // controller owns the step until world physics is centrally refactored.
       physics.movePlayer({ x: 0, y: 0, z: 0 });

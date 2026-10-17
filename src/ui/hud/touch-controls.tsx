@@ -1,12 +1,97 @@
-import { useRef, type CSSProperties, type PointerEvent } from "react";
-import { Hand, ArrowUp, ArrowDown, Crosshair, Footprints, Car, Zap, Plane } from "lucide-react";
+import { useEffect, useRef, type CSSProperties, type PointerEvent } from "react";
+import { Hand, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Crosshair, Footprints, Car, Zap, Plane } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameAction, GameCommand } from "@/game/core/types";
 import type { Settings } from "@/ui/menus/settings-state";
+import { DrivingArrowHolds, type DrivingArrow } from "./driving-arrow-holds";
 type Send = (command: GameCommand) => void;
+const arrows = [
+  { direction: "left", label: "Steer left", Icon: ArrowLeft },
+  { direction: "right", label: "Steer right", Icon: ArrowRight },
+  { direction: "up", label: "Accelerate", Icon: ArrowUp },
+  { direction: "down", label: "Brake / reverse", Icon: ArrowDown },
+] as const;
+export function DrivingArrowControls({ send, haptics }: { send: Send; haptics: boolean }) {
+  const holds = useRef(new DrivingArrowHolds());
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  const sendIntent = (value: {x: number; y: number}) => {
+    sendRef.current({type:"move",...value,source:"touch-arrows"});
+  };
+  useEffect(() => {
+    const reset = () => sendRef.current({
+      type:"move", ...holds.current.reset(), source:"touch-arrows",
+    });
+    const hidden = () => { if (document.hidden) reset(); };
+    window.addEventListener("blur",reset);
+    document.addEventListener("visibilitychange",hidden);
+    return () => {
+      window.removeEventListener("blur",reset);
+      document.removeEventListener("visibilitychange",hidden);
+      reset();
+    };
+  }, []);
+  const begin = (direction: DrivingArrow, event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (holds.current.has(event.pointerId)) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    sendIntent(holds.current.press(event.pointerId,direction));
+    if (haptics) navigator.vibrate?.(12);
+  };
+  const release = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!holds.current.has(event.pointerId)) return;
+    event.preventDefault();
+    sendIntent(holds.current.release(event.pointerId));
+  };
+  return (
+    <div className="driving-arrow-pad" role="group" aria-label="Driving arrow controls">
+      <div className="driving-arrows-steer" role="group" aria-label="Steering arrows">
+        {arrows.slice(0,2).map(({direction,label,Icon}) => (
+          <button type="button" key={direction} className="driving-arrow-button"
+            aria-label={label} data-direction={direction}
+            onPointerDown={(e)=>begin(direction,e)}
+            onPointerUp={release} onPointerCancel={release}
+            onLostPointerCapture={release}>
+            <Icon aria-hidden="true" size={30}/>
+          </button>
+        ))}
+      </div>
+      <div className="driving-arrows-throttle" role="group" aria-label="Throttle and brake arrows">
+        {arrows.slice(2).map(({direction,label,Icon}) => (
+          <button type="button" key={direction} className="driving-arrow-button"
+            aria-label={label} data-direction={direction}
+            onPointerDown={(e)=>begin(direction,e)}
+            onPointerUp={release} onPointerCancel={release}
+            onLostPointerCapture={release}>
+            <Icon aria-hidden="true" size={30}/>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 export function Joystick({ send }: { send: Send }) {
   const thumb = useRef<HTMLDivElement>(null);
   const active = useRef<number | null>(null);
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    const reset = () => {
+      if (active.current === null) return;
+      active.current = null;
+      if (thumb.current) thumb.current.style.transform = "translate(0, 0)";
+      sendRef.current({ type:"move",x:0,y:0,source:"touch-joystick" });
+    };
+    const hidden = () => {if(document.hidden)reset();};
+    window.addEventListener("blur",reset);
+    document.addEventListener("visibilitychange",hidden);
+    return () => {
+      window.removeEventListener("blur",reset);
+      document.removeEventListener("visibilitychange",hidden);
+      reset();
+    };
+  }, []);
   const move = (event: PointerEvent<HTMLDivElement>) => {
     if (active.current !== event.pointerId) return;
     const rect = event.currentTarget.getBoundingClientRect();
@@ -49,6 +134,11 @@ export function Joystick({ send }: { send: Send }) {
     </div>
   );
 }
+// Keep Enter/Exit accessible while driving; on-foot and flight-only actions
+// must never obstruct the windshield or lower screen in either drive layout.
+export const visibleTouchActions = (driving: boolean) =>
+  driving ? actions.filter((entry) => entry.action === "vehicle") : actions;
+
 const actions: Array<{ action: GameAction; label: string; icon: typeof Hand }> = [
   { action: "interact", label: "Interact", icon: Hand },
   { action: "jump", label: "Jump", icon: ArrowUp },
@@ -63,24 +153,27 @@ export function TouchControls({
   send,
   settings,
   onAction,
+  driving = false,
 }: {
   send: Send;
   settings: Settings;
   onAction: (action: GameAction) => void;
+  driving?: boolean;
 }) {
   const style = {
     "--control-opacity": settings.opacity / 100,
     "--control-scale": settings.scale / 100,
     "--joystick-size": `${settings.joystickSize}px`,
   } as CSSProperties;
+  const arrowMode = driving && settings.drivingTouchLayout === "arrows";
   return (
     <div
-      className={`touch-controls positions-${settings.position.toLowerCase()} ${settings.handedness === "Left-handed" ? "left-handed" : ""}`}
+      className={`touch-controls ${arrowMode ? "driving-arrow-mode" : ""} positions-${settings.position.toLowerCase()} ${!arrowMode && settings.handedness === "Left-handed" ? "left-handed" : ""}`}
       style={style}
     >
-      <Joystick send={send} />
+      {arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
       <div className="touch-actions">
-        {actions.map(({ action, label, icon: Icon }) => (
+        {visibleTouchActions(driving).map(({ action, label, icon: Icon }) => (
           <Button
             variant="control"
             aria-label={label}

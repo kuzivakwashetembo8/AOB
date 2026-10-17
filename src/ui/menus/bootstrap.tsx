@@ -1,5 +1,8 @@
 import type { StartupCheckEntry } from "@/game/core/loading-checklist";
 import { startupCompletion } from "@/game/core/loading-checklist";
+import {
+  STARTUP_LOAD_BUDGET_SECONDS, describeStartupBudget, formatStartupDuration,
+} from "@/game/core/startup-load-budget";
 
 /**
  * Unlike the old shell-only progress graphic, every status below is driven by
@@ -7,20 +10,47 @@ import { startupCompletion } from "@/game/core/loading-checklist";
  */
 export function BootstrapOverlay({
   entries,
+  elapsedSeconds = 0,
   error,
   onDownloadDiagnostics,
+  onRetryUpdate,
+  onContinueCurrentBuild,
 }: {
   entries: readonly StartupCheckEntry[];
+  elapsedSeconds?: number;
   error?: string | null;
   onDownloadDiagnostics?: (() => void) | undefined;
+  onRetryUpdate?: (() => void) | undefined;
+  onContinueCurrentBuild?: (() => void) | undefined;
 }) {
   const completion = startupCompletion(entries);
+  const budget = describeStartupBudget(elapsedSeconds);
   return (
     <div className="overlay" role="status" aria-label="Preparing Meridian game">
       <div className="overlay-content">
         <div className="system-label text-primary mb-4">MERIDIA // MERIDIAN CITY</div>
         <div className="bootstrap-mark">GTD<span className="text-primary">.</span></div>
         <h2 className="game-title mt-2">GRAND THEFT DIVISION</h2>
+        <div className={`load-budget-meter ${budget.exceeded ? "load-budget-over" : ""}`}
+          data-gtd-startup-budget={budget.exceeded ? "over" : "within"}
+          role="timer"
+          aria-label="Elapsed game loading time versus 60-second target"
+          aria-live="off">
+          <div className="load-budget-heading">
+            <span>GAME LOADING TIME</span>
+            <span>{budget.exceeded ? "60s BUDGET EXCEEDED" : "TARGET: 60 SECONDS"}</span>
+          </div>
+          <div className="load-budget-face">
+            <output data-testid="startup-clock">{formatStartupDuration(elapsedSeconds)}</output>
+            <span className="load-budget-separator">/</span>
+            <span>{formatStartupDuration(STARTUP_LOAD_BUDGET_SECONDS)}</span>
+          </div>
+          <div className="load-budget-variance">
+            {budget.exceeded
+              ? `OUTSIDE ATTENTION WINDOW // +${formatStartupDuration(budget.overBySeconds)}`
+              : `TIME REMAINING // ${formatStartupDuration(budget.remainingSeconds)}`}
+          </div>
+        </div>
         <div
           className="progress-track"
           role="progressbar"
@@ -71,9 +101,18 @@ export function BootstrapOverlay({
                 Download character trial data (JSON)
               </button>
             )}
-            <button type="button" className="mt-3 text-primary underline" onClick={() => window.location.reload()}>
-              Retry loading
-            </button>
+            {onRetryUpdate ? (
+              <div className="mt-3 flex gap-5">
+                <button type="button" className="text-primary underline" onClick={onRetryUpdate}>Retry update</button>
+                <button type="button" className="text-primary underline" onClick={onContinueCurrentBuild}>
+                  Continue with installed build
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="mt-3 text-primary underline" onClick={() => window.location.reload()}>
+                Retry loading
+              </button>
+            )}
           </div>
         )}
         {!error && (

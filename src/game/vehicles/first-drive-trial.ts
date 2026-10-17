@@ -189,10 +189,12 @@ export class StreetVehicleActor {
     visualWheelTravel: this.wheelRig.visualWheelTravelMetres,
   }; }
 
-  prepare(dt: number, steering: number, moveY: number) {
+  prepare(dt: number, steering: number, moveY: number,
+    steeringResponseRadiansPerSecond?: number) {
     if (this.destroyed) return;
     const next = stepDriveControl(
       this.drive, { throttle: -moveY, steering }, dt,
+      steeringResponseRadiansPerSecond,
     );
     this.drive = {
       speedMps: next.speedMps,
