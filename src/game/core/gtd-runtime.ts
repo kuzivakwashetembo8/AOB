@@ -634,7 +634,7 @@ export class GTDGameRuntime implements GameRuntime {
             if(!admission.qualified){
               console.warn("[WHEEL-001] No drivable wheel rig; keeping original parked",
                 parked.spec.id,admission.code,{
-                  discovery:discovered.description,
+                  discovery:rover?"accepted-rover-rig":discovered.identified,
                   extraction:separated?.reason??"not-attempted",
                 });
               continue;
