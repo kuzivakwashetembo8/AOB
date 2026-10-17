@@ -1,0 +1,60 @@
+name: WHEEL-001 asset source audit
+on:
+  push:
+    branches:
+      - feat/wheel001-universal-rig-admission-20261017
+    paths:
+      - scripts/wheel001_onboard_blender.py
+      - .github/workflows/wheel001-source-qualification.yml
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Source model to qualify
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - toyota
+          - defender
+          - dodge
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install offline rigging tool
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y blender
+      - name: Inspect and independently rig original wheel meshes
+        shell: bash
+        run: |
+          mkdir -p wheel001-output
+          set +e
+          blender -b -t 2 --python scripts/wheel001_onboard_blender.py -- \
+            --source "public/toyota hilux 002.glb" --model-id toyota-hilux-002 \
+            --out-dir wheel001-output/toyota > wheel001-output/toyota.log 2>&1
+          echo "Toyota exit: $?" >> wheel001-output/summary.txt
+          blender -b -t 2 --python scripts/wheel001_onboard_blender.py -- \
+            --source "public/Land rover defender 001.glb" --model-id defender-001 \
+            --out-dir wheel001-output/defender > wheel001-output/defender.log 2>&1
+          echo "Defender exit: $?" >> wheel001-output/summary.txt
+          blender -b -t 2 --python scripts/wheel001_onboard_blender.py -- \
+            --source "public/dodge_HP.glb" --model-id dodge-hp \
+            --out-dir wheel001-output/dodge > wheel001-output/dodge.log 2>&1
+          echo "Dodge exit: $?" >> wheel001-output/summary.txt
+          cat wheel001-output/summary.txt
+          set -e
+      - name: Archive qualification reports and candidate derivatives
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel001-owner-glb-audit
+          path: wheel001-output
+          retention-days: 7
+          if-no-files-found: error
