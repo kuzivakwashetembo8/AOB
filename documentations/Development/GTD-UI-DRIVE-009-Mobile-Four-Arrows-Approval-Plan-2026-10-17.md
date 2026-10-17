@@ -1,7 +1,7 @@
 # UI-DRIVE-009 — Driving-only mobile four-arrow layout
 
 Date: 2026-10-17
-State: NOT APPROVED — PLAN ONLY. Owner explicitly withheld approval on 2026-10-17. Do not implement until new explicit authorization.
+State: APPROVED FOR IMPLEMENTATION — IMPLEMENTED ON ISOLATED REVIEW BRANCH. Preview/device acceptance pending; main and production unchanged.
 Reference: owner-provided Payback 2 controller example; left side steering arrows, right side throttle/reverse arrows.
 
 ## User-facing behavior
@@ -29,7 +29,7 @@ Add a Settings > Mobile Controls > Driving control layout selection: Existing dr
 
 **Acceptance tests to add only after approval:** With matched initial speed, compare a short tap versus a longer hold (record actual steering-angle and heading delta; shorter must be less); verify both directions, centered wheel after release, preserved final chassis heading, stationary wheel-toe change with zero chassis yaw, reverse-steering consistency, hold UP+LEFT multi-touch, mid-turn release and recenter, and parity across Range Rover/Ferrari/new GLBs. Validate actual mobile-device input latency and continuous-frame behavior before choosing response time or curves. Never declare control feel validated from NullEngine tests alone.
 
-**Current decision:** owner has expressly **NOT APPROVED** implementation of UI-DRIVE-009. These are documented requirements for review, not a task authorization. No runtime/control/settings changes are permitted until a subsequent explicit approval.
+**Historical review gate (superseded):** the owner initially withheld approval while these tap-versus-hold requirements were clarified. The owner subsequently explicitly approved implementation of both UI-DRIVE-009 and REL-010 on 2026-10-17. This paragraph records the sequence; it is not a current prohibition.
 
 ## Runtime/input architecture
 
@@ -54,3 +54,16 @@ Landscape-first Android/iOS with safe-area insets, notches, translucent HUD over
 ## Failure modes and approval
 
 Stuck throttle from missed release is safety/UX critical; stale source updates may cancel an active held direction; controls can overlap screen cutouts or vehicle exit. Guard by explicit per-pointer ownership and lifecycle cleanup. Provide before/after UI schematics and real-device landscape validation before requesting approval. No code/UI changes in this directive. Implementation requires explicit owner approval.
+
+## Implementation handoff (authorized 2026-10-17)
+
+- `settings-state.ts`: optional `drivingTouchLayout` with strict normalization; old saved settings default to drag.
+- `settings-editor.tsx`: driving layout selector under Mobile Controls.
+- `driving-arrow-holds.ts`: per-pointer independent left/right/up/down aggregation, with cancellation.
+- `touch-controls.tsx`: real pointer-hold arrows only in driving context, on-blur/lostcapture/unmount cleanup. Existing joystick has equivalent cleanup; camera remains separately touch-draggable.
+- `movement-input-arbiter.ts`: runtime input-source ownership prevents a stale keyboard or unrelated touch release from cancelling held driving arrows; diagonals keep both input axes at full intensity.
+- `drive-kinematics.ts`, `first-drive-trial.ts`, `gtd-runtime.ts`: arrow-only 1.2 radians/second progressive steering (approx 0.42 s to full lock), with smooth recentering relative to CURRENT chassis heading. Existing drag/keyboard controller retains 2.8 radians/second. Same wheels/physics/actor reused for any drivable vehicle.
+- CSS places left steering and right throttle/brake above safe-area insets, with separate accessible hit targets and the original action buttons retained.
+- `src/test/driving-arrow-controls.test.tsx` covers setting, dual-pointer diagonal hold, pointer cancellation, input arbitration, tap/hold response and recenter.
+
+**Acceptance still needed:** owner approves actual Android landscape layout/feel, including short taps, sustained turns, forward/reverse, switching drag/arrows, focus losses, camera swipes and Ferrari/Range Rover parity. Automated tests are not equivalent to a real-device touch trial. Do not merge/deploy production before release authorization.

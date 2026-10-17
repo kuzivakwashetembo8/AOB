@@ -1,7 +1,7 @@
 # REL-010 — Production update detection, build selection and safe cache refresh
 
 Date: 2026-10-17
-State: PLAN ONLY — OWNER APPROVAL REQUIRED. Do not implement in this directive.
+State: APPROVED FOR IMPLEMENTATION — IMPLEMENTED ON ISOLATED REVIEW BRANCH. Preview QA pending; manual production release policy retained.
 Goal: a new game launch loads the newest actually deployed and approved build, while preserving player/device data.
 
 ## Current release contract and critical distinction
@@ -28,3 +28,14 @@ Recommended policy: retain manual production promotion. The updater tracks the l
 Automated cases: same build/no reload, changed build/one reload, Git main newer but not deployed/no reload, offline/timeout, stale worker, activation delay, corrupt manifest, failed chunk, cross-tab workers, stale hash, version rollback, one-reload sentinel, cache ownership isolation. Assert persisted preferences, player state, saves and authentication survive bit-for-bit. Real tests on installed PWA Android Chrome, desktop browsers, fresh visits, return visits, degraded connectivity, rolling deployment and rollback. Plain /game and the exact Rover GLB URL must still render when latest approved production build is active. Log only release ID, worker state, update decisions and error reason (no player data).
 
 Approval gate: owner signs off manual-vs-automated deployment policy, initial loading handshake, explicit update/rollback UI and complete persistence/worker QA. Until approval, existing production behavior remains unchanged.
+
+## Implementation handoff (authorized 2026-10-17)
+
+- `vite.config.ts` embeds the deploy source SHA and environment in the startup bundle as `__GTD_RELEASE_ID__` and `__GTD_RELEASE_ENV__`, from Vercel Git metadata.
+- `scripts/publish-pwa-worker.mjs` writes `/build-version.json` into deployed Nitro static files with schema, release SHA, environment and timestamp after build. Vercel Git deployment must provide SHA at build time; deployments without a valid immutable SHA fail closed rather than promise unproven freshness. A future non-Git CLI release must pass build metadata explicitly.
+- `vercel.json` adds no-store HTTP caching for the version manifest and revalidation for `/sw.js`. Automatic Git builds remain disabled.
+- `src/lib/game-version-check.ts` compares running bundle to SAME-ORIGIN deployed metadata before the costly /game Babylon import; aborts after 2.5 s and proceeds offline if metadata unavailable. On mismatch it requests the active worker update (bounded), deletes ONLY `gtd-shell-pages` navigation cache, and navigates to the specific new deployed SHA with at-most-once URL/session sentinel. Never clears data stores, private keys, history, or other caches.
+- `src/routes/game.tsx` gates initial boot on version comparison, displays bounded recovery UI on repeated mismatch. `src/ui/menus/bootstrap.tsx` exposes retry and continue-current-build actions; no update interruption during driving.
+- `src/test/production-version-check.test.ts` tests version decision matrix and missing metadata. Existing `src/test/pwa-worker-publish.test.ts` protects worker publishing.
+
+**Operational boundary:** Clients running old pre-REL-010 JS cannot magically execute new update-check code until a fresh navigation receives the newly deployed application. The existing service worker's NetworkFirst navigation is the migration path. GitHub `main` that has not been explicitly deployed is never treated as a downloadable release. Review SSO-protected preview /game and /build-version.json before merging. Live tests must confirm persistence of localStorage, IndexedDB, session and world saves across an actual version upgrade and rollback, plus offline and two-tab behavior.
