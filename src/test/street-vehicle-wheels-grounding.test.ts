@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { vehicleFootprintsOverlap } from "../game/vehicles/street-vehicle-barriers";
-import { MeshBuilder, NullEngine, Quaternion, Scene, TransformNode } from "@babylonjs/core";
+import { Matrix, MeshBuilder, NullEngine, Quaternion, Scene, TransformNode, Vector3 } from "@babylonjs/core";
 import {
-  FERRARI_WHEEL_MAPPING, StreetVehicleWheelRig,
+  FERRARI_WHEEL_MAPPING, StreetVehicleWheelRig, worldYawSteerQuaternion,
   type StreetVehicleWheelMapping,
 } from "../game/vehicles/street-vehicle-wheels";
 import {
@@ -58,6 +58,40 @@ describe("GTD reusable street vehicle wheel/grounding contracts", () => {
         expect(wheel.rotationQuaternion!.w).toBeCloseTo(1, 6);
       }
     } finally { setup.dispose(); }
+  });
+  it("new cars default to world-yaw instead of arbitrary model-specific sign", () => {
+    const map: StreetVehicleWheelMapping = {
+      ...FERRARI_WHEEL_MAPPING, steeringMode: undefined, steeringSign: 1,
+    };
+    const s = makeRig(map);
+    try {
+      s.rig.update(0, 0.3);
+      expect(Math.abs(Quaternion.Dot(s.wheels[0]!.rotationQuaternion!,
+        Quaternion.RotationAxis(Vector3.Up(), -0.3)))).toBeCloseTo(1, 6);
+      expect(Math.abs(Quaternion.Dot(s.wheels[2]!.rotationQuaternion!,
+        Quaternion.Identity()))).toBeCloseTo(1, 6);
+      s.rig.update(0, -0.3);
+      expect(Math.abs(Quaternion.Dot(s.wheels[1]!.rotationQuaternion!,
+        Quaternion.RotationAxis(Vector3.Up(), 0.3)))).toBeCloseTo(1, 6);
+    } finally { s.dispose(); }
+  });
+  it("converts world yaw into differently oriented GLB parent frames", () => {
+    for (const yaw of [Math.PI / 2, -Math.PI / 2]) {
+      const parent = Matrix.RotationYawPitchRoll(yaw, Math.PI, 0);
+      const localUp = Vector3.TransformNormal(
+        Vector3.Up(), parent.clone().invert()).normalize();
+      const q = worldYawSteerQuaternion(parent, 0.27);
+      const expected = Quaternion.RotationAxis(localUp, -0.27);
+      expect(Math.abs(Quaternion.Dot(q, expected))).toBeCloseTo(1, 6);
+      const start = Vector3.TransformNormal(Vector3.Forward(), parent);
+      const localTurn = Vector3.TransformNormal(
+        Vector3.Forward(), Matrix.FromQuaternion(q));
+      const turned = Vector3.TransformNormal(localTurn, parent);
+      const wanted = Vector3.TransformNormal(start, Matrix.RotationY(-0.27));
+      expect(Vector3.Distance(turned, wanted)).toBeLessThan(1e-5);
+    }
+    expect(() => worldYawSteerQuaternion(null, NaN)).toThrow();
+    expect(() => worldYawSteerQuaternion(Matrix.Scaling(0, 0, 0), 0.2)).toThrow();
   });
   it("requires actual wheel pivots and does not fake animation by spinning the chassis", () => {
     const engine = new NullEngine(), scene = new Scene(engine);

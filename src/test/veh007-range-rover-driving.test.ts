@@ -96,6 +96,8 @@ describe("VEH007 Range Rover uses shared Ferrari/Buggy driving foundation",()=>{
       expect(evidence.mapping.wheelNames).toEqual(RANGE_ROVER_SOURCE_WHEEL_NAMES);
       expect(evidence.mapping.spinAxis).toBe("z");
       expect(evidence.mapping.steerAxis).toBe("y");
+      expect(evidence.mapping.steeringMode).toBe("world-yaw");
+      expect(evidence.mapping.steeringSign).toBe(-1);
       const rig=new StreetVehicleWheelRig(anchor,evidence.mapping);
       expect(rig.ready).toBe(true);
       expect(rig.wheelCount).toBe(4);
@@ -176,6 +178,7 @@ describe("VEH007 Range Rover uses shared Ferrari/Buggy driving foundation",()=>{
       expect(prepared.identified).toBe(4);
       expect(prepared.missing).toEqual([]);
       expect(prepared.mapping.wheelNames).toEqual(RANGE_ROVER_HUB_PIVOTS);
+       expect(prepared.mapping.steeringMode).toBe("world-yaw");
       for(const [,,name] of positions){
         const tire=scene.getMeshByName(name)!;
         tire.computeWorldMatrix(true);
