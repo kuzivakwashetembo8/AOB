@@ -199,7 +199,7 @@ export function splitOriginalMergedWheelGeometry(
   const halfWidth=sizeAll.x/2,halfLength=sizeAll.z/2;
   const byCorner=new Map<Corner,Island[]>();
   for(const comp of groups.values()){
-    if(comp.triangles.length<240)continue; // >=80 original source triangles
+    if(comp.triangles.length<120)continue; // >=40 original source triangles
     comp.center=center(comp);
     const d=size(comp),p=comp.center;
     // A radial ring in the wheel plane, not a glass, bumper or body panel.
@@ -262,7 +262,7 @@ export function splitOriginalMergedWheelGeometry(
   for(const corner of CORNERS){
     const p=selected.get(corner)!;
     const selectedIndices=p.triangles;
-    if(selectedIndices.length<240)return failure("wheel-surface-incomplete",1);
+    if(selectedIndices.length<120)return failure("wheel-surface-incomplete",1);
     wheelIndices.set(corner,selectedIndices);
     // Mark triangles by signature, NOT index ownership: other components may
     // contain a coincident vertex index but must remain intact.
@@ -274,7 +274,7 @@ export function splitOriginalMergedWheelGeometry(
     if(!remove.has(id))body.push(indices[i]!,indices[i+1]!,indices[i+2]!);
   }
   const removedTriangles=(indices.length-body.length)/3;
-  if(body.length<indices.length*.3 || removedTriangles<320)
+  if(body.length<36 || removedTriangles<120)
     return failure("invalid-body-wheel-triangle-partition",1);
   const inversed=matrix.clone().invert();
   const pivotNodes:TransformNode[]=[];
@@ -297,7 +297,7 @@ export function splitOriginalMergedWheelGeometry(
     }
     // Before touching the body, all four original wheel meshes must exist
     // with real triangles and unchanged fitted source materials.
-    if(wheelMeshes.some(m=>m.getTotalVertices()<80||m.getTotalIndices()<240))
+    if(wheelMeshes.some(m=>m.getTotalVertices()<40||m.getTotalIndices()<120))
       throw Error("one or more wheel surfaces incomplete");
     source.makeGeometryUnique();
     source.setIndices(body,null,false);
