@@ -134,7 +134,7 @@ export function prepareNativeFleetWheelRig(
     }
   }catch(error){
     for(const pivot of pivots.reverse()){
-      for(const child of pivot.getChildren())child.setParent(pivot.parent);
+      for(const child of pivot.getChildren())child.parent=pivot.parent;
       pivot.dispose();
     }
     throw error;
