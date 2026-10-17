@@ -174,6 +174,8 @@ export function SettingsEditor({
             )}
             {category === "Mobile Controls" && (
               <>
+                {select("drivingTouchLayout", "Driving controls", ["drag", "arrows"])}
+                <p className="overlay-note">Drag (existing) or four arrows while driving. Arrows: tap for a small turn; hold for progressively stronger steering. Walking controls are unchanged.</p>
                 {range("touchSensitivity", "Touch camera sensitivity", 100, 10)}
                 {toggle("invertY", "Invert vertical camera swipe")}
                 {range("opacity", "Control opacity", 100, 20)}

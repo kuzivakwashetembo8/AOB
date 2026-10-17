@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { normalizeRenderClarity, normalizeRenderScalePercent, type RenderClarityMode } from "@/game/renderer/render-clarity";
+export type DrivingTouchLayout = "drag" | "arrows";
+export function normalizeDrivingTouchLayout(value: unknown): DrivingTouchLayout {
+  return value === "arrows" ? "arrows" : "drag";
+}
 export type Settings = {
+  drivingTouchLayout: DrivingTouchLayout;
   quality: string;
   renderClarity: RenderClarityMode;
   renderScalePercent: number;
@@ -30,6 +35,7 @@ export type Settings = {
   desktopControls: boolean;
 };
 export const defaults: Settings = {
+  drivingTouchLayout: "drag",
   quality: "High",
   renderClarity: "Auto",
   renderScalePercent: 100,
@@ -71,6 +77,7 @@ export function useSettings() {
         setSettings({
           ...defaults,
           ...stored,
+          drivingTouchLayout: normalizeDrivingTouchLayout(stored.drivingTouchLayout),
           renderClarity: normalizeRenderClarity(stored.renderClarity),
           renderScalePercent: normalizeRenderScalePercent(stored.renderScalePercent),
         });

@@ -15,6 +15,7 @@ import { useSettings } from "@/ui/menus/settings-state";
 import { SettingsEditor } from "@/ui/menus/settings-editor";
 import { GameHud } from "@/ui/hud/game-hud";
 import { TouchControls } from "@/ui/hud/touch-controls";
+import { checkGameStartupVersion } from "@/lib/game-version-check";
 import { DesktopControls } from "@/ui/hud/desktop-controls";
 import { BootstrapOverlay } from "@/ui/menus/bootstrap";
 import { downloadCharacterTrialEvidence } from "@/game/character/character-trial-download";
@@ -93,6 +94,15 @@ function GamePage() {
       try {
         const host = canvas.current;
         if (!host) return;
+        // Before expensive GLB/physics boot, validate the latest APPROVED
+        // deployment; never equate GitHub main with an un-deployed release.
+        const version = await checkGameStartupVersion();
+        if (cancelled || version === "reload") return;
+        if (version === "retry-needed") {
+          setRuntimeDetail("UPDATE REQUIRES ATTENTION");
+          setBootstrapError("An updated build is available but the refresh could not complete. Retry from this screen, or continue with your currently installed build.");
+          return;
+        }
         const { GTDGameRuntime } = await import("@/game/core/gtd-runtime");
         if (cancelled) return;
         const runtime = new GTDGameRuntime();
@@ -324,6 +334,7 @@ function GamePage() {
       {loaded && touch && !paused && (
         <TouchControls
           settings={settings}
+          driving={context === "driving"}
           send={(command) => bridge.command(command)}
           onAction={action}
         />
