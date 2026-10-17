@@ -1,0 +1,29 @@
+name: LOAD-061 telemetry release verification
+
+on:
+  push:
+    branches:
+      - release/load061-telemetry-20261017
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Regression tests
+        run: npm run test
+      - name: Production build
+        run: npm run build
