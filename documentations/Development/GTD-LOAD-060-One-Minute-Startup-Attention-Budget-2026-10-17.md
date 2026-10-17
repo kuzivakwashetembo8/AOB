@@ -16,3 +16,17 @@
 - Verify 0,1,59,60,61,75,>120s edge cases; timestamp-based timer, first-frame stop semantics, StrictMode duplicate effect handling, route cleanup, mobile landscape, installed PWA, repeated cached runs vs fresh loads, slow network, slow GPUs, version-check mismatch and offline startup.
 - Capture mobile observations including the hardware/browser/network, cold-cache and warm-cache time, time before/after GLB imports, time to first rendered post-import frame and the overage. Do not treat Vercel build duration as game startup latency; they are different metrics.
 - Acceptance remains failing for any sampled startup exceeding 60s until genuine loading work is reduced. Do not remove accepted vehicles, lower render fidelity or compromise safe version checks as a hidden workaround. No production merge until owner approves actual performance.
+
+## Observed threshold violations and investigation escalation — 2026-10-17
+
+The owner subsequently provided Android landscape screenshots from the isolated GTD preview build documenting **two successful but unacceptable startups**:
+
+- **07:28** to first playable frame (**448 s; +06:28** beyond the 01:00 target).
+- **06:54** to first playable frame (**414 s; +05:54** beyond the target).
+- Loading overlay observations additionally include **07:00 with 7/8 checks resolved** and **00:59 with 5/8 checks resolved**. Without correlated run IDs, the screenshots do not prove which exact stage consumed the missing time or pair each interim image with a successful run.
+
+**Release status:** performance gate **FAILED** on the review branch; this is a P0 blocker for promoting this branch. Both original GLBs remained visibly present at completion. Do not remove them or lower graphical fidelity to report a false improvement. The new timer correctly reveals the problem but is **not** a speed optimization.
+
+**Precision clarification for future work:** the current visible formatter floors seconds; a reading of `01:00` does not prove a high-resolution duration `<= 60,000 ms`. Future acceptance and analytics must evaluate exact `duration_ms > 60000` while keeping `MM:SS` as human-friendly display.
+
+**Canonical investigation, planned tracing fields, Supabase schema proposal and owner handoff:** [GTD-LOAD-061 — Startup performance investigation and Supabase telemetry](./GTD-LOAD-061-Startup-Performance-Investigation-and-Supabase-Telemetry-2026-10-17.md). Instrumentation, telemetry ingestion and optimization remain **not implemented** pending authorization and Supabase project readiness.
