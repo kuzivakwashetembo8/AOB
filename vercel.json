@@ -5,7 +5,7 @@
     "deploymentEnabled": false
   },
   "ignoreCommand": "exit 1",
-  "buildCommand": "npx tsc --noEmit && npx vitest run && npm run build",
+  "buildCommand": "node scripts/wheel001_asset_audit.mjs && npx tsc --noEmit && npx vitest run && npm run build",
   "headers": [
     {
       "source": "/build-version.json",
