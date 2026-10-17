@@ -125,7 +125,22 @@ export function createMercerExtraParkedGLBs(
     modelRoot.parent=anchor;
     const ready=(async()=>{
       if(!load)await import("@babylonjs/loaders/glTF");
-      const glb=await (load?load(spec.url,scene):loadAssetContainerAsync(spec.url,scene));
+      // WHEEL-001: Only use build-time rigged derivatives on the isolated
+      // review preview; in local development/custom loader tests retain the
+      // exact original URL. The build always generates this pathname,
+      // including an unchanged original fallback on failed qualification.
+      const derivative:Record<string,string>={
+        "gtd-veh008-mercer-toyota-hilux":
+          "/wheel001-generated/toyota-hilux-002.glb",
+        "gtd-veh009-mercer-land-rover-defender":
+          "/wheel001-generated/land-rover-defender-001.glb",
+        "gtd-veh010-mercer-dodge-hp":
+          "/wheel001-generated/dodge-hp.glb",
+      };
+      const runtimeUrl=import.meta.env.PROD
+        ?(derivative[spec.id]??spec.url):spec.url;
+      const glb=await (load?load(spec.url,scene):
+        loadAssetContainerAsync(runtimeUrl,scene));
       if(closed){glb.dispose();return;}
       container=glb;
       containerReadyMs=performance.now()-loadStartedAt;

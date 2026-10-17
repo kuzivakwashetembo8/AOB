@@ -66,6 +66,31 @@ function unavailable(name:ExtraDriveName,identified=0,count=0):NativeWheelEviden
 export function prepareNativeFleetWheelRig(
  anchor:TransformNode,name:ExtraDriveName,
 ):NativeWheelEvidence{
+  // MVRS-1: actual original wheel surface islands may be separated OFFLINE
+  // during build into source-backed glTF wheel-pivot nodes. Their geometry
+  // and source materials remain from the supplied original GLB.
+  const expected={
+    frontLeft:"MVRS_"+reviewClasses[name].id+"_frontLeft_PIVOT",
+    frontRight:"MVRS_"+reviewClasses[name].id+"_frontRight_PIVOT",
+    rearLeft:"MVRS_"+reviewClasses[name].id+"_rearLeft_PIVOT",
+    rearRight:"MVRS_"+reviewClasses[name].id+"_rearRight_PIVOT",
+  };
+  const allNodes=anchor.getDescendants(false);
+  const matched=corners.map(corner=>allNodes.find(node=>
+    node instanceof TransformNode &&
+    (node.name===expected[corner]||
+     node.name.endsWith(":"+expected[corner]))));
+  if(matched.every((node):node is TransformNode=>
+    node instanceof TransformNode &&
+    node.getChildMeshes(false).some(mesh=>mesh.getTotalVertices()>40))){
+    return {
+      identified:4,missing:[],sourceMeshCount:anchor.getChildMeshes(false).length,
+      mapping:{wheelNames:expected,spinAxis:"x",steerAxis:"y",
+        steeringMode:"world-yaw",steeringSign:-1,
+        fallbackRadiusMetres:reviewClasses[name].wheelRadius},
+      description:"Four build-time separated original tire/rim assemblies with measured source pivots",
+    };
+  }
   anchor.computeWorldMatrix(true);
   const inverse=anchor.getWorldMatrix().clone().invert();
   const meshes=anchor.getChildMeshes(false)
