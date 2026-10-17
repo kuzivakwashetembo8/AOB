@@ -32,7 +32,10 @@ describe("UI-DRIVE-009 optional vehicle arrows",()=>{
     const apply=vi.fn();
     const {rerender}=render(<SettingsEditor initialSettings={defaults} onApply={apply}/>);
     fireEvent.click(screen.getByRole("button",{name:"Mobile Controls"}));
-    fireEvent.change(screen.getByRole("combobox",{name:"Driving controls"}),{target:{value:"arrows"}});
+    const trigger = screen.getByRole("combobox",{name:"Driving controls"});
+    // Radix custom select uses a virtual listbox, not the native select.
+    fireEvent.keyDown(trigger,{key:" ",code:"Space"});
+    fireEvent.click(screen.getByRole("option",{name:"Arrows"}));
     fireEvent.click(screen.getByRole("button",{name:/apply settings/i}));
     expect(apply).toHaveBeenCalledWith(expect.objectContaining({drivingTouchLayout:"arrows"}));
     rerender(<TouchControls settings={{...defaults,drivingTouchLayout:"arrows"}} driving={false} send={()=>{}} onAction={()=>{}}/>);

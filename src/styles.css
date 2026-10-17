@@ -1582,3 +1582,57 @@ html[data-display="standalone"] body > * {
   }
   .driving-arrow-button { width: 52px; height: 52px; }
 }
+
+/* G.T.D settings-select: Radix accessible menu with same Meridian visual grammar.
+   Popper is always rendered in the page rather than the OS native select picker. */
+.game-setting-select-trigger {
+  min-width: 0;
+  width: 100%;
+  max-width: 220px;
+  min-height: 44px;
+  height: auto;
+  background: var(--card);
+  border-color: var(--border);
+  border-radius: 4px;
+  font: 600 12px var(--font-sans);
+  color: var(--foreground);
+  text-align: left;
+}
+.game-setting-select-content {
+  z-index: 200;
+  min-width: var(--radix-select-trigger-width);
+  max-height: min(330px, 55dvh);
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  color: var(--foreground);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 55%);
+}
+.game-setting-select-option {
+  min-height: 42px;
+  padding-block: 10px;
+  font: 600 13px var(--font-sans);
+  touch-action: manipulation;
+}
+.game-setting-select-option[data-highlighted] {
+  background: var(--accent);
+  color: var(--primary);
+}
+.touch-controls.driving-arrow-mode .touch-actions {
+  bottom: min(134px, 30dvh);
+  left: 50%;
+  right: auto;
+  width: auto;
+  transform: translateX(-50%) scale(var(--control-scale, 1));
+  transform-origin: bottom center;
+}
+.touch-controls.driving-arrow-mode .touch-actions .control-button {
+  width: 52px;
+  height: 52px;
+}
+@media (max-width: 950px) and (orientation: landscape) {
+  .touch-controls.driving-arrow-mode .touch-actions {
+    bottom: min(115px, 30dvh);
+  }
+}

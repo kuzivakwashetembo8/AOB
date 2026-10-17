@@ -14,6 +14,9 @@ export function useModalFocus(open: boolean, close: () => void) {
     controls()[0]?.focus();
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        // Escape closes the focused Radix dropdown first. Do not discard
+        // the entire settings dialog when the user only dismisses choices.
+        if (document.querySelector('[role="listbox"][data-state="open"]')) return;
         event.preventDefault();
         event.stopImmediatePropagation();
         close();

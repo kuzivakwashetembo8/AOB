@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Check, RotateCcw, Monitor, Volume2, Gamepad2, Eye, PanelsTopLeft, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { defaults, type Settings } from "@/ui/menus/settings-state";
 
 /** Shared form, mounted inside the paused game without navigating away. */
@@ -61,19 +64,36 @@ export function SettingsEditor({
       </span>
     </label>
   );
+  // Radix renders a real custom menu in the application surface on both
+  // Android and desktop; never delegate control selection to the OS picker.
   const select = (key: keyof Settings, label: string, options: string[]) => (
-    <label className="setting-row" key={key}>
-      <span>{label}</span>
-      <select
-        aria-label={label}
+    <div className="setting-row" key={key}>
+      <span id={`setting-${key}`}>{label}</span>
+      <Select
         value={String(settings[key])}
-        onChange={(event) => update(key, event.target.value)}
+        onValueChange={(value) => {
+          if (options.includes(value)) update(key, value);
+        }}
       >
-        {options.map((value) => (
-          <option key={value}>{value}</option>
-        ))}
-      </select>
-    </label>
+        <SelectTrigger
+          aria-labelledby={`setting-${key}`}
+          aria-label={label}
+          className="game-setting-select-trigger"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent
+          position="popper" sideOffset={4}
+          className="game-setting-select-content"
+        >
+          {options.map((value) => (
+            <SelectItem key={value} value={value} className="game-setting-select-option">
+              {value === "drag" ? "Drag" : value === "arrows" ? "Arrows" : value}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 
   return (

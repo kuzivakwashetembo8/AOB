@@ -134,6 +134,11 @@ export function Joystick({ send }: { send: Send }) {
     </div>
   );
 }
+// Keep Enter/Exit accessible while driving; on-foot and flight-only actions
+// must never obstruct the windshield or lower screen in either drive layout.
+export const visibleTouchActions = (driving: boolean) =>
+  driving ? actions.filter((entry) => entry.action === "vehicle") : actions;
+
 const actions: Array<{ action: GameAction; label: string; icon: typeof Hand }> = [
   { action: "interact", label: "Interact", icon: Hand },
   { action: "jump", label: "Jump", icon: ArrowUp },
@@ -168,7 +173,7 @@ export function TouchControls({
     >
       {arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
       <div className="touch-actions">
-        {actions.map(({ action, label, icon: Icon }) => (
+        {visibleTouchActions(driving).map(({ action, label, icon: Icon }) => (
           <Button
             variant="control"
             aria-label={label}

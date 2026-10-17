@@ -14,7 +14,7 @@ describe("In-game settings without destroying the active world", () => {
     render(<SettingsEditor inGame initialSettings={defaults} onApply={apply} />);
     const slider = screen.getByRole("slider", { name: "Physical display resolution" });
     fireEvent.change(slider, { target: { value: "125" } });
-    expect(screen.getByRole("combobox", { name: "3D render clarity" })).toHaveValue("Custom");
+    expect(screen.getByRole("combobox", { name: "3D render clarity" }).textContent).toContain("Custom");
     fireEvent.click(screen.getByRole("button", { name: /apply & resume/i }));
     expect(apply).toHaveBeenCalledWith(
       expect.objectContaining({ renderClarity: "Custom", renderScalePercent: 125 }),
