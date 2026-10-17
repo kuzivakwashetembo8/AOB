@@ -23,6 +23,11 @@ import { FirstDriveTrial } from "../vehicles/first-drive-trial";
 import { ferrariSeatWorldPose } from "../vehicles/driver-seat-placement";
 import { measureVehicleFit002 } from "../vehicles/vehicle-fit-diagnostics";
 import { FERRARI_STREET_PROFILE } from "../vehicles/street-vehicle-physics";
+import {
+  RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig,
+  rangeRoverDriveEnabled,
+  rangeRoverDriverSeatWorldPose,rangeRoverRearCameraAlpha,
+} from "../vehicles/range-rover-drive-007";
 import { FERRARI_WHEEL_MAPPING } from "../vehicles/street-vehicle-wheels";
 function productionHostnameForFit002(name: string) {
   return name === "grand-theft-division.vercel.app";
@@ -99,6 +104,8 @@ export class GTDGameRuntime implements GameRuntime {
   private removeFL4EvidenceExport: (() => void) | null = null;
   private importedCarProbe: ImportedCarProbe | null = null;
   private readonly sportsCars=new Map<string,FirstDriveTrial>();
+  private readonly driveVehicleNames=new Map<string,"Ferrari"|"Range Rover">();
+  private rangeRoverTrialEnabled=false;
   private drivingTrial: FirstDriveTrial | null = null;
   private seatTrialEnabled = false;
   private fit002Enabled = false;
@@ -217,6 +224,9 @@ export class GTDGameRuntime implements GameRuntime {
     // calibrated relative to CSS canvas dimensions * devicePixelRatio.
     // Full physical density increases raster work and is always opt-in.
     const diagnosticParams = new URLSearchParams(window.location.search);
+    // VEH-007 owner-authorized release: Range Rover loads on /game, even
+    // when the URL has no query string. Explicit =0 remains the rollback.
+    this.rangeRoverTrialEnabled=rangeRoverDriveEnabled(diagnosticParams);
     // FIT004 owner acceptance: promote only the seated driver, AR1 joint
     // fitting and measured lower-leg clearance on the canonical production
     // domain. Every accepted layer can be explicitly disabled for rollback.
@@ -225,13 +235,14 @@ export class GTDGameRuntime implements GameRuntime {
     const releasedDrivingFit=productionHostnameForFit002(window.location.hostname);
     this.seatTrialEnabled=releasedDrivingFit
       ? diagnosticParams.get("gtdSeat001")!=="0"
-      : diagnosticParams.get("gtdSeat001")==="1";
+      : (this.rangeRoverTrialEnabled||diagnosticParams.get("gtdSeat001")==="1");
     this.fit002Enabled=diagnosticParams.get("gtdVehFit002")==="1" &&
       !releasedDrivingFit;
     const fitPoseMode=diagnosticParams.get("gtdFitPose002");
     this.driverPose002Enabled=releasedDrivingFit
       ? fitPoseMode!=="0"
-      : ["1","feet","hands"].includes(fitPoseMode??"");
+      : fitPoseMode!=="0" &&
+        (this.rangeRoverTrialEnabled || ["1","feet","hands"].includes(fitPoseMode??""));
     this.driverPose002Mode=fitPoseMode==="feet"?"feet":
       fitPoseMode==="hands"?"hands":"both";
     this.cabinFit003Enabled=this.driverPose002Enabled &&
@@ -240,7 +251,8 @@ export class GTDGameRuntime implements GameRuntime {
     this.cabinFit004Enabled=this.driverPose002Enabled && (
       releasedDrivingFit
         ? diagnosticParams.get("gtdCabinFit004")!=="0"
-        : diagnosticParams.get("gtdCabinFit004")==="1");
+        : diagnosticParams.get("gtdCabinFit004")!=="0" &&
+          (this.rangeRoverTrialEnabled || diagnosticParams.get("gtdCabinFit004")==="1"));
     this.groundFit002Enabled = diagnosticParams.get("gtdFitGround002") === "1" && !productionHostnameForFit002(window.location.hostname);
     this.wheelSupport002Enabled = diagnosticParams.get("gtdFitWheel002") === "1" && !productionHostnameForFit002(window.location.hostname);
     // Only explicit FL-4 diagnostics may exceed native device pixels.
@@ -283,6 +295,9 @@ export class GTDGameRuntime implements GameRuntime {
         // Canonical Voight always needs physical sidewalk TOP support.
         // Trial-only support previously allowed feet to clip through paving.
         enableSidewalkSupportCollision: true,
+        // VEH-007 released SUV loads by default; never mount delegated Sedan
+        // or deferred ergoninane. Opt out with ?gtdRangeRoverDrive=0.
+        enableRangeRoverDriveReview: this.rangeRoverTrialEnabled,
         // Accepted South Ward ground and woodland now load without URL
         // parameters. Explicit ?gtdGround001=0 or ?gtdTreePlace001=0
         // individually restores the former field-test baseline.
@@ -603,6 +618,9 @@ export class GTDGameRuntime implements GameRuntime {
     try {
       // Preserve real GLTF source/parking/collider completion requirements.
       if (this.importedCarProbe) await this.importedCarProbe.settled;
+      // Actual Range Rover GLB must load before it becomes a drive actor.
+      if(isGeneratedFirstLightWorld(firstLight)&&firstLight.rangeRoverReviewReady)
+        await firstLight.rangeRoverReviewReady;
       if (this.host !== host || this.engine !== engine) return;
       // EXP-VEH-002 / GTD-WORLD-002: owner desktop-accepted Ferrari L0
       // promoted to main for default production/mobile validation on 2026-10-12.
@@ -625,16 +643,47 @@ export class GTDGameRuntime implements GameRuntime {
             },FERRARI_STREET_PROFILE,FERRARI_WHEEL_MAPPING,this.groundFit002Enabled,this.wheelSupport002Enabled);
             firstLight.releaseParkedCarCollider(slot.id);
             this.sportsCars.set(slot.id,car);
+            this.driveVehicleNames.set(slot.id,"Ferrari");
           }catch(error){
             car?.dispose();
             console.error("[VEH-003] Car unavailable",slot.id,error);
           }
         }
+      }
+      // VEH-007 default-on: inherits the accepted Ferrari/Buggy driving actor.
+      // Only the +Z source axis, wheel pivots and driver location are adapted.
+      if(this.rangeRoverTrialEnabled&&isGeneratedFirstLightWorld(firstLight)&&
+        firstLight.rangeRoverReview) {
+        for(const parked of firstLight.rangeRoverReview.instances) {
+          const dims=parked.drivingDimensions;
+          if(!dims)throw Error("VEH007 Range Rover GLB bounds unavailable");
+          let actor:FirstDriveTrial|null=null;
+          try {
+            const wheels=prepareRangeRoverWheelRig(parked.anchor);
+            actor=new FirstDriveTrial(physics,parked.anchor,dims,
+              RANGE_ROVER_STREET_PROFILE,wheels.mapping,false,false);
+            // Never retain two physics colliders on the moving vehicle.
+            parked.releaseStaticCollider();
+            this.sportsCars.set(parked.spec.id,actor);
+            this.driveVehicleNames.set(parked.spec.id,"Range Rover");
+            if(wheels.identified!==4)
+              console.warn("[VEH007] GLB wheel pivots unverified; no fabricated wheel animation",wheels);
+          }catch(error){
+            actor?.dispose();
+            console.error("[VEH007] Range Rover actor unavailable",error);
+            throw error;
+          }
+        }
+      }
+      if(this.sportsCars.size>0) {
         (window as Window & {__GTD_DRIVE_TRIAL_REPORT__?:()=>unknown})
           .__GTD_DRIVE_TRIAL_REPORT__=()=>({
-            experiment:"VEH-003",
+            experiment:this.rangeRoverTrialEnabled?"VEH-007":"VEH-003",
             current:[...this.sportsCars.entries()].find(([,v])=>v===this.drivingTrial)?.[0]??null,
-            cars:[...this.sportsCars.entries()].map(([id,v])=>({id,pose:v.pose,status:v.status})),
+            cars:[...this.sportsCars.entries()].map(([id,v])=>({
+              id,name:this.driveVehicleNames.get(id)??"Ferrari",
+              pose:v.pose,status:v.status,
+            })),
           });
       }
       this.emit({ type: "load-checkpoint", id: "first-frame", status: "running" });
@@ -704,6 +753,7 @@ export class GTDGameRuntime implements GameRuntime {
     this.seatedDriverActive=false;
     for(const car of this.sportsCars.values())car.dispose();
     this.sportsCars.clear();
+    this.driveVehicleNames.clear();
     this.drivingTrial=null;
     this.enteredAt=null;
     this.carEnteredAt=null;
@@ -827,7 +877,7 @@ export class GTDGameRuntime implements GameRuntime {
       }
       if (command.action === "vehicle" && command.pressed &&
           (this.context==="driving"||this.sportsCars.size>0)) {
-        this.toggleFerrariDriving();
+        this.toggleVehicleDriving();
         return;
       }
       if (command.pressed) this.actions.add(command.action);
@@ -878,15 +928,15 @@ export class GTDGameRuntime implements GameRuntime {
     return () => this.eventListeners.delete(listener);
   }
 
-  /** VEH-003: boarding cannot remotely teleport the actor across South Ward. */
-  private toggleFerrariDriving() {
+  /** VEH-003/007: local boarding for whichever real vehicle is closest. */
+  private toggleVehicleDriving() {
     const physics=this.physics, voight=this.voight;
     if(!physics||!voight)return;
     if(this.context==="driving") {
       const car=this.drivingTrial;
       if(!car)return;
       if(Math.abs(car.speedMps)>0.25){
-        this.emit({type:"interaction",label:"Stop the Ferrari before exiting"});
+        this.emit({type:"interaction",label:"Stop the "+this.activeDriveName()+" before exiting"});
         return;
       }
       const position=stationaryDisembark(this.enteredAt,this.carEnteredAt,car.pose)
@@ -895,6 +945,7 @@ export class GTDGameRuntime implements GameRuntime {
         this.emit({type:"interaction",label:"No clear exit beside stopped vehicle"});
         return;
       }
+      const leavingName=this.activeDriveName();
       physics.setPlayerPosition(position);
       if(this.seatedDriverActive)this.characterTrial?.exitDrivingPose();
       this.seatedDriverActive=false;
@@ -907,14 +958,14 @@ export class GTDGameRuntime implements GameRuntime {
       this.move={x:0,y:0};
       this.preferredCameraRadius=6.2;
       this.publishSnapshot(0);
-      this.emit({type:"interaction",label:"Exited Ferrari at its actual world position"});
+      this.emit({type:"interaction",label:"Exited "+leavingName+" at its actual world position"});
       return;
     }
     const actor=physics.playerPosition();
     const nearest=nearestSportsCar(actor,
       [...this.sportsCars.entries()].map(([id,car])=>({id,pose:car.pose})));
     if(!nearest){
-      this.emit({type:"interaction",label:"Approach a nearby Ferrari before pressing F"});
+      this.emit({type:"interaction",label:"Approach a nearby vehicle before pressing F"});
       return;
     }
     const car=this.sportsCars.get(nearest.id);
@@ -928,33 +979,46 @@ export class GTDGameRuntime implements GameRuntime {
       (this.characterTrial?.enterDrivingPose() ?? false);
     voight.root.setEnabled(this.seatedDriverActive);
     if(this.seatedDriverActive){
-      this.syncFerrariDriverSeat(car);
+      this.syncDriverSeat(car);
       this.characterTrial?.setDrivingCabin(
-        car.anchor,this.driverPose002Enabled,this.driverPose002Mode,
-        this.cabinFit003Enabled&&!this.cabinFit004Enabled,"ferrari",this.cabinFit004Enabled);
+        car.anchor,this.activeDriveName()==="Range Rover"
+          ? true:this.driverPose002Enabled,
+        this.activeDriveName()==="Range Rover"?"feet":this.driverPose002Mode,
+        this.activeDriveName()==="Range Rover"
+          ? false:this.cabinFit003Enabled&&!this.cabinFit004Enabled,
+        this.activeDriveName()==="Range Rover"?"range-rover":"ferrari",
+        this.activeDriveName()==="Range Rover"?false:this.cabinFit004Enabled,
+        this.activeDriveName()==="Range Rover"?car.dimensions:undefined);
     }
     this.move={x:0,y:0};
     this.preferredCameraRadius=FERRARI_REAR_CAMERA_RADIUS;
     const p=car.pose;
     if(this.camera){
-      this.camera.alpha=ferrariRearCameraAlpha(car.headingYaw);
+      this.camera.alpha=this.activeDriveName()==="Range Rover"
+        ? rangeRoverRearCameraAlpha(car.headingYaw)
+        : ferrariRearCameraAlpha(car.headingYaw);
       this.camera.beta=FERRARI_REAR_CAMERA_BETA;
       this.camera.radius=FERRARI_REAR_CAMERA_RADIUS;
       this.camera.target.set(p.x,p.y+0.7,p.z);
     }
     this.publishSnapshot(0);
-    this.emit({type:"interaction",label:"Ferrari driving · WASD / arrows · F exit when stopped"});
+    this.emit({type:"interaction",label:this.activeDriveName()+" driving · WASD / arrows · F exit when stopped"});
   }
 
-  /** Pure vehicle-relative presentation. Physics remains the unchanged L0
-   * Rapier actor; there is no second collider or velocity source for Voight. */
-  private syncFerrariDriverSeat(car:FirstDriveTrial) {
+  /** Return the active live physics actor's actual vehicle type. */
+  private activeDriveName():"Ferrari"|"Range Rover"{
+    const id=[...this.sportsCars.entries()].find(([,v])=>v===this.drivingTrial)?.[0];
+    return id?this.driveVehicleNames.get(id)??"Ferrari":"Ferrari";
+  }
+  /** Pure driver presentation; both cars share the existing Rapier actor. */
+  private syncDriverSeat(car:FirstDriveTrial) {
     const voight=this.voight;
     if(!voight)return;
-    const seat=ferrariSeatWorldPose({
-      x:car.anchor.position.x,y:car.anchor.position.y,
-      z:car.anchor.position.z,yaw:car.headingYaw,
-    },car.dimensions);
+    const vehicle={x:car.anchor.position.x,y:car.anchor.position.y,
+      z:car.anchor.position.z,yaw:car.headingYaw};
+    const seat=this.activeDriveName()==="Range Rover"
+      ? rangeRoverDriverSeatWorldPose(vehicle,car.dimensions)
+      : ferrariSeatWorldPose(vehicle,car.dimensions);
     voight.root.position.set(seat.x,seat.y,seat.z);
     voight.root.rotation.y=seat.yaw;
   }
@@ -1012,7 +1076,7 @@ export class GTDGameRuntime implements GameRuntime {
       physics.movePlayer({ x: 0, y: 0, z: 0 });
       trial.finish(dt);
       if(this.seatedDriverActive){
-        this.syncFerrariDriverSeat(trial);
+        this.syncDriverSeat(trial);
         this.characterTrial?.updateDrivingPose(dt);
       }
       const position = trial.pose;
@@ -1263,15 +1327,18 @@ export class GTDGameRuntime implements GameRuntime {
         ? "FLIGHT INSPECTION · G land · WASD move · SPACE up · CTRL down · SHIFT fast"
         : this.sportsCars.size > 0
         ? this.context === "driving"
-          ? "Ferrari trial · Drive with WASD / arrows · F to exit when stopped"
-          : "Ferrari trial · Press F to enter the sports car"
+          ? this.activeDriveName()+" trial · Drive with WASD / arrows · F to exit when stopped"
+          : this.rangeRoverTrialEnabled
+            ? "Range Rover trial · Approach the SUV and press F to drive"
+            : "Ferrari trial · Press F to enter the sports car"
         : this.world?.objective ?? "Walk the generated South Ward garage corner",
       health: 100,
       reputation: 0,
       heat: 0,
       speed: Math.round(speed * 3.6),
       vehicle: this.context === "driving" && this.drivingTrial
-        ? "Ferrari · EXP-VEH-002"
+        ? this.activeDriveName()+(this.activeDriveName()==="Range Rover"
+          ? " · VEH-007" : " · EXP-VEH-002")
         : null,
       flying: this.flightEnabled,
       meridianTime:

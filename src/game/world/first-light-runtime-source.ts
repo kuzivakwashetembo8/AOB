@@ -52,6 +52,7 @@ export function createFirstLightRuntimeWorld(
   source: FirstLightWorldSource = ACTIVE_FIRST_LIGHT_WORLD_SOURCE,
   options: {
     readonly enableLandUsePreview?: boolean;
+    readonly enableRangeRoverDriveReview?: boolean;
     readonly enableTreePlace001?: boolean;
     readonly treeBudget?: ForestryBudget;
     readonly treeDensityFocus?: ForestryDensityFocus;
@@ -68,6 +69,7 @@ export function createFirstLightRuntimeWorld(
   if (source === "generated-first-light") {
     return createGeneratedFirstLightWorld(scene, physics, {
       enableCameraBlockers: true,
+      enableRangeRoverDriveReview: options.enableRangeRoverDriveReview ?? false,
       enableShadows: true,
       enableLandUsePreview: options.enableLandUsePreview ?? false,
       enableTreePlace001: options.enableTreePlace001 ?? false,

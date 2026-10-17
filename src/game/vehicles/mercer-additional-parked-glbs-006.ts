@@ -1,0 +1,164 @@
+/**
+ * VEH-007: Stage the owner-supplied Range Rover for a real driving trial.
+ * The original Sedan is delegated/pending and not rendered. The secondary
+ * ergoninane-fast-71 asset is deliberately unloaded until Rover acceptance.
+ * Reuses the original world and physics rather than a replacement game.
+ */
+import {AbstractMesh,Mesh,TransformNode,loadAssetContainerAsync} from "@babylonjs/core";
+import type {AssetContainer,Scene} from "@babylonjs/core";
+import type {MeridianPhysics,StaticCollisionHandle} from "../physics/rapier-world";
+import type {StreetContextItem} from "../world-generation/street-context";
+
+
+export type MercerExtra006Spec=Readonly<{
+  id:string;label:string;url:string;x:number;z:number;
+  width:number;height:number;length:number;yaw:number;
+}>;
+
+export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
+  {
+    id:"gtd-veh006-mercer-range-rover",label:"Range Rover Sport 2018",
+    url:"/Range%20Rover%20Sports%202018%20(.GLB).glb",
+    x:-5.45,z:10.55,width:2.03,height:1.80,length:4.85,yaw:Math.PI/2,
+  },
+] as const;
+
+export function validateMercerExtraPlacements(items:readonly StreetContextItem[]){
+  const slots=[...MERCER_EXTRA_GLB_SPECS];
+  for(const p of MERCER_EXTRA_GLB_SPECS){
+    if(p.z-p.width/2<8||p.z+p.width/2>12)
+      throw Error("VEH006 extra GLB leaves Mercer asphalt: "+p.id);
+    for(const item of items){
+      const dx=Math.abs(item.position.x-p.x),dz=Math.abs(item.position.z-p.z);
+      if(item.kind==="parked-car"&&dx<p.length/2+2.4&&dz<p.width/2+1)
+        throw Error("VEH006 extra GLB overlaps existing parked car "+item.id);
+      if(["streetlight","tree","bench","bin"].includes(item.kind)&&
+         dx<p.length/2+0.6&&dz<p.width/2+0.8)
+        throw Error("VEH006 extra GLB obstructs street prop "+item.id);
+    }
+  }
+  for(let i=0;i<slots.length;i++)for(let j=i+1;j<slots.length;j++){
+    const a=slots[i]!,b=slots[j]!;
+    if(Math.abs(a.x-b.x)<(a.length+b.length)/2+0.65&&
+       Math.abs(a.z-b.z)<(a.width+b.width)/2+.35)
+      throw Error("VEH006 parked review cars lack clearance "+a.id+" / "+b.id);
+  }
+  return MERCER_EXTRA_GLB_SPECS;
+}
+export type Bounds006=Readonly<{minX:number;maxX:number;minY:number;maxY:number;
+  minZ:number;maxZ:number}>;
+export function resolveMercerGLBFit(bounds:Bounds006,spec:MercerExtra006Spec){
+  const sx=bounds.maxX-bounds.minX,sy=bounds.maxY-bounds.minY,
+    sz=bounds.maxZ-bounds.minZ;
+  if(![sx,sy,sz].every(v=>Number.isFinite(v)&&v>.0001))
+    throw Error("VEH006 asset has degenerate/invalid 3D bounds "+spec.id);
+  // The longest horizontal axis of the imported asset becomes vehicle +Z.
+  const turn=sx>sz?Math.PI/2:0;
+  const rawLength=Math.max(sx,sz),rawWidth=Math.min(sx,sz);
+  // Fit the major axis to the selected parking footprint and cap height/width.
+  const scale=Math.min(spec.length/rawLength,spec.width/rawWidth,
+    spec.height/sy);
+  if(!Number.isFinite(scale)||scale<.00001||scale>1000)
+    throw Error("VEH006 asset cannot be fitted safely: "+spec.id);
+  return {turn,scale,source:{width:rawWidth,height:sy,length:rawLength},
+    dimensions:{width:rawWidth*scale,height:sy*scale,length:rawLength*scale}};
+}
+function boundsOf(meshes:readonly AbstractMesh[]):Bounds006{
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,
+    minZ=Infinity,maxZ=-Infinity;
+  for(const mesh of meshes){
+    mesh.computeWorldMatrix(true);
+    if(mesh.getTotalVertices()===0)continue;
+    const b=mesh.getBoundingInfo().boundingBox;
+    minX=Math.min(minX,b.minimumWorld.x);maxX=Math.max(maxX,b.maximumWorld.x);
+    minY=Math.min(minY,b.minimumWorld.y);maxY=Math.max(maxY,b.maximumWorld.y);
+    minZ=Math.min(minZ,b.minimumWorld.z);maxZ=Math.max(maxZ,b.maximumWorld.z);
+  }
+  if(!Number.isFinite(minX))throw Error("VEH006 GLB contains no visible geometry");
+  return {minX,maxX,minY,maxY,minZ,maxZ};
+}
+export function createMercerExtraParkedGLBs(
+  scene:Scene,physics:Pick<MeridianPhysics,"addStaticBox">,
+  items:readonly StreetContextItem[],
+  load?:(url:string,scene:Scene)=>Promise<AssetContainer>,
+){
+  const specs=validateMercerExtraPlacements(items);
+  const instances=specs.map(spec=>{
+    const anchor=new TransformNode("mercer-extra-anchor:"+spec.id,scene);
+    // Do not create colliders until the actual mesh is loaded and validated.
+    let collider:StaticCollisionHandle|null=null,container:AssetContainer|null=null;
+    let inst:ReturnType<AssetContainer["instantiateModelsToScene"]>|null=null;
+    let closed=false;
+    let drivingDimensions:{readonly x:number;readonly y:number;readonly z:number}|null=null;
+    const modelRoot=new TransformNode("mercer-extra-visual:"+spec.id,scene);
+    modelRoot.parent=anchor;
+    const ready=(async()=>{
+      if(!load)await import("@babylonjs/loaders/glTF");
+      const glb=await (load?load(spec.url,scene):loadAssetContainerAsync(spec.url,scene));
+      if(closed){glb.dispose();return;}
+      container=glb;
+      // A single independent owner GLB per slot. Leave embedded paint,
+      // windows, wheel shaders and textures untouched.
+      // A drivable GLB needs independent wheel Mesh nodes, not InstancedMesh
+      // sharing transforms/source geometry with an otherwise parked template.
+      // Preserve the owner asset's source textures, materials and hierarchy.
+      inst=glb.instantiateModelsToScene(name=>spec.id+":"+name,true);
+      if(closed){inst.dispose();return;}
+      for(const node of inst.rootNodes)node.parent=modelRoot;
+      const all=new Set<AbstractMesh>();
+      for(const node of inst.rootNodes){
+        if(node instanceof AbstractMesh)all.add(node);
+        for(const mesh of node.getChildMeshes(false))all.add(mesh);
+      }
+      const meshes=[...all].filter(m=>m.getTotalVertices()>0);
+      if(!meshes.length)throw Error("VEH006 extra asset has no render meshes "+spec.id);
+      const initial=boundsOf(meshes);
+      const fit=resolveMercerGLBFit(initial,spec);
+      drivingDimensions={x:fit.dimensions.width,y:fit.dimensions.height,z:fit.dimensions.length};
+      modelRoot.rotation.y=fit.turn;
+      modelRoot.scaling.setAll(fit.scale);
+      // This measures the actual hierarchy, including glTF coordinate roots.
+      const fitted=boundsOf(meshes);
+      modelRoot.position.set(
+        -(fitted.minX+fitted.maxX)/2,
+        .05-fitted.minY,
+        -(fitted.minZ+fitted.maxZ)/2,
+      );
+      anchor.position.set(spec.x,0,spec.z);
+      anchor.rotation.y=spec.yaw;
+      for(const mesh of meshes){
+        mesh.isPickable=false;
+        mesh.receiveShadows=true;
+        mesh.alwaysSelectAsActiveMesh=true;
+      }
+      if(closed)return;
+      collider=physics.addStaticBox(
+        {x:spec.x,y:fit.dimensions.height/2,z:spec.z},
+        {x:fit.dimensions.width/2,y:fit.dimensions.height/2,
+          z:fit.dimensions.length/2},
+        spec.yaw,
+      );
+    })();
+    return {spec,anchor,ready,
+      get drivingDimensions(){return drivingDimensions;},
+      /** Transfer physical ownership to StreetVehicleActor only AFTER the
+       * live Rapier actor has been successfully constructed. Idempotent. */
+      releaseStaticCollider(){
+        if(closed||!drivingDimensions||!collider)
+          throw Error("Range Rover static collider is not ready for transfer");
+        collider.dispose();collider=null;
+      },
+      dispose(){
+      if(closed)return;
+      closed=true;
+      collider?.dispose();
+      inst?.dispose();
+      container?.dispose();
+      modelRoot.dispose();
+      anchor.dispose();
+    }};
+  });
+  return {placements:specs,instances,
+    ready:Promise.all(instances.map(x=>x.ready)).then(()=>{}),
+    dispose(){for(const x of instances)x.dispose();}};
+}

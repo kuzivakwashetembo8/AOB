@@ -14,6 +14,7 @@ import { applyAimStep, rotationOf } from "./driver-joint-space";
 import { SkinnedFootGeometry, type FootSide } from "./skinned-foot-geometry";
 import { planCabinFit004Candidates, FIT004_MAX_FOOT_TARGET_LIFT_METRES } from "./cabin-fit-004-policy";
 import { VehicleCabinFloor, planSoleClearance, type VehicleCabinKind } from "../vehicles/vehicle-cabin-envelope";
+import {planRangeRoverFootwellTargets,planRangeRoverSoleLift} from "../vehicles/range-rover-drive-007";
 
 export type DriverContactState = {
   enabled: boolean;
@@ -166,6 +167,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   let cabinFitEnabled=false;
   let cabinFit004Enabled=false;
   let cabinKind:VehicleCabinKind="unknown";
+  let cabinDimensions:{readonly x:number;readonly y:number;readonly z:number}|null=null;
   let floor:VehicleCabinFloor|null=null;
   let shoe:SkinnedFootGeometry|null=null;
   let sampledFrames=0;
@@ -175,6 +177,10 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   let footResult:FootResult[]=[];
   let fit004Attempts=0;
   let fit004State="disabled";
+  // Separate provisional Rover visual sole sampling from verified FIT004.
+  let roverFootSamples=0,roverFootwellState="not-sampled";
+  let roverFootLift={left:0,right:0};
+  let roverSoleY:{left:number|null;right:number|null}={left:null,right:null};
   let fit004Baseline:ReturnType<SkinnedFootGeometry["measureLowerLeg"]>|null=null;
   let fit004Final:ReturnType<SkinnedFootGeometry["measureLowerLeg"]>|null=null;
   const cachedBaseline=new Map<TransformNode,Quaternion>();
@@ -203,7 +209,9 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       state={...zero(),status:"out-of-tolerance"};return;
     }
     const wheel=wheelLandmark(wheelNode);
-    if(!wheel){state={...zero(),status:"missing-wheel"};return;}
+    const roverFeet=cabinKind==="range-rover"&&cabinDimensions!==null;
+    // SUV foot IK must not depend on a Ferrari-specific steering-rim asset.
+    if(!wheel&&!roverFeet){state={...zero(),status:"missing-wheel"};return;}
     const hipL=mapped.found.leftThigh?boneWorld(mapped.found.leftThigh):null;
     const hipR=mapped.found.rightThigh?boneWorld(mapped.found.rightThigh):null;
     const handL=mapped.found.leftHand?boneWorld(mapped.found.leftHand):null;
@@ -218,11 +226,17 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
     // Recomputing from already-corrected hands causes moving-target feedback.
     cabin.computeWorldMatrix(true);
     if(!cachedLocalTargets){
-      const initial=planDriverContactTargets({
-        leftHip:hipL,rightHip:hipR,leftHand:handL,rightHand:handR,
-        wheelCenter:wheel.center,wheelRadius:wheel.radius,
-        vehicleFloorY:cabin.position.y,
-      });
+      const initial=roverFeet&&cabinDimensions
+        ? {...planRangeRoverFootwellTargets({
+            vehicle:{x:cabin.position.x,y:cabin.position.y,z:cabin.position.z,
+              yaw:cabin.rotation.y},
+            dimensions:cabinDimensions,leftHip:hipL,rightHip:hipR,
+          }),leftHand:handL.clone(),rightHand:handR.clone()}
+        : wheel?planDriverContactTargets({
+            leftHip:hipL,rightHip:hipR,leftHand:handL,rightHand:handR,
+            wheelCenter:wheel.center,wheelRadius:wheel.radius,
+            vehicleFloorY:cabin.position.y,
+          }):null;
       if(initial){
         const inverse=cabin.getWorldMatrix().clone().invert();
         cachedLocalTargets={
@@ -283,6 +297,33 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         // Attempting an IK solve is NOT equivalent to making contact.
         if(attempted && error<=0.02)appliedLimbs.push(limb.role);
       }
+    }
+    // Sample actual deforming soles AFTER Driving_Loop's joint-space IK.
+    // Rover's GLB has no verified separate carpet-floor triangle map, so
+    // this target is provisional visual containment, not a floor certificate.
+    if(roverFeet && cabinDimensions && shoe?.available &&
+       (++sampledFrames % 12===0) && cachedLocalTargets){
+      const measured=shoe.measure();roverFootSamples++;
+      for(const side of ["left","right"] as const){
+        const sole=measured[side]?.world;roverSoleY[side]=sole?.y??null;
+        if(!sole)continue;
+        const raise=planRangeRoverSoleLift({
+          soleY:sole.y,anchorY:cabin.position.y,
+          bodyHeight:cabinDimensions.y,appliedLift:roverFootLift[side],
+        });
+        if(raise<.001)continue;
+        const delta=Vector3.TransformNormal(new Vector3(0,raise,0),
+          cabin.getWorldMatrix().clone().invert());
+        if(side==="left")cachedLocalTargets.leftFoot.addInPlace(delta);
+        else cachedLocalTargets.rightFoot.addInPlace(delta);
+        roverFootLift[side]+=raise;
+      }
+      roverFootwellState=(["left","right"] as const).every(side=>
+        roverSoleY[side]!==null&&roverSoleY[side]!>=
+          cabin!.position.y+cabinDimensions!.y*.43-.005)
+        ?"observed-above-provisional-footwell":
+        (["left","right"] as const).every(side=>roverSoleY[side]!==null)
+          ?"adjusting-or-unverified":"missing-shoe-evidence";
     }
     // VEH-CABIN-FIT-004: search *measured* bounded leg targets against actual
     // deforming footwear AND calf geometry. This is a one-off boarding-phase
@@ -429,7 +470,8 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
   return {
     setCabin(next:TransformNode|null,active:boolean,
       mode:"feet"|"hands"|"both"="both",fitCabin=false,
-      kind:VehicleCabinKind="ferrari",fit004=false){
+      kind:VehicleCabinKind="ferrari",fit004=false,
+      dimensions?:{readonly x:number;readonly y:number;readonly z:number}){
       if(!active||!next){
         for(const [node,rotation] of cachedBaseline) {
           node.rotationQuaternion=rotation.clone();
@@ -437,26 +479,36 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
         cachedBaseline.clear();
       }
       const changed=cabin!==next||correctionMode!==mode||enabled!==active ||
-        cabinFitEnabled!==fitCabin || cabinFit004Enabled!==fit004 || cabinKind!==kind;
+        cabinFitEnabled!==fitCabin || cabinFit004Enabled!==fit004 || cabinKind!==kind ||
+        (kind==="range-rover"&&cabinDimensions!==dimensions);
       if(changed){
         cachedLocalTargets=null;
-        cabin=next;wheelNode=active&&next?findWheelMesh(next):null;
+        cabin=next;
+        cabinDimensions=kind==="range-rover"&&dimensions?dimensions:null;
+        wheelNode=active&&next?findWheelMesh(next):null;
         rimContacts=wheelNode&&next?steeringRimContacts(wheelNode,next):null;
         cabinFit004Enabled=active&&fit004;
         cabinFitEnabled=active&&fitCabin&&!cabinFit004Enabled;
         cabinKind=kind;
         floor=(cabinFitEnabled||cabinFit004Enabled)&&next?
           VehicleCabinFloor.fromVehicle(next,kind):null;
-        shoe=(cabinFitEnabled||cabinFit004Enabled)?
+        shoe=(cabinFitEnabled||cabinFit004Enabled||kind==="range-rover")?
           new SkinnedFootGeometry(skeleton,skinnedMeshes):null;
         sampledFrames=0;offsetLift={left:0,right:0};footResult=[];
         fit004Attempts=0;fit004Baseline=null;fit004Final=null;
+        roverFootSamples=0;roverFootLift={left:0,right:0};
+        roverSoleY={left:null,right:null};roverFootwellState="not-sampled";
         fit004State=cabinFit004Enabled?"pending":"disabled";
       }
       correctionMode=mode;enabled=active;
       if(changed)state=zero();
     },
     report:()=>({...state,correctionMode,
+      roverFootwell:{enabled:enabled&&cabinKind==="range-rover",
+        source:"vehicle-dimensions-provisional-footwell",dimensions:cabinDimensions,
+        visualOnly:true,floorSurfaceVerified:false,
+        sampledFrames:roverFootSamples,liftMetres:{...roverFootLift},
+        soleWorldY:{...roverSoleY},status:roverFootwellState},
       cabinFit004:{enabled:cabinFit004Enabled,status:fit004State,
         attempts:fit004Attempts,
         maximumTargetLiftMetres:FIT004_MAX_FOOT_TARGET_LIFT_METRES,
@@ -490,6 +542,7 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
       scene.onBeforeRenderObservable.remove(observer);
       scene.onBeforeAnimationsObservable.remove(beforeAnimation);
       cabin=null;wheelNode=null;rimContacts=null;enabled=false;
+      cabinDimensions=null;
       cachedBaseline.clear();cachedLocalTargets=null;floor=null;shoe=null;footResult=[];
       cabinFitEnabled=false;cabinFit004Enabled=false;offsetLift={left:0,right:0};
       fit004State="disabled";

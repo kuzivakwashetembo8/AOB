@@ -5,7 +5,7 @@
  */
 import { AbstractMesh, Matrix, TransformNode, Vector3 } from "@babylonjs/core";
 
-export type VehicleCabinKind = "ferrari" | "buggy" | "unknown";
+export type VehicleCabinKind = "ferrari" | "buggy" | "range-rover" | "unknown";
 export type CabinEvidence =
   | "verified-floor-mesh" | "missing-floor-mesh" | "outside-floor-footprint"
   | "invalid-floor-geometry" | "uncalibrated-vehicle";

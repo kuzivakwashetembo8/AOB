@@ -29,6 +29,7 @@ import type {
   GeneratedUrbanSurfaces,
 } from "../world-generation";
 import type { StreetContextPlan } from "../world-generation/street-context";
+import {createMercerExtraParkedGLBs} from "../vehicles/mercer-additional-parked-glbs-006";
 import type { ForestryBudget, ForestryPlan, ForestryDensityFocus } from "../world-generation/urban-forestry-plan";
 import {
   createMeridianEnvironment,
@@ -56,6 +57,9 @@ export interface GeneratedFirstLightWorld {
   readonly forestryReport: ForestryPlan | null;
   readonly interiorState: InteriorVisibilityState;
   readonly environmentSnapshot: MeridianEnvironmentSnapshot;
+  /** Owner's Range Rover-only preview, separate from accepted imported slots. */
+  readonly rangeRoverReview: ReturnType<typeof createMercerExtraParkedGLBs> | null;
+  readonly rangeRoverReviewReady: Promise<void> | null;
   /**
    * EXP-VEH-001 only: substitute the collision box of an already-existing
    * parked-car slot after its imported visual succeeds. The world retains
@@ -81,6 +85,8 @@ export interface GeneratedFirstLightWorldOptions {
   readonly treeBudget?: ForestryBudget;
   readonly treeDensityFocus?: ForestryDensityFocus;
   readonly enableCameraBlockers?: boolean;
+  /** Explicitly opt in Range Rover driving; Sedan/ergoninane remain absent. */
+  readonly enableRangeRoverDriveReview?: boolean;
   readonly enableShadows?: boolean;
   /** GTD-CHAR-001 only: register real First Light raised sidewalk colliders. */
   readonly enableSidewalkSupportCollision?: boolean;
@@ -474,6 +480,13 @@ export function createGeneratedFirstLightWorld(
       .map((item) => [item.id, item] as const),
   );
   const contextCollision = registerStreetContextCollision(physics, streetPlan, parkedCollisionHandles);
+  // VEH-007 owner directive: Sedan development delegated/pending, remove its
+  // render, asset network request and physical collider entirely. The secondary
+  // ergoninane GLB is also deferred. Only the Range Rover is loaded, behind
+  // its own explicit preview flag, then eligible for live driving ownership.
+  const rangeRoverReview=options.enableRangeRoverDriveReview
+    ? createMercerExtraParkedGLBs(scene,physics,streetPlan.items)
+    : null;
   const urbanNavigationCollision = registerUrbanNavigationCollision(
     physics,
     urbanSurfaces,
@@ -519,18 +532,26 @@ export function createGeneratedFirstLightWorld(
   let environmentSnapshot = environment.snapshot();
 
   return {
-    spawn: new Vector3(
-      FIRST_LIGHT_PLAYER_SPAWN.position.x,
-      FIRST_LIGHT_PLAYER_SPAWN.position.y,
-      FIRST_LIGHT_PLAYER_SPAWN.position.z,
-    ),
-    focus: new Vector3(
-      FIRST_LIGHT_CAMERA_FOCUS.position.x,
-      FIRST_LIGHT_CAMERA_FOCUS.position.y,
-      FIRST_LIGHT_CAMERA_FOCUS.position.z,
-    ),
+    // Spawn near the Range Rover in its isolated driving preview.
+    // The canonical spawn remains unchanged in ordinary gameplay.
+    spawn: rangeRoverReview
+      ? new Vector3(-5.45,0.92,6.8)
+      : new Vector3(
+          FIRST_LIGHT_PLAYER_SPAWN.position.x,
+          FIRST_LIGHT_PLAYER_SPAWN.position.y,
+          FIRST_LIGHT_PLAYER_SPAWN.position.z,
+        ),
+    focus: rangeRoverReview
+      ? new Vector3(-5.45,1.10,10.55)
+      : new Vector3(
+          FIRST_LIGHT_CAMERA_FOCUS.position.x,
+          FIRST_LIGHT_CAMERA_FOCUS.position.y,
+          FIRST_LIGHT_CAMERA_FOCUS.position.z,
+        ),
     location: "South Ward // First Light",
-    objective: "Enter the South Ward garage and return to the street",
+    objective: rangeRoverReview
+      ? "VEH-007 Range Rover: approach and press F to drive; F exit when stopped"
+      : "Enter the South Ward garage and return to the street",
     buildings,
     urbanSurfaces,
     streetContext,
@@ -538,6 +559,8 @@ export function createGeneratedFirstLightWorld(
     materialLibrary,
     environment,
     garageInterior,
+    rangeRoverReview,
+    rangeRoverReviewReady: rangeRoverReview?.ready ?? null,
     shadowGenerator: environment.shadowGenerator,
     suspendParkedCarColliders() {
       if (disposed) throw new Error("Cannot suspend car colliders after world disposal");
@@ -614,6 +637,7 @@ export function createGeneratedFirstLightWorld(
       for (const handle of garageInteriorCollision) handle.dispose();
       for (const handle of garagePropCollision) handle.dispose();
       for (const handle of garageThresholdCollision) handle.dispose();
+      rangeRoverReview?.dispose();
       garageInterior?.dispose();
       environment.dispose();
       for (const building of buildings) building.dispose();
