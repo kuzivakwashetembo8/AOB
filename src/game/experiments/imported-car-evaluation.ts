@@ -41,14 +41,17 @@ export interface ImportedCarProbe {
 export interface ImportedCarProbeOptions {
   /** Diagnostic-only. The accepted development visual is unchanged by default. */
   readonly optimizationMode?: FL4VehicleOptimizationMode;
+  /** VEH-009/010 *preview only*: do not request Buggy, which is not
+   * among the five review vehicles and can hang the external import gate. */
+  readonly skipOffroadForVisualReview?: boolean;
   readonly onCheckpoint?: (
     checkpoint: "vehicle-loader" | "vehicle-offroad" | "vehicle-sports",
-    status: "running" | "done" | "failed",
+    status: "running" | "done" | "failed" | "skipped",
     detail?: string,
   ) => void;
 }
 
-type SlotStatus = "loading" | "imported" | "failed";
+type SlotStatus = "loading" | "imported" | "failed" | "skipped";
 
 interface SlotResult {
   readonly id: string;
@@ -156,6 +159,15 @@ export function suppressLegacyParkedCarPlaceholders(
   return hidden;
 }
 
+/** True for every source in normal gameplay; in the temporary five-model
+ * visual-review build the off-road Buggy is explicitly not requested. */
+export function shouldRequestImportedProbeSource(
+  sourceId: string,
+  skipOffroadForVisualReview = false,
+): boolean {
+  return !(skipOffroadForVisualReview && sourceId === "offroad");
+}
+
 export function beginImportedCarEvaluation(
   scene: Scene,
   world: GeneratedFirstLightWorld,
@@ -167,7 +179,9 @@ export function beginImportedCarEvaluation(
   const slotResults: SlotResult[] = parked.map((item, index) => ({
     id: item.id,
     source: sourceForExistingSlot(index).id,
-    status: "loading",
+    status: shouldRequestImportedProbeSource(
+      sourceForExistingSlot(index).id, options.skipOffroadForVisualReview
+    ) ? "loading" : "skipped",
     loadMs: null,
     fit: null,
     finalVisualMetres: null,
@@ -188,7 +202,9 @@ export function beginImportedCarEvaluation(
         error: null as string | null,
       } as MutableAssetStatus] as const;
     }),
-  ).values());
+  ).values()).filter((source) =>
+    shouldRequestImportedProbeSource(source.id, options.skipOffroadForVisualReview)
+  );
   const optimizationMode = options.optimizationMode ?? "full";
   const selectiveShadows = usesSelectiveVehicleShadows(optimizationMode);
   let selectedVehicleShadowCasters = 0;
@@ -202,7 +218,7 @@ export function beginImportedCarEvaluation(
   let loaderInitializationMs: number | null = null;
   const notify = (
     checkpoint: "vehicle-loader" | "vehicle-offroad" | "vehicle-sports",
-    status: "running" | "done" | "failed",
+    status: "running" | "done" | "failed" | "skipped",
     detail?: string,
   ) => {
     if (!disposed) options.onCheckpoint?.(checkpoint, status, detail);
@@ -247,6 +263,11 @@ export function beginImportedCarEvaluation(
     notify("vehicle-loader", "done");
     if (disposed) return;
     pipelineStage = "loading-models";
+    if (options.skipOffroadForVisualReview) {
+      // No hidden request, no fake successful model or invisible collider.
+      // The Buggy is excluded ONLY from this dedicated five-model visual trial.
+      notify("vehicle-offroad", "skipped", "Buggy excluded from five-model review");
+    }
     const grouped = new Map(
       parked.map((item, index) => [item.id, sourceForExistingSlot(index)] as const),
     );

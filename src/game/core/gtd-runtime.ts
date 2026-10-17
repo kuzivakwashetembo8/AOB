@@ -407,6 +407,11 @@ export class GTDGameRuntime implements GameRuntime {
     );
     if (useAcceptedImportedVehicles && isGeneratedFirstLightWorld(firstLight)) {
       const importedCarProbe = beginImportedCarEvaluation(scene, firstLight, {
+        // VEH-009/010 temporary visual-review branch ONLY. The Buggy is
+        // excluded from the five-model traffic fleet. It was stalled on
+        // raw.githubusercontent.com at 08:55 and need not gate inspecting
+        // Defender/Dodge. REMOVE THIS OPTION BEFORE ANY MAIN PROMOTION.
+        skipOffroadForVisualReview: true,
         optimizationMode: resolveVehicleOptimizationMode(
           diagnosticParams.get("fl4VehicleOptimization"),
           diagnosticsEnabled,

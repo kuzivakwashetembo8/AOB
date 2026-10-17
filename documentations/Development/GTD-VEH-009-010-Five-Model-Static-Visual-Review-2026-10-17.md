@@ -24,3 +24,24 @@ The existing LOAD-061 startup recorder automatically includes each new asset and
 ## Scope hold
 
 No traffic AI, 125-vehicle fleet, city expansion, paint variants, procedural replacement geometry or unverified optimizations. Commercial reuse rights for branded third-party car models have not been established.
+
+## VEH-009/010 preview-only unblock (2026-10-17)
+
+A real Chrome screenshot of the original preview showed **08:55 / 01:00**, stalled at
+`vehicle-offroad: WORKING` while the sports/Ferrari checkpoint was done.
+The imported Buggy is external to the five-model traffic-review fleet and its
+GitHub-hosted GLB request was the unresolved blocker. The initial preview did
+not generate a completed Supabase run; its telemetry was completion-only.
+
+The **focused review branch** now explicitly excludes the offroad Buggy from
+`beginImportedCarEvaluation`. The offroad checkpoint reports **SKIPPED**,
+not **DONE**. The GLB is not downloaded, rendered, or represented by a
+procedural/phantom collider. Ferrari remains imported from its original
+source; Rover, Toyota, Defender and Dodge remain exactly as authored.
+
+**IMPORTANT: This is a scoped preview workaround, not a fix for network
+availability or a validated 60-second general-game startup.**
+Before promoting any code to main, remove
+`skipOffroadForVisualReview: true` and address the source timeout/network
+policy without dropping accepted core gameplay assets. No new fleet colors,
+city expansion, traffic simulation, or quality reductions are included.
