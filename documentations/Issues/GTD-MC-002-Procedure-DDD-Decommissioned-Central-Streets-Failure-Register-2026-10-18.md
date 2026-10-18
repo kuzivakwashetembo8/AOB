@@ -101,3 +101,17 @@ The owner-authorized trial limit has now been reached. A fourth patch or derived
 **Branch deletion confirmation must be written only after GitHub has reported or a read-after-delete has independently established that the ref no longer exists.** If the current connector does not provide deletion capability, report that as an incomplete administrative step rather than falsely claiming the ref is gone; the owner may remove it from the repository's Branches UI.
 
 **Future restart gate:** A new plan must first explain the complete Android WebGL draw/visibility diagnostic strategy and its independent rendering model, seek owner authorization and then use substantial visual checkpoints. No automatic relaunch of the withdrawn implementation.
+
+
+## 8. DDD execution status — 2026-10-18 (administrative deletion blocked)
+
+**Completed:**
+- This comprehensive failure/decommission register was committed as \`ea3acd3004e1bdffe4ded39345e3eb301855b6b6\` to \`main\`, containing **no** MC-V01 implementation source or copied test/renderer.
+- The user-rejected city branch was **not merged**, and main retains the independent WHEEL-002 system with byte-identical wheel-source Git blobs and the independent additional traffic vehicle GLBs.
+- This stop order is effective immediately: no patches, build feature promotions or work on MC-V02 from the failed branch.
+
+**Attempted but unsuccessful:** The connected GitHub integration does not expose a direct Git reference deletion operation. To comply with the owner's deletion directive, a **deletion-only** GitHub Actions workflow, \`.github/workflows/ddd-retire-mc-v01.yml\`, was added only to the abandoned branch as admin commit \`51b255bdcd58f1dd427496dc21fb0376700ce5ce\`. It requested deletion of that exact branch ref using the workflow's scoped \`contents: write\` token; no application source was altered. GitHub Actions run **39158119980** concluded **failure** without any reported job steps, and GitHub branch search subsequently confirmed the ref **still exists**. Logs were unavailable. **Deletion is NOT complete.** Do not describe this as success.
+
+**Required remaining manual administrative action:** In GitHub open \`https://github.com/interlinkglobal/GTD/branches\`, locate \`feat/mc002-v01-connected-streets-20261018\`, use the branch's delete/trash control, and confirm removal. Do not delete \`main\` or any WHEEL-001/WHEEL-002 branch. No new implementation/recovery attempts are authorized. After deletion, verify the ref no longer appears in the branches list.
+
+**Residual risk until deletion:** Git history and old immutable preview deployments may remain accessible. These are forensic references only; the stop order is still in force. An administrative branch ref remaining on GitHub is not evidence of authorization to continue development.
