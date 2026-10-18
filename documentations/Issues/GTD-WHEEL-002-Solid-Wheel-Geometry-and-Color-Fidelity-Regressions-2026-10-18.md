@@ -34,3 +34,21 @@ The exporter also copied typed color and texture attribute arrays without copyin
 - Test the real preview in Chrome desktop and Android: stationary vs steered front wheels, side view and head-on view, reverse rolling and visible tire/rim solidity; compare original Dodge material appearance at identical lighting.
 - Source SHA, derivative SHA and proof must be stored with every candidate. A failed partition or material check must yield an explicit repair-required result, not a silently damaged candidate.
 - Do not promote any derivative to `DRIVE_APPROVED` or merge to main before owner visual acceptance.
+
+## Real-source qualification evidence — 2026-10-18
+
+**Verified deploy:** `b44fe6e80392e2c666425ce8dde27c46cfbec801`, preview `gtd-724g5ah8s-interlinkglobaltech.vercel.app`. Vercel production bundle READY; 357 tests / 86 files passed. `/game` and `/wheel001-generated/registry.json` returned HTTP 200.
+
+| Actual owner source | Source triangles | New static body triangles | New animated wheel triangles | Previous animated wheel triangles | Result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Toyota Hilux 002 | 49,912 | 39,930 | 9,982 | 5,925 | Source partition equal, complete build |
+| Land Rover Defender 001 | 50,142 | 37,029 | 13,113 | 6,068 | Source partition equal, complete build |
+| Dodge HP | 646,834 | 498,657 | 148,177 | 102,164 | Source partition equal, complete build |
+
+**Direct Dodge cause confirmed:** Its original `COLOR_0` is glTF component type `5121` (UNSIGNED_BYTE) with `normalized: true`. Before WHEEL-002 the wheel primitive copy omitted `Accessor.normalized`, so the exported wheel color stream was interpreted incorrectly. WHEEL-002 preserves that source metadata on each copied original wheel attribute and reopens the derivative GLB to assert matching component type, normalization flag, original material name, rendering mode and vertex attribute semantics. This applies to `TEXCOORD_n` and `COLOR_n` for future imports, not only Dodge.
+
+**Source geometry integrity confirmed:** each actual model's input triangle count equals static-body plus extracted-wheel triangle count exactly. The completed-wheel component selection includes small source islands omitted previously; per-wheel source component counts are recorded in the generated registry. The stronger concentric residual guard fails on unassigned circular wheel geometry instead of permitting a static duplicate. Source original GLBs were not changed. The Range Rover source GLB and accepted wheel rig were not changed.
+
+**Important qualification limit:** Triangle-count equivalence, accessor equivalence and passing tests prove source accounting and metadata preservation, NOT that meshes render identically from every camera angle, or that every possible wheel surface was disconnected from the body. A wheel surface welded to a body-connected mesh may still require supervised source authoring. Owner's visual review must explicitly check tire/rim solidity, no stationary copy, and Dodge color match. No owner acceptance has been recorded for this new preview.
+
+**Size/performance watch:** Toyota derivative 18,054,904 bytes; Defender derivative 744,288 bytes; Dodge derivative 9,763,604 bytes, still substantially larger than its 1,954,504-byte compressed source. Record mobile cold-start time relative to the 60-second SLO before acceptance.
