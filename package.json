@@ -71,7 +71,10 @@
     "zod": "^3.25.76",
     "@babylonjs/core": "9.29.0",
     "@dimforge/rapier3d-compat": "0.21.0",
-    "@babylonjs/loaders": "9.29.0"
+    "@babylonjs/loaders": "9.29.0",
+    "@gltf-transform/core": "^4.2.1",
+    "@gltf-transform/extensions": "^4.2.1",
+    "draco3dgltf": "^1.5.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",

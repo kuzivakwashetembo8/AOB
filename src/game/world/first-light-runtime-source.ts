@@ -69,6 +69,9 @@ export function createFirstLightRuntimeWorld(
   if (source === "generated-first-light") {
     return createGeneratedFirstLightWorld(scene, physics, {
       enableCameraBlockers: true,
+      // VEH-013: Buggy and Ferrari must never instantiate as GLBs, stand-ins
+      // or invisible street colliders in the playable Meridian city.
+      includeLegacyParkedCars: false,
       enableRangeRoverDriveReview: options.enableRangeRoverDriveReview ?? false,
       enableShadows: true,
       enableLandUsePreview: options.enableLandUsePreview ?? false,

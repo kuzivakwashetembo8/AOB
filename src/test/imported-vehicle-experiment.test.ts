@@ -6,11 +6,20 @@ import {
   sourceForExistingSlot,
 } from "../game/experiments/vehicle-probe-plan";
 import { MeridianPhysics } from "../game/physics/rapier-world";
-import { suppressLegacyParkedCarPlaceholders } from "../game/experiments/imported-car-evaluation";
+import { suppressLegacyParkedCarPlaceholders, shouldRequestImportedProbeSource } from "../game/experiments/imported-car-evaluation";
 import { createGeneratedFirstLightWorld } from "../game/world/generated-first-light-world";
 import { FIRST_LIGHT_CITY_SPEC, planStreetContext } from "../game/world-generation";
 
 describe("EXP-VEH-001 imported parked-car experiment contract", () => {
+  it("keeps original imports default-on but omits Buggy from five-model visual review",()=>{
+    expect(shouldRequestImportedProbeSource("offroad")).toBe(true);
+    expect(shouldRequestImportedProbeSource("sports")).toBe(true);
+    expect(shouldRequestImportedProbeSource("offroad",true)).toBe(false);
+    expect(shouldRequestImportedProbeSource("sports",true)).toBe(true);
+    expect(VEHICLE_PROBE_SOURCES.filter(source=>
+      shouldRequestImportedProbeSource(source.id,true)).map(s=>s.id))
+      .toEqual(["sports"]);
+  });
   it("assigns both immutable specimens deterministically to existing car slots", () => {
     const existing = planStreetContext(FIRST_LIGHT_CITY_SPEC).items
       .filter((item) => item.kind === "parked-car")
