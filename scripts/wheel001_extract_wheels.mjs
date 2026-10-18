@@ -6,6 +6,8 @@ import {readFile,writeFile,mkdir,copyFile} from "node:fs/promises";
 import {NodeIO} from "@gltf-transform/core";
 import {ALL_EXTENSIONS,KHRDracoMeshCompression} from "@gltf-transform/extensions";
 import draco3d from "draco3dgltf";
+import {resolve} from "node:path";
+import {pathToFileURL} from "node:url";
 
 const models=[
  ["toyota-hilux-002","public/toyota hilux 002.glb"],
@@ -118,7 +120,19 @@ function identify(g){
  // Reject significant unassigned circular geometry inside that cylinder.
  const selected={},consumed=new Set(),sourcePartCount=groups.length;
  for(const k of corners){
-  const c=chosen[k],r=Math.max(c.ext[1],c.ext[long])*.51,parts=[];
+  const c=chosen[k],diameter=Math.max(c.ext[1],c.ext[long]);
+  // The most symmetrical circle can be the decorative inner rim.
+  // Prefer its concentric outer tire ring when source topology proves one.
+  const concentric=candidates[k].filter(part=>{
+   const other=Math.max(part.ext[1],part.ext[long]);
+   return other>=diameter*.8&&other<=diameter*1.55 &&
+    Math.abs(part.center[1]-c.center[1])<diameter*.22 &&
+    Math.abs(part.center[long]-c.center[long])<diameter*.22 &&
+    Math.abs(part.center[lat]-c.center[lat])<dim[lat]*.20;
+  });
+  const r=Math.max(diameter,...concentric.map(part=>
+    Math.max(part.ext[1],part.ext[long])))*.51;
+  const parts=[];
   const lateralHalfWidth=Math.min(dim[lat]*.30,
     Math.max(c.ext[lat]*1.5,r*.80));
   const enclosure=part=>
@@ -292,6 +306,6 @@ async function main(){
  console.log("[WHEEL-001] Source-derived wheel candidates",report.vehicles);
 }
 // Safe for unit tests to import individual validators without generating files.
-if(import.meta.url===new URL("file://"+process.argv[1]).href)
+if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href)
  await main();
 export {isolatedPrimitive,identify,islands};
