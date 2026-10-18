@@ -29,7 +29,7 @@ describe("WHEEL-002 source material and wheel integrity",()=>{
     doc.createScene().addChild(doc.createNode("wheel").setMesh(mesh));
     const io=new NodeIO();
     const reopened=await io.readBinary(await io.writeBinary(doc));
-    const actual=reopened.getRoot().listMeshes()[0]!.listPrimitives()[0]!;
+    const actual=reopened.getRoot().listMeshes()[0].listPrimitives()[0];
     expect(actual.getAttribute("COLOR_0")?.getNormalized()).toBe(true);
     expect(actual.getAttribute("TEXCOORD_0")?.getNormalized()).toBe(true);
     expect(actual.getAttribute("COLOR_0")?.getArray()).toEqual(
@@ -47,19 +47,19 @@ describe("WHEEL-002 source material and wheel integrity",()=>{
       vert(-.90,.23,-2.5),vert(.90,.23,-2.5),
       vert(-.90,1.90,2.5),vert(.90,1.90,2.5),
     ];
-    indices.push(body[0]!,body[1]!,body[2]!,body[1]!,body[3]!,body[2]!);
+    indices.push(body[0],body[1],body[2],body[1],body[3],body[2]);
     let smallParts=0;
     for(const [x,z] of [[1,1.7],[-1,1.7],[1,-1.7],[-1,-1.7]]){
       const rings=[[],[]] as number[][];
       for(let t=0;t<64;t++){
         const a=t/64*2*Math.PI;
-        rings[0]!.push(vert(x-.13,.43+.40*Math.sin(a),z+.40*Math.cos(a)));
-        rings[1]!.push(vert(x+.13,.43+.40*Math.sin(a),z+.40*Math.cos(a)));
+        rings[0].push(vert(x-.13,.43+.40*Math.sin(a),z+.40*Math.cos(a)));
+        rings[1].push(vert(x+.13,.43+.40*Math.sin(a),z+.40*Math.cos(a)));
       }
       for(let t=0;t<64;t++){
         const n=(t+1)%64;
-        indices.push(rings[0]![t]!,rings[1]![t]!,rings[0]![n]!,
-          rings[1]![t]!,rings[1]![n]!,rings[0]![n]!);
+        indices.push(rings[0][t],rings[1][t],rings[0][n],
+          rings[1][t],rings[1][n],rings[0][n]);
       }
       // Small original wheel cap with too few triangles for the old script.
       const middle=vert(x+.145,.43,z),perimeter:number[]=[];
@@ -68,7 +68,7 @@ describe("WHEEL-002 source material and wheel integrity",()=>{
         perimeter.push(vert(x+.145,.43+.11*Math.sin(a),z+.11*Math.cos(a)));
       }
       for(let t=0;t<12;t++)
-        indices.push(middle,perimeter[t]!,perimeter[(t+1)%12]!);
+        indices.push(middle,perimeter[t],perimeter[(t+1)%12]);
       smallParts++;
     }
     const matrix=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
