@@ -120,6 +120,7 @@ async function main(){
      item.nodeNames=roots.listNodes().map(n=>n.getName()).slice(0,100);
      item.meshCount=roots.listMeshes().length;
      item.primitives=[];
+     item.meshDetails=[];
      for(const mesh of roots.listMeshes())for(const primitive of mesh.listPrimitives()){
        const p=primitive.getAttribute("POSITION")?.getArray();
        const i=primitive.getIndices()?.getArray();
@@ -128,7 +129,27 @@ async function main(){
        if(!owner)throw Error("source mesh has no owning glTF node");
        item.sourceNode=owner.getName();
        item.sourceWorldTransform=[...owner.getWorldMatrix()].map(v=>+v.toFixed(6));
-       item.primitives.push(analyzePositions(p,i,owner.getWorldMatrix()));
+       const analysis=analyzePositions(p,i,owner.getWorldMatrix());
+       item.primitives.push(analysis);
+       item.meshDetails.push({node:owner.getName(),mesh:mesh.getName(),
+         vertices:analysis.vertices,triangles:analysis.triangles,
+         dimensions:analysis.rawDimensions,
+         center:analysis.rawBounds?.length===6
+           ?[0,2,4].map(a=>+((analysis.rawBounds[a]+analysis.rawBounds[a+1])/2).toFixed(3)):null,
+         components:analysis.topologicalComponents,
+         candidates:analysis.possibleIndependentTireIslands?.length??0});
+     }
+     if(modelId==="lamborghini-temerario") {
+       const tagged=roots.listNodes().filter(n=>/^(?:CTRL_Wheel_|WHL_[FR][LR]_Tire|MSC_WRims)/i.test(n.getName()));
+       item.wheelNodes=tagged.map(n=>({
+         name:n.getName(),
+         childNames:n.listChildren().slice(0,18).map(c=>c.getName()),
+         descendants:(function descendants(n){return n.listChildren().reduce((sum,c)=>sum+1+descendants(c),0)})(n),
+         center:[n.getWorldMatrix()[12],n.getWorldMatrix()[13],n.getWorldMatrix()[14]]
+           .map(v=>+v.toFixed(4)),
+         orientation:n.getRotation().map(v=>+v.toFixed(4)),
+         mesh:n.getMesh()?.getName()??null,
+       }));
      }
      item.state=item.primitives.some(p=>p.error)
        ?"repair-required":item.primitives.every(p=>p.status==="inspect-wheel-candidates")
@@ -156,7 +177,15 @@ async function main(){
      state:x.state,error:x.error,
    }));
  }
- console.log("[WHEEL-001] source GLB audit",out.results.map(x=>({
+ for(const item of out.results.filter(x=>x.modelId==="bmw-m4-competition")){
+   for(let start=0;start<(item.meshDetails?.length??0);start+=5)
+     console.log("[VEH-015-BMW-PARTS]",JSON.stringify(item.meshDetails.slice(start,start+5)));
+ }
+ for(const item of out.results.filter(x=>x.modelId==="lamborghini-temerario")){
+   for(const node of item.wheelNodes??[])
+     console.log("[VEH-015-LAMBO-NODE]",JSON.stringify(node));
+ }
+  console.log("[WHEEL-001] source GLB audit",out.results.map(x=>({
     modelId:x.modelId,state:x.state,meshCount:x.meshCount,
     candidateCount:x.primitives?.reduce((n,p)=>n+(p.possibleIndependentTireIslands?.length??0),0),
     error:x.error,
