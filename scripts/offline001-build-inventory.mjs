@@ -27,6 +27,16 @@ const REQUIRED=[
   "dodge_HP.glb",
   "bmw_m4_competition_m_package (1).glb",
   "Lamborghini+Temerario.glb",
+  "offline001/fonts/barlow/Barlow-Regular.ttf",
+  "offline001/fonts/barlow/Barlow-Medium.ttf",
+  "offline001/fonts/barlow/Barlow-SemiBold.ttf",
+  "offline001/fonts/barlow/Barlow-Bold.ttf",
+  "offline001/fonts/barlowcondensed/BarlowCondensed-Medium.ttf",
+  "offline001/fonts/barlowcondensed/BarlowCondensed-SemiBold.ttf",
+  "offline001/fonts/barlowcondensed/BarlowCondensed-Bold.ttf",
+  "offline001/fonts/barlowcondensed/BarlowCondensed-ExtraBold.ttf",
+  "offline001/fonts/ibmplexmono/IBMPlexMono-Regular.ttf",
+  "offline001/fonts/ibmplexmono/IBMPlexMono-Medium.ttf",
   "manifest.webmanifest",
 ];
 function visit(dir){
@@ -71,7 +81,7 @@ const summary={
     "Not an OFFLINE-003 full offline-pack manifest or readiness proof",
     "Static asset hashes do not establish glTF subresource or dynamic chunk runtime closure",
     "Potentially inactive original GLBs and duplicated surface assets are still retained",
-    "Font and optional online-service dependencies require separate source/network-trace audit",
+    "Potential third-party decoder branches and optional online services require independent runtime Network-trace audit",
   ],
 };
 const report={...summary,files};
