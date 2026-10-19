@@ -415,7 +415,10 @@ function GamePage() {
           onContinueCurrentBuild={versionBlocked ? continueWithInstalledBuild : undefined}
           onDownloadStartupDiagnostics={bootstrapError
             ? () => downloadStartupFailureEvidence(bootstrapError,checklist,
-                telemetry.current?.diagnosticSnapshot()??null,
+                {startup:telemetry.current?.diagnosticSnapshot()??null,
+                  fleet:(window as Window & {
+                    __GTD_NATIVE_FLEET_DIAGNOSTICS__?:()=>unknown
+                  }).__GTD_NATIVE_FLEET_DIAGNOSTICS__?.()??null},
                 typeof __GTD_RELEASE_ID__==="string"?__GTD_RELEASE_ID__:"development")
             : undefined}
           onDownloadDiagnostics={trialEnabled && bootstrapError
