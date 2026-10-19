@@ -27,6 +27,7 @@ import {
   rangeRoverDriveEnabled,
   rangeRoverDriverSeatWorldPose,rangeRoverRearCameraAlpha,
 } from "../vehicles/range-rover-drive-007";
+import {coupeDriverSeatWorldPose} from "../vehicles/coupe-driver-fit-016";
 import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig,
   type FiveModelName} from "../vehicles/ambient-fleet-driving-011";
 import {splitOriginalMergedWheelGeometry}
@@ -1002,9 +1003,12 @@ export class GTDGameRuntime implements GameRuntime {
     if(!voight)return;
     const vehicle={x:car.anchor.position.x,y:car.anchor.position.y,
       z:car.anchor.position.z,yaw:car.headingYaw};
-    const seat=this.activeDriveName()!=="Ferrari"
-      ? rangeRoverDriverSeatWorldPose(vehicle,car.dimensions)
-      : ferrariSeatWorldPose(vehicle,car.dimensions);
+    const model=this.activeDriveName();
+    const seat=model==="BMW M4"||model==="Lamborghini Temerario"
+      ?coupeDriverSeatWorldPose(model,vehicle,car.dimensions)
+      :model==="Ferrari"
+        ?ferrariSeatWorldPose(vehicle,car.dimensions)
+        :rangeRoverDriverSeatWorldPose(vehicle,car.dimensions);
     voight.root.position.set(seat.x,seat.y,seat.z);
     voight.root.rotation.y=seat.yaw;
   }
