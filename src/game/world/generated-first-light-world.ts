@@ -284,33 +284,6 @@ function registerUrbanNavigationCollision(
   return handles;
 }
 
-function registerGaragePropCollision(
-  physics: MeridianPhysics,
-  garageInterior: GeneratedGarageInterior | null,
-): StaticCollisionHandle[] {
-  const handles: StaticCollisionHandle[] = [];
-  for (const mesh of garageInterior?.meshes ?? []) {
-    if (!mesh.name.startsWith("garage-tire-")) continue;
-    mesh.computeWorldMatrix(true);
-    const box = mesh.getBoundingInfo().boundingBox;
-    handles.push(
-      physics.addStaticBox(
-        {
-          x: box.centerWorld.x,
-          y: box.centerWorld.y,
-          z: box.centerWorld.z,
-        },
-        {
-          x: Math.max(0.12, box.extendSizeWorld.x),
-          y: Math.max(0.12, box.extendSizeWorld.y),
-          z: Math.max(0.12, box.extendSizeWorld.z),
-        },
-      ),
-    );
-  }
-  return handles;
-}
-
 function registerGarageThresholdCollision(
   physics: MeridianPhysics,
   building: GeneratedBuilding,
@@ -338,46 +311,6 @@ function registerGarageThresholdCollision(
         // Actual 22 cm garage sill: physically exists, but must not be
         // auto-climbed like an ordinary 21 cm roadside curb.
         { vehicleNoStep: true },
-      ),
-    );
-  }
-  return handles;
-}
-
-function registerGarageInteriorCollision(
-  physics: MeridianPhysics,
-  building: GeneratedBuilding,
-): StaticCollisionHandle[] {
-  const handles: StaticCollisionHandle[] = [];
-  const yaw = building.spatial.yawRadians;
-  const cos = Math.cos(yaw);
-  const sin = Math.sin(yaw);
-  const origin = building.spatial.origin;
-  const fixtures = [
-    { x: -3.7, y: 0.52, z: -3.75, hx: 2.1, hy: 0.52, hz: 0.43 },
-    { x: -5.45, y: 1.05, z: -2.85, hx: 0.63, hy: 1.05, hz: 0.33 },
-    {
-      x: building.interior ? building.interior.localMax.x - 0.48 : 5.9,
-      y: 1.05,
-      z: -1.35,
-      hx: 1.8,
-      hy: 1.05,
-      hz: 0.36,
-      localYaw: Math.PI / 2,
-    },
-    { x: 5.45, y: 1.08, z: 2.85, hx: 0.83, hy: 1.08, hz: 0.29 },
-    { x: 4.1, y: 0.88, z: 3.02, hx: 0.41, hy: 0.88, hz: 0.36 },
-    { x: -4.6, y: 0.43, z: 3.1, hx: 1.28, hy: 0.43, hz: 0.4 },
-  ] as const;
-
-  for (const fixture of fixtures) {
-    const worldX = origin.x + fixture.x * cos - fixture.z * sin;
-    const worldZ = origin.z + fixture.x * sin + fixture.z * cos;
-    handles.push(
-      physics.addStaticBox(
-        { x: worldX, y: origin.y + fixture.y, z: worldZ },
-        { x: fixture.hx, y: fixture.hy, z: fixture.hz },
-        yaw + ("localYaw" in fixture ? fixture.localYaw : 0),
       ),
     );
   }
@@ -516,13 +449,10 @@ export function createGeneratedFirstLightWorld(
     urbanSurfaces,
     options.enableSidewalkSupportCollision ?? false,
   );
-  const garageInteriorCollision = heroGarage
-    ? registerGarageInteriorCollision(physics, heroGarage)
-    : [];
-  const garagePropCollision = registerGaragePropCollision(
-    physics,
-    garageInterior,
-  );
+  // WORLD-019: the garage is completely vacant. The previous furniture
+  // collider batch was independent of meshes and otherwise left invisible
+  // obstacles after furniture removal. Preserve only the authored shell
+  // and real entrance threshold contact.
   const garageThresholdCollision = heroGarage
     ? registerGarageThresholdCollision(physics, heroGarage)
     : [];
@@ -658,8 +588,6 @@ export function createGeneratedFirstLightWorld(
 
       for (const handle of contextCollision) handle.dispose();
       for (const handle of urbanNavigationCollision) handle.dispose();
-      for (const handle of garageInteriorCollision) handle.dispose();
-      for (const handle of garagePropCollision) handle.dispose();
       for (const handle of garageThresholdCollision) handle.dispose();
       rangeRoverReview?.dispose();
       garageInterior?.dispose();
