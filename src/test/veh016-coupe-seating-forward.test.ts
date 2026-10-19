@@ -38,8 +38,10 @@ describe("VEH-017: both original coupes inherit accepted Rover seating and leg p
     const dims={x:2.0,y:1.28,z:4.75};
     const rover=rangeRoverDriverSeatWorldPose(pose,dims);
     const driver=coupeDriverSeatWorldPose("Lamborghini Temerario",pose,dims);
-    expect(driver.y).toBeCloseTo(dims.y*.43);
-    expect(driver.y).toBeGreaterThan(dims.y*.30);
+    // VEH-018: lift the LOWER torso enough to recover drooping legs,
+    // but do not restore full SUV .57 cabin head height.
+    expect(driver.y).toBeCloseTo(dims.y*.50);
+    expect(driver.y).toBeGreaterThan(dims.y*.43);
     expect(driver.y).toBeLessThan(rover.y);
     expect(driver.yaw).toBe(rover.yaw);
     expect(driver.z).toBeCloseTo(rover.z);
