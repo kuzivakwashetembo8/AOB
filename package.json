@@ -11,7 +11,11 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prebuild": "node scripts/stage-offline001-runtime.mjs",
+    "prebuild:dev": "node scripts/stage-offline001-runtime.mjs",
+    "predev": "node scripts/stage-offline001-runtime.mjs",
+    "offline:stage": "node scripts/stage-offline001-runtime.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
