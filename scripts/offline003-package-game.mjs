@@ -35,13 +35,13 @@ function walk(dir) {
 const shellFiles=new Set(shell.resources.map(entry=>entry.url));
 const classify=(url)=>{
   if(url==="/offline001/character/ual.glb")return "character";
-  if(/\\.glb$/i.test(url)) {
+  if(/\.glb$/i.test(url)) {
     return /(?:leaves|ergoninane-fast-71)/i.test(url)?"world":"vehicles";
   }
-  if(url.startsWith("/offline001/draco/") || /\\.wasm$/i.test(url))return "engine";
-  if(/\\.(?:webp|png|jpe?g|svg|gltf|bin)$/i.test(url))return "world";
+  if(url.startsWith("/offline001/draco/") || /\.wasm$/i.test(url))return "engine";
+  if(/\.(?:webp|png|jpe?g|svg|gltf|bin)$/i.test(url))return "world";
   if(shellFiles.has(url))return "app";
-  if(/\\.(?:js|css)$/i.test(url))return "engine";
+  if(/\.(?:js|css)$/i.test(url))return "engine";
   return "world";
 };
 const resources=walk(root).map(file=>{
