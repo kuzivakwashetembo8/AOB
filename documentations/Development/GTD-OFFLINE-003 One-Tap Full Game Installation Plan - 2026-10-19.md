@@ -91,3 +91,16 @@ Every release resource has exactly one category assigned at build time from comp
 4. Do not remove older working installation cache/saves; no production merge until owner inspection.
 
 **Scope:** This change does not optimize GLBs, add new vehicles, change game simulation, provide save/load, or implement future incremental updates.
+
+### Pre-main checklist checkpoint — verified build 2026-10-19
+
+**Preview:** https://gtd-t8lqiz237-interlinkglobaltech.vercel.app/settings  
+**Vercel deployment:** `dpl_3vHAUhT6Ju1DCfZrVeiC19SL9jbS` — READY, preview only  
+**Source build SHA:** `befafe110db613f46ae051bb62da66df2d056895`  
+**Regression:** 94 of 94 test files passed; 388 of 388 tests passed, including the OFFLINE-003 partial-install checklist and all six-vehicle/derivative accounting tests.  
+**Release asset pack:** 428 declared files, 195,014,265 raw bytes, SHA-256 recorded per file, 0 missing baseline critical files.  
+**Shell pack:** 311 static app resources, 6,356,075 raw bytes.
+
+**Clarification:** The vehicle checklist deliberately reports **six unique current vehicle models**, not the count of GLB and wheel-derivative files. A vehicle is checked only when every resource belonging to that model has been stored. The full-pack footer separately reports actual resource **file** totals and byte totals; these units must not be mixed.
+
+The installation checklist remains on the isolated OFFLINE-003 branch and is **not** merged into `main`. Automated checks establish correct categorization, error states and build integrity; they do not replace visual confirmation or an actual Android flight-mode play session. **Do not close OFFLINE-003** until that device test passes and the owner authorizes progression.
