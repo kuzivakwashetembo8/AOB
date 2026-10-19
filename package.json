@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && node scripts/publish-pwa-worker.mjs && node scripts/offline002-package-shell.mjs && node scripts/offline001-build-inventory.mjs",
+    "build": "vite build && node scripts/publish-pwa-worker.mjs && node scripts/offline002-package-shell.mjs && node scripts/offline003-package-game.mjs && node scripts/offline001-build-inventory.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -17,7 +17,8 @@
     "predev": "node scripts/stage-offline001-runtime.mjs",
     "offline:stage": "node scripts/stage-offline001-runtime.mjs",
     "offline:audit": "node scripts/offline001-build-inventory.mjs",
-    "offline:shell": "node scripts/offline002-package-shell.mjs"
+    "offline:shell": "node scripts/offline002-package-shell.mjs",
+    "offline:pack": "node scripts/offline003-package-game.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
