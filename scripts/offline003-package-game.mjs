@@ -30,6 +30,20 @@ function walk(dir) {
   }
   return files;
 }
+// Every resource belongs to exactly one visible checklist category, assigned
+// from the deployed file rather than guessed from a user-facing percentage.
+const shellFiles=new Set(shell.resources.map(entry=>entry.url));
+const classify=(url)=>{
+  if(url==="/offline001/character/ual.glb")return "character";
+  if(/\\.glb$/i.test(url)) {
+    return /(?:leaves|ergoninane-fast-71)/i.test(url)?"world":"vehicles";
+  }
+  if(url.startsWith("/offline001/draco/") || /\\.wasm$/i.test(url))return "engine";
+  if(/\\.(?:webp|png|jpe?g|svg|gltf|bin)$/i.test(url))return "world";
+  if(shellFiles.has(url))return "app";
+  if(/\\.(?:js|css)$/i.test(url))return "engine";
+  return "world";
+};
 const resources=walk(root).map(file=>{
   const path=relative(root,file).split(sep).join("/");
   return {path,file};
@@ -42,9 +56,12 @@ const resources=walk(root).map(file=>{
      url:"/"+path.split("/").map(encodeURIComponent).join("/"),
      bytes:bytes.length,
      sha256:createHash("sha256").update(bytes).digest("hex"),
+     group:classify("/"+path.split("/").map(encodeURIComponent).join("/")),
    };
  }).sort((a,b)=>a.url.localeCompare(b.url));
 if(resources.length<100) throw Error("[OFFLINE-003] Too few game files: "+resources.length);
+if(!["app","engine","world","character","vehicles"].every(group=>
+   resources.some(x=>x.group===group)))throw Error("[OFFLINE-003] Checklist group absent");
 if(!resources.some(x=>x.url.endsWith(".glb")) ||
    !resources.some(x=>x.url.endsWith(".wasm")) ||
    !resources.some(x=>x.url.includes("/assets/")&&x.url.endsWith(".js")))
