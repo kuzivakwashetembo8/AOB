@@ -581,12 +581,12 @@ export class GTDGameRuntime implements GameRuntime {
     );
     this.worldRenderWarmup = warmup;
     try {
-      // Only the original local Range Rover, Hilux, Defender and Dodge
+      // Only the six owner-supplied local traffic-review GLBs
       // are blocking vehicle imports. No remote Buggy/Ferrari dependency.
       if (isGeneratedFirstLightWorld(firstLight) && firstLight.rangeRoverReviewReady) {
         await firstLight.rangeRoverReviewReady;
         this.emit({ type: "load-checkpoint", id: "vehicle-loader", status: "done",
-          detail: "Four native vehicle GLBs instantiated" });
+          detail: "Six native vehicle GLBs instantiated" });
       } else {
         this.emit({ type: "load-checkpoint", id: "vehicle-loader", status: "skipped",
           detail: "No native vehicle models requested" });

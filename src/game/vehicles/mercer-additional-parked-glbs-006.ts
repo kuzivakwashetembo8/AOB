@@ -50,6 +50,23 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
     visualOnly:false,
     sourceBytesKnown:1954504,
   },
+  {
+    // Sixth physical traffic-review specimen; static until separately authorized.
+    id:"gtd-veh014-mercer-bmw-m4",label:"BMW M4 Competition M Package",
+    url:"/bmw_m4_competition_m_package%20(1).glb",
+    // South Ward Mercer roadway, clear of the procedural car near x=-20.5.
+    x:-25.95,z:10.55,width:1.93,height:1.46,length:4.80,yaw:Math.PI/2,
+    visualOnly:true,
+    sourceBytesKnown:1928276,
+  },
+  {
+    // Original Temerario GLB with source materials, no traffic AI or driving rig.
+    id:"gtd-veh014-mercer-lamborghini-temerario",label:"Lamborghini Temerario",
+    url:"/Lamborghini%2BTemerario.glb",
+    x:-47.55,z:10.55,width:2.00,height:1.28,length:4.75,yaw:Math.PI/2,
+    visualOnly:true,
+    sourceBytesKnown:4499268,
+  },
 ] as const;
 
 export function validateMercerExtraPlacements(items:readonly StreetContextItem[]){
