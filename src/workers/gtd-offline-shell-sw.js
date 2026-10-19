@@ -41,6 +41,16 @@ self.addEventListener("activate", event => {
   event.waitUntil(Promise.resolve());
 });
 
+// The checklist must verify the controlling worker belongs to THIS release.
+// An older installed PWA worker can otherwise make cached files appear ready
+// while still serving resources from a different release.
+self.addEventListener("message", event => {
+  if (event.data?.type !== "GTD_OFFLINE_RELEASE_QUERY") return;
+  event.ports?.[0]?.postMessage({
+    type:"GTD_OFFLINE_RELEASE",releaseId:config.releaseId,
+  });
+});
+
 self.addEventListener("fetch", event => {
   const request = event.request;
   if (request.method !== "GET") return;
