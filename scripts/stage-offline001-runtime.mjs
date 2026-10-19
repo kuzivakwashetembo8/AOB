@@ -47,8 +47,9 @@ async function stageCharacter() {
   // No alternate source, silent fallback, or unauthenticated unpinned latest.
   const response=await fetch(expected.source,{signal:AbortSignal.timeout(30000),redirect:"follow"});
   if(!response.ok)throw Error("OFFLINE-001 pinned UAL asset download failed: "+response.status);
-  const len=Number(response.headers.get("content-length")??0);
-  if(len && len!==expected.bytes)throw Error("OFFLINE-001 UAL content length mismatch");
+  // CDN responses may be transfer-compressed; Content-Length can describe the
+  // encoded wire representation rather than the decoded GLB bytes. Verify
+  // the actual response body length, glTF magic and pinned Git blob SHA below.
   const bytes=Buffer.from(await response.arrayBuffer());
   if(!validCharacter(bytes))throw Error("OFFLINE-001 UAL hash/size/glTF magic mismatch");
   mkdirSync(charDir,{recursive:true});
