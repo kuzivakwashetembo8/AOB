@@ -624,7 +624,11 @@ export class GTDGameRuntime implements GameRuntime {
             // original independent meshes; only then attempt non-procedural
             // separation of four symmetric tire islands from that source.
             // A failed audit leaves the original geometry completely intact.
-            const separated=!rover&&discovered.identified!==4
+            // The BMW is qualified by its offline source rig only; Lamborghini
+            // already has original wheel-control nodes. Never do expensive or
+            // speculative triangle cutting on either model at runtime.
+            const offlineOnly=extra==="BMW M4"||extra==="Lamborghini Temerario";
+            const separated=!rover&&!offlineOnly&&discovered.identified!==4
               ?splitOriginalMergedWheelGeometry(parked.anchor,
                 extraDriveProfile(extra!).wheelRadiusFallbackMetres)
               :null;

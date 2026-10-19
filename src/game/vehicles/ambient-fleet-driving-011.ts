@@ -11,18 +11,22 @@
 import {AbstractMesh,TransformNode,Vector3} from "@babylonjs/core";
 import {FERRARI_STREET_PROFILE,type StreetVehiclePhysicsProfile} from "./street-vehicle-physics";
 import type {StreetVehicleWheelMapping,WheelCorner} from "./street-vehicle-wheels";
-export type FiveModelName="Ferrari"|"Range Rover"|"Toyota Hilux"|"Land Rover Defender"|"Dodge HP";
+export type FiveModelName="Ferrari"|"Range Rover"|"Toyota Hilux"|"Land Rover Defender"|"Dodge HP"|"BMW M4"|"Lamborghini Temerario";
 export type ExtraDriveName=Exclude<FiveModelName,"Ferrari"|"Range Rover">;
 
 const reviewClasses:Record<ExtraDriveName,{id:string;wheelRadius:number}>={
   "Toyota Hilux":{id:"toyota-hilux-002",wheelRadius:.39},
   "Land Rover Defender":{id:"land-rover-defender-001",wheelRadius:.40},
   "Dodge HP":{id:"dodge-hp",wheelRadius:.37},
+  "BMW M4":{id:"bmw-m4-competition",wheelRadius:.36},
+  "Lamborghini Temerario":{id:"lamborghini-temerario",wheelRadius:.34},
 };
 export function extraDriveName(sourceId:string):ExtraDriveName|null{
   if(sourceId==="gtd-veh008-mercer-toyota-hilux")return "Toyota Hilux";
   if(sourceId==="gtd-veh009-mercer-land-rover-defender")return "Land Rover Defender";
   if(sourceId==="gtd-veh010-mercer-dodge-hp")return "Dodge HP";
+  if(sourceId==="gtd-veh014-mercer-bmw-m4")return "BMW M4";
+  if(sourceId==="gtd-veh014-mercer-lamborghini-temerario")return "Lamborghini Temerario";
   return null;
 }
 export function extraDriveProfile(name:ExtraDriveName):StreetVehiclePhysicsProfile{
@@ -66,6 +70,31 @@ function unavailable(name:ExtraDriveName,identified=0,count=0):NativeWheelEviden
 export function prepareNativeFleetWheelRig(
  anchor:TransformNode,name:ExtraDriveName,
 ):NativeWheelEvidence{
+   // The original Temerario is already authored with four complete CTRL_Wheel
+  // assemblies, including separate rim/tire geometry. The source travels
+  // longitudinally on X, so its wheel axle/roll axis is source-local Z.
+  // The review is fail-closed if any wheel controls are missing or empty.
+  if(name==="Lamborghini Temerario"){
+    const wheelNames:Record<WheelCorner,string>={
+      frontLeft:"CTRL_Wheel_FL",frontRight:"CTRL_Wheel_FR",
+      rearLeft:"CTRL_Wheel_RL",rearRight:"CTRL_Wheel_RR",
+    };
+    const nodes=anchor.getDescendants(false);
+    const found=corners.map(c=>nodes.filter(node=>
+      node instanceof TransformNode &&
+      (node.name===wheelNames[c]||node.name.endsWith(":"+wheelNames[c]))));
+    if(found.some(group=>group.length!==1 ||
+      group[0]!.getChildMeshes(false).filter(mesh=>
+        mesh.getTotalVertices()>40).length<1))
+      return unavailable(name,0,anchor.getChildMeshes(false).length);
+    return {
+      identified:4,missing:[],sourceMeshCount:anchor.getChildMeshes(false).length,
+      mapping:{wheelNames,spinAxis:"z",steerAxis:"y",
+        steeringMode:"world-yaw",steeringSign:-1,
+        fallbackRadiusMetres:reviewClasses[name].wheelRadius},
+      description:"Four original authored Lamborghini wheel-control hierarchies with complete tire/rim descendants",
+    };
+  }
   // MVRS-1: actual original wheel surface islands may be separated OFFLINE
   // during build into source-backed glTF wheel-pivot nodes. Their geometry
   // and source materials remain from the supplied original GLB.

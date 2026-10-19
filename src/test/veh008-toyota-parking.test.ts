@@ -27,7 +27,7 @@ describe("VEH-011 authentic five-model driving on Mercer",()=>{
     expect(new Set(MERCER_EXTRA_GLB_SPECS.map(p=>p.id)).size).toBe(6);
     expect(MERCER_EXTRA_GLB_SPECS.filter(p=>p.visualOnly!==true)).toHaveLength(4);
   });
-  it("preserves the four existing parked originals and keeps the two new models parked-only",()=>{
+  it("preserves the four accepted positions and enables the two new models for wheel-gated driving",()=>{
     const expectedExisting=[
       ["gtd-veh006-mercer-range-rover",-5.45],
       ["gtd-veh008-mercer-toyota-hilux",-13.45],
@@ -43,11 +43,11 @@ describe("VEH-011 authentic five-model driving on Mercer",()=>{
     const lamborghini=MERCER_EXTRA_GLB_SPECS.find(p=>p.id==="gtd-veh014-mercer-lamborghini-temerario");
     expect(bmw).toMatchObject({
       url:"/bmw_m4_competition_m_package%20(1).glb",
-      x:-25.95,z:10.55,visualOnly:true,sourceBytesKnown:1928276,
+      x:-25.95,z:10.55,visualOnly:false,sourceBytesKnown:1928276,
     });
     expect(lamborghini).toMatchObject({
       url:"/Lamborghini%2BTemerario.glb",
-      x:-47.55,z:10.55,visualOnly:true,sourceBytesKnown:4499268,
+      x:-47.55,z:10.55,visualOnly:false,sourceBytesKnown:4499268,
     });
     const existingCar=planStreetContext(FIRST_LIGHT_CITY_SPEC).items.find(p=>
       p.id==="sw-fl-mercer-west:parked-car:44.5");
