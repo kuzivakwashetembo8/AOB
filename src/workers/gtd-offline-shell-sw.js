@@ -1,5 +1,5 @@
 /* OFFLINE-002: generated release-scoped app-shell worker.
- * Build replaces __GTD_OFFLINE_SHELL_CONFIG__ with a vetted, exact set of
+ * Build substitutes the config constant with a vetted, exact set of
  * same-origin static shell resources. Do NOT add GLBs, physics WASM or world
  * packs here; OFFLINE-003 owns complete game downloads and verification.
  */
