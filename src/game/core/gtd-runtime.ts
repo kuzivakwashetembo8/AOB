@@ -1319,7 +1319,7 @@ export class GTDGameRuntime implements GameRuntime {
         ? this.context === "driving"
           ? this.activeDriveName()+" trial · Drive with WASD / arrows · F to exit when stopped"
           : this.rangeRoverTrialEnabled
-            ? "Five-vehicle drive trial · Approach any car and press F to drive"
+            ? "Six-vehicle drive trial · Approach any car and press F to drive"
             : "Ferrari trial · Press F to enter the sports car"
         : this.world?.objective ?? "Walk the generated South Ward garage corner",
       health: 100,
