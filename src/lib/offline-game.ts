@@ -3,6 +3,7 @@
  * PWA prompt remains a synchronous user gesture while this fetch proceeds.
  * Nothing is labelled offline-ready before ALL declared assets are verified.
  */
+import { vehicleForResource } from "./offline-install-checklist";
 declare const __GTD_RELEASE_ID__: string;
 
 export type OfflinePhase = "idle" | "checking" | "downloading" | "ready" | "error";
@@ -105,10 +106,29 @@ export function summarizeOfflineCategories(
 ):OfflineCategoryStatus[] {
   return OFFLINE_CATEGORIES.map(group=>{
     const files=manifest.resources.filter(file=>file.group===group.id);
-    const installed=files.filter(file=>present.has(file.url));
+    const stored=files.filter(file=>present.has(file.url));
+    if(group.id==="vehicles"){
+      // A vehicle counts as installed only after BOTH its source and any
+      // generated wheel-rig derivative have been cached and verified.
+      const models=new Map<string,typeof files>();
+      for(const file of files){
+        const model=vehicleForResource(file.url);
+        if(!model)continue;
+        const list=models.get(model)??[];
+        list.push(file);
+        models.set(model,list);
+      }
+      const complete=[...models.values()].filter(list=>
+        list.every(file=>present.has(file.url)));
+      return {
+        id:group.id,installed:complete.length,total:models.size,
+        bytesInstalled:stored.reduce((sum,file)=>sum+file.bytes,0),
+        bytesTotal:files.reduce((sum,file)=>sum+file.bytes,0),
+      };
+    }
     return {
-      id:group.id,installed:installed.length,total:files.length,
-      bytesInstalled:installed.reduce((sum,file)=>sum+file.bytes,0),
+      id:group.id,installed:stored.length,total:files.length,
+      bytesInstalled:stored.reduce((sum,file)=>sum+file.bytes,0),
       bytesTotal:files.reduce((sum,file)=>sum+file.bytes,0),
     };
   });
