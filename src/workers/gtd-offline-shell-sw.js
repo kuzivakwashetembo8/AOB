@@ -7,12 +7,14 @@ const config = __GTD_OFFLINE_SHELL_CONFIG__;
 const CACHE_NAME = "gtd-offline-shell-" + config.releaseId;
 const SHELL_URL = "/_shell.html";
 const ROUTES = new Set(["/", "/settings", "/world", "/game"]);
-const SHELL_PREFIXES = ["/assets/", "/icons/", "/offline001/fonts/"];
+const SHELL_PREFIXES = ["/icons/", "/offline001/fonts/"];
 const SHELL_FILES = new Set(["/manifest.webmanifest", "/favicon.png", "/_shell.html"]);
 const REQUIRED = new Set(config.resources);
 const sameOrigin = (url) => url.origin === self.location.origin;
 const isShellAsset = (url) => sameOrigin(url) &&
-  (SHELL_FILES.has(url.pathname) || SHELL_PREFIXES.some(p => url.pathname.startsWith(p)));
+  (SHELL_FILES.has(url.pathname) ||
+    SHELL_PREFIXES.some(p => url.pathname.startsWith(p)) ||
+    (url.pathname.startsWith("/assets/") && /\.(js|css|jpe?g|svg)$/.test(url.pathname)));
 function fromCache(request) {
   return caches.open(CACHE_NAME).then(cache => cache.match(request, {ignoreSearch: false}));
 }
