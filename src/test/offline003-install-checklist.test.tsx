@@ -66,7 +66,10 @@ describe("OFFLINE-003 Settings installation checklist",()=>{
     });
     render(<OfflineInstallChecklist progress={status} standalone />);
     expect(screen.getByText("GAME INSTALLATION")).toBeVisible();
-    expect(screen.getByText("6 / 100")).toBeNull(); // intentionally no fabricated counts
+    expect(screen.getByText("52 / 100")).toBeVisible();
+    expect(screen.queryByText("6 / 100")).toBeNull(); // no fabricated counts
+    expect(screen.getByText("0 / 6")).toBeVisible();
+    expect(screen.getByText("Waiting")).toBeVisible();
   });
   it("keeps offline-play waiting in a browser even if game files are cached",()=>{
     const m=makeManifest();
