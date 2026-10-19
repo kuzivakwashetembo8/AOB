@@ -5,6 +5,7 @@
  */
 const config = __GTD_OFFLINE_SHELL_CONFIG__;
 const CACHE_NAME = "gtd-offline-shell-" + config.releaseId;
+const GAME_CACHE_NAME = "gtd-offline-game-" + config.releaseId;
 const SHELL_URL = "/_shell.html";
 const ROUTES = new Set(["/", "/settings", "/world", "/game"]);
 const SHELL_PREFIXES = ["/icons/", "/offline001/fonts/"];
@@ -63,8 +64,20 @@ self.addEventListener("fetch", event => {
     })());
     return;
   }
-  if (!isShellAsset(url)) return;
+  // OFFLINE-003: the complete game pack is downloaded and SHA-256 verified by
+  // the Install UI. Only same-release static resources are served from it.
+  // Never intercept telemetry, authorization, version checks or worker scripts.
+  if (url.pathname === "/sw.js" || url.pathname === "/build-version.json" ||
+      url.pathname.startsWith("/api/") || url.pathname.startsWith("/~oauth")) return;
+  const isGameResource = isShellAsset(url) ||
+    /\.(?:glb|gltf|bin|wasm|webp|png|jpg|jpeg|svg|json|css|js|woff2?|ttf)$/i.test(url.pathname);
+  if (!isGameResource) return;
   event.respondWith((async () => {
+    // CacheStorage is shared by the installed PWA and this worker. The
+    // downloader only stores content after verifying its cryptographic hash.
+    const gameCache = await caches.open(GAME_CACHE_NAME);
+    const gameFile = await gameCache.match(request);
+    if (gameFile) return gameFile;
     const cached = await fromCache(request);
     if (cached) return cached;
     // Optional chunks can be cached opportunistically when online. Required
