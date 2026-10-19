@@ -16,6 +16,7 @@ import { planCabinFit004Candidates, FIT004_MAX_FOOT_TARGET_LIFT_METRES } from ".
 import { VehicleCabinFloor, planSoleClearance, type VehicleCabinKind } from "../vehicles/vehicle-cabin-envelope";
 import {planRangeRoverFootwellTargets,planRangeRoverSoleLift} from "../vehicles/range-rover-drive-007";
 
+
 export type DriverContactState = {
   enabled: boolean;
   status: "disabled" | "missing-rig" | "missing-wheel" | "contact-only-unverified-cabin" | "out-of-tolerance";
@@ -238,6 +239,9 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
             vehicleFloorY:cabin.position.y,
           }):null;
       if(initial){
+        // VEH-017: BOTH coupes now use the unchanged Rover-derived lower-leg
+        // targets and sole measurement. Do not elevate feet toward the
+        // steering wheel independently of the accepted leg IK workflow.
         const inverse=cabin.getWorldMatrix().clone().invert();
         cachedLocalTargets={
           leftFoot:Vector3.TransformCoordinates(initial.leftFoot,inverse),

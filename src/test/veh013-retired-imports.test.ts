@@ -19,13 +19,15 @@ describe("VEH-013 — remove Ferrari/Buggy without breaking native vehicles",()=
    expect(runtime).toContain("prepareNativeFleetWheelRig");
    expect(runtime).toContain("splitOriginalMergedWheelGeometry");
  });
- it("keeps exactly four real local original models with no remote source",()=>{
+ it("retains all four originals and admits both new models only through the wheel gate",()=>{
+   const four=["Range Rover Sport 2018","Toyota Hilux 002",
+     "Land Rover Defender 001","Dodge HP"];
+   expect(MERCER_EXTRA_GLB_SPECS.slice(0,4).filter(x=>x.visualOnly!==true).map(x=>x.label)).toEqual(four);
    expect(MERCER_EXTRA_GLB_SPECS.map(x=>x.label)).toEqual([
-     "Range Rover Sport 2018","Toyota Hilux 002",
-     "Land Rover Defender 001","Dodge HP",
+     ...four,"BMW M4 Competition M Package","Lamborghini Temerario",
    ]);
-   expect(MERCER_EXTRA_GLB_SPECS.every(x=>x.url.startsWith("/")&&
-     x.visualOnly!==true)).toBe(true);
+   expect(MERCER_EXTRA_GLB_SPECS.filter(x=>x.visualOnly===true)).toHaveLength(0);
+   expect(MERCER_EXTRA_GLB_SPECS.every(x=>x.url.startsWith("/")&&x.visualOnly!==true)).toBe(true);
    expect(MERCER_EXTRA_GLB_SPECS.some(x=>/buggy|ferrari/i.test(x.id+x.url+x.label))).toBe(false);
  });
  it("retired checkpoints are skipped; native fleet readiness remains measured",()=>{

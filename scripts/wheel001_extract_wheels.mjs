@@ -13,6 +13,7 @@ const models=[
  ["toyota-hilux-002","public/toyota hilux 002.glb"],
  ["land-rover-defender-001","public/Land rover defender 001.glb"],
  ["dodge-hp","public/dodge_HP.glb"],
+ ["bmw-m4-competition","public/bmw_m4_competition_m_package (1).glb"],
 ];
 const corners=["frontLeft","frontRight","rearLeft","rearRight"];
 const sha=b=>createHash("sha256").update(b).digest("hex");
@@ -271,6 +272,163 @@ async function convert(binary,model,io){
    originalTriangles,originalAttributes,redistributedTriangles,
    sourceComponentCount:graph.groups.length};
 }
+
+/**
+ * VEH-015 BMW authoring path. Unlike Toyota/Dodge, the BMW Sketchfab source
+ * stores individual triangles (not shared-index islands) across THREE
+ * original materials in the dedicated "WHeelsandrims_2" sub-tree.
+ *
+ * Offline-only separation: every ORIGINAL source wheel triangle is assigned
+ * exactly once to a left/right + front/rear pivot. No body mesh, synthetic
+ * wheel, UV, color, or source file is modified. Ambiguous source layout
+ * fails closed to parked-only, with source GLB retained.
+ */
+async function convertBMW(binary,model,io){
+ const doc=await io.readBinary(binary),root=doc.getRoot();
+ const group=root.listNodes().find(n=>n.getName()==="WHeelsandrims_2");
+ if(!group)throw Error("bmw-wheel-material-group-missing");
+ const ownerNodes=group.listChildren().filter(n=>n.getMesh());
+ if(ownerNodes.length!==3||
+    ownerNodes.some(n=>n.listChildren().length||n.getMesh().listPrimitives().length!==1))
+   throw Error("bmw-wheel-group-hierarchy-changed");
+ const groupMatrix=group.getWorldMatrix();
+ const wheelSpecs=[];
+ let originalTriangles=0;
+ const allBounds={min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]};
+ for(const node of ownerNodes){
+   const m=node.getWorldMatrix();
+   if(m.some((v,i)=>Math.abs(v-groupMatrix[i])>1e-4))
+     throw Error("bmw-wheel-source-transforms-require-manual-review");
+   const primitive=node.getMesh().listPrimitives()[0];
+   if(primitive.getMode()!==4)throw Error("bmw-wheel-primitive-not-triangles");
+   const pos=primitive.getAttribute("POSITION")?.getArray(),idx=primitive.getIndices()?.getArray();
+   if(!pos||!idx||idx.length<300||idx.length%3!==0)
+     throw Error("bmw-wheel-source-triangles-invalid");
+   for(let j=0;j<pos.length;j+=3){
+     const v=mul([pos[j],pos[j+1],pos[j+2]],m);
+     for(let axis=0;axis<3;axis++){
+       allBounds.min[axis]=Math.min(allBounds.min[axis],v[axis]);
+       allBounds.max[axis]=Math.max(allBounds.max[axis],v[axis]);
+     }
+   }
+   originalTriangles+=idx.length/3;
+   wheelSpecs.push({node,primitive,pos,idx,m,buckets:{
+     frontLeft:[],frontRight:[],rearLeft:[],rearRight:[],
+   }});
+ }
+ const mid=allBounds.min.map((v,i)=>(v+allBounds.max[i])/2);
+ const ext=allBounds.min.map((v,i)=>allBounds.max[i]-v);
+ if(ext[0]<4||ext[0]>15||ext[1]<.75||ext[1]>5||
+    ext[2]<7||ext[2]>25||ext[2]/ext[0]<1.15)
+   throw Error("bmw-source-wheel-envelope-invalid:"+ext.join(","));
+ const localBounds=Object.fromEntries(corners.map(k=>[k,{
+   min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity],
+   triangles:0,
+ }]));
+ for(const spec of wheelSpecs){
+   for(let i=0;i<spec.idx.length;i+=3){
+     const sourceIds=[spec.idx[i],spec.idx[i+1],spec.idx[i+2]];
+     if(sourceIds.some(id=>!Number.isInteger(id)||id<0||id>=spec.pos.length/3))
+       throw Error("bmw-invalid-source-index");
+     const points=sourceIds.map(id=>mul([
+       spec.pos[id*3],spec.pos[id*3+1],spec.pos[id*3+2]
+     ],spec.m));
+     // Entire face must reside in a single wheel quadrant. This check
+     // explicitly prevents cutting chassis/axle polygons by arbitrary sign.
+     const signX=points.map(p=>Math.sign(p[0]-mid[0])),
+           signZ=points.map(p=>Math.sign(p[2]-mid[2]));
+     if(signX.some(v=>v!==signX[0])||signZ.some(v=>v!==signZ[0])||
+        points.some(p=>Math.abs(p[0]-mid[0])<ext[0]*.09 ||
+                       Math.abs(p[2]-mid[2])<ext[2]*.09))
+       throw Error("bmw-wheel-triangle-crosses-vehicle-midplane");
+     const k=(signZ[0]>0?"front":"rear")+(signX[0]>0?"Left":"Right");
+     const b=localBounds[k];
+     if(!b)throw Error("bmw-wheel-quadrant-ambiguous");
+     spec.buckets[k].push(...sourceIds);
+     b.triangles++;
+     for(const p of points)for(let axis=0;axis<3;axis++){
+       b.min[axis]=Math.min(b.min[axis],p[axis]);
+       b.max[axis]=Math.max(b.max[axis],p[axis]);
+     }
+   }
+ }
+ const dimensions={},centers={};
+ for(const corner of corners){
+   const b=localBounds[corner];
+   if(b.triangles<400)throw Error("bmw-wheel-quadrant-lacks-real-triangles:"+corner);
+   const d=b.min.map((v,i)=>b.max[i]-v);
+   dimensions[corner]=d;
+   centers[corner]=b.min.map((v,i)=>(v+b.max[i])/2);
+   // Wheel assembly must look cylindrical in its Y/Z plane in source space.
+   if(d[1]<1||d[1]>4||d[2]<1||d[2]>4||
+      Math.max(d[1],d[2])/Math.min(d[1],d[2])>1.35||
+      d[0]<.20||d[0]>2.3)
+     throw Error("bmw-wheel-quadrant-envelope-failed:"+corner+":"+d.join(","));
+ }
+ const reference=dimensions.frontLeft;
+ if(corners.some(k=>Math.abs(dimensions[k][1]-reference[1])>reference[1]*.23||
+                    Math.abs(dimensions[k][2]-reference[2])>reference[2]*.23))
+   throw Error("bmw-wheel-four-corner-size-asymmetry");
+ if(Math.abs(centers.frontLeft[2]-centers.frontRight[2])>reference[2]*.2||
+    Math.abs(centers.rearLeft[2]-centers.rearRight[2])>reference[2]*.2||
+    Math.abs(centers.frontLeft[1]-centers.rearLeft[1])>reference[1]*.3)
+   throw Error("bmw-wheel-axle-symmetry-failed");
+ const redistributedTriangles=corners.reduce((sum,k)=>sum+localBounds[k].triangles,0);
+ if(redistributedTriangles!==originalTriangles)
+   throw Error("bmw-wheel-triangle-accounting-failed");
+ const mappings={};
+ const fidelity=[];
+ for(const k of corners){
+   const hub=inv(centers[k],groupMatrix);
+   const pivot=doc.createNode("MVRS_"+model+"_"+k+"_PIVOT").setTranslation(hub);
+   const wheel=doc.createMesh("MVRS_"+model+"_"+k+"_WHEEL");
+   for(const spec of wheelSpecs)if(spec.buckets[k].length){
+     const old=spec.primitive;
+     const part=isolatedPrimitive(doc,old,spec.buckets[k],hub);
+     wheel.addPrimitive(part);
+     fidelity.push({corner:k,src:old,output:part});
+   }
+   group.addChild(pivot);
+   pivot.addChild(doc.createNode("MVRS_"+model+"_"+k+"_GEOMETRY").setMesh(wheel));
+   mappings[k]={pivot:pivot.getName(),
+     sourceTriangles:localBounds[k].triangles,
+     sourceComponents:wheel.listPrimitives().length,
+     radiusRaw:(dimensions[k][1]+dimensions[k][2])/4};
+ }
+ for(const node of ownerNodes)node.setMesh(null);
+ const glb=await io.writeBinary(doc);
+ const verify=await io.readBinary(glb);
+ const outputRoot=verify.getRoot();
+ const outputNodes=outputRoot.listNodes().map(n=>n.getName());
+ if(corners.some(k=>!outputNodes.includes(mappings[k].pivot)))
+   throw Error("bmw-wheel-pivots-missing-after-reexport");
+ const byName=new Map(outputRoot.listMeshes().map(m=>[m.getName(),m]));
+ for(const k of corners){
+   const actual=byName.get("MVRS_"+model+"_"+k+"_WHEEL");
+   if(!actual||actual.listPrimitives().length!==wheelSpecs.length)
+     throw Error("bmw-wheel-primitive-count-changed:"+k);
+   for(let i=0;i<wheelSpecs.length;i++){
+     const before=wheelSpecs[i].primitive,after=actual.listPrimitives()[i];
+     if(after.getMaterial()?.getName()!==before.getMaterial()?.getName()||
+        before.getMode()!==after.getMode())
+       throw Error("bmw-wheel-original-material-changed:"+k);
+     for(const semantic of before.listSemantics()){
+       const a=before.getAttribute(semantic),b=after.getAttribute(semantic);
+       if(!b||a.getNormalized()!==b.getNormalized()||
+          a.getComponentType()!==b.getComponentType())
+         throw Error("bmw-wheel-attribute-changed:"+k+":"+semantic);
+     }
+   }
+ }
+ return {glb,mappings,originalTriangles,redistributedTriangles,
+   retainedBodyTriangles:0,
+   originalAttributes:Object.fromEntries(wheelSpecs[0].primitive.listSemantics()
+      .map(name=>[name,{componentType:wheelSpecs[0].primitive.getAttribute(name).getComponentType(),
+                     normalized:wheelSpecs[0].primitive.getAttribute(name).getNormalized()}])),
+   sourceComponentCount:wheelSpecs.length,
+   sourceWheelCenters:centers,sourceWheelDimensions:dimensions};
+}
+
 async function main(){
  const base="public/wheel001-generated";await mkdir(base,{recursive:true});
  const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
@@ -284,7 +442,8 @@ async function main(){
    sourceBytes:bytes.length,status:"repair-required",reason:null};
   report.vehicles.push(item);
   try{
-   const output=await convert(bytes,model,io);
+   const output=model==="bmw-m4-competition"
+     ?await convertBMW(bytes,model,io):await convert(bytes,model,io);
    if(output.glb.length>Math.max(bytes.length*8,16_000_000))
     throw Error("derived-asset-too-large:"+output.glb.length);
    await writeFile(dst,output.glb);
@@ -297,6 +456,8 @@ async function main(){
    item.redistributedTriangles=output.redistributedTriangles;
    item.originalAttributes=output.originalAttributes;
    item.sourceComponentCount=output.sourceComponentCount;
+   if(output.sourceWheelCenters)item.sourceWheelCenters=output.sourceWheelCenters;
+   if(output.sourceWheelDimensions)item.sourceWheelDimensions=output.sourceWheelDimensions;
   }catch(e){
    await copyFile(path,dst);
    item.reason=String(e instanceof Error?e.message:e).slice(0,200);
@@ -304,6 +465,8 @@ async function main(){
  }
  await writeFile(base+"/registry.json",JSON.stringify(report,null,2)+"\n");
  console.log("[WHEEL-001] Source-derived wheel candidates",report.vehicles);
+ for(const item of report.vehicles.filter(x=>x.model==="bmw-m4-competition"))
+   console.log("[VEH-015 BMW WHEEL RESULT]",JSON.stringify(item).slice(0,1980));
 }
 // Safe for unit tests to import individual validators without generating files.
 if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href)

@@ -3,6 +3,7 @@ import {
   Mesh,
   MeshBuilder,
   StandardMaterial,
+  Texture,
   Vector3,
 } from "@babylonjs/core";
 import type { Scene } from "@babylonjs/core";
@@ -29,6 +30,7 @@ import type {
   GeneratedUrbanSurfaces,
 } from "../world-generation";
 import type { StreetContextPlan } from "../world-generation/street-context";
+import {SOUTH_WARD_018_BOUNDS,createOpenSouthWard018} from "../world-generation/south-ward-open-roads-018";
 import {createMercerExtraParkedGLBs} from "../vehicles/mercer-additional-parked-glbs-006";
 import type { ForestryBudget, ForestryPlan, ForestryDensityFocus } from "../world-generation/urban-forestry-plan";
 import {
@@ -118,7 +120,10 @@ function createGround(
   material.diffuseColor=new Color3(0.17,0.16,0.14);
   material.specularColor=Color3.Black();
   const mesh=MeshBuilder.CreateGround(
-    "generated-first-light-ground",{width:160,height:130},scene,
+    "generated-first-light-ground",{
+      width:SOUTH_WARD_018_BOUNDS.right-SOUTH_WARD_018_BOUNDS.left,
+      height:SOUTH_WARD_018_BOUNDS.south-SOUTH_WARD_018_BOUNDS.north,
+    },scene,
   );
   mesh.position.z=20;
   if(landUsePreview){
@@ -134,6 +139,11 @@ function createGround(
     // GRN-004: photographic carpet-grass trials rejected. The accepted
     // GRN-01 procedural image is always the sole residual-ground material.
     groundTexture=createGroundLandTexture(scene,plan);
+    // WORLD-018: reuse a single proven 160x130 m procedural sample and
+    // tile in WORLD metres across exactly 10x terrain. Never allocate a
+    // 500x416 m full-resolution source texture (GPU/transfer regression).
+    groundTexture.wrapU=Texture.WRAP_ADDRESSMODE;
+    groundTexture.wrapV=Texture.WRAP_ADDRESSMODE;
     material.diffuseTexture=groundTexture;
     material.diffuseColor=Color3.White();
     material.specularColor=Color3.Black();
@@ -148,7 +158,11 @@ function createGround(
   mesh.metadata={...mesh.metadata,spatialRole:"terrain",
     cameraBlocker:true,cameraGround:true};
   const collision=physics.addStaticBox(
-    {x:0,y:-0.12,z:20},{x:80,y:0.12,z:65},
+    {x:0,y:-0.12,z:20},{
+      x:(SOUTH_WARD_018_BOUNDS.right-SOUTH_WARD_018_BOUNDS.left)/2,
+      y:0.12,
+      z:(SOUTH_WARD_018_BOUNDS.south-SOUTH_WARD_018_BOUNDS.north)/2,
+    },
   );
   return {mesh,material,collision,disposeTexture(){
     groundTexture?.dispose();
@@ -270,33 +284,6 @@ function registerUrbanNavigationCollision(
   return handles;
 }
 
-function registerGaragePropCollision(
-  physics: MeridianPhysics,
-  garageInterior: GeneratedGarageInterior | null,
-): StaticCollisionHandle[] {
-  const handles: StaticCollisionHandle[] = [];
-  for (const mesh of garageInterior?.meshes ?? []) {
-    if (!mesh.name.startsWith("garage-tire-")) continue;
-    mesh.computeWorldMatrix(true);
-    const box = mesh.getBoundingInfo().boundingBox;
-    handles.push(
-      physics.addStaticBox(
-        {
-          x: box.centerWorld.x,
-          y: box.centerWorld.y,
-          z: box.centerWorld.z,
-        },
-        {
-          x: Math.max(0.12, box.extendSizeWorld.x),
-          y: Math.max(0.12, box.extendSizeWorld.y),
-          z: Math.max(0.12, box.extendSizeWorld.z),
-        },
-      ),
-    );
-  }
-  return handles;
-}
-
 function registerGarageThresholdCollision(
   physics: MeridianPhysics,
   building: GeneratedBuilding,
@@ -324,46 +311,6 @@ function registerGarageThresholdCollision(
         // Actual 22 cm garage sill: physically exists, but must not be
         // auto-climbed like an ordinary 21 cm roadside curb.
         { vehicleNoStep: true },
-      ),
-    );
-  }
-  return handles;
-}
-
-function registerGarageInteriorCollision(
-  physics: MeridianPhysics,
-  building: GeneratedBuilding,
-): StaticCollisionHandle[] {
-  const handles: StaticCollisionHandle[] = [];
-  const yaw = building.spatial.yawRadians;
-  const cos = Math.cos(yaw);
-  const sin = Math.sin(yaw);
-  const origin = building.spatial.origin;
-  const fixtures = [
-    { x: -3.7, y: 0.52, z: -3.75, hx: 2.1, hy: 0.52, hz: 0.43 },
-    { x: -5.45, y: 1.05, z: -2.85, hx: 0.63, hy: 1.05, hz: 0.33 },
-    {
-      x: building.interior ? building.interior.localMax.x - 0.48 : 5.9,
-      y: 1.05,
-      z: -1.35,
-      hx: 1.8,
-      hy: 1.05,
-      hz: 0.36,
-      localYaw: Math.PI / 2,
-    },
-    { x: 5.45, y: 1.08, z: 2.85, hx: 0.83, hy: 1.08, hz: 0.29 },
-    { x: 4.1, y: 0.88, z: 3.02, hx: 0.41, hy: 0.88, hz: 0.36 },
-    { x: -4.6, y: 0.43, z: 3.1, hx: 1.28, hy: 0.43, hz: 0.4 },
-  ] as const;
-
-  for (const fixture of fixtures) {
-    const worldX = origin.x + fixture.x * cos - fixture.z * sin;
-    const worldZ = origin.z + fixture.x * sin + fixture.z * cos;
-    handles.push(
-      physics.addStaticBox(
-        { x: worldX, y: origin.y + fixture.y, z: worldZ },
-        { x: fixture.hx, y: fixture.hy, z: fixture.hz },
-        yaw + ("localYaw" in fixture ? fixture.localYaw : 0),
       ),
     );
   }
@@ -437,6 +384,9 @@ export function createGeneratedFirstLightWorld(
     FIRST_LIGHT_CITY_SPEC,
     {skipLegacyParcelInfill: options.enableLandUsePreview ?? false},
   );
+  // WORLD-018: extend only roads and GRN-01 grass. Existing First Light
+  // authored 10 buildings, five street IDs, vehicles and props are unchanged.
+  const openRoads=createOpenSouthWard018(scene,physics);
   const streetPlan = planStreetContext(FIRST_LIGHT_CITY_SPEC, {
     enableTreePlace001: options.enableTreePlace001 ?? false,
     treeBudget: options.treeBudget ?? 6,
@@ -499,13 +449,10 @@ export function createGeneratedFirstLightWorld(
     urbanSurfaces,
     options.enableSidewalkSupportCollision ?? false,
   );
-  const garageInteriorCollision = heroGarage
-    ? registerGarageInteriorCollision(physics, heroGarage)
-    : [];
-  const garagePropCollision = registerGaragePropCollision(
-    physics,
-    garageInterior,
-  );
+  // WORLD-019: the garage is completely vacant. The previous furniture
+  // collider batch was independent of meshes and otherwise left invisible
+  // obstacles after furniture removal. Preserve only the authored shell
+  // and real entrance threshold contact.
   const garageThresholdCollision = heroGarage
     ? registerGarageThresholdCollision(physics, heroGarage)
     : [];
@@ -641,8 +588,6 @@ export function createGeneratedFirstLightWorld(
 
       for (const handle of contextCollision) handle.dispose();
       for (const handle of urbanNavigationCollision) handle.dispose();
-      for (const handle of garageInteriorCollision) handle.dispose();
-      for (const handle of garagePropCollision) handle.dispose();
       for (const handle of garageThresholdCollision) handle.dispose();
       rangeRoverReview?.dispose();
       garageInterior?.dispose();
@@ -650,6 +595,7 @@ export function createGeneratedFirstLightWorld(
       for (const building of buildings) building.dispose();
       streetContext.dispose();
       urbanSurfaces.dispose();
+      openRoads.dispose();
       materialLibrary.dispose();
       ground.collision.dispose();
       ground.mesh.dispose();

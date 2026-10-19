@@ -23,6 +23,7 @@ import type { ExperimentalBrickMaterial } from "./experimental-brick-material";
 import { businessBrickForBuilding, businessBrickPhysicalTile } from "./brick-business-field-trial";
 import type { BrickSurfaceId } from "./brick-surface-catalog";
 import { woodSurfaceForBuilding } from "./wood-south-ward-field-trial";
+import {cleanWoodBuildingSurrounds} from "./wood-exterior-cleanup-019";
 import { WOOD_SURFACES, woodTileMetres, type WoodSurfaceId } from "./wood-surface-catalog";
 import { createImageWallMaterial, type ImageWallMaterial } from "./image-wall-material";
 import { isGlassTower, glassSurfaceForBuilding } from "./glass-south-ward-field-trial";
@@ -403,14 +404,13 @@ export function generateBuilding(
     if (ownsLibrary) library.dispose();
   };
   try {
-    const parts = [
+    const parts = cleanWoodBuildingSurrounds([
       ...plan.primitives, ...detailPlan.primitives,
       ...(physics ? interaction.closedDoorPanels : []),
-      // Both glass towers now have physical strips when glass imagery is active;
-      // the existing cap coloration remains distinct between blue and grey.
+      // Glass towers and all non-wood building geometry remain unchanged.
       ...planSkylineArchitecturalGeometry(plan, spec.id,
         glassSurfaceId !== null),
-    ];
+    ],woodSurfaceId!==null);
     if (batchingMode === "thin-instances") makeBatches(parts);
     else if (batchingMode === "individual") {
       for (const part of parts) makeIndividual(part, renderClass(part));

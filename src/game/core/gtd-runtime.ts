@@ -27,6 +27,7 @@ import {
   rangeRoverDriveEnabled,
   rangeRoverDriverSeatWorldPose,rangeRoverRearCameraAlpha,
 } from "../vehicles/range-rover-drive-007";
+import {coupeDriverSeatWorldPose} from "../vehicles/coupe-driver-fit-016";
 import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig,
   type FiveModelName} from "../vehicles/ambient-fleet-driving-011";
 import {splitOriginalMergedWheelGeometry}
@@ -315,6 +316,20 @@ export class GTDGameRuntime implements GameRuntime {
         glassSurfaceFocusId: parseGlassFocus(diagnosticParams.get("gtdGlassFocus")),
       },
     );
+    // LOAD-062: user-exportable, no-network snapshot from *all* six imports.
+    // Survives one failed Promise.all so the user can distinguish a blocked
+    // Range Rover from five other completed or still-running vehicles.
+    if(isGeneratedFirstLightWorld(firstLight)&&firstLight.rangeRoverReview){
+      (window as Window & {__GTD_NATIVE_FLEET_DIAGNOSTICS__?:()=>unknown})
+        .__GTD_NATIVE_FLEET_DIAGNOSTICS__=()=>firstLight.rangeRoverReview?.instances.map(parked=>{
+          const t=parked.loadTelemetry;
+          return {assetId:parked.spec.id,sourceBytes:parked.spec.sourceBytesKnown??null,
+            attempts:t.loadAttempts,loaderElapsedMs:t.loaderElapsedMs,
+            containerReadyMs:t.containerReadyMs,instantiateMs:t.instantiateMs,
+            errorCode:t.errorCode,
+            state:t.errorCode?"failed":t.instantiateMs!==null?"loaded":"loading"};
+        })??[];
+    }
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
     // Lightweight read-only runtime benchmark: first 15 seconds are warm-up.
     // Bounded memory, no network telemetry and no impact on a disabled trial's
@@ -581,12 +596,27 @@ export class GTDGameRuntime implements GameRuntime {
     );
     this.worldRenderWarmup = warmup;
     try {
-      // Only the original local Range Rover, Hilux, Defender and Dodge
+      // Only the six owner-supplied local traffic-review GLBs
       // are blocking vehicle imports. No remote Buggy/Ferrari dependency.
       if (isGeneratedFirstLightWorld(firstLight) && firstLight.rangeRoverReviewReady) {
-        await firstLight.rangeRoverReviewReady;
+        try {
+          await firstLight.rangeRoverReviewReady;
+        } catch(error) {
+          // LOAD-062: capture failed asset even when fleet Promise.all rejects.
+          for(const parked of firstLight.rangeRoverReview?.instances??[]){
+            const t=parked.loadTelemetry;
+            if(t.errorCode===null)continue;
+            this.emit({type:"asset-observation",assetId:parked.spec.id,
+              sourceKind:"local-glb",sourceBytesKnown:parked.spec.sourceBytesKnown??null,
+              containerReadyMs:null,instantiateMs:null,result:"failed",
+              errorCode:t.errorCode});
+          }
+          this.emit({type:"load-checkpoint",id:"vehicle-loader",status:"failed",
+            detail:error instanceof Error?error.message:"Native fleet download failed"});
+          throw error;
+        }
         this.emit({ type: "load-checkpoint", id: "vehicle-loader", status: "done",
-          detail: "Four native vehicle GLBs instantiated" });
+          detail: "Six native vehicle GLBs instantiated" });
       } else {
         this.emit({ type: "load-checkpoint", id: "vehicle-loader", status: "skipped",
           detail: "No native vehicle models requested" });
@@ -597,7 +627,7 @@ export class GTDGameRuntime implements GameRuntime {
           this.emit({type:"asset-observation",assetId:parked.spec.id,
             sourceKind:"local-glb",sourceBytesKnown:parked.spec.sourceBytesKnown??null,
             containerReadyMs:parked.loadTelemetry.containerReadyMs,
-            instantiateMs:parked.loadTelemetry.instantiateMs,result:"loaded"});
+            instantiateMs:parked.loadTelemetry.instantiateMs,result:"loaded",errorCode:null});
         }
       }
       // VEH-011: all imported originals enter the existing, single Rapier
@@ -624,7 +654,11 @@ export class GTDGameRuntime implements GameRuntime {
             // original independent meshes; only then attempt non-procedural
             // separation of four symmetric tire islands from that source.
             // A failed audit leaves the original geometry completely intact.
-            const separated=!rover&&discovered.identified!==4
+            // The BMW is qualified by its offline source rig only; Lamborghini
+            // already has original wheel-control nodes. Never do expensive or
+            // speculative triangle cutting on either model at runtime.
+            const offlineOnly=extra==="BMW M4"||extra==="Lamborghini Temerario";
+            const separated=!rover&&!offlineOnly&&discovered.identified!==4
               ?splitOriginalMergedWheelGeometry(parked.anchor,
                 extraDriveProfile(extra!).wheelRadiusFallbackMetres)
               :null;
@@ -998,9 +1032,12 @@ export class GTDGameRuntime implements GameRuntime {
     if(!voight)return;
     const vehicle={x:car.anchor.position.x,y:car.anchor.position.y,
       z:car.anchor.position.z,yaw:car.headingYaw};
-    const seat=this.activeDriveName()!=="Ferrari"
-      ? rangeRoverDriverSeatWorldPose(vehicle,car.dimensions)
-      : ferrariSeatWorldPose(vehicle,car.dimensions);
+    const model=this.activeDriveName();
+    const seat=model==="BMW M4"||model==="Lamborghini Temerario"
+      ?coupeDriverSeatWorldPose(model,vehicle,car.dimensions)
+      :model==="Ferrari"
+        ?ferrariSeatWorldPose(vehicle,car.dimensions)
+        :rangeRoverDriverSeatWorldPose(vehicle,car.dimensions);
     voight.root.position.set(seat.x,seat.y,seat.z);
     voight.root.rotation.y=seat.yaw;
   }
@@ -1315,7 +1352,7 @@ export class GTDGameRuntime implements GameRuntime {
         ? this.context === "driving"
           ? this.activeDriveName()+" trial · Drive with WASD / arrows · F to exit when stopped"
           : this.rangeRoverTrialEnabled
-            ? "Five-vehicle drive trial · Approach any car and press F to drive"
+            ? "Six-vehicle drive trial · Approach any car and press F to drive"
             : "Ferrari trial · Press F to enter the sports car"
         : this.world?.objective ?? "Walk the generated South Ward garage corner",
       health: 100,

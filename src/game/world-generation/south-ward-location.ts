@@ -5,13 +5,17 @@
  */
 import { FIRST_LIGHT_CITY_SPEC } from "./first-light-spec";
 import { projectToRoad } from "./road-graph";
+import {SOUTH_WARD_018_ROADS} from "./south-ward-open-roads-018";
 import type { WorldPosition } from "./schema";
 
 export function southWardLocationAt(position: WorldPosition): string {
-  const match = projectToRoad(FIRST_LIGHT_CITY_SPEC.roads, position);
-  if (!match) return "South Ward // First Light";
-  const street = FIRST_LIGHT_CITY_SPEC.roads.segments.find(
-    segment => segment.id === match.segmentId,
-  );
-  return street ? "South Ward // " + street.name : "South Ward // First Light";
+  const oldRoad = projectToRoad(FIRST_LIGHT_CITY_SPEC.roads,position);
+  const expansion = projectToRoad(SOUTH_WARD_018_ROADS,position);
+  const useExpansion=expansion && (!oldRoad ||
+    expansion.distance<oldRoad.distance-1e-7);
+  const roads=useExpansion?SOUTH_WARD_018_ROADS:FIRST_LIGHT_CITY_SPEC.roads;
+  const match=useExpansion?expansion:oldRoad;
+  if(!match)return "South Ward // First Light";
+  const street=roads.segments.find(s=>s.id===match.segmentId);
+  return street?"South Ward // "+street.name:"South Ward // First Light";
 }

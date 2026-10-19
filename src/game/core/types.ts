@@ -46,7 +46,7 @@ export type GameCommand =
 
 export type GameEvent =
   | { type: "progress"; progress: number; detail: string }
-  | { type: "asset-observation"; assetId: string; sourceKind: "local-glb" | "remote-glb"; sourceBytesKnown: number | null; containerReadyMs: number | null; instantiateMs: number | null; result: "loaded" | "failed" }
+  | { type: "asset-observation"; assetId: string; sourceKind: "local-glb" | "remote-glb"; sourceBytesKnown: number | null; containerReadyMs: number | null; instantiateMs: number | null; result: "loaded" | "failed"; errorCode?: string | null }
   | { type: "load-checkpoint"; id: StartupCheckpointId; status: Exclude<StartupCheckpointState, "pending">; detail?: string }
   | { type: "interaction"; label: string | null }
   | { type: "error"; message: string };

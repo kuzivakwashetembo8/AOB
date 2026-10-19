@@ -16,6 +16,8 @@ const SOURCES=[
  ["toyota-hilux-002","public/toyota hilux 002.glb"],
  ["land-rover-defender-001","public/Land rover defender 001.glb"],
  ["dodge-hp","public/dodge_HP.glb"],
+ ["bmw-m4-competition","public/bmw_m4_competition_m_package (1).glb"],
+ ["lamborghini-temerario","public/Lamborghini+Temerario.glb"],
 ];
 function analyzePositions(sourcePositions,idx,matrix){
  const pos=new Float32Array(sourcePositions.length);
@@ -118,6 +120,7 @@ async function main(){
      item.nodeNames=roots.listNodes().map(n=>n.getName()).slice(0,100);
      item.meshCount=roots.listMeshes().length;
      item.primitives=[];
+     item.meshDetails=[];
      for(const mesh of roots.listMeshes())for(const primitive of mesh.listPrimitives()){
        const p=primitive.getAttribute("POSITION")?.getArray();
        const i=primitive.getIndices()?.getArray();
@@ -126,7 +129,27 @@ async function main(){
        if(!owner)throw Error("source mesh has no owning glTF node");
        item.sourceNode=owner.getName();
        item.sourceWorldTransform=[...owner.getWorldMatrix()].map(v=>+v.toFixed(6));
-       item.primitives.push(analyzePositions(p,i,owner.getWorldMatrix()));
+       const analysis=analyzePositions(p,i,owner.getWorldMatrix());
+       item.primitives.push(analysis);
+       item.meshDetails.push({node:owner.getName(),mesh:mesh.getName(),
+         vertices:analysis.vertices,triangles:analysis.triangles,
+         dimensions:analysis.rawDimensions,
+         center:analysis.rawBounds?.length===6
+           ?[0,2,4].map(a=>+((analysis.rawBounds[a]+analysis.rawBounds[a+1])/2).toFixed(3)):null,
+         components:analysis.topologicalComponents,
+         candidates:analysis.possibleIndependentTireIslands?.length??0});
+     }
+     if(modelId==="lamborghini-temerario") {
+       const tagged=roots.listNodes().filter(n=>/^(?:CTRL_Wheel_|WHL_[FR][LR]_Tire|MSC_WRims)/i.test(n.getName()));
+       item.wheelNodes=tagged.map(n=>({
+         name:n.getName(),
+         childNames:n.listChildren().slice(0,18).map(c=>c.getName()),
+         descendants:(function descendants(n){return n.listChildren().reduce((sum,c)=>sum+1+descendants(c),0)})(n),
+         center:[n.getWorldMatrix()[12],n.getWorldMatrix()[13],n.getWorldMatrix()[14]]
+           .map(v=>+v.toFixed(4)),
+         orientation:n.getRotation().map(v=>+v.toFixed(4)),
+         mesh:n.getMesh()?.getName()??null,
+       }));
      }
      item.state=item.primitives.some(p=>p.error)
        ?"repair-required":item.primitives.every(p=>p.status==="inspect-wheel-candidates")
@@ -138,7 +161,31 @@ async function main(){
  }
  await mkdir("public",{recursive:true});
  await writeFile("public/wheel001-source-audit.json",JSON.stringify(out,null,2)+"\n");
- console.log("[WHEEL-001] source GLB audit",out.results.map(x=>({
+ for(const x of out.results.filter(x=>["bmw-m4-competition","lamborghini-temerario"].includes(x.modelId))){
+   console.log("[VEH-015] ACTUAL SOURCE INSPECTION",JSON.stringify({
+     modelId:x.modelId,sourceSha256:x.sha256,sourceBytes:x.sourceBytes,
+     meshCount:x.meshCount,sourceNode:x.sourceNode,
+     nodeNames:x.nodeNames,sourceWorldTransform:x.sourceWorldTransform,
+     primitiveDetails:x.primitives?.map(p=>({
+       vertices:p.vertices,triangles:p.triangles,
+       topologyComponents:p.topologicalComponents,
+       dimensions:p.rawDimensions,axis:p.longAxis,
+       candidateCount:p.possibleIndependentTireIslands?.length,
+       wheelCandidates:p.possibleIndependentTireIslands?.slice(0,8),
+       error:p.error,
+     })),
+     state:x.state,error:x.error,
+   }));
+ }
+ for(const item of out.results.filter(x=>x.modelId==="bmw-m4-competition")){
+   for(let start=0;start<(item.meshDetails?.length??0);start+=5)
+     console.log("[VEH-015-BMW-PARTS]",JSON.stringify(item.meshDetails.slice(start,start+5)));
+ }
+ for(const item of out.results.filter(x=>x.modelId==="lamborghini-temerario")){
+   for(const node of item.wheelNodes??[])
+     console.log("[VEH-015-LAMBO-NODE]",JSON.stringify(node));
+ }
+  console.log("[WHEEL-001] source GLB audit",out.results.map(x=>({
     modelId:x.modelId,state:x.state,meshCount:x.meshCount,
     candidateCount:x.primitives?.reduce((n,p)=>n+(p.possibleIndependentTireIslands?.length??0),0),
     error:x.error,

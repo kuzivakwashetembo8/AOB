@@ -8,6 +8,8 @@ import {AbstractMesh,Mesh,TransformNode,loadAssetContainerAsync} from "@babylonj
 import type {AssetContainer,Scene} from "@babylonjs/core";
 import type {MeridianPhysics,StaticCollisionHandle} from "../physics/rapier-world";
 import type {StreetContextItem} from "../world-generation/street-context";
+import {loadLocalGLBWithRecovery,LocalGLBImportError} from "./local-glb-retry-062";
+import type {LocalGLBLoadErrorCode} from "./local-glb-retry-062";
 
 
 export type MercerExtra006Spec=Readonly<{
@@ -15,6 +17,8 @@ export type MercerExtra006Spec=Readonly<{
   width:number;height:number;length:number;yaw:number;
   /** False in VEH-011 trial: an original GLB can receive the shared drive actor. */
   visualOnly?:boolean;
+  /** Correct source GLB front/back independently of the Rapier +Z actor. */
+  visualHeadingCorrectionRadians?:number;
   sourceBytesKnown?:number;
 }>;
 
@@ -49,6 +53,27 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
     x:-39.7,z:10.55,width:2.06,height:1.87,length:5.10,yaw:Math.PI/2,
     visualOnly:false,
     sourceBytesKnown:1954504,
+  },
+  {
+    // Sixth physical traffic-review specimen; static until separately authorized.
+    id:"gtd-veh014-mercer-bmw-m4",label:"BMW M4 Competition M Package",
+    url:"/bmw_m4_competition_m_package%20(1).glb",
+    // South Ward Mercer roadway, clear of the procedural car near x=-20.5.
+    x:-25.95,z:10.55,width:1.93,height:1.46,length:4.80,yaw:Math.PI/2,
+    visualOnly:false,
+    sourceBytesKnown:1928276,
+  },
+  {
+    // Original Temerario GLB with source materials, no traffic AI or driving rig.
+    id:"gtd-veh014-mercer-lamborghini-temerario",label:"Lamborghini Temerario",
+    url:"/Lamborghini%2BTemerario.glb",
+    // VEH-016: source-labelled front control nodes are at negative X.
+    // The accepted parking fit displayed the bonnet behind the +Z chassis;
+    // a 180-degree VISUAL correction aligns it with real forward throttle.
+    visualHeadingCorrectionRadians:Math.PI,
+    x:-47.55,z:10.55,width:2.00,height:1.28,length:4.75,yaw:Math.PI/2,
+    visualOnly:false,
+    sourceBytesKnown:4499268,
   },
 ] as const;
 
@@ -120,6 +145,9 @@ export function createMercerExtraParkedGLBs(
     let closed=false;
     let drivingDimensions:{readonly x:number;readonly y:number;readonly z:number}|null=null;
     let containerReadyMs:number|null=null,instantiateMs:number|null=null;
+    let loadAttempts=0,loaderElapsedMs:number|null=null;
+    let errorCode:LocalGLBLoadErrorCode|null=null;
+    let importPhase=true;
     const loadStartedAt=performance.now();
     const modelRoot=new TransformNode("mercer-extra-visual:"+spec.id,scene);
     modelRoot.parent=anchor;
@@ -136,11 +164,18 @@ export function createMercerExtraParkedGLBs(
           "/wheel001-generated/land-rover-defender-001.glb",
         "gtd-veh010-mercer-dodge-hp":
           "/wheel001-generated/dodge-hp.glb",
+        "gtd-veh014-mercer-bmw-m4":
+          "/wheel001-generated/bmw-m4-competition.glb",
       };
       const runtimeUrl=import.meta.env.PROD
         ?(derivative[spec.id]??spec.url):spec.url;
-      const glb=await (load?load(spec.url,scene):
-        loadAssetContainerAsync(runtimeUrl,scene));
+      const glb=await loadLocalGLBWithRecovery(spec.label,
+        ()=>load?load(spec.url,scene):loadAssetContainerAsync(runtimeUrl,scene),{
+          cancelled:()=>closed,
+          onAttempt:attempt=>{loadAttempts=attempt;},
+        });
+      importPhase=false;
+      loaderElapsedMs=performance.now()-loadStartedAt;
       if(closed){glb.dispose();return;}
       container=glb;
       containerReadyMs=performance.now()-loadStartedAt;
@@ -163,7 +198,7 @@ export function createMercerExtraParkedGLBs(
       const initial=boundsOf(meshes);
       const fit=resolveMercerGLBFit(initial,spec);
       drivingDimensions={x:fit.dimensions.width,y:fit.dimensions.height,z:fit.dimensions.length};
-      modelRoot.rotation.y=fit.turn;
+      modelRoot.rotation.y=fit.turn+(spec.visualHeadingCorrectionRadians??0);
       modelRoot.scaling.setAll(fit.scale);
       // This measures the actual hierarchy, including glTF coordinate roots.
       const fitted=boundsOf(meshes);
@@ -187,9 +222,17 @@ export function createMercerExtraParkedGLBs(
         spec.yaw,
       );
       instantiateMs=performance.now()-instantiationStartedAt;
-    })();
+    })().catch(error=>{
+      // A failing member blocks the authentic six-car boot, but now carries
+      // a sanitized per-model terminal reason into user-exportable telemetry.
+      errorCode=error instanceof LocalGLBImportError?error.code:
+        importPhase?"loader_failure":"asset_instantiation_failed";
+      loaderElapsedMs=performance.now()-loadStartedAt;
+      throw error;
+    });
     return {spec,anchor,ready,
-      get loadTelemetry(){return {containerReadyMs,instantiateMs};},
+      get loadTelemetry(){return {containerReadyMs,instantiateMs,
+        loadAttempts,loaderElapsedMs,errorCode};},
       get drivingDimensions(){return drivingDimensions;},
       /** Transfer physical ownership to StreetVehicleActor only AFTER the
        * live Rapier actor has been successfully constructed. Idempotent. */
