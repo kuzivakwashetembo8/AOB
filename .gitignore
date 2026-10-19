@@ -30,3 +30,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OFFLINE-001 generated, pinned build-time runtime resources (not unverified source binaries)
+public/offline001/
+.offline001/
