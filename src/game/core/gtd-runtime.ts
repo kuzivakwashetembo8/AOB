@@ -318,6 +318,20 @@ export class GTDGameRuntime implements GameRuntime {
         glassSurfaceFocusId: parseGlassFocus(diagnosticParams.get("gtdGlassFocus")),
       },
     );
+    // LOAD-062: user-exportable, no-network snapshot from *all* six imports.
+    // Survives one failed Promise.all so the user can distinguish a blocked
+    // Range Rover from five other completed or still-running vehicles.
+    if(isGeneratedFirstLightWorld(firstLight)&&firstLight.rangeRoverReview){
+      (window as Window & {__GTD_NATIVE_FLEET_DIAGNOSTICS__?:()=>unknown})
+        .__GTD_NATIVE_FLEET_DIAGNOSTICS__=()=>firstLight.rangeRoverReview?.instances.map(parked=>{
+          const t=parked.loadTelemetry;
+          return {assetId:parked.spec.id,sourceBytes:parked.spec.sourceBytesKnown??null,
+            attempts:t.loadAttempts,loaderElapsedMs:t.loaderElapsedMs,
+            containerReadyMs:t.containerReadyMs,instantiateMs:t.instantiateMs,
+            errorCode:t.errorCode,
+            state:t.errorCode?"failed":t.instantiateMs!==null?"loaded":"loading"};
+        })??[];
+    }
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
     // Lightweight read-only runtime benchmark: first 15 seconds are warm-up.
     // Bounded memory, no network telemetry and no impact on a disabled trial's
@@ -587,7 +601,22 @@ export class GTDGameRuntime implements GameRuntime {
       // Only the six owner-supplied local traffic-review GLBs
       // are blocking vehicle imports. No remote Buggy/Ferrari dependency.
       if (isGeneratedFirstLightWorld(firstLight) && firstLight.rangeRoverReviewReady) {
-        await firstLight.rangeRoverReviewReady;
+        try {
+          await firstLight.rangeRoverReviewReady;
+        } catch(error) {
+          // LOAD-062: capture failed asset even when fleet Promise.all rejects.
+          for(const parked of firstLight.rangeRoverReview?.instances??[]){
+            const t=parked.loadTelemetry;
+            if(t.errorCode===null)continue;
+            this.emit({type:"asset-observation",assetId:parked.spec.id,
+              sourceKind:"local-glb",sourceBytesKnown:parked.spec.sourceBytesKnown??null,
+              containerReadyMs:null,instantiateMs:null,result:"failed",
+              errorCode:t.errorCode});
+          }
+          this.emit({type:"load-checkpoint",id:"vehicle-loader",status:"failed",
+            detail:error instanceof Error?error.message:"Native fleet download failed"});
+          throw error;
+        }
         this.emit({ type: "load-checkpoint", id: "vehicle-loader", status: "done",
           detail: "Six native vehicle GLBs instantiated" });
       } else {
@@ -600,7 +629,7 @@ export class GTDGameRuntime implements GameRuntime {
           this.emit({type:"asset-observation",assetId:parked.spec.id,
             sourceKind:"local-glb",sourceBytesKnown:parked.spec.sourceBytesKnown??null,
             containerReadyMs:parked.loadTelemetry.containerReadyMs,
-            instantiateMs:parked.loadTelemetry.instantiateMs,result:"loaded"});
+            instantiateMs:parked.loadTelemetry.instantiateMs,result:"loaded",errorCode:null});
         }
       }
       // VEH-011: all imported originals enter the existing, single Rapier
