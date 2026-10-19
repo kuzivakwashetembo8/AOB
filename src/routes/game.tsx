@@ -25,6 +25,8 @@ import {
 } from "@/game/character/locomotion/travel-heading";
 import type { GameAction } from "@/game/core/types";
 import { StartupTelemetry } from "@/lib/startup-telemetry";
+import { downloadStartupFailureEvidence } from "@/lib/startup-error-download";
+declare const __GTD_RELEASE_ID__:string;
 import { initialStartupChecklist, applyStartupCheckpoint } from "@/game/core/loading-checklist";
 import {
   StartupBudgetStopwatch, STARTUP_LOAD_BUDGET_SECONDS,
@@ -411,6 +413,11 @@ function GamePage() {
           error={bootstrapError}
           onRetryUpdate={versionBlocked ? retryGameUpdate : undefined}
           onContinueCurrentBuild={versionBlocked ? continueWithInstalledBuild : undefined}
+          onDownloadStartupDiagnostics={bootstrapError
+            ? () => downloadStartupFailureEvidence(bootstrapError,checklist,
+                telemetry.current?.diagnosticSnapshot()??null,
+                typeof __GTD_RELEASE_ID__==="string"?__GTD_RELEASE_ID__:"development")
+            : undefined}
           onDownloadDiagnostics={trialEnabled && bootstrapError
             ? () => downloadCharacterTrialEvidence(bootstrapError, checklist, trialBrowserErrors.current)
             : undefined}
