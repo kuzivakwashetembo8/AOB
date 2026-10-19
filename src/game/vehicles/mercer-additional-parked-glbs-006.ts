@@ -15,6 +15,8 @@ export type MercerExtra006Spec=Readonly<{
   width:number;height:number;length:number;yaw:number;
   /** False in VEH-011 trial: an original GLB can receive the shared drive actor. */
   visualOnly?:boolean;
+  /** Correct source GLB front/back independently of the Rapier +Z actor. */
+  visualHeadingCorrectionRadians?:number;
   sourceBytesKnown?:number;
 }>;
 
@@ -63,6 +65,10 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
     // Original Temerario GLB with source materials, no traffic AI or driving rig.
     id:"gtd-veh014-mercer-lamborghini-temerario",label:"Lamborghini Temerario",
     url:"/Lamborghini%2BTemerario.glb",
+    // VEH-016: source-labelled front control nodes are at negative X.
+    // The accepted parking fit displayed the bonnet behind the +Z chassis;
+    // a 180-degree VISUAL correction aligns it with real forward throttle.
+    visualHeadingCorrectionRadians:Math.PI,
     x:-47.55,z:10.55,width:2.00,height:1.28,length:4.75,yaw:Math.PI/2,
     visualOnly:false,
     sourceBytesKnown:4499268,
@@ -182,7 +188,7 @@ export function createMercerExtraParkedGLBs(
       const initial=boundsOf(meshes);
       const fit=resolveMercerGLBFit(initial,spec);
       drivingDimensions={x:fit.dimensions.width,y:fit.dimensions.height,z:fit.dimensions.length};
-      modelRoot.rotation.y=fit.turn;
+      modelRoot.rotation.y=fit.turn+(spec.visualHeadingCorrectionRadians??0);
       modelRoot.scaling.setAll(fit.scale);
       // This measures the actual hierarchy, including glTF coordinate roots.
       const fitted=boundsOf(meshes);
