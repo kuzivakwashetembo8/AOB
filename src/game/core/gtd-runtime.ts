@@ -19,6 +19,7 @@ import type {
   InputMode,
 } from "./types";
 import { MeridianPhysics } from "../physics/rapier-world";
+import { configureLocalGameDecoders } from "./local-decoders";
 import { FirstDriveTrial } from "../vehicles/first-drive-trial";
 import { ferrariSeatWorldPose } from "../vehicles/driver-seat-placement";
 import { measureVehicleFit002 } from "../vehicles/vehicle-fit-diagnostics";
@@ -208,6 +209,7 @@ export class GTDGameRuntime implements GameRuntime {
     const bootStartedAt = performance.now();
     this.lifecycle = "bootstrapping";
     this.publishSnapshot();
+    configureLocalGameDecoders();
     this.emit({ type: "load-checkpoint", id: "renderer", status: "running" });
     this.host = host;
     const engine = new Engine(
