@@ -14,6 +14,7 @@ import type { Scene } from "@babylonjs/core";
 import type { CitySpec, PublicSpaceSpec } from "./schema";
 import { planStreetContext } from "./street-context";
 import { planTreeCanopy } from "./tree-canopy";
+import {applyAuthoredLeaves019,type TreeFoliageSlot019,type AppliedFoliage019} from "./authored-leaves-019";
 import { planVehicleProxyGeometry } from "./vehicle-proxy-geometry";
 import type { StreetContextItem, StreetContextPlan } from "./street-context";
 
@@ -364,6 +365,7 @@ function addTree(
   trunkMaterial: Material,
   foliageMaterial: Material,
   generatorVersion: number,
+  authoredLeavesSlots:TreeFoliageSlot019[],
 ): void {
   const root = new TransformNode("generated-tree:" + item.id, scene);
   nodes.push(root);
@@ -416,6 +418,7 @@ function addTree(
   });
 
   const crown = planTreeCanopy(item, generatorVersion);
+  const fallbackCards:Mesh[]=[];
   crown.cards.forEach((placement, index) => {
     const card = MeshBuilder.CreatePlane(
       "generated-tree-foliage:" + item.id + ":" + Math.floor(index / 3) + ":" + index % 3,
@@ -434,7 +437,9 @@ function addTree(
     card.receiveShadows = false;
     card.isPickable = false;
     meshes.push(card);
+    fallbackCards.push(card);
   });
+  authoredLeavesSlots.push({item,generatorVersion,root,cards:fallbackCards});
 }
 
 function addShrub(
@@ -725,6 +730,8 @@ export function createGeneratedStreetContext(
   const plan = options.plan ?? planStreetContext(city);
   const meshes: Mesh[] = [];
   const nodes: TransformNode[] = [];
+  const authoredLeavesSlots:TreeFoliageSlot019[]=[];
+  let installed3DFoliage:AppliedFoliage019|null=null;
 
   const trunk = material(
     scene,
@@ -822,7 +829,7 @@ export function createGeneratedStreetContext(
 
   for (const item of plan.items) {
     if (item.kind === "tree") {
-      addTree(scene, item, meshes, nodes, trunk, foliage, city.generatorVersion);
+      addTree(scene, item, meshes, nodes, trunk, foliage, city.generatorVersion, authoredLeavesSlots);
     } else if (item.kind === "shrub") {
       addShrub(scene, item, meshes, nodes, foliage);
     } else if (item.kind === "streetlight") {
@@ -834,6 +841,15 @@ export function createGeneratedStreetContext(
     } else if (item.kind === "bin") {
       addBin(scene, item, meshes, metal);
     }
+  }
+
+  // Share the original 3D leaves across ALL generated and authored trees;
+  // keep legacy cards until the source arrives as a network-safe fallback.
+  if(authoredLeavesSlots.length && !isHeadlessTextureEnvironment(scene)){
+    void applyAuthoredLeaves019(scene,authoredLeavesSlots,{cancelled:()=>disposed})
+      .then(result=>{if(disposed)result.dispose();else installed3DFoliage=result;})
+      .catch(error=>console.warn("[TREE-019] GLB unavailable; retaining established foliage",
+        error instanceof Error?error.message:"unknown"));
   }
 
   const materials = [
@@ -855,6 +871,7 @@ export function createGeneratedStreetContext(
     dispose() {
       if (disposed) return;
       disposed = true;
+      installed3DFoliage?.dispose();
       for (const mesh of meshes) mesh.dispose();
       for (const node of nodes) node.dispose();
       for (const materialValue of materials) {
