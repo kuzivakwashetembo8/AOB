@@ -50,7 +50,10 @@ export function InstallAction({ placement = "launcher" }: { placement?: InstallP
     });
   }
 
-  const ready=progress.phase === "ready";
+  // A browser tab with complete files isn't proof the Android home-screen
+  // app has been launched. Keep the headline consistent with Settings.
+  const ready=progress.phase === "ready" && standalone;
+  const filesReady=progress.phase === "ready" && !standalone;
   const downloading=progress.phase === "downloading" || progress.phase === "checking";
   const pct=progress.bytesTotal>0
     ? Math.min(100,Math.round(progress.bytesDone/progress.bytesTotal*100)) : 0;
@@ -81,6 +84,12 @@ export function InstallAction({ placement = "launcher" }: { placement?: InstallP
         </p>
       ) : (
         <>
+          {filesReady && (
+            <p className="install-disclaimer" role="status">
+              Game files downloaded. Open GTD from its installed app icon to
+              confirm offline play.
+            </p>
+          )}
           {standalone && !downloading && (
             <button className="install-button" type="button" onClick={onInstall}>
               <Download size={18} /> {progress.phase === "error" ? "RETRY DOWNLOAD" : "DOWNLOAD OFFLINE GAME"}
@@ -105,7 +114,9 @@ export function InstallAction({ placement = "launcher" }: { placement?: InstallP
             </p>
           )}
           <p className="install-disclaimer">
-            Keep GTD open and Wi-Fi connected until it says READY FOR OFFLINE PLAY.
+            {filesReady
+              ? "Install or open the GTD app from your device home screen."
+              : "Keep GTD open and Wi-Fi connected until it says READY FOR OFFLINE PLAY."}
           </p>
         </>
       )}
