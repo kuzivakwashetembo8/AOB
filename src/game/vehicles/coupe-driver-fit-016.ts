@@ -1,46 +1,51 @@
-/** VEH-016 — isolated, provisional original-coupe seating calibration.
- * The four accepted GLBs retain RANGE_ROVER_STREET_PROFILE seat logic.
- * These are character presentation offsets, never visual or Rapier chassis offsets.
+/** VEH-017 — adopt the accepted Range Rover seated driving template.
+ *
+ * Preserve precisely the UAL Driving_Loop, leg IK, sole correction, and
+ * +Z/anchor yaw used by the Rover. Coupe offsets are cabin POSITION only:
+ * the BMW's verified driver side is opposite the Rover's, and the shorter
+ * Lamborghini roof cannot safely accept a full-size SUV root height.
+ * No wheel mesh, chassis orientation, steering or input controls change.
  */
-import type {SeatVehiclePose,SeatVehicleDimensions,DriverWorldPose} from "./driver-seat-placement";
+import type {SeatVehiclePose,SeatVehicleDimensions,DriverWorldPose}
+  from "./driver-seat-placement";
+import {rangeRoverDriverSeatWorldPose}
+  from "./range-rover-drive-007";
 
 export type Coupe016="BMW M4"|"Lamborghini Temerario";
 
-export const COUPE_SEAT_016=Object.freeze({
-  "BMW M4":{lateralFraction:-.22,forwardFraction:.035,verticalFraction:.57},
-  "Lamborghini Temerario":{lateralFraction:.22,forwardFraction:.04,verticalFraction:.30},
+/** Deltas measured in actual fitted dimensions, applied to the Rover pose
+ * in the vehicle's local frame (x=lateral, z=longitudinal, y=height).
+ *
+ * Longitudinal corrections keep the pelvis toward the seat-back instead of
+ * pushing both thighs into the dashboard; they do not solve leg IK.
+ * The Lamborghini height is a bounded provisional roof-clearance offset.
+ */
+export const ROVER_TEMPLATE_COUPE_ADJUSTMENTS=Object.freeze({
+  "BMW M4":{
+    lateralFraction:-.44, // Rover +.22 -> BMW -.22; preserve correct side
+    longitudinalFraction:-.075, // Rover +.11 -> BMW +.035
+    heightFraction:0, // Same accepted Rover .57 fitted-height rule
+  },
+  "Lamborghini Temerario":{
+    lateralFraction:0, // Same side as Rover
+    longitudinalFraction:-.07, // Rover +.11 -> Lamborghini +.04
+    heightFraction:-.14, // Rover .57 -> .43 to accommodate low roof
+  },
 } as const);
 
-/** BMW uses the opposite side of the accepted Rover's generic seat.
- * The compact Lamborghini cockpit requires a lower character ROOT to avoid
- * the roof, but its authored 1.78m skeleton and animations are unchanged.
- */
 export function coupeDriverSeatWorldPose(
   name:Coupe016,vehicle:SeatVehiclePose,dimensions:SeatVehicleDimensions,
 ):DriverWorldPose{
-  const values=[vehicle.x,vehicle.y,vehicle.z,vehicle.yaw,
-    dimensions.x,dimensions.y,dimensions.z];
-  if(!values.every(Number.isFinite)||dimensions.x<=0||dimensions.y<=0||dimensions.z<=0)
-    throw Error("VEH-016 invalid source-calibrated coupe dimensions");
-  const spec=COUPE_SEAT_016[name];
-  const dx=dimensions.x*spec.lateralFraction;
-  const dz=dimensions.z*spec.forwardFraction;
+  // The accepted Rover function remains the one source of truth.
+  const reference=rangeRoverDriverSeatWorldPose(vehicle,dimensions);
+  const adjustment=ROVER_TEMPLATE_COUPE_ADJUSTMENTS[name];
+  const dx=dimensions.x*adjustment.lateralFraction;
+  const dz=dimensions.z*adjustment.longitudinalFraction;
   const cs=Math.cos(vehicle.yaw),sn=Math.sin(vehicle.yaw);
   return {
-    x:vehicle.x+cs*dx+sn*dz,
-    y:vehicle.y+dimensions.y*spec.verticalFraction,
-    z:vehicle.z-sn*dx+cs*dz,
-    yaw:vehicle.yaw,
+    x:reference.x+cs*dx+sn*dz,
+    y:reference.y+dimensions.y*adjustment.heightFraction,
+    z:reference.z-sn*dx+cs*dz,
+    yaw:reference.yaw,
   };
-}
-
-/** Adapt the accepted provisional SUV footwell workflow to the BMW, using
- * actual imported chassis height, never a fake dimension or hidden feet.
- * Only thigh/calf IK target coordinates change; real-shoe measurement and
- * the fail-closed contact solver still decide whether a pose is accepted.
- */
-export function bmw016FootwellHeight(vehicleY:number,chassisHeight:number):number{
-  if(!Number.isFinite(vehicleY)||!Number.isFinite(chassisHeight)||chassisHeight<=0)
-    throw Error("VEH-016 invalid BMW footwell dimensions");
-  return vehicleY+chassisHeight*.50;
 }
