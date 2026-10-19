@@ -1,10 +1,11 @@
 import {describe,expect,it} from "vitest";
-import {validateOfflineManifest} from "../lib/offline-game";
+import {validateOfflineManifest,summarizeOfflineCategories} from "../lib/offline-game";
 
 const release="b".repeat(40);
 const valid=()=> {
   const resources=Array.from({length:101},(_,i)=>({
     url:"/assets/file-"+i+".js",bytes:3,sha256:"a".repeat(64),
+    group:(i<20?"app":i<45?"engine":i<75?"world":i<80?"character":"vehicles") as "app"|"engine"|"world"|"character"|"vehicles",
   }));
   return {schema:"gtd-offline003-v1",releaseId:release,
     fileCount:resources.length,totalBytes:303,resources};
@@ -30,6 +31,21 @@ describe("OFFLINE-003 full asset manifest security",()=>{
     }
     const m=valid();m.resources[1]!.url=m.resources[0]!.url;
     expect(()=>validateOfflineManifest(m,release)).toThrow();
+  });
+  it("reports only files actually installed per Settings category",()=>{
+    const manifest=validateOfflineManifest(valid(),release);
+    const present=new Set(manifest.resources.filter((_,i)=>i<43).map(file=>file.url));
+    const groups=summarizeOfflineCategories(manifest,present);
+    expect(groups).toHaveLength(5);
+    expect(groups.find(group=>group.id==="app")).toMatchObject({installed:20,total:20});
+    expect(groups.find(group=>group.id==="engine")).toMatchObject({installed:23,total:25});
+    expect(groups.find(group=>group.id==="vehicles")).toMatchObject({installed:0,total:21});
+    expect(groups.reduce((sum,group)=>sum+group.installed,0)).toBe(43);
+  });
+  it("rejects a made-up or absent checklist classification",()=>{
+    const manifest=valid();
+    (manifest.resources[0] as {group:string}).group="installed";
+    expect(()=>validateOfflineManifest(manifest,release)).toThrow();
   });
   it("rejects size tampering and non-SHA256 manifests",()=>{
     const m=valid();m.resources[0]!.sha256="b";
