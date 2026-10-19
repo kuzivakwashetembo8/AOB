@@ -173,10 +173,29 @@ async function cachedManifest(cache:Cache):Promise<Manifest|null> {
   catch {return null;}
 }
 async function activeServiceWorker():Promise<boolean> {
-  if(!("serviceWorker" in navigator))return false;
-  const registration=await navigator.serviceWorker.getRegistration("/");
-  return !!registration?.active &&
-    new URL(registration.active.scriptURL).pathname==="/sw.js";
+  if(!("serviceWorker" in navigator) ||
+    !navigator.serviceWorker.controller || typeof MessageChannel==="undefined")
+    return false;
+  const controller=navigator.serviceWorker.controller;
+  if(new URL(controller.scriptURL).pathname!=="/sw.js")return false;
+  return new Promise<boolean>(resolve=>{
+    const channel=new MessageChannel();
+    let finished=false;
+    const finish=(value:boolean)=>{
+      if(finished)return;
+      finished=true;
+      clearTimeout(timeout);
+      channel.port1.close();
+      resolve(value);
+    };
+    const timeout=setTimeout(()=>finish(false),1200);
+    channel.port1.onmessage=(event:MessageEvent)=>{
+      finish(event.data?.type==="GTD_OFFLINE_RELEASE" &&
+        event.data?.releaseId===currentRelease());
+    };
+    try {controller.postMessage({type:"GTD_OFFLINE_RELEASE_QUERY"},[channel.port2]);}
+    catch {finish(false);}
+  });
 }
 async function contentPresent(cache:Cache, m:Manifest):Promise<boolean> {
   for(const resource of m.resources) {
@@ -248,7 +267,7 @@ async function installGame():Promise<void> {
   });
   await Promise.all(workers);
   if(!await activeServiceWorker()) {
-    throw Error("App installation is still preparing. Keep GTD open and retry.");
+    throw Error("Open the installed GTD app and tap Retry to finish verifying the installation.");
   }
   // Write completion marker LAST. No early or partial READY state.
   await cache.put(MANIFEST_URL,new Response(JSON.stringify(manifest),{
