@@ -1,0 +1,43 @@
+name: OFFLINE-001 dependency and install verification
+on:
+  push:
+    branches:
+      - feat/offline001-dependency-closure-install-20261019
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364eb122 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install exact dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Unit and integration tests
+        run: npm run test
+      - name: Existing generated wheel qualification
+        run: |
+          node scripts/wheel001_asset_audit.mjs
+          node scripts/wheel001_extract_wheels.mjs
+      - name: Build and hash-audit local runtime assets
+        run: npm run build
+      - name: Confirm build inventory
+        run: |
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            const m=JSON.parse(readFileSync(".offline001/last-audit.json","utf8"));
+            if(m.missing.length || m.requiredCount<20) process.exit(1);
+            console.log("OFFLINE-001 files="+m.fileCount+" bytes="+m.bytes+
+              " mandatory="+m.requiredCount+" missing="+m.missing.length);
+          '
