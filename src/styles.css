@@ -1619,6 +1619,48 @@ html[data-display="standalone"] body > * {
   .install-action--launcher + .launcher-menu { margin-top: 3px; }
 }
 
+
+/* OFFLINE-003: one compact, game-themed installation progress witness. */
+.offline-download {
+  width: 100%;
+  padding: 8px 0 1px;
+  font-family: var(--font-mono);
+  color: var(--foreground);
+}
+.offline-download-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.offline-download-track {
+  width: 100%;
+  height: 6px;
+  margin: 7px 0 4px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+}
+.offline-download-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 120ms linear;
+}
+.offline-download p {
+  margin: 3px 0;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.offline-ready {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font: 700 11px/1.45 var(--font-mono);
+  color: var(--primary);
+}
+
 /* In-session settings is a pause subpanel. Do not navigate away from /game:
    the mounted Babylon engine, model imports and player position persist. */
 .game-settings-dialog {
