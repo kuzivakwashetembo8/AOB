@@ -1,0 +1,190 @@
+/**
+ * OFFLINE-003: one complete offline download. Click Install once; the native
+ * PWA prompt remains a synchronous user gesture while this fetch proceeds.
+ * Nothing is labelled offline-ready before ALL declared assets are verified.
+ */
+declare const __GTD_RELEASE_ID__: string;
+
+export type OfflinePhase = "idle" | "checking" | "downloading" | "ready" | "error";
+export interface OfflineProgress {
+  phase: OfflinePhase;
+  done: number;
+  total: number;
+  bytesDone: number;
+  bytesTotal: number;
+  message: string;
+}
+interface Resource { url: string; bytes: number; sha256: string }
+interface Manifest {
+  schema: "gtd-offline003-v1";
+  releaseId: string;
+  fileCount: number;
+  totalBytes: number;
+  resources: Resource[];
+}
+const MANIFEST_URL="/offline003-game-manifest.json";
+const CACHE_PREFIX="gtd-offline-game-";
+const currentRelease=():string=>__GTD_RELEASE_ID__;
+const packCacheName=():string=>CACHE_PREFIX+currentRelease();
+const listeners=new Set<(status:OfflineProgress)=>void>();
+const empty:OfflineProgress={
+  phase:"idle",done:0,total:0,bytesDone:0,bytesTotal:0,message:""
+};
+let state:OfflineProgress=empty;
+let active:Promise<void>|null=null;
+export const getOfflineProgress=()=>state;
+export function subscribeOfflineProgress(listener:(p:OfflineProgress)=>void):()=>void {
+  listeners.add(listener);
+  listener(state);
+  return ()=>{listeners.delete(listener);};
+}
+function update(patch:Partial<OfflineProgress>) {
+  state={...state,...patch};
+  for(const listener of listeners)listener(state);
+}
+const validRelease=(s:unknown):s is string=>
+  typeof s==="string" && /^[0-9a-f]{40}$/.test(s);
+
+export function validateOfflineManifest(value:unknown):Manifest {
+  if (!value || typeof value!=="object")throw Error("Invalid download manifest");
+  const m=value as Partial<Manifest>;
+  if(m.schema!=="gtd-offline003-v1" || !validRelease(m.releaseId) ||
+    m.releaseId!==currentRelease() ||
+    !Array.isArray(m.resources) || m.resources.length<100 ||
+    m.fileCount!==m.resources.length || !Number.isSafeInteger(m.totalBytes) ||
+    (m.totalBytes??0)<=0) throw Error("Offline release does not match this game build");
+  let size=0;
+  const seen=new Set<string>();
+  for(const file of m.resources) {
+    if(!file || typeof file.url!=="string" ||
+      !/^\/(?:[a-zA-Z0-9_+.%()~!$&',;=:@-]|\/)+$/.test(file.url) ||
+      file.url.startsWith("//") || file.url.includes("..") ||
+      file.url.includes("?") || file.url.includes("#") ||
+      !Number.isSafeInteger(file.bytes) || file.bytes<0 ||
+      !/^[a-f0-9]{64}$/.test(file.sha256) || seen.has(file.url)) {
+      throw Error("Unsafe offline game resource");
+    }
+    size+=file.bytes;
+    seen.add(file.url);
+  }
+  if(size!==m.totalBytes)throw Error("Offline manifest size mismatch");
+  return m as Manifest;
+}
+function hex(buffer:ArrayBuffer):string {
+  return Array.from(new Uint8Array(buffer),b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function verified(response:Response, item:Resource):Promise<Response|null> {
+  if(!response.ok || response.type==="opaque")return null;
+  const bytes=await response.arrayBuffer();
+  if(bytes.byteLength!==item.bytes)return null;
+  const hash=hex(await crypto.subtle.digest("SHA-256",bytes));
+  if(hash!==item.sha256)return null;
+  const headers=new Headers(response.headers);
+  headers.delete("content-encoding");
+  headers.set("content-length",String(bytes.byteLength));
+  // Important: keep the verified original response body and content-type.
+  return new Response(bytes,{status:200,headers});
+}
+async function manifestFromNetwork():Promise<Manifest> {
+  const res=await fetch(MANIFEST_URL,{cache:"no-store"});
+  if(!res.ok)throw Error("Game download list unavailable — reconnect to Wi-Fi");
+  return validateOfflineManifest(await res.json());
+}
+async function cachedManifest(cache:Cache):Promise<Manifest|null> {
+  const response=await cache.match(MANIFEST_URL);
+  if(!response)return null;
+  try {return validateOfflineManifest(await response.json());}
+  catch {return null;}
+}
+async function activeServiceWorker():Promise<boolean> {
+  if(!("serviceWorker" in navigator))return false;
+  const registration=await navigator.serviceWorker.getRegistration("/");
+  return !!registration?.active &&
+    new URL(registration.active.scriptURL).pathname==="/sw.js";
+}
+async function contentPresent(cache:Cache, m:Manifest):Promise<boolean> {
+  for(const resource of m.resources) {
+    if(!await cache.match(resource.url))return false;
+  }
+  return true;
+}
+/** Cheap restart check: all resources must exist and completion manifest must
+ * be present; cryptographic verification happened BEFORE each cache.put. */
+export async function checkOfflineReadiness():Promise<boolean> {
+  if(!("caches" in window)|| !validRelease(currentRelease()))return false;
+  const cache=await caches.open(packCacheName());
+  const manifest=await cachedManifest(cache);
+  const ready=!!manifest && await activeServiceWorker() && await contentPresent(cache,manifest);
+  if(ready)update({phase:"ready",done:manifest!.fileCount,total:manifest!.fileCount,
+    bytesDone:manifest!.totalBytes,bytesTotal:manifest!.totalBytes,message:"Ready for offline play"});
+  return ready;
+}
+export async function inspectOfflineReadiness():Promise<void> {
+  if(active || state.phase==="ready")return;
+  update({phase:"checking",message:"Checking installed game"});
+  try {
+    if(!await checkOfflineReadiness())update({phase:"idle",message:""});
+  } catch {
+    update({phase:"idle",message:""});
+  }
+}
+async function installGame():Promise<void> {
+  if(!("caches" in window)||!crypto?.subtle)
+    throw Error("This browser cannot save the offline game");
+  if(!validRelease(currentRelease()))
+    throw Error("Use a published GTD build to install offline");
+  const cache=await caches.open(packCacheName());
+  if(await checkOfflineReadiness())return;
+  const manifest=await manifestFromNetwork();
+  const existingManifest=await cachedManifest(cache);
+  // Different releases are stored in separate cache namespaces.
+  // Broken/partial same-release caches are repaired file by file.
+  if(existingManifest && existingManifest.releaseId!==manifest.releaseId)
+    throw Error("Installed content belongs to another game release");
+  try {await navigator.storage?.persist?.();} catch { /* optional on browsers */ }
+  update({phase:"downloading",done:0,total:manifest.fileCount,bytesDone:0,
+    bytesTotal:manifest.totalBytes,message:"Downloading game for offline play"});
+  let next=0,done=0,bytesDone=0;
+  const workers=Array.from({length:3},async()=>{
+    while(next<manifest.resources.length) {
+      const item=manifest.resources[next++];
+      if(!item)break;
+      let candidate=await cache.match(item.url);
+      let verifiedResponse:Response|null=null;
+      if(candidate)verifiedResponse=await verified(candidate,item);
+      if(!verifiedResponse) {
+        if(candidate)await cache.delete(item.url);
+        const response=await fetch(item.url,{cache:"no-store"});
+        verifiedResponse=await verified(response,item);
+        if(!verifiedResponse)throw Error("Game asset failed integrity check: "+item.url);
+        await cache.put(item.url,verifiedResponse);
+      }
+      done++;bytesDone+=item.bytes;
+      update({done,bytesDone});
+    }
+  });
+  await Promise.all(workers);
+  if(!await activeServiceWorker()) {
+    throw Error("App installation is still preparing. Keep GTD open and retry.");
+  }
+  // Write completion marker LAST. No early or partial READY state.
+  await cache.put(MANIFEST_URL,new Response(JSON.stringify(manifest),{
+    headers:{"content-type":"application/json"},
+  }));
+  if(!await contentPresent(cache,manifest)) {
+    await cache.delete(MANIFEST_URL);
+    throw Error("One or more game resources were removed during installation");
+  }
+  update({phase:"ready",done:manifest.fileCount,total:manifest.fileCount,
+    bytesDone:manifest.totalBytes,bytesTotal:manifest.totalBytes,
+    message:"READY FOR OFFLINE PLAY — you can turn off Wi-Fi"});
+}
+/** This call is deliberately separate from the native prompt; the caller
+ * must invoke the native browser prompt immediately within the same click. */
+export function startOfflineDownload():Promise<void> {
+  if(active)return active;
+  active=installGame().catch(err=>{
+    update({phase:"error",message:err instanceof Error?err.message:"Offline download failed"});
+  }).finally(()=>{active=null;});
+  return active;
+}
