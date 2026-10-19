@@ -36,3 +36,22 @@
 ## Substantial visual checkpoint and next gate
 
 After preview build reaches READY: owner visual review of yellow Install action on Home and Settings, on mobile landscape and desktop, plus source-independent verification that all six existing vehicles and provisional Voight render and drive without new regressions. If build fails, record root cause and patch on this branch; do not promote. OFFLINE-001 closes only when asset closure, compression trials, permissions/security review and tests satisfy the parent plan.
+
+## Initial actual-build evidence — 2026-10-19
+
+**Preview candidate:** `bf4c4337c02a6941cff1d4e45756d96a8b2d997d`  
+**Vercel deployment ID:** `dpl_4mCNbcYY7FwHhyfAzAB3UQ4sWViM`  
+**Preview URL:** https://gtd-7tukf14fk-interlinkglobaltech.vercel.app/  
+**Deployment result:** READY; preview only, no production aliases or promotion.
+
+**Typecheck + regression suite:** Vercel logs show 91/91 test files and **373/373 tests passed**. The install-action and local-decoder tests passed, along with existing world, seating, wheel and driving tests. The subsequent Vite/Nitro production-format build completed.
+
+**Staging:** Exactly **17** runtime resources were staged with content checks, including the pinned UAL character, the three local Draco files and local licensed font/notice files; the original character Git blob SHA was verified.
+
+**Hashed release build inventory:** **430 files**, **195,012,131 bytes**, **0 missing baseline mandatory resources**, **23 groups with duplicate content hashes**. This is a built-static-output byte total, not an optimized installation size and not offline-ready certification. Generated wheel derivatives contribute to the distinction from the smaller original `public/` inventory.
+
+**Corrective patch:** Initial preview `dpl_9BcgbsxArXTFCukjZDSf6JWJ7R6o` failed at build time because the script compared HTTP `Content-Length` (which may represent compressed transfer bytes) to the decoded GLB's true length. Commit `bf4c4337c02a6941cff1d4e45756d96a8b2d997d` removed that unreliable header comparison but preserved exact decoded file length, glTF signature and pinned Git blob SHA checks. The next preview reached READY with those checks passed.
+
+**Unresolved:** owner desktop/mobile visual acceptance of the yellow Home/Settings install CTAs; true browser airplane-mode navigation; external runtime request trace; compression of Rover and the full approved ten-vehicle fleet; content installation/rollback (OFFLINE-003/007). The PWA retains its existing selective caching behavior and MUST NOT be labelled a complete offline game.
+
+**Gate position:** substantial visual checkpoint available for review. OFFLINE-001 is **not yet closed**, and no merge to `main` is authorized.
