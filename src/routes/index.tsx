@@ -57,6 +57,7 @@ function Launcher() {
             ENTER MERIDIAN <ArrowRight size={18} />
           </Link>
         </Button>
+        <InstallAction placement="launcher" />
         <div className="launcher-menu">
           <div className="menu-entry">
             <Button
@@ -135,7 +136,6 @@ function Launcher() {
           <span className="footer-note">
             BUILD 0.1.0 <span className="text-primary">//</span> PRE-ALPHA
           </span>
-          <InstallAction />
           <Button
             variant="control"
             className="sound-button"
