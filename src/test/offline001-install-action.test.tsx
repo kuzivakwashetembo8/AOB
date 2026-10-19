@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../lib/offline-game", () => ({
+  getOfflineProgress: () => ({ phase: "idle", done: 0, total: 0, bytesDone: 0, bytesTotal: 0, message: "" }),
+  subscribeOfflineProgress: () => () => {},
+  inspectOfflineReadiness: async () => {},
+  startOfflineDownload: vi.fn(async () => {}),
+}));
 import { fireEvent, render, screen } from "@testing-library/react";
 import { InstallAction } from "../ui/menus/install-action";
 
@@ -10,7 +17,7 @@ describe("OFFLINE-001 install action", () => {
     expect(button).toBeVisible();
     expect(button.className).toContain("install-button");
     expect(button.textContent).toContain("INSTALL G.T.D");
-    expect(screen.getByText(/Complete offline resources come in a later update/i)).toBeVisible();
+    expect(screen.getByText(/Keep GTD open and Wi-Fi connected/i)).toBeVisible();
     fireEvent.click(button);
     expect(screen.getByRole("status").textContent).toMatch(/browser menu/i);
     view.unmount();
