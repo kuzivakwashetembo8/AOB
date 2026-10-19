@@ -14,7 +14,7 @@ type Span={event_id:string;run_id:string;stage_key:string;asset_id:null;
 type Asset={id:string;run_id:string;asset_id:string;source_kind:string;
   source_bytes_known:number|null;transfer_bytes:number|null;
   container_ready_ms:number|null;instantiate_ms:number|null;
-  cache_evidence:string;result:"loaded"|"failed";error_code:null};
+  cache_evidence:string;result:"loaded"|"failed";error_code:string|null};
 export const STARTUP_BUDGET_MS=60000;
 const elapsed=(end:number,start:number)=>Math.max(0,Math.round(end-start));
 const nonnegative=(value:number|null)=>value!==null&&Number.isFinite(value)
@@ -109,8 +109,30 @@ export class StartupTelemetry{
       transfer_bytes:resource.bytes,
       container_ready_ms:nonnegative(event.containerReadyMs),
       instantiate_ms:nonnegative(event.instantiateMs),
-      cache_evidence:resource.cache,result:event.result,error_code:null
+      cache_evidence:resource.cache,result:event.result,
+      error_code:event.errorCode??null
     });
+  }
+  /** LOAD-062: safe in-memory evidence even when preview's Supabase ingest is off.
+   * Contains only coarse network class, bounded stage/asset IDs and timings.
+   */
+  diagnosticSnapshot():unknown{
+    return {
+      schema:"gtd.load062.startup-failure.v1",
+      runId:this.runId,startedAt:this.startedAt,
+      elapsedMs:elapsed(performance.now(),this.startMs),
+      networkClass:networkClass(),
+      stages:this.spans.map(({stage_key,duration_ms,status,error_code})=>
+        ({stage_key,duration_ms,status,error_code})),
+      running:[...this.stages].filter(([,s])=>!s.closed).map(([key,s])=>({
+        key,elapsedMs:elapsed(performance.now(),s.start)
+      })),
+      assets:this.assets.map(({asset_id,source_bytes_known,
+        container_ready_ms,instantiate_ms,result,error_code})=>({
+        asset_id,source_bytes_known,container_ready_ms,instantiate_ms,
+        result,error_code
+      })),
+    };
   }
   async finish(outcome:"playable"|"failed"|"aborted"|"reloaded",beacon=false):Promise<void>{
     if(this.finished)return;
