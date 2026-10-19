@@ -32,7 +32,7 @@ describe("GTD-TREE/MAT/WORLD-019 owner-directed cleanups",()=>{
     const source=JSON.parse(bytes.subarray(20,20+jsonBytes).toString("utf8"));
     expect(source.meshes.length).toBeGreaterThan(0);
     const primitives=source.meshes.flatMap((mesh:{primitives:{attributes:Record<string,number>}[]})=>mesh.primitives);
-    expect(primitives.some((p:{attributes:Record<string,number>})=>Number.isInteger(p.attributes.POSITION))).toBe(true);
+    expect(primitives.some((p:{attributes:Record<string,number>})=>Number.isInteger(p.attributes["POSITION"]))).toBe(true);
     expect(source.accessors.some((accessor:{type:string})=>accessor.type==="VEC3")).toBe(true);
     console.info("[TREE-019 SOURCE AUDIT]",JSON.stringify({
       meshes:source.meshes.length,primitives:primitives.length,
