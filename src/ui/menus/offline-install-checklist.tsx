@@ -9,8 +9,8 @@ export function OfflineInstallChecklist({
   const downloading=progress.phase==="downloading";
   const ready=progress.phase==="ready" && standalone;
   const anyKnown=progress.categories.some(group=>group.total>0);
-  const installedCount=progress.categories.reduce((sum,group)=>sum+group.installed,0);
-  const totalCount=progress.categories.reduce((sum,group)=>sum+group.total,0);
+  // Whole-pack counters remain FILE counts. Vehicle rows are unique MODEL
+  // counts, so adding the displayed category numerators would mix units.
   const appLabel=standalone?"Installed":"Not confirmed";
   return (
     <section className="offline-checklist" aria-label="G.T.D installation checklist">
@@ -76,7 +76,7 @@ export function OfflineInstallChecklist({
         </li>
       </ol>
       <p className="offline-checklist-footnote">
-        {anyKnown?`${installedCount} of ${totalCount} resource files installed · ${(progress.bytesDone/1e6).toFixed(1)} of ${(progress.bytesTotal/1e6).toFixed(1)} MB verified.`:
+        {anyKnown?`${progress.done} of ${progress.total} resource files installed · ${(progress.bytesDone/1e6).toFixed(1)} of ${(progress.bytesTotal/1e6).toFixed(1)} MB verified.`:
           "Connect to Wi-Fi to check the game download."}
         {" "}Each category updates automatically as files arrive.
       </p>
