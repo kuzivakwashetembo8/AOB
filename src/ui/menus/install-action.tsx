@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, CheckCircle2 } from "lucide-react";
 import { useInstallPrompt } from "@/lib/standalone";
+import { OfflineInstallChecklist } from "./offline-install-checklist";
 import {
   getOfflineProgress, subscribeOfflineProgress, inspectOfflineReadiness,
   startOfflineDownload,
@@ -115,6 +116,9 @@ export function InstallAction({ placement = "launcher" }: { placement?: InstallP
             ? "On iPhone or iPad: Share → Add to Home Screen."
             : "In your browser menu, select Install app or Add to Home Screen if available."}
         </p>
+      )}
+      {placement === "settings" && (
+        <OfflineInstallChecklist progress={progress} standalone={standalone} />
       )}
     </div>
   );
