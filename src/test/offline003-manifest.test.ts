@@ -4,7 +4,7 @@ import {validateOfflineManifest,summarizeOfflineCategories} from "../lib/offline
 const release="b".repeat(40);
 const valid=()=> {
   const resources=Array.from({length:101},(_,i)=>({
-    url:"/assets/file-"+i+".js",bytes:3,sha256:"a".repeat(64),group:"app" as const,
+    url:"/assets/file-"+i+".js",bytes:3,sha256:"a".repeat(64),
     group:(i<20?"app":i<45?"engine":i<75?"world":i<80?"character":"vehicles") as "app"|"engine"|"world"|"character"|"vehicles",
   }));
   return {schema:"gtd-offline003-v1",releaseId:release,
