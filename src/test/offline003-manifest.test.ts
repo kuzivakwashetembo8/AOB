@@ -39,8 +39,11 @@ describe("OFFLINE-003 full asset manifest security",()=>{
     expect(groups).toHaveLength(5);
     expect(groups.find(group=>group.id==="app")).toMatchObject({installed:20,total:20});
     expect(groups.find(group=>group.id==="engine")).toMatchObject({installed:23,total:25});
-    expect(groups.find(group=>group.id==="vehicles")).toMatchObject({installed:0,total:21});
-    expect(groups.reduce((sum,group)=>sum+group.installed,0)).toBe(43);
+    // Generic /assets/file-N fixtures do not represent actual admitted cars.
+    // The vehicles row counts UNIQUE recognized models, not arbitrary GLBs.
+    expect(groups.find(group=>group.id==="vehicles")).toMatchObject({installed:0,total:0});
+    // Whole-pack progress remains a file counter, independent of model units.
+    expect(present.size).toBe(43);
   });
   it("rejects a made-up or absent checklist classification",()=>{
     const manifest=valid();
