@@ -316,6 +316,20 @@ export class GTDGameRuntime implements GameRuntime {
         glassSurfaceFocusId: parseGlassFocus(diagnosticParams.get("gtdGlassFocus")),
       },
     );
+    // LOAD-062: user-exportable, no-network snapshot from *all* six imports.
+    // Survives one failed Promise.all so the user can distinguish a blocked
+    // Range Rover from five other completed or still-running vehicles.
+    if(isGeneratedFirstLightWorld(firstLight)&&firstLight.rangeRoverReview){
+      (window as Window & {__GTD_NATIVE_FLEET_DIAGNOSTICS__?:()=>unknown})
+        .__GTD_NATIVE_FLEET_DIAGNOSTICS__=()=>firstLight.rangeRoverReview?.instances.map(parked=>{
+          const t=parked.loadTelemetry;
+          return {assetId:parked.spec.id,sourceBytes:parked.spec.sourceBytesKnown??null,
+            attempts:t.loadAttempts,loaderElapsedMs:t.loaderElapsedMs,
+            containerReadyMs:t.containerReadyMs,instantiateMs:t.instantiateMs,
+            errorCode:t.errorCode,
+            state:t.errorCode?"failed":t.instantiateMs!==null?"loaded":"loading"};
+        })??[];
+    }
     this.emit({ type: "load-checkpoint", id: "world", status: "done" });
     // Lightweight read-only runtime benchmark: first 15 seconds are warm-up.
     // Bounded memory, no network telemetry and no impact on a disabled trial's
