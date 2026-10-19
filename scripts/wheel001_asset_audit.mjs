@@ -16,6 +16,8 @@ const SOURCES=[
  ["toyota-hilux-002","public/toyota hilux 002.glb"],
  ["land-rover-defender-001","public/Land rover defender 001.glb"],
  ["dodge-hp","public/dodge_HP.glb"],
+ ["bmw-m4-competition","public/bmw_m4_competition_m_package (1).glb"],
+ ["lamborghini-temerario","public/Lamborghini+Temerario.glb"],
 ];
 function analyzePositions(sourcePositions,idx,matrix){
  const pos=new Float32Array(sourcePositions.length);
@@ -138,6 +140,22 @@ async function main(){
  }
  await mkdir("public",{recursive:true});
  await writeFile("public/wheel001-source-audit.json",JSON.stringify(out,null,2)+"\n");
+ for(const x of out.results.filter(x=>["bmw-m4-competition","lamborghini-temerario"].includes(x.modelId))){
+   console.log("[VEH-015] ACTUAL SOURCE INSPECTION",JSON.stringify({
+     modelId:x.modelId,sourceSha256:x.sha256,sourceBytes:x.sourceBytes,
+     meshCount:x.meshCount,sourceNode:x.sourceNode,
+     nodeNames:x.nodeNames,sourceWorldTransform:x.sourceWorldTransform,
+     primitiveDetails:x.primitives?.map(p=>({
+       vertices:p.vertices,triangles:p.triangles,
+       topologyComponents:p.topologicalComponents,
+       dimensions:p.rawDimensions,axis:p.longAxis,
+       candidateCount:p.possibleIndependentTireIslands?.length,
+       wheelCandidates:p.possibleIndependentTireIslands?.slice(0,8),
+       error:p.error,
+     })),
+     state:x.state,error:x.error,
+   }));
+ }
  console.log("[WHEEL-001] source GLB audit",out.results.map(x=>({
     modelId:x.modelId,state:x.state,meshCount:x.meshCount,
     candidateCount:x.primitives?.reduce((n,p)=>n+(p.possibleIndependentTireIslands?.length??0),0),
