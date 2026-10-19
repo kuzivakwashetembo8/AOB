@@ -7,7 +7,7 @@
  * This is data-first: the same RoadNetworkSpec feeds world-space 4-way/T
  * topology, batch visuals, real curb collision, and named street HUD.
  */
-import {Mesh,VertexData,Vector3} from "@babylonjs/core";
+import {Mesh,VertexData} from "@babylonjs/core";
 import type {Material,Scene} from "@babylonjs/core";
 import {planRoadGraph} from "./road-graph";
 import type {RoadNetworkSpec,WorldPosition} from "./schema";
@@ -50,7 +50,7 @@ function node(x:number,z:number):string{
   if(!points.has(id))points.set(id,{id,position:{x,y:0,z}});
   return id;
 }
-function line(name:string,axis:"x"|"z",fixed:number,breaks:readonly number[][]){
+function line(name:string,axis:"x"|"z",fixed:number,breaks:readonly (readonly number[])[]){
   for(const [path,coords] of breaks.entries()){
     for(let i=0;i<coords.length-1;i++){
       const a=coords[i]!,b=coords[i+1]!;
