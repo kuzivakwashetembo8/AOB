@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/offline-game", () => ({
-  getOfflineProgress: () => ({ phase: "idle", done: 0, total: 0, bytesDone: 0, bytesTotal: 0, message: "" }),
+  getOfflineProgress: () => ({ phase: "idle", done: 0, total: 0, bytesDone: 0, bytesTotal: 0, message: "", categories: [] }),
   subscribeOfflineProgress: () => () => {},
   inspectOfflineReadiness: async () => {},
   startOfflineDownload: vi.fn(async () => {}),
@@ -27,6 +27,10 @@ describe("OFFLINE-001 install action", () => {
     const view = render(<InstallAction placement="settings" />);
     expect(screen.getByRole("button", { name: /Install G\.T\.D application/i })).toBeVisible();
     expect(view.container.querySelector(".install-action--settings")).toBeTruthy();
+    expect(screen.getByRole("region", { name: /G.T.D installation checklist/i })).toBeVisible();
+    expect(screen.getByText("GAME INSTALLATION")).toBeVisible();
+    expect(screen.getByText("Vehicle models")).toBeVisible();
+    expect(screen.getByText("Play without Wi-Fi")).toBeVisible();
     view.unmount();
   });
 });
