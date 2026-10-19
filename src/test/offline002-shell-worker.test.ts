@@ -78,6 +78,19 @@ describe("OFFLINE-002 scoped app shell",()=>{
     expect(await response?.text()).toBe("GLB-BYTES");
     expect(s.fetcher).not.toHaveBeenCalled();
   });
+  it("acknowledges its own exact release before Android readiness is declared",()=>{
+    const s=workerHarness();
+    const reply={postMessage:vi.fn()};
+    s.listeners.get("message")?.({
+      data:{type:"GTD_OFFLINE_RELEASE_QUERY"},ports:[reply],
+    });
+    expect(reply.postMessage).toHaveBeenCalledWith({
+      type:"GTD_OFFLINE_RELEASE",releaseId:"a".repeat(40),
+    });
+    reply.postMessage.mockClear();
+    s.listeners.get("message")?.({data:{type:"unrelated"},ports:[reply]});
+    expect(reply.postMessage).not.toHaveBeenCalled();
+  });
   it("leaves API, telemetry, version metadata and auth outside worker scope",async()=>{
     const s=workerHarness();
     await s.install();
