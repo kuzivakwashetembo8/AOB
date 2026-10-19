@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/offline-game", () => ({
+vi.mock("../lib/offline-game", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../lib/offline-game")>(),
   getOfflineProgress: () => ({ phase: "idle", done: 0, total: 0, bytesDone: 0, bytesTotal: 0, message: "", categories: [] }),
   subscribeOfflineProgress: () => () => {},
   inspectOfflineReadiness: async () => {},
