@@ -13,6 +13,7 @@ export function BootstrapOverlay({
   elapsedSeconds = 0,
   error,
   onDownloadDiagnostics,
+  onDownloadStartupDiagnostics,
   onRetryUpdate,
   onContinueCurrentBuild,
 }: {
@@ -20,6 +21,7 @@ export function BootstrapOverlay({
   elapsedSeconds?: number;
   error?: string | null;
   onDownloadDiagnostics?: (() => void) | undefined;
+  onDownloadStartupDiagnostics?: (() => void) | undefined;
   onRetryUpdate?: (() => void) | undefined;
   onContinueCurrentBuild?: (() => void) | undefined;
 }) {
@@ -91,6 +93,14 @@ export function BootstrapOverlay({
         {error && (
           <div role="alert" className="overlay-note">
             <p>Meridian could not finish startup: {error}</p>
+            {onDownloadStartupDiagnostics && (
+              <button
+                type="button"
+                className="mt-3 mr-5 text-primary underline"
+                data-gtd-startup-diagnostics="true"
+                onClick={onDownloadStartupDiagnostics}
+              >Download startup diagnostics (JSON)</button>
+            )}
             {onDownloadDiagnostics && (
               <button
                 type="button"
