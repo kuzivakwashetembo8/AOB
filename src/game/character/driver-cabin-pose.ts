@@ -15,6 +15,7 @@ import { SkinnedFootGeometry, type FootSide } from "./skinned-foot-geometry";
 import { planCabinFit004Candidates, FIT004_MAX_FOOT_TARGET_LIFT_METRES } from "./cabin-fit-004-policy";
 import { VehicleCabinFloor, planSoleClearance, type VehicleCabinKind } from "../vehicles/vehicle-cabin-envelope";
 import {planRangeRoverFootwellTargets,planRangeRoverSoleLift} from "../vehicles/range-rover-drive-007";
+import {bmw016FootwellHeight} from "../vehicles/coupe-driver-fit-016";
 
 export type DriverContactState = {
   enabled: boolean;
@@ -238,6 +239,15 @@ export function createDriverCabinPose(scene:Scene,skeleton:Skeleton,witness:Mesh
             vehicleFloorY:cabin.position.y,
           }):null;
       if(initial){
+        // VEH-016: the accepted SUV geometry-aware leg IK is still used.
+        // A source-specific BMW footwell target keeps calves and feet inside
+        // the chassis without globally lifting Voight through its roof.
+        if(roverFeet&&cabinDimensions&&
+           cabin.name==="mercer-extra-anchor:gtd-veh014-mercer-bmw-m4"){
+          const y=bmw016FootwellHeight(cabin.position.y,cabinDimensions.y);
+          initial.leftFoot.y=Math.max(initial.leftFoot.y,y);
+          initial.rightFoot.y=Math.max(initial.rightFoot.y,y);
+        }
         const inverse=cabin.getWorldMatrix().clone().invert();
         cachedLocalTargets={
           leftFoot:Vector3.TransformCoordinates(initial.leftFoot,inverse),
