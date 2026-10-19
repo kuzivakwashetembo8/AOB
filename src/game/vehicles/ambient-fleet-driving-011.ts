@@ -85,7 +85,7 @@ export function prepareNativeFleetWheelRig(
       (node.name===wheelNames[c]||node.name.endsWith(":"+wheelNames[c]))));
     if(found.some(group=>group.length!==1 ||
       group[0]!.getChildMeshes(false).filter(mesh=>
-        mesh.getTotalVertices()>40).length<1))
+        mesh.getTotalVertices()>0).length<1))
       return unavailable(name,0,anchor.getChildMeshes(false).length);
     return {
       identified:4,missing:[],sourceMeshCount:anchor.getChildMeshes(false).length,
