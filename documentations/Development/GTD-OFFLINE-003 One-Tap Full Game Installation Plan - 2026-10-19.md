@@ -46,3 +46,20 @@
 7. Obtain owner's visual and gameplay acceptance. Until that occurs, keep branch isolated and do not merge or promote to production.
 
 **STOP CONDITION:** Failing build, quota exhaustion, shell/game version mismatch, or failed true Android airplane-mode gameplay means OFFLINE-003 is NOT closed. Patch in the isolated branch and retest. Do not falsely certify end-to-end offline functionality from unit tests alone.
+
+## Initial implementation checkpoint — READY preview
+
+- **Preview:** https://gtd-kntkdsf8n-interlinkglobaltech.vercel.app/
+- **Git build commit:** `41292523195f08951ca597e575806fbae48f534d`
+- **Vercel deployment:** `dpl_JCJbK84rFqLts2Sv9YHzMYBgzpgE` — READY; preview only.
+- **Tests:** `382/382` passed across `93/93` test files, including manifest validation, cached-GLB worker delivery and inherited driver/graphics/world suites.
+- **Release resource pack:** `428` files; `195,005,929` raw bytes, each with SHA-256; includes Babylon client chunks, Draco WASM, Voight GLB, vehicles and static world resources. This is a complete current deployed resource inventory, not necessarily final optimized download wire size.
+- **Application shell:** `311` resources / `6,347,739` raw bytes separately staged.
+- **Full built public directory:** `433` files / `195,153,569` bytes; missing OFFLINE-001 mandatory assets = 0.
+- **Distribution safety:** no merge into `main`, no production deployment, no runtime source GLB changes, no state deletion.
+
+**Player trial required before closing OFFLINE-003:** install from the Home/Settings CTA on Android while Wi-Fi is connected; keep the app in foreground until green/gold **READY FOR OFFLINE PLAY**; turn airplane mode on; fully close and open the installed app; load and drive each accepted vehicle. If it stalls, provide the progress message and current downloaded size. Browser quota behavior varies and cannot be certified from build logs.
+
+**Known platform boundary:** Chrome's native PWA icon may be installed *before* the game resources finish downloading. The platform does not provide a way to make native icon creation wait for the 195 MB app-controlled download. Readiness must therefore be judged by GTD's confirmed in-app READY indicator, not presence of the home-screen icon.
+
+**Next gate:** owner device test and substantial visual acceptance, then patch discovered errors on this branch only. OFFLINE-004 remains unauthorized until this phase is accepted.
