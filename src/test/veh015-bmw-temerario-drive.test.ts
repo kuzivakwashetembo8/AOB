@@ -27,7 +27,7 @@ describe("VEH-015 BMW M4 and original Lamborghini Temerario wheel-qualified driv
       for(let i=0;i<ctrl.length;i++){
         const node=new TransformNode("source:"+ctrl[i],scene);
         node.parent=root;
-        const tire=MeshBuilder.CreateCylinder("original-tire:"+ctrl[i],
+        const tire=MeshBuilder.CreateCylinder("original-tire-surface-"+i,
           {diameter:.68,height:.27,tessellation:24},scene);
         tire.parent=node;
         tire.rotation.x=Math.PI/2;
