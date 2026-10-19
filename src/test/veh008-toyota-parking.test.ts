@@ -25,7 +25,7 @@ describe("VEH-011 authentic five-model driving on Mercer",()=>{
       url:"/dodge_HP.glb",sourceBytesKnown:1954504,visualOnly:false,
     });
     expect(new Set(MERCER_EXTRA_GLB_SPECS.map(p=>p.id)).size).toBe(6);
-    expect(MERCER_EXTRA_GLB_SPECS.filter(p=>p.visualOnly!==true)).toHaveLength(4);
+    expect(MERCER_EXTRA_GLB_SPECS.filter(p=>p.visualOnly!==true)).toHaveLength(6);
   });
   it("preserves the four accepted positions and enables the two new models for wheel-gated driving",()=>{
     const expectedExisting=[
