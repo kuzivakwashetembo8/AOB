@@ -45,11 +45,11 @@ function update(patch:Partial<OfflineProgress>) {
 const validRelease=(s:unknown):s is string=>
   typeof s==="string" && /^[0-9a-f]{40}$/.test(s);
 
-export function validateOfflineManifest(value:unknown):Manifest {
+export function validateOfflineManifest(value:unknown, expectedRelease=currentRelease()):Manifest {
   if (!value || typeof value!=="object")throw Error("Invalid download manifest");
   const m=value as Partial<Manifest>;
   if(m.schema!=="gtd-offline003-v1" || !validRelease(m.releaseId) ||
-    m.releaseId!==currentRelease() ||
+    m.releaseId!==expectedRelease ||
     !Array.isArray(m.resources) || m.resources.length<100 ||
     m.fileCount!==m.resources.length || !Number.isSafeInteger(m.totalBytes) ||
     (m.totalBytes??0)<=0) throw Error("Offline release does not match this game build");
@@ -64,6 +64,12 @@ export function validateOfflineManifest(value:unknown):Manifest {
       !/^[a-f0-9]{64}$/.test(file.sha256) || seen.has(file.url)) {
       throw Error("Unsafe offline game resource");
     }
+    let decoded: string;
+    try { decoded=decodeURIComponent(file.url); } catch { throw Error("Invalid asset URL encoding"); }
+    if(decoded.split("/").some(part=>part==="."||part==="..") ||
+      decoded.includes("\\") || decoded.startsWith("//") ||
+      decoded.includes("?") || decoded.includes("#"))
+      throw Error("Unsafe decoded game resource path");
     size+=file.bytes;
     seen.add(file.url);
   }
