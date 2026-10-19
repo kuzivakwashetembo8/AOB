@@ -63,3 +63,31 @@
 **Known platform boundary:** Chrome's native PWA icon may be installed *before* the game resources finish downloading. The platform does not provide a way to make native icon creation wait for the 195 MB app-controlled download. Readiness must therefore be judged by GTD's confirmed in-app READY indicator, not presence of the home-screen icon.
 
 **Next gate:** owner device test and substantial visual acceptance, then patch discovered errors on this branch only. OFFLINE-004 remains unauthorized until this phase is accepted.
+
+## Pre-main installation checklist acceptance gate — 2026-10-19
+
+**Owner authorization:** Add a clear, user-friendly Settings checklist before promoting OFFLINE-003 to main. No merge is authorized merely because checklist implementation is complete.
+
+### Settings checklist
+
+The Settings > Game Installation panel uses the existing Meridian-gold interface. It displays:
+- **GTD app on this device:** installed only when the application is actually opened in standalone display mode; otherwise reports "Not confirmed" with instructions to open the installed app icon.
+- **Application files:** real counts of cached launcher, routes, controls, styles, fonts and shell resources.
+- **Game engine & physics:** real cached engine, decoder and WASM counts.
+- **Meridian City & surfaces:** real cached scene/world graphics and surfaces counts.
+- **Voight & animations:** actual local character source resource count.
+- **Vehicle models:** actual cached vehicle resource count, including separately packaged wheel derivatives; counts refer to files rather than inventing an accepted number of cars.
+- **Play without Wi-Fi:** READY only after every required file is locally present, completion marker exists, and the controlling service worker cryptographically belongs to the exact release ID.
+
+Every release resource has exactly one category assigned at build time from compiled Nitro output. Client validation rejects unknown categories or unsafe paths. The frontend computes progress from real CacheStorage keys, not a UI timer or synthetic percentage. A separate partial-download manifest index allows accurate counts and resumable installation before the final readiness marker has been written. A downloaded resource is only initially stored after the prior SHA-256 verification. A stale service worker is explicitly prohibited from claiming offline readiness via release-ID handshake. Keep large resources and the existing OFFLINE-002 static shell separate.
+
+**Player flow remains K.I.S.S:** tap the current Install button once, wait while the checklist advances automatically, then disconnect only after READY; interrupted files can be retried. If PWA installation occurs before download completion, that is visible rather than hidden.
+
+### Verification required before main
+
+1. All GTD regression tests, new manifest/category accounting tests, stale-worker handshake test and build pass.
+2. Preview's Game Installation panel shows six status rows plus final readiness row, actual file counts, and never shows READY with missing cache resources or stale service worker.
+3. Android trial: install app while online, reopen from icon, verify progress/checklist, wait READY, airplane-mode launch and drive.
+4. Do not remove older working installation cache/saves; no production merge until owner inspection.
+
+**Scope:** This change does not optimize GLBs, add new vehicles, change game simulation, provide save/load, or implement future incremental updates.
