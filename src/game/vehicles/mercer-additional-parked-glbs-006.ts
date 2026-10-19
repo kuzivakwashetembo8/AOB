@@ -8,6 +8,8 @@ import {AbstractMesh,Mesh,TransformNode,loadAssetContainerAsync} from "@babylonj
 import type {AssetContainer,Scene} from "@babylonjs/core";
 import type {MeridianPhysics,StaticCollisionHandle} from "../physics/rapier-world";
 import type {StreetContextItem} from "../world-generation/street-context";
+import {loadLocalGLBWithRecovery,LocalGLBImportError} from "./local-glb-retry-062";
+import type {LocalGLBLoadErrorCode} from "./local-glb-retry-062";
 
 
 export type MercerExtra006Spec=Readonly<{
@@ -143,6 +145,9 @@ export function createMercerExtraParkedGLBs(
     let closed=false;
     let drivingDimensions:{readonly x:number;readonly y:number;readonly z:number}|null=null;
     let containerReadyMs:number|null=null,instantiateMs:number|null=null;
+    let loadAttempts=0,loaderElapsedMs:number|null=null;
+    let errorCode:LocalGLBLoadErrorCode|null=null;
+    let importPhase=true;
     const loadStartedAt=performance.now();
     const modelRoot=new TransformNode("mercer-extra-visual:"+spec.id,scene);
     modelRoot.parent=anchor;
@@ -164,8 +169,13 @@ export function createMercerExtraParkedGLBs(
       };
       const runtimeUrl=import.meta.env.PROD
         ?(derivative[spec.id]??spec.url):spec.url;
-      const glb=await (load?load(spec.url,scene):
-        loadAssetContainerAsync(runtimeUrl,scene));
+      const glb=await loadLocalGLBWithRecovery(spec.label,
+        ()=>load?load(spec.url,scene):loadAssetContainerAsync(runtimeUrl,scene),{
+          cancelled:()=>closed,
+          onAttempt:attempt=>{loadAttempts=attempt;},
+        });
+      importPhase=false;
+      loaderElapsedMs=performance.now()-loadStartedAt;
       if(closed){glb.dispose();return;}
       container=glb;
       containerReadyMs=performance.now()-loadStartedAt;
@@ -212,9 +222,17 @@ export function createMercerExtraParkedGLBs(
         spec.yaw,
       );
       instantiateMs=performance.now()-instantiationStartedAt;
-    })();
+    })().catch(error=>{
+      // A failing member blocks the authentic six-car boot, but now carries
+      // a sanitized per-model terminal reason into user-exportable telemetry.
+      errorCode=error instanceof LocalGLBImportError?error.code:
+        importPhase?"loader_failure":"asset_instantiation_failed";
+      loaderElapsedMs=performance.now()-loadStartedAt;
+      throw error;
+    });
     return {spec,anchor,ready,
-      get loadTelemetry(){return {containerReadyMs,instantiateMs};},
+      get loadTelemetry(){return {containerReadyMs,instantiateMs,
+        loadAttempts,loaderElapsedMs,errorCode};},
       get drivingDimensions(){return drivingDimensions;},
       /** Transfer physical ownership to StreetVehicleActor only AFTER the
        * live Rapier actor has been successfully constructed. Idempotent. */
