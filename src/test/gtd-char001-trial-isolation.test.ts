@@ -34,7 +34,8 @@ describe("GTD-CHAR-001 controlled Meridian character trial", () => {
   it("uses a pinned documented demonstration asset; never a floating latest URL", () => {
     expect(MERIDIA_TRIAL_SOURCE.sourceBytes).toBe(3749364);
     expect(MERIDIA_TRIAL_SOURCE.referenceCommit).toMatch(/^[a-f0-9]{40}$/);
-    expect(MERIDIA_TRIAL_SOURCE.rootUrl).toContain(MERIDIA_TRIAL_SOURCE.referenceCommit);
+    expect(MERIDIA_TRIAL_SOURCE.rootUrl).toBe("/offline001/character/");
+    expect(MERIDIA_TRIAL_SOURCE.sourceBlobSha).toMatch(/^[a-f0-9]{40}$/);
     expect(MERIDIA_TRIAL_SOURCE.fileName).toBe("ual.glb");
   });
 });

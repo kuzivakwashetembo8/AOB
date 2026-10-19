@@ -17,7 +17,10 @@ export default defineConfig({
   },
   plugins: [
     tsConfigPaths(),
-    tanstackStart(),
+    // OFFLINE-002: produce one hydratable /_shell.html for all GTD routes.
+    // The server continues to host telemetry/API; the client routes do not
+    // require server-side render to boot when an installed device is offline.
+    tanstackStart({ spa: { enabled: true } }),
     nitro(),
     viteReact(),
     tailwindcss(),

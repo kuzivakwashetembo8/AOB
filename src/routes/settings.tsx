@@ -3,6 +3,7 @@ import { BackLink, PageShell } from "@/ui/menus/shell";
 import { pageHead } from "@/lib/page-head";
 import { useSettings } from "@/ui/menus/settings-state";
 import { SettingsEditor } from "@/ui/menus/settings-editor";
+import { InstallAction } from "@/ui/menus/install-action";
 
 export const Route = createFileRoute("/settings")({
   head: () => pageHead(
@@ -25,6 +26,7 @@ function SettingsPage() {
           </div>
           <BackLink />
         </div>
+        <InstallAction placement="settings" />
         <SettingsEditor initialSettings={settings} onApply={save} />
       </section>
     </PageShell>

@@ -20,7 +20,8 @@ import {
 /**
  * GTD-CHAR-001 isolated model-source trial. The Quaternius UAL demonstration
  * mannequin is NOT the approved Voight and cannot be promoted as final art.
- * Pinned fork content avoids live upstream source drift during A/B sampling.
+ * Build-time staging verifies the exact Git blob from the pinned reference. Runtime
+ * imports must resolve on GTD origin so installed builds never require the CDN.
  */
 export const MERIDIA_TRIAL_SOURCE = {
   author: "Quaternius (Universal Animation Library)",
@@ -28,7 +29,8 @@ export const MERIDIA_TRIAL_SOURCE = {
   referenceCommit: "ca82bbc76a3b9b0afa80c73b60167adf6123b9b6",
   sourceBlobSha: "e236f349526637a5c829c408d48ce9d8fcde9cff",
   sourceBytes: 3749364,
-  rootUrl: "https://cdn.jsdelivr.net/gh/interlinkglobal/three-player-controller@ca82bbc76a3b9b0afa80c73b60167adf6123b9b6/example/public/glb/",
+  rootUrl: "/offline001/character/",
+  // Build-time downloaded, source-SHA-verified from the pinned reference commit.
   fileName: "ual.glb",
 } as const;
 
