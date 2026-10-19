@@ -27,3 +27,23 @@ A client-hydrated GTD shell (Home, World, Settings) operable after complete shel
 - Test real Android Chrome PWA, desktop browser, offline reload for Home/Settings/World, interrupted navigation, app updates, old worker transition, and unchanged game visuals, controls, physics and startup.
 - Verify release output contains /_shell.html and /sw.js; build-time shell manifest must include required HTML/bootstrap CSS/JS and avoid all GLB and Rapier WASM, within 24MB.
 - No production merge, deployment or user acceptance is implied. Vercel preview is permitted at a substantial checkpoint only after tests.
+
+## Implementation evidence and checkpoint — 2026-10-19
+
+**Preview:** https://gtd-35fcukzly-interlinkglobaltech.vercel.app/
+**Build Git SHA:** f2f09b6db909ef3d3e73003ac39d058c1b159b31
+**Vercel deployment:** dpl_2EA9cGCgKztMUrtWXAzHoWkPnM1n
+**Deployment state:** READY (preview only; not deployed to production).
+
+- **Typecheck, regression:** 92/92 test files passed; **377/377 tests passed**, including four mocked service-worker navigation/security-scope scenarios.
+- **Build:** Nitro/Vercel output generated successfully with /_shell.html. REL-010 immutable release metadata and the scoped /sw.js emitted.
+- **Small shell pack:** **311 file resources, 6,341,381 bytes** (approximately 6.34 MB), under the 24 MB cap.
+- **Full static output:** **432 resources / 195,086,392 bytes**, zero missing items in OFFLINE-001 mandatory build inventory; shell cache intentionally excludes GLB/WASM world assets.
+- **Visual design:** the Install button now uses var(--primary) and var(--primary-foreground) for the game's own Meridian gold, retaining its existing fonts and high-contrast treatment.
+- **Update preservation:** worker does not call skipWaiting, clients.claim or broad cache deletion; version-scoped working caches retained.
+
+**Repair history:** Initial build dpl_CsJFP5NjE7S5aiTrvKJU4oCLjVK7 showed 374 passing and 3 failing tests because the worker config substitution token appeared twice, once in a comment. Corrected only the comment (commit f2f09b6db909ef3d3e73003ac39d058c1b159b31). Subsequent preview passed all 377.
+
+**Not yet certified:** actual Android Chrome installed-PWA airplane-mode navigation on Home/World/Settings, 3D rendering with offline gameplay asset download, device cache eviction and manual visual approval. External read-only web fetch did not reach the protected preview; READY and artifact counts are supported by Vercel build/deployment logs. Do not assert end-to-end offline game readiness.
+
+**State:** substantial implementation checkpoint available; isolated branch remains unmerged. Owner review required before acceptance.
