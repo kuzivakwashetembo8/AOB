@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && node scripts/publish-pwa-worker.mjs",
+    "build": "vite build && node scripts/publish-pwa-worker.mjs && node scripts/offline001-build-inventory.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -15,7 +15,8 @@
     "prebuild": "node scripts/stage-offline001-runtime.mjs",
     "prebuild:dev": "node scripts/stage-offline001-runtime.mjs",
     "predev": "node scripts/stage-offline001-runtime.mjs",
-    "offline:stage": "node scripts/stage-offline001-runtime.mjs"
+    "offline:stage": "node scripts/stage-offline001-runtime.mjs",
+    "offline:audit": "node scripts/offline001-build-inventory.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
