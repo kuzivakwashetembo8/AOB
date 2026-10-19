@@ -59,6 +59,19 @@ const files=visit(deploy).filter(p=>relative(deploy,p).replaceAll(sep,"/")!==OUT
   hashes.set(path,item);
   return item;
 }).sort((a,b)=>a.path.localeCompare(b.path));
+const vehicleSources=[
+  ["Range Rover Sport 2018","Range Rover Sports 2018 (.GLB).glb"],
+  ["Toyota Hilux","toyota hilux 002.glb"],
+  ["Land Rover Defender","Land rover defender 001.glb"],
+  ["Dodge HP","dodge_HP.glb"],
+  ["BMW M4","bmw_m4_competition_m_package (1).glb"],
+  ["Lamborghini Temerario","Lamborghini+Temerario.glb"],
+];
+const vehicleSizes=vehicleSources.map(([name,path])=>({
+  name,path,bytes:hashes.get(path)?.bytes??null,
+  targetBytes:["Range Rover Sport 2018","Lamborghini Temerario"].includes(name)?5_000_000:null,
+  // Source size alone is not a measure of material fidelity or actual render memory.
+}));
 const missing=REQUIRED.filter(path=>!hashes.has(path));
 const checksumByHash=new Map();
 for(const file of files) {
@@ -77,6 +90,8 @@ const summary={
   requiredCount:REQUIRED.length,
   missing,
   duplicates,
+  vehicleSizes,
+  futureVehicleSlots:["sedan-a","sedan-b","city-bus","police-car"],
   caveats:[
     "Not an OFFLINE-003 full offline-pack manifest or readiness proof",
     "Static asset hashes do not establish glTF subresource or dynamic chunk runtime closure",
