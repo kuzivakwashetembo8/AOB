@@ -70,6 +70,14 @@ describe("OFFLINE-002 scoped app shell",()=>{
       expect(await response?.text()).toContain("GTD offline shell");
     }
   });
+  it("serves a verified offline vehicle GLB without contacting the network",async()=>{
+    const s=workerHarness();
+    await s.install();
+    s.objects.set("/cars/rover.glb",new Response("GLB-BYTES"));
+    const response=await s.dispatch("/cars/rover.glb","cors");
+    expect(await response?.text()).toBe("GLB-BYTES");
+    expect(s.fetcher).not.toHaveBeenCalled();
+  });
   it("leaves API, telemetry, version metadata and auth outside worker scope",async()=>{
     const s=workerHarness();
     await s.install();
