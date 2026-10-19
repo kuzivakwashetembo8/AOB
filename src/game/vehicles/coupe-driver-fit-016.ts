@@ -29,7 +29,7 @@ export const ROVER_TEMPLATE_COUPE_ADJUSTMENTS=Object.freeze({
   "Lamborghini Temerario":{
     lateralFraction:0, // Same side as Rover
     longitudinalFraction:-.07, // Rover +.11 -> Lamborghini +.04
-    heightFraction:-.14, // Rover .57 -> .43 to accommodate low roof
+    heightFraction:-.07, // Rover .57 -> .50; lift visible calves into cabin, preserve roof margin
   },
 } as const);
 
