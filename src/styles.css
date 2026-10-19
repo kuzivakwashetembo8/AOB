@@ -1564,11 +1564,11 @@ html[data-display="standalone"] body > * {
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  border: 2px solid #facc15;
-  border-radius: 4px;
-  background: #facc15;
-  color: #18181b;
-  box-shadow: 0 4px 28px rgb(250 204 21 / 28%);
+  border: 1px solid var(--primary);
+  border-radius: 2px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 0 18px oklch(0.79 0.135 76 / 0.14);
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 800;
@@ -1577,8 +1577,8 @@ html[data-display="standalone"] body > * {
   transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 .install-button:hover {
-  background: #fde047;
-  box-shadow: 0 5px 32px rgb(250 204 21 / 38%);
+  background: oklch(0.84 0.135 76);
+  box-shadow: var(--focus-glow);
   transform: translateY(-1px);
 }
 .install-button:focus-visible {
