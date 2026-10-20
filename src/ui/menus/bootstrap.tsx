@@ -53,7 +53,7 @@ export function BootstrapOverlay({
             data-gtd-startup-diagnostics="true" onClick={onDownloadStartupDiagnostics}>
             Download measured startup diagnostics (JSON)
           </button>}
-        {error&&<span role="alert" className="text-destructive">Startup failed: {error}</span>}
+        {error&&<span role="alert" className="text-destructive">Meridian could not finish startup: {error}</span>}
         {onDownloadDiagnostics&&error&&
           <button type="button" className="text-primary underline"
             data-gtd-character-data-download="true" onClick={onDownloadDiagnostics}>
