@@ -88,6 +88,7 @@ export function createMercerStaticCharacter(
   let controlled=false;
   let fittedRoot:TransformNode|null=null;
   let fittedCenterX=0,fittedCenterZ=0;
+  let loweredArmBones=0;
   const decodeId="asset:decode:mercer-character";
   const instantiateId="asset:instantiate:mercer-character";
   audit.start(decodeId,"Decode character.glb","asset",MERCER_STATIC_CHARACTER_PATH);
@@ -105,8 +106,16 @@ export function createMercerStaticCharacter(
       name=>"obs103-mercer-static:"+name,true);
     if(closed){entries.dispose();entries=null;return;}
     stopStaticCharacterAnimations(entries.animationGroups);
-    // CHAR-105: source animation groups are not assumed to contain a walking
-    // clip or usable armature. The character is posed by its own vertex data.
+    // CHAR-107 source audit: this GLB contains 73 real skin joints,
+    // including both named shoulders, upper arms and forearms. Apply native
+    // skeletal shoulder rotation ONCE; do not distort jacket/arm vertices.
+    loweredArmBones=lowerStaticCharacterHands(entries.skeletons);
+    if(loweredArmBones!==2)
+      console.warn("[CHAR-107] Expected two native upper-arm adjustments",{
+        loweredArmBones,skeletons:entries.skeletons.length,
+        bones:entries.skeletons.flatMap(s=>s.bones.map(b=>b.name))
+          .filter(n=>/shoulder|arm|forearm/i.test(n)).slice(0,16)
+      });
     const modelRoot=new TransformNode("obs103-mercer-static-fit",scene);
     fittedRoot=modelRoot;
     modelRoot.parent=anchor;
@@ -167,12 +176,13 @@ export function createMercerStaticCharacter(
     fittedCenterZ=modelRoot.position.z;
     anchor.position.set(MERCER_STATIC_CHARACTER_POSE.x,0,
       MERCER_STATIC_CHARACTER_POSE.z);
-    audit.finish(instantiateId,count+" meshes; neutral hands down; "+
-      (deformer?.vertexCount??0)+" pose vertices");
+    audit.finish(instantiateId,count+" meshes; "+loweredArmBones+
+      " native upper-arm bones; "+(deformer?.vertexCount??0)+" leg-pose vertices");
     console.info("[OBS-103] Static Mercer character loaded",{
       source:MERCER_STATIC_CHARACTER_PATH,meshes:count,
       heightMeters:MERCER_STATIC_CHARACTER_POSE.heightMeters,
-      animated:false,pose:"relaxed-standing",
+      animated:false,pose:"native-skeleton-upper-arm-correction",
+      loweredArmBones,
     });
   })().catch(error=>{
     audit.fail(decodeId,error);
@@ -208,7 +218,7 @@ export function createMercerStaticCharacter(
       deformer?.setWalking(walkSpeed>.14,dt);
     },
     get poseReport(){return {meshCount:deformer?.meshCount??0,
-      vertices:deformer?.vertexCount??0,controlled};},
+      vertices:deformer?.vertexCount??0,controlled,loweredArmBones};},
     dispose(){
       if(closed)return;
       closed=true;

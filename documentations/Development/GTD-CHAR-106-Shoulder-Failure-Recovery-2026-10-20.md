@@ -26,3 +26,29 @@ D. If rig or pose is absent, DO NOT invent a complete rig via x/y deformations. 
 E. Test static and controlled characters, front / side / rear; unit tests are supporting evidence, not visual acceptance.
 
 No code modifications to main; no accepted road, car, tree, world, input or camera changes.
+
+## Confirmed GLB result and CHAR-107 patch
+The read-only GLB 2.0 JSON audit completed successfully on the Vercel build host.
+Actual `public/GLBs/Characters/character.glb`: 12,197,104 bytes; 86 nodes;
+**one skin with 73 joints**; explicit `LeftShoulder`, `LeftArm`,
+`LeftForeArm`, `RightShoulder`, `RightArm`, `RightForeArm` joints.
+The earlier assumption that a usable humanoid rig might be absent was WRONG.
+This is not a mesh-only source.
+
+CHAR-107 corrective attempt:
+- Keep all source skin weights, authored vertices, original jacket topology and
+  upper-body bind geometry intact. Stop the previous upper-arm geometric
+  heuristics entirely: no percent-of-height guessed shoulder deformation.
+- Invoke the existing `lowerStaticCharacterHands(entries.skeletons)` on the
+  instantiated native armature after stopping source animation groups.
+  Reorient only each real LeftArm / RightArm upper-arm bone toward down-at-sides,
+  carrying forearms and hands with their joint hierarchy.
+- Keep the existing lower-leg experimental phase, controller ownership,
+  walking direction, and settings toggle unchanged. Actual foot stepping
+  remains deliberately out of scope.
+- Runtime diagnostics show the number of adjusted arm bones; expected TWO.
+- New tests assert no upper-body vertex modifications in all phases and verify
+  the exact source GLB contains the named native arm joints.
+- The native rig is a capability, not proof that our procedural skeletal
+  rotation produces an anatomically accepted neutral pose; owner preview is
+  required. No merge authorization implied.

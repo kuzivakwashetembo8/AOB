@@ -2,7 +2,8 @@
  * GTD-CHAR-105: reversible lightweight mesh-space posture for imported
  * character.glb models without reliable animation clips or armature names.
  * Three poses are cached once. No new geometry, physics body, or GLB import.
- * Deform only the imported human, never the accepted UAL humanoid.
+ * Only deform the experimental leg region of the imported human.
+ * Upper body is controlled by the source GLB's native shoulder/arm bones.
  */
 import {Matrix,Mesh,Vector3,VertexBuffer} from "@babylonjs/core";
 export type HumanBounds={cx:number;bottom:number;height:number};
@@ -23,36 +24,12 @@ const smooth=(a:number,b:number,x:number)=>{
 export function posturePoint105(p:HumanPosePoint,b:HumanBounds,phase:HumanPosePhase):HumanPosePoint{
  const h=b.height,relativeY=(p.y-b.bottom)/h;
  const side=p.x<b.cx?-1:1;
- // The old .19h shoulder pivot plus a .16h weight ramp left the entire
- // biceps/triceps horizontal and lowered only the forearm. Anchor at the
- // torso-to-arm seam and finish the blend within a few centimeters instead.
- const sx=b.cx+side*.15*h,sy=b.bottom+.79*h;
+ // CHAR-107: THE SOURCE CHARACTER HAS A REAL 73-JOINT SKELETON.
+ // Arm and jacket geometry MUST remain in the author's original bind space.
+ // LeftArm / RightArm joint rotations (in the loaded Babylon skeleton) now
+ // create the relaxed pose. Only below-hip geometry continues to receive
+ // the existing experimental leg movement while gait awaits verification.
  let x=p.x,y=p.y,z=p.z;
- // Rotate the UPPER arm and forearm together from the shoulder. Keep a narrow
- // blend only where shoulder cloth meets torso; avoid an elbow-only hinge.
- if(relativeY>.52){
-   const outward=side*(p.x-sx)/h;
-   const w=smooth(-.012,.019,outward)*smooth(.59,.75,relativeY);
-   if(w>0){
-     const angle=-side*1.55;
-     const dx=p.x-sx,dy=p.y-sy;
-     let ax=sx+Math.cos(angle)*dx-Math.sin(angle)*dy;
-     let ay=sy+Math.sin(angle)*dx+Math.cos(angle)*dy;
-     // CHAR-106: a pure quarter-turn still leaves a raised shoulder cap:
-     // source vertices higher than the pivot swing sideways as they rotate.
-     // Settle the proximal sleeve/upper arm inward and downward, without
-     // touching chest seams or dragging wrists toward the knees.
-     const proximal=smooth(.02,.09,outward)
-       *(1-smooth(.23,.39,outward))
-       *smooth(.69,.79,relativeY);
-     ax-=side*.045*h*proximal;
-     ay-=.055*h*proximal;
-     x+=(ax-p.x)*w;
-     y+=(ay-p.y)*w;
-     // No experimental arm swing until relaxed pose is visually accepted.
-     // Walking leg poses remain unchanged.
-   }
- }
  // Walking test: advance alternating legs around hip (no vehicle/flying pose).
  if(phase!=="idle"&&relativeY<.47){
    const hip=b.bottom+.45*h;

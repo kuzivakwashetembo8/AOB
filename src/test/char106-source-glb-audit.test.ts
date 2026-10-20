@@ -34,7 +34,19 @@ describe("CHAR-106 owner human GLB source capability audit",()=>{
      skinnedMeshes:gltf.meshes?.map((m,i)=>({i,name:m.name??"",hasJoints:(m.primitives??[]).some(p=>Object.keys(p.attributes??{}).some(k=>/^JOINTS_/i.test(k))),hasWeights:(m.primitives??[]).some(p=>Object.keys(p.attributes??{}).some(k=>/^WEIGHTS_/i.test(k)))})).filter(m=>m.hasJoints||m.hasWeights).slice(0,35),
      animations:animations.map(a=>({name:a.name??"",channels:a.channels?.length??0,animatedNames:[...new Set((a.channels??[]).map(c=>nodes[c.target?.node??-1]?.name??"unknown"))].slice(0,25)})),
    };
-   console.info("CHAR106_SOURCE_AUDIT_JSON="+JSON.stringify(summary));
+   console.info("CHAR107_RIG_RESULT="+JSON.stringify({
+     skinCount:skins.length,
+     jointCount:skins.map(s=>s.joints.length),
+     sourceArmJoints:nodes.filter(n=>/^(Left|Right)(Shoulder|Arm|ForeArm)$/.test(n.name??"")).map(n=>({
+       name:n.name,rotation:n.rotation??null,translation:n.translation??null
+     })),
+     animations:summary.animations.map(a=>({name:a.name,channels:a.channels})),
+     skinnedMeshCount:summary.skinnedMeshes?.length??0
+   }));
+   expect(skins.length).toBeGreaterThan(0);
+   for(const name of ["LeftShoulder","LeftArm","LeftForeArm",
+      "RightShoulder","RightArm","RightForeArm"])
+     expect(nodes.some(n=>n.name===name)).toBe(true);
    expect(bytes.length).toBeGreaterThan(100000);
    expect(nodes.length).toBeGreaterThan(0);
  });

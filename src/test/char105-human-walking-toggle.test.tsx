@@ -22,29 +22,17 @@ describe("CHAR-105 imported-human walking gate",()=>{
    fireEvent.click(screen.getByRole("button",{name:/APPLY & RESUME/}));
    expect(apply).toHaveBeenCalledWith(expect.objectContaining({enableCharacter:true}));
  });
- it("lowers T-posed left and right hands but does not deform torso",()=>{
+ it("never reshapes upper-arm, shoulders, jacket or hands by x/y heuristics",()=>{
    const bounds={cx:0,bottom:0,height:2};
-   const l=posturePoint105({x:-.88,y:1.56,z:0},bounds,"idle");
-   const r=posturePoint105({x:.88,y:1.56,z:0},bounds,"idle");
-   const chest=posturePoint105({x:0,y:1.3,z:0},bounds,"idle");
-   expect(l.y).toBeLessThan(1.2);
-   expect(r.y).toBeLessThan(1.2);
-   expect(chest).toEqual({x:0,y:1.3,z:0});
- });
- it("lowers the UPPER arms with elbows and wrists instead of bending at the elbow",()=>{
-   const b={cx:0,bottom:0,height:2};
-   for(const side of [-1,1]){
-     const shoulder={x:side*.34,y:1.58,z:0};
-     const upperArm={x:side*.48,y:1.55,z:0};
-     const wrist={x:side*.86,y:1.53,z:0};
-     const top=posturePoint105(shoulder,b,"idle");
-     const elbow=posturePoint105(upperArm,b,"idle");
-     const hand=posturePoint105(wrist,b,"idle");
-     // Upper arm must follow the arm downward, not remain in T-pose.
-     expect(elbow.y).toBeLessThan(1.41);
-     expect(hand.y).toBeLessThan(1.03);
-     expect(Math.abs(elbow.x)).toBeLessThan(Math.abs(upperArm.x));
-     expect(Math.abs(top.x)).toBeLessThan(.42);
+   const locations=[
+     {x:-.6,y:1.57,z:.03},{x:.6,y:1.57,z:.03},
+     {x:-1.2,y:1.54,z:.05},{x:1.2,y:1.54,z:.05},
+     {x:-.25,y:1.67,z:0},{x:.25,y:1.67,z:0},
+     {x:0,y:1.3,z:.1}
+   ];
+   for(const p of locations){
+     for(const phase of ["idle","left","right"] as const)
+       expect(posturePoint105(p,bounds,phase)).toEqual(p);
    }
  });
  it("applies static-only PI orientation; playable facing matches travel",()=>{
@@ -57,28 +45,6 @@ describe("CHAR-105 imported-human walking gate",()=>{
      expect(Math.cos(yaw)).toBeCloseTo(dz,5);
      expect(travel.travelX).toBeCloseTo(dx,5);
      expect(travel.travelZ).toBeCloseTo(dz,5);
-   }
- });
- it("applies a proximal shoulder relaxation without pulling torso or hands",()=>{
-   const b={cx:0,bottom:0,height:2};
-   for(const side of [-1,1] as const){
-     const shoulder={x:side*.5,y:1.64,z:0};
-     const upper={x:side*.62,y:1.56,z:0};
-     const wrist={x:side*1.46,y:1.54,z:0};
-     const chest={x:side*.19,y:1.62,z:0};
-     const referenceShoulder=posturePoint105(shoulder,b,"idle");
-     const droppedUpper=posturePoint105(upper,b,"idle");
-     const walkingShoulder=posturePoint105(shoulder,b,"left");
-     // Both upper-arm and upper sleeve should relax near the torso.
-     expect(Math.abs(referenceShoulder.x)).toBeLessThan(.34);
-     expect(referenceShoulder.y).toBeLessThan(1.37);
-     expect(Math.abs(droppedUpper.x)).toBeLessThan(.32);
-     expect(droppedUpper.y).toBeLessThan(1.28);
-     // The shoulder stays neutral while legs perform the walking trial.
-     expect(walkingShoulder).toEqual(referenceShoulder);
-     expect(posturePoint105(chest,b,"idle")).toEqual(chest);
-     // The wrist is not subjected to the new proximal shoulder correction.
-     expect(posturePoint105(wrist,b,"idle").y).toBeGreaterThan(0);
    }
  });
  it("moves opposite legs through distinct reversible walking poses",()=>{
