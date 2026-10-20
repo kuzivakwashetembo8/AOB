@@ -59,6 +59,28 @@ describe("CHAR-105 imported-human walking gate",()=>{
      expect(travel.travelZ).toBeCloseTo(dz,5);
    }
  });
+ it("applies a proximal shoulder relaxation without pulling torso or hands",()=>{
+   const b={cx:0,bottom:0,height:2};
+   for(const side of [-1,1] as const){
+     const shoulder={x:side*.5,y:1.64,z:0};
+     const upper={x:side*.62,y:1.56,z:0};
+     const wrist={x:side*1.46,y:1.54,z:0};
+     const chest={x:side*.19,y:1.62,z:0};
+     const referenceShoulder=posturePoint105(shoulder,b,"idle");
+     const droppedUpper=posturePoint105(upper,b,"idle");
+     const walkingShoulder=posturePoint105(shoulder,b,"left");
+     // Both upper-arm and upper sleeve should relax near the torso.
+     expect(Math.abs(referenceShoulder.x)).toBeLessThan(.34);
+     expect(referenceShoulder.y).toBeLessThan(1.37);
+     expect(Math.abs(droppedUpper.x)).toBeLessThan(.32);
+     expect(droppedUpper.y).toBeLessThan(1.28);
+     // The shoulder stays neutral while legs perform the walking trial.
+     expect(walkingShoulder).toEqual(referenceShoulder);
+     expect(posturePoint105(chest,b,"idle")).toEqual(chest);
+     // The wrist is not subjected to the new proximal shoulder correction.
+     expect(posturePoint105(wrist,b,"idle").y).toBeGreaterThan(0);
+   }
+ });
  it("moves opposite legs through distinct reversible walking poses",()=>{
    const bounds={cx:0,bottom:0,height:2};
    const source={x:-.14,y:.25,z:0};

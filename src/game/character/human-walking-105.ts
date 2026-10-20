@@ -36,11 +36,21 @@ export function posturePoint105(p:HumanPosePoint,b:HumanBounds,phase:HumanPosePh
    if(w>0){
      const angle=-side*1.55;
      const dx=p.x-sx,dy=p.y-sy;
-     const ax=sx+Math.cos(angle)*dx-Math.sin(angle)*dy;
-     const ay=sy+Math.sin(angle)*dx+Math.cos(angle)*dy;
+     let ax=sx+Math.cos(angle)*dx-Math.sin(angle)*dy;
+     let ay=sy+Math.sin(angle)*dx+Math.cos(angle)*dy;
+     // CHAR-106: a pure quarter-turn still leaves a raised shoulder cap:
+     // source vertices higher than the pivot swing sideways as they rotate.
+     // Settle the proximal sleeve/upper arm inward and downward, without
+     // touching chest seams or dragging wrists toward the knees.
+     const proximal=smooth(.02,.09,outward)
+       *(1-smooth(.23,.39,outward))
+       *smooth(.69,.79,relativeY);
+     ax-=side*.045*h*proximal;
+     ay-=.055*h*proximal;
      x+=(ax-p.x)*w;
      y+=(ay-p.y)*w;
-     if(phase!=="idle")z+=w*(side*(phase==="left"?1:-1))*.06*h;
+     // No experimental arm swing until relaxed pose is visually accepted.
+     // Walking leg poses remain unchanged.
    }
  }
  // Walking test: advance alternating legs around hip (no vehicle/flying pose).
