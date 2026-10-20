@@ -53,11 +53,11 @@ describe("LOAD-062 native fleet transport failure recovery",()=>{
     await expect(promise).rejects.toMatchObject({code:"load_cancelled"});
     expect(fail).toHaveBeenCalledTimes(1);
   });
-  it("exposes sanitized local JSON download only during startup failure",()=>{
+  it("exposes local JSON during normal loading and startup failure",()=>{
     const download=vi.fn();
     const screenView=render(<BootstrapOverlay entries={initialStartupChecklist()}
       error="Range Rover failed" onDownloadStartupDiagnostics={download}/>);
-    fireEvent.click(screen.getByRole("button",{name:"Download startup diagnostics (JSON)"}));
+    fireEvent.click(screen.getByRole("button",{name:"Download measured startup diagnostics (JSON)"}));
     expect(download).toHaveBeenCalledTimes(1);
     const data=composeStartupFailureEvidence("Range Rover failed",
       initialStartupChecklist(),{assets:[{asset_id:"gtd-veh006-mercer-range-rover",
@@ -69,8 +69,10 @@ describe("LOAD-062 native fleet transport failure recovery",()=>{
     }]});
     expect(JSON.stringify(data)).not.toContain("127.0.0.1");
     screenView.unmount();
-    const view=render(<BootstrapOverlay entries={initialStartupChecklist()}/>);
-    expect(screen.queryByRole("button",{name:/Download startup diagnostics/})).toBeNull();
+    const view=render(<BootstrapOverlay entries={initialStartupChecklist()}
+      onDownloadStartupDiagnostics={download}/>);
+    expect(screen.getByRole("button",
+      {name:"Download measured startup diagnostics (JSON)"})).toBeTruthy();
     view.unmount();
   });
 });
