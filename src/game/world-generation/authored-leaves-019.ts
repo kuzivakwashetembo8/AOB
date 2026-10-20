@@ -1,6 +1,7 @@
 /** GTD-TREE-019 — the owner-authored 3D leaves.glb, installed ONCE as a
  * shared GLB container then distributed across the existing deterministic
- * city-tree canopy centres. No new trees, trunks, colliders, textures or lots.
+ * city-tree canopy centres. TREE-020 adds six inward lower crown sprays.
+ * No new trees, trunks, colliders, textures or lots.
  *
  * GLB provenance: public/GLBs/Nature/leaves.glb, Git blob
  * bae1b8731940915e7d55ebb399021058eaa1710c
@@ -9,11 +10,53 @@
 import {AbstractMesh,Mesh,TransformNode,loadAssetContainerAsync} from "@babylonjs/core";
 import type {Scene,AssetContainer} from "@babylonjs/core";
 import {planTreeCanopy} from "./tree-canopy";
+import {featureRandom} from "./seeded-variation";
 import type {StreetContextItem} from "./street-context";
 
 export const AUTHORED_3D_LEAVES_PATH="/GLBs/Nature/leaves.glb";
 export const AUTHORED_3D_LEAVES_GIT_BLOB="bae1b8731940915e7d55ebb399021058eaa1710c";
-export const LEAVES_019_GROUPS_PER_TREE=10;
+// TREE-020: ten accepted outer sprays + six smaller lower/inner fill sprays.
+// Source geometry and materials are reused from one network-loaded leaves.glb.
+export const LEAVES_019_OUTER_GROUPS_PER_TREE=10;
+export const LEAVES_019_INNER_GROUPS_PER_TREE=6;
+export const LEAVES_019_GROUPS_PER_TREE=
+  LEAVES_019_OUTER_GROUPS_PER_TREE+LEAVES_019_INNER_GROUPS_PER_TREE;
+
+export interface DenseFoliageGroup020{
+  readonly x:number;readonly y:number;readonly z:number;
+  readonly yaw:number;readonly size:number;
+}
+
+/** Deterministic 16-source-spray envelope, close-filled around the trunk tip.
+ * Inner sprays sit at 4.70–5.22m, bridging the 5.05m straight trunk to the
+ * accepted taller 5–6m outer foliage, rather than widening tree placement.
+ */
+export function planDenseFoliageGroups020(
+  tree:Pick<StreetContextItem,"scale"|"canopyScale"|"seed">,
+  version:number,
+):readonly DenseFoliageGroup020[]{
+  const cards=planTreeCanopy(tree,version).cards;
+  if(cards.length!==LEAVES_019_OUTER_GROUPS_PER_TREE*3)
+    throw Error("TREE-020: accepted 30-card fallback centres changed");
+  const groups:DenseFoliageGroup020[]=[];
+  for(let k=0;k<LEAVES_019_OUTER_GROUPS_PER_TREE;k++){
+    const c=cards[k*3]!;
+    groups.push({x:c.x,y:c.y,z:c.z,yaw:c.yaw,size:1});
+  }
+  for(let k=0;k<LEAVES_019_INNER_GROUPS_PER_TREE;k++){
+    const jitter=featureRandom(tree.seed,version,"dense-tree-inner:"+k);
+    const angle=(k+jitter*.2)*Math.PI/3;
+    const radius=.50+.52*featureRandom(tree.seed,version,"dense-tree-radius:"+k);
+    groups.push({
+      x:Math.cos(angle)*radius,
+      y:4.70+(k%3)*.20 +.10*jitter,
+      z:Math.sin(angle)*radius,
+      yaw:angle,
+      size:.90+.07*jitter,
+    });
+  }
+  return groups;
+}
 export interface TreeFoliageSlot019{
   readonly item:StreetContextItem;
   readonly generatorVersion:number;
@@ -89,12 +132,12 @@ export async function applyAuthoredLeaves019(
     let envelope:ReturnType<typeof modelEnvelope>|null=null;
     for(const tree of slots){
       if(options.cancelled?.())break;
-      const centres=planTreeCanopy(tree.item,tree.generatorVersion).cards;
-      if(centres.length!==LEAVES_019_GROUPS_PER_TREE*3)
-        throw Error("TREE-019 canopy grammar changed; do not misplace leaves");
+      const centres=planDenseFoliageGroups020(tree.item,tree.generatorVersion);
+      if(centres.length!==LEAVES_019_GROUPS_PER_TREE)
+        throw Error("TREE-020 dense canopy group count mismatch");
       for(let k=0;k<LEAVES_019_GROUPS_PER_TREE;k++){
         if(options.cancelled?.())break;
-        const cluster=centres[k*3]!;
+        const cluster=centres[k]!;
         const instance=asset.instantiateModelsToScene(
           name=>"leaves019:"+tree.item.id+":"+k+":"+name,true);
         instances.push(instance);
@@ -108,9 +151,10 @@ export async function applyAuthoredLeaves019(
           "leaves019-source-fit:"+tree.item.id+":"+k,scene);
         normalized.parent=crown;
         created.push(normalized);
-        // Spread the original 3D sprays into 10 overlapping volumes forming
-        // the crown. Scale remains uniform, never stretching 3D leaves flat.
-        const ratio=Math.min(
+        // Ten accepted outer sprays, then six smaller central sprays near the
+        // trunk tip. The original source remains 3D and uniformly scaled.
+        // No additional downloads, trees, colliders or texture materials.
+        const ratio=cluster.size*Math.min(
           2.05/envelope.maxDimension,1.40/envelope.vertical,100);
         normalized.scaling.setAll(ratio);
         normalized.position.set(
