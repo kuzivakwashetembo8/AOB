@@ -1,7 +1,8 @@
 # GTD Character Capability Transfer Program — CHAR-108–114
 Date: 2026-10-21
 Branch: feat/char-105-human-walking-toggle-20261020
-State: planning first, implement 108/109 only; no main merge
+State: reference plan; **CHAR-109 accepted and integration authorized on 2026-10-21**. CHAR-114 remains pending final parity and graduation gate.
+Acceptance and morning handoff: `documentations/Development/GTD-CHAR-109-Accepted-Posture-and-CHAR-114-Handoff-2026-10-21.md`.
 
 Evidence: GTD human source glTF reports 73 bones and names LeftShoulder, LeftArm, LeftForeArm, RightShoulder, RightArm, RightForeArm. Earlier shoulder-pushing patches CHAR-105–107 failed; latest source-bone attempt showed T-pose. Preserve established movement facing direction. Josh ref: interlinkglobal/three-player-controller example/glTF.js and src/PlayerController.ts / AnimationSystem.ts / FootIK.ts. Josh example config: idle1, walk, run, jump/Jump_Loop/Jump_Land, fly/flyIdle/directional hovering, Driving_Loop, head mixamorigHead. These are configured clip references, not proof GTD's human contains them.
 
