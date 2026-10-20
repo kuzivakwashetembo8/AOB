@@ -1064,9 +1064,13 @@ export class GTDGameRuntime implements GameRuntime {
   }
 
   /** CHAR-105 — one Rapier player and one camera, reversible visual actor. */
+  private humanAsset(){
+    return this.world&&isGeneratedFirstLightWorld(this.world)
+      ? this.world.staticMercerCharacter : null;
+  }
   private switchHumanCharacter(enabled:boolean):void{
     if(enabled===this.humanCharacterEnabled)return;
-    const actor=this.world?.staticMercerCharacter;
+    const actor=this.humanAsset();
     const physics=this.physics,voight=this.voight,camera=this.camera;
     if(!actor||!physics||!voight||!camera||this.lifecycle==="destroyed"){
       this.emit({type:"interaction",label:"Human character asset not ready"});
@@ -1314,7 +1318,7 @@ export class GTDGameRuntime implements GameRuntime {
     if (headingStep) {
       voight.root.rotation.y = headingStep.yaw;
       if(this.humanCharacterEnabled)
-        this.world?.staticMercerCharacter?.updateControlled(
+        this.humanAsset()?.updateControlled(
           position,headingStep.yaw,correctedPlanarMps,dt);
       this.locomotionTick++;
       if (this.locomotionTick % 3 === 0) {
