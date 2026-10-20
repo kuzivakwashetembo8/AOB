@@ -8,8 +8,8 @@ import {evaluateWheelRigAdmission} from "../game/vehicles/mvrs-wheel-admission-0
 
 describe("VEH-015 BMW M4 and original Lamborghini Temerario wheel-qualified drive onboarding",()=>{
   const placements=[
-    ["gtd-veh014-mercer-bmw-m4","BMW M4","/bmw_m4_competition_m_package%20(1).glb",-25.95],
-    ["gtd-veh014-mercer-lamborghini-temerario","Lamborghini Temerario","/Lamborghini%2BTemerario.glb",-47.55],
+    ["gtd-veh014-mercer-bmw-m4","BMW M4","/GLBs/Cars/bmw_m4_competition_m_package%20(1).glb",-25.95],
+    ["gtd-veh014-mercer-lamborghini-temerario","Lamborghini Temerario","/GLBs/Cars/Lamborghini%2BTemerario.glb",-47.55],
   ] as const;
   it("registers both locally supplied originals for the inherited +Z driving actor",()=>{
     for(const [id,name,url,x] of placements){

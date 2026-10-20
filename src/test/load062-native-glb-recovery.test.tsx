@@ -11,7 +11,7 @@ describe("LOAD-062 native fleet transport failure recovery",()=>{
   it("retries one status:0 request and preserves the same original asset source",async()=>{
     const requests:string[]=[];
     const fetchLocal=vi.fn(async()=>{
-      requests.push("/Range%20Rover%20Sports%202018%20(.GLB).glb");
+      requests.push("/GLBs/Cars/Range%20Rover%20Sports%202018%20(.GLB).glb");
       if(requests.length===1)throw Error("LoadFileError: Error status: 0");
       return {name:"original Rover container"};
     });

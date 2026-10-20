@@ -13,11 +13,11 @@ import {ALL_EXTENSIONS} from "@gltf-transform/extensions";
 import draco3d from "draco3dgltf";
 
 const SOURCES=[
- ["toyota-hilux-002","public/toyota hilux 002.glb"],
- ["land-rover-defender-001","public/Land rover defender 001.glb"],
- ["dodge-hp","public/dodge_HP.glb"],
- ["bmw-m4-competition","public/bmw_m4_competition_m_package (1).glb"],
- ["lamborghini-temerario","public/Lamborghini+Temerario.glb"],
+ ["toyota-hilux-002","public/GLBs/Cars/toyota hilux 002.glb"],
+ ["land-rover-defender-001","public/GLBs/Cars/Land rover defender 001.glb"],
+ ["dodge-hp","public/GLBs/Cars/GLBs/Cars/dodge_HP.glb"],
+ ["bmw-m4-competition","public/GLBs/Cars/bmw_m4_competition_m_package (1).glb"],
+ ["lamborghini-temerario","public/GLBs/Cars/Lamborghini+Temerario.glb"],
 ];
 function analyzePositions(sourcePositions,idx,matrix){
  const pos=new Float32Array(sourcePositions.length);

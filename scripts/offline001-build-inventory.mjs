@@ -17,16 +17,16 @@ if(!candidates.length)throw Error("OFFLINE-001 audit: no built output to inspect
 const deploy=candidates[0];
 const OUT="offline001-asset-inventory.json";
 const REQUIRED=[
-  "offline001/character/ual.glb",
+  "GLBs/Characters/ual.glb",
   "offline001/draco/draco_wasm_wrapper_gltf.js",
   "offline001/draco/draco_decoder_gltf.wasm",
   "offline001/draco/draco_decoder_gltf.js",
-  "Range Rover Sports 2018 (.GLB).glb",
-  "toyota hilux 002.glb",
-  "Land rover defender 001.glb",
-  "dodge_HP.glb",
-  "bmw_m4_competition_m_package (1).glb",
-  "Lamborghini+Temerario.glb",
+  "GLBs/Cars/Range Rover Sports 2018 (.GLB).glb",
+  "GLBs/Cars/toyota hilux 002.glb",
+  "GLBs/Cars/Land rover defender 001.glb",
+  "GLBs/Cars/dodge_HP.glb",
+  "GLBs/Cars/bmw_m4_competition_m_package (1).glb",
+  "GLBs/Cars/Lamborghini+Temerario.glb",
   "offline001/fonts/barlow/Barlow-Regular.ttf",
   "offline001/fonts/barlow/Barlow-Medium.ttf",
   "offline001/fonts/barlow/Barlow-SemiBold.ttf",
@@ -60,12 +60,12 @@ const files=visit(deploy).filter(p=>relative(deploy,p).replaceAll(sep,"/")!==OUT
   return item;
 }).sort((a,b)=>a.path.localeCompare(b.path));
 const vehicleSources=[
-  ["Range Rover Sport 2018","Range Rover Sports 2018 (.GLB).glb"],
-  ["Toyota Hilux","toyota hilux 002.glb"],
-  ["Land Rover Defender","Land rover defender 001.glb"],
-  ["Dodge HP","dodge_HP.glb"],
-  ["BMW M4","bmw_m4_competition_m_package (1).glb"],
-  ["Lamborghini Temerario","Lamborghini+Temerario.glb"],
+  ["Range Rover Sport 2018","GLBs/Cars/Range Rover Sports 2018 (.GLB).glb"],
+  ["Toyota Hilux","GLBs/Cars/toyota hilux 002.glb"],
+  ["Land Rover Defender","GLBs/Cars/Land rover defender 001.glb"],
+  ["Dodge HP","GLBs/Cars/dodge_HP.glb"],
+  ["BMW M4","GLBs/Cars/bmw_m4_competition_m_package (1).glb"],
+  ["Lamborghini Temerario","GLBs/Cars/Lamborghini+Temerario.glb"],
 ];
 const vehicleSizes=vehicleSources.map(([name,path])=>({
   name,path,bytes:hashes.get(path)?.bytes??null,

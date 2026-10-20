@@ -29,7 +29,7 @@ export const MERIDIA_TRIAL_SOURCE = {
   referenceCommit: "ca82bbc76a3b9b0afa80c73b60167adf6123b9b6",
   sourceBlobSha: "e236f349526637a5c829c408d48ce9d8fcde9cff",
   sourceBytes: 3749364,
-  rootUrl: "/offline001/character/",
+  rootUrl: "/GLBs/Characters/",
   // Build-time downloaded, source-SHA-verified from the pinned reference commit.
   fileName: "ual.glb",
 } as const;

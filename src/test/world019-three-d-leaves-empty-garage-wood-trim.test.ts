@@ -18,8 +18,8 @@ import {planStreetContext} from "../game/world-generation/street-context";
 
 describe("GTD-TREE/MAT/WORLD-019 owner-directed cleanups",()=>{
   it("uses the exact latest committed owner-authored leaves GLB with actual 3D mesh geometry",()=>{
-    expect(AUTHORED_3D_LEAVES_PATH).toBe("/leaves.glb");
-    const bytes=readFileSync(join(process.cwd(),"public/leaves.glb"));
+    expect(AUTHORED_3D_LEAVES_PATH).toBe("/GLBs/Nature/leaves.glb");
+    const bytes=readFileSync(join(process.cwd(),"public/GLBs/Nature/GLBs/Nature/leaves.glb"));
     const gitBlob=createHash("sha1")
       .update(Buffer.from("blob "+bytes.length+"\0")).update(bytes).digest("hex");
     expect(gitBlob).toBe(AUTHORED_3D_LEAVES_GIT_BLOB);

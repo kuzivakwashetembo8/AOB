@@ -11,18 +11,18 @@ describe("VEH-011 authentic five-model driving on Mercer",()=>{
     expect(rover).toBeTruthy();
     expect(rover?.visualOnly).not.toBe(true);
     expect(toyota?.visualOnly).toBe(false);
-    expect(toyota?.url).toBe("/toyota%20hilux%20002.glb");
+    expect(toyota?.url).toBe("/GLBs/Cars/toyota%20hilux%20002.glb");
     expect(MERCER_EXTRA_GLB_SPECS).toHaveLength(6);
   });
   it("keeps both new original GLBs drive eligible",()=>{
     const defender=MERCER_EXTRA_GLB_SPECS.find(p=>p.id==="gtd-veh009-mercer-land-rover-defender");
     const dodge=MERCER_EXTRA_GLB_SPECS.find(p=>p.id==="gtd-veh010-mercer-dodge-hp");
     expect(defender).toMatchObject({
-      url:"/Land%20rover%20defender%20001.glb",
+      url:"/GLBs/Cars/Land%20rover%20defender%20001.glb",
       sourceBytesKnown:426228,visualOnly:false,
     });
     expect(dodge).toMatchObject({
-      url:"/dodge_HP.glb",sourceBytesKnown:1954504,visualOnly:false,
+      url:"/GLBs/Cars/dodge_HP.glb",sourceBytesKnown:1954504,visualOnly:false,
     });
     expect(new Set(MERCER_EXTRA_GLB_SPECS.map(p=>p.id)).size).toBe(6);
     expect(MERCER_EXTRA_GLB_SPECS.filter(p=>p.visualOnly!==true)).toHaveLength(6);
@@ -42,11 +42,11 @@ describe("VEH-011 authentic five-model driving on Mercer",()=>{
     const bmw=MERCER_EXTRA_GLB_SPECS.find(p=>p.id==="gtd-veh014-mercer-bmw-m4");
     const lamborghini=MERCER_EXTRA_GLB_SPECS.find(p=>p.id==="gtd-veh014-mercer-lamborghini-temerario");
     expect(bmw).toMatchObject({
-      url:"/bmw_m4_competition_m_package%20(1).glb",
+      url:"/GLBs/Cars/bmw_m4_competition_m_package%20(1).glb",
       x:-25.95,z:10.55,visualOnly:false,sourceBytesKnown:1928276,
     });
     expect(lamborghini).toMatchObject({
-      url:"/Lamborghini%2BTemerario.glb",
+      url:"/GLBs/Cars/Lamborghini%2BTemerario.glb",
       x:-47.55,z:10.55,visualOnly:false,sourceBytesKnown:4499268,
     });
     const existingCar=planStreetContext(FIRST_LIGHT_CITY_SPEC).items.find(p=>

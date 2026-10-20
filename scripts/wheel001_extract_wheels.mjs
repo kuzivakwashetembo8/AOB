@@ -10,10 +10,10 @@ import {resolve} from "node:path";
 import {pathToFileURL} from "node:url";
 
 const models=[
- ["toyota-hilux-002","public/toyota hilux 002.glb"],
- ["land-rover-defender-001","public/Land rover defender 001.glb"],
- ["dodge-hp","public/dodge_HP.glb"],
- ["bmw-m4-competition","public/bmw_m4_competition_m_package (1).glb"],
+ ["toyota-hilux-002","public/GLBs/Cars/toyota hilux 002.glb"],
+ ["land-rover-defender-001","public/GLBs/Cars/Land rover defender 001.glb"],
+ ["dodge-hp","public/GLBs/Cars/GLBs/Cars/dodge_HP.glb"],
+ ["bmw-m4-competition","public/GLBs/Cars/bmw_m4_competition_m_package (1).glb"],
 ];
 const corners=["frontLeft","frontRight","rearLeft","rearRight"];
 const sha=b=>createHash("sha256").update(b).digest("hex");
@@ -430,7 +430,7 @@ async function convertBMW(binary,model,io){
 }
 
 async function main(){
- const base="public/wheel001-generated";await mkdir(base,{recursive:true});
+ const base="public/GLBs/Cars/Generated";await mkdir(base,{recursive:true});
  const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
   "draco3d.decoder":await draco3d.createDecoderModule(),
   "draco3d.encoder":await draco3d.createEncoderModule(),

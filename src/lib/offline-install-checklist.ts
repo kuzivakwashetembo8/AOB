@@ -29,17 +29,17 @@ const GROUPS:ReadonlyArray<{id:OfflineChecklistSection;title:string}> = [
 export function vehicleForResource(url:string):OfflineVehicleId|null {
   const path=decodeURIComponent(url).toLowerCase();
   if(path.includes("range rover sports 2018"))return "range-rover";
-  if(path.includes("toyota hilux 002") || path.includes("wheel001-generated/toyota-hilux-002"))return "hilux";
-  if(path.includes("land rover defender 001") || path.includes("wheel001-generated/land-rover-defender-001"))return "defender";
-  if(path.includes("dodge_hp") || path.includes("wheel001-generated/dodge-hp"))return "dodge";
-  if(path.includes("bmw_m4_competition") || path.includes("wheel001-generated/bmw-m4-competition"))return "bmw";
+  if(path.includes("toyota hilux 002") || path.includes("glbs/cars/generated/toyota-hilux-002"))return "hilux";
+  if(path.includes("land rover defender 001") || path.includes("glbs/cars/generated/land-rover-defender-001"))return "defender";
+  if(path.includes("dodge_hp") || path.includes("glbs/cars/generated/dodge-hp"))return "dodge";
+  if(path.includes("bmw_m4_competition") || path.includes("glbs/cars/generated/bmw-m4-competition"))return "bmw";
   if(path.includes("lamborghini+temerario"))return "lamborghini";
   return null;
 }
 export function groupForResource(url:string):OfflineChecklistSection {
   const path=decodeURIComponent(url).toLowerCase();
   if(vehicleForResource(url))return "vehicles";
-  if(path.startsWith("/offline001/character/"))return "voight";
+  if(path.startsWith("/glbs/characters/"))return "voight";
   if(path.endsWith(".wasm") || path.startsWith("/offline001/draco/") ||
     /^\/assets\/(?:gtd-runtime|generated-first-light-world|gltf-|thinengine|physics-|rapier)/.test(path))
     return "engine";

@@ -10,7 +10,7 @@ import {resolve, join} from "node:path";
 
 const root=resolve(process.cwd());
 const out=join(root,"public","offline001");
-const charDir=join(out,"character");
+const charDir=join(root,"public","GLBs","Characters");
 const decoderDir=join(out,"draco");
 const fontDir=join(out,"fonts");
 // Google Fonts OFL source files are pinned by both expected size and exact Git blob.

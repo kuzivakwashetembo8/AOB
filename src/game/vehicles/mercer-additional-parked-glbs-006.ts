@@ -25,13 +25,13 @@ export type MercerExtra006Spec=Readonly<{
 export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
   {
     id:"gtd-veh006-mercer-range-rover",label:"Range Rover Sport 2018",
-    url:"/Range%20Rover%20Sports%202018%20(.GLB).glb",
+    url:"/GLBs/Cars/Range%20Rover%20Sports%202018%20(.GLB).glb",
     x:-5.45,z:10.55,width:2.03,height:1.80,length:4.85,yaw:Math.PI/2,
     sourceBytesKnown:24349788,
   },
   {
     id:"gtd-veh008-mercer-toyota-hilux",label:"Toyota Hilux 002",
-    url:"/toyota%20hilux%20002.glb",
+    url:"/GLBs/Cars/toyota%20hilux%20002.glb",
     // Same Mercer lane as the Rover, separated by a full vehicle length
     // plus a clearance gap for walking around both parking specimens.
     x:-13.45,z:10.55,width:2.15,height:1.87,length:5.25,yaw:Math.PI/2,
@@ -41,7 +41,7 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
   {
     // Owner-accepted original Defender model, now eligible for drive trials.
     id:"gtd-veh009-mercer-land-rover-defender",label:"Land Rover Defender 001",
-    url:"/Land%20rover%20defender%20001.glb",
+    url:"/GLBs/Cars/Land%20rover%20defender%20001.glb",
     x:-31.9,z:10.55,width:2.10,height:2.02,length:4.75,yaw:Math.PI/2,
     visualOnly:false,
     sourceBytesKnown:426228,
@@ -49,7 +49,7 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
   {
     // Source name is Dodge HP; exact variant not yet verified.
     id:"gtd-veh010-mercer-dodge-hp",label:"Dodge HP",
-    url:"/dodge_HP.glb",
+    url:"/GLBs/Cars/dodge_HP.glb",
     x:-39.7,z:10.55,width:2.06,height:1.87,length:5.10,yaw:Math.PI/2,
     visualOnly:false,
     sourceBytesKnown:1954504,
@@ -57,7 +57,7 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
   {
     // Sixth physical traffic-review specimen; static until separately authorized.
     id:"gtd-veh014-mercer-bmw-m4",label:"BMW M4 Competition M Package",
-    url:"/bmw_m4_competition_m_package%20(1).glb",
+    url:"/GLBs/Cars/bmw_m4_competition_m_package%20(1).glb",
     // South Ward Mercer roadway, clear of the procedural car near x=-20.5.
     x:-25.95,z:10.55,width:1.93,height:1.46,length:4.80,yaw:Math.PI/2,
     visualOnly:false,
@@ -66,7 +66,7 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
   {
     // Original Temerario GLB with source materials, no traffic AI or driving rig.
     id:"gtd-veh014-mercer-lamborghini-temerario",label:"Lamborghini Temerario",
-    url:"/Lamborghini%2BTemerario.glb",
+    url:"/GLBs/Cars/Lamborghini%2BTemerario.glb",
     // VEH-016: source-labelled front control nodes are at negative X.
     // The accepted parking fit displayed the bonnet behind the +Z chassis;
     // a 180-degree VISUAL correction aligns it with real forward throttle.
@@ -159,13 +159,13 @@ export function createMercerExtraParkedGLBs(
       // including an unchanged original fallback on failed qualification.
       const derivative:Record<string,string>={
         "gtd-veh008-mercer-toyota-hilux":
-          "/wheel001-generated/toyota-hilux-002.glb",
+          "/GLBs/Cars/Generated/toyota-hilux-002.glb",
         "gtd-veh009-mercer-land-rover-defender":
-          "/wheel001-generated/land-rover-defender-001.glb",
+          "/GLBs/Cars/Generated/land-rover-defender-001.glb",
         "gtd-veh010-mercer-dodge-hp":
-          "/wheel001-generated/dodge-hp.glb",
+          "/GLBs/Cars/Generated/dodge-hp.glb",
         "gtd-veh014-mercer-bmw-m4":
-          "/wheel001-generated/bmw-m4-competition.glb",
+          "/GLBs/Cars/Generated/bmw-m4-competition.glb",
       };
       const runtimeUrl=import.meta.env.PROD
         ?(derivative[spec.id]??spec.url):spec.url;

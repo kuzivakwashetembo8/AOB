@@ -8,7 +8,7 @@ import {resolve} from "node:path";
 describe("VEH007 Range Rover source-GLB wheel and cabin hierarchy audit",()=>{
   it("reports original nodes, meshes, wheel geometry, and steering references",()=>{
     const binary=readFileSync(resolve(process.cwd(),
-      "public/Range Rover Sports 2018 (.GLB).glb"));
+      "public/GLBs/Cars/Range Rover Sports 2018 (.GLB).glb"));
     expect(binary.toString("ascii",0,4)).toBe("glTF");
     const jsonLength=binary.readUInt32LE(12);
     expect(binary.toString("ascii",16,20)).toBe("JSON");

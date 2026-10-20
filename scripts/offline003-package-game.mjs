@@ -34,7 +34,7 @@ function walk(dir) {
 // from the deployed file rather than guessed from a user-facing percentage.
 const shellFiles=new Set(shell.resources.map(entry=>entry.url));
 const classify=(url)=>{
-  if(url==="/offline001/character/ual.glb")return "character";
+  if(url==="/GLBs/Characters/ual.glb")return "character";
   if(/\.glb$/i.test(url)) {
     return /(?:leaves|ergoninane-fast-71)/i.test(url)?"world":"vehicles";
   }
