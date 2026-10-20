@@ -3,10 +3,11 @@
  * Independent of playable Voight (UAL). This is a static display witness,
  * not an NPC controller: no animation playback, physics or update loop.
  */
-import {AbstractMesh,Mesh,Space,TransformNode,Vector3,loadAssetContainerAsync} from "@babylonjs/core";
-import type {AssetContainer,Scene,Skeleton} from "@babylonjs/core";
+import {AbstractMesh,Mesh,TransformNode,loadAssetContainerAsync} from "@babylonjs/core";
+import type {AssetContainer,Scene} from "@babylonjs/core";
 import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 import {createHumanDeformer105,humanVisualYaw105,type HumanDeformer105} from "../character/human-walking-105";
+import {createNativePoseController109,type NativePose109Controller} from "../character/native-neutral-pose-109";
 
 export const MERCER_STATIC_CHARACTER_PATH="/GLBs/Characters/character.glb";
 export const MERCER_STATIC_CHARACTER_BYTES=12197104;
@@ -21,61 +22,6 @@ export function stopStaticCharacterAnimations(
   for(const group of groups)group.stop();
 }
 
-/** OBS-104: freeze the imported rig in a neutral standing arm position.
- * Rotates only the shoulder/upper-arm bones, keeping all clips stopped.
- * Uses measured shoulder→elbow direction instead of guessing left/right
- * local axes (Blender, Mixamo, and GLB armatures differ).
- */
-export function lowerStaticCharacterHands(skeletons:readonly Skeleton[]):number{
-  let lowered=0;
-  const normalized=(name:string)=>name.toLowerCase().replace(/[^a-z0-9]/g,"");
-  const side=(name:string):"left"|"right"|null=>{
-    const n=normalized(name);
-    if(n.includes("left")||/(?:upperarm|arm|uparm)l$/.test(n))return "left";
-    if(n.includes("right")||/(?:upperarm|arm|uparm)r$/.test(n))return "right";
-    return null;
-  };
-  for(const skeleton of skeletons){
-    skeleton.prepare();
-    for(const upper of skeleton.bones){
-      const name=normalized(upper.name);
-      const armSide=side(upper.name);
-      if(!armSide||!name.includes("arm")||
-         /forearm|lowerarm|twist|hand|wrist/.test(name))continue;
-      // Only upper arms: e.g. mixamorigLeftArm, LeftUpperArm,
-      // upper_arm_L. Clavicle/shoulder is never rotated.
-      const forearm=skeleton.bones.find(b=>{
-        const n=normalized(b.name);
-        return side(b.name)===armSide&&/(?:forearm|lowerarm|elbow)/.test(n);
-      });
-      if(!forearm)continue;
-      let ancestor=forearm.getParent();
-      let descendant=false;
-      for(let depth=0;ancestor&&depth<8;depth++){
-        if(ancestor===upper){descendant=true;break;}
-        ancestor=ancestor.getParent();
-      }
-      if(!descendant)continue;
-      const shoulder=upper.getAbsolutePosition();
-      const elbow=forearm.getAbsolutePosition();
-      const vec=elbow.subtract(shoulder);
-      if(vec.lengthSquared()<.000001)continue;
-      const original=vec.normalize();
-      // A relaxed hand follows the torso with a slight outward cant.
-      const target=new Vector3(
-        armSide==="left" ? -.16 : .16,-1,0).normalize();
-      const angle=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(original,target))));
-      if(angle<.12)continue;
-      const axis=Vector3.Cross(original,target);
-      if(axis.lengthSquared()<.000001)continue;
-      upper.rotate(axis.normalize(),Math.min(angle,1.9),Space.WORLD);
-      lowered++;
-    }
-    skeleton.prepare();
-  }
-  return lowered;
-}
-
 export function createMercerStaticCharacter(
   scene:Scene,
   load?:(path:string,scene:Scene)=>Promise<AssetContainer>,
@@ -88,7 +34,7 @@ export function createMercerStaticCharacter(
   let controlled=false;
   let fittedRoot:TransformNode|null=null;
   let fittedCenterX=0,fittedCenterZ=0;
-  let loweredArmBones=0;
+  let neutralPose:NativePose109Controller|null=null;
   const decodeId="asset:decode:mercer-character";
   const instantiateId="asset:instantiate:mercer-character";
   audit.start(decodeId,"Decode character.glb","asset",MERCER_STATIC_CHARACTER_PATH);
@@ -106,16 +52,15 @@ export function createMercerStaticCharacter(
       name=>"obs103-mercer-static:"+name,true);
     if(closed){entries.dispose();entries=null;return;}
     stopStaticCharacterAnimations(entries.animationGroups);
-    // CHAR-107 source audit: this GLB contains 73 real skin joints,
-    // including both named shoulders, upper arms and forearms. Apply native
-    // skeletal shoulder rotation ONCE; do not distort jacket/arm vertices.
-    loweredArmBones=lowerStaticCharacterHands(entries.skeletons);
-    if(loweredArmBones!==2)
-      console.warn("[CHAR-107] Expected two native upper-arm adjustments",{
-        loweredArmBones,skeletons:entries.skeletons.length,
-        bones:entries.skeletons.flatMap(s=>s.bones.map(b=>b.name))
-          .filter(n=>/shoulder|arm|forearm/i.test(n)).slice(0,16)
-      });
+    // CHAR-108 confirms there are ZERO animation groups in character.glb.
+    // Babylon glTF skins link bones to TransformNodes. Bone.rotate() is
+    // overwritten by those nodes, which explains CHAR-107's T-pose regression.
+    // CHAR-109 calibrates the authoritative local transforms instead.
+    neutralPose=createNativePoseController109(entries.skeletons);
+    console.info("[CHAR-109] Native neutral pose",neutralPose.report);
+    if(neutralPose.report.status!=="native-joints")
+      throw Error("CHAR-109 native neutral pose was not established: "+
+        (neutralPose.report.reason??"unknown"));
     const modelRoot=new TransformNode("obs103-mercer-static-fit",scene);
     fittedRoot=modelRoot;
     modelRoot.parent=anchor;
@@ -176,13 +121,14 @@ export function createMercerStaticCharacter(
     fittedCenterZ=modelRoot.position.z;
     anchor.position.set(MERCER_STATIC_CHARACTER_POSE.x,0,
       MERCER_STATIC_CHARACTER_POSE.z);
-    audit.finish(instantiateId,count+" meshes; "+loweredArmBones+
-      " native upper-arm bones; "+(deformer?.vertexCount??0)+" leg-pose vertices");
+    audit.finish(instantiateId,count+" meshes; "+
+      neutralPose.report.applied.length+" linked upper-arm joints; "+
+      (deformer?.vertexCount??0)+" leg-pose vertices");
     console.info("[OBS-103] Static Mercer character loaded",{
       source:MERCER_STATIC_CHARACTER_PATH,meshes:count,
       heightMeters:MERCER_STATIC_CHARACTER_POSE.heightMeters,
-      animated:false,pose:"native-skeleton-upper-arm-correction",
-      loweredArmBones,
+      animated:false,pose:"linked-TransformNode-neutral-pose",
+      adjustedArmJoints:neutralPose.report.applied,
     });
   })().catch(error=>{
     audit.fail(decodeId,error);
@@ -196,6 +142,7 @@ export function createMercerStaticCharacter(
     /** Walk mode takes control of this exact imported actor; no second GLB. */
     setControlled(enabled:boolean){
       controlled=enabled;
+      neutralPose?.ensure();
       if(fittedRoot){
         fittedRoot.rotation.y=humanVisualYaw105(enabled);
         fittedRoot.position.x=enabled?-fittedCenterX:fittedCenterX;
@@ -215,14 +162,17 @@ export function createMercerStaticCharacter(
       // human has a grounded foot origin, so do not transfer the capsule offset.
       anchor.position.set(position.x,position.y-.92,position.z);
       anchor.rotation.y=headingYaw;
+      neutralPose?.ensure();
       deformer?.setWalking(walkSpeed>.14,dt);
     },
     get poseReport(){return {meshCount:deformer?.meshCount??0,
-      vertices:deformer?.vertexCount??0,controlled,loweredArmBones};},
+      vertices:deformer?.vertexCount??0,controlled,
+      pose:neutralPose?.report??null};},
     dispose(){
       if(closed)return;
       closed=true;
       deformer?.dispose();deformer=null;
+      neutralPose?.dispose();neutralPose=null;
       entries?.dispose();
       container?.dispose();
       anchor.dispose();

@@ -39,6 +39,9 @@ describe("CHAR-108 native human GLB animation and rig inventory",()=>{
    skinnedMeshes:(j.meshes??[]).filter(m=>m.primitives?.some(p=>p.attributes?.['JOINTS_0']!==undefined&&p.attributes?.['WEIGHTS_0']!==undefined)).length
   };
   console.info("CHAR108_GLB_EVIDENCE="+JSON.stringify(evidence));
-  expect(evidence.skinnedMeshes).toBeGreaterThan(0);
+  expect(evidence.skinnedMeshes).toBe(12);
+  // Exact source audit: this GLB has 0 animation clips, not a hidden idle.
+  expect(animations).toHaveLength(0);
+  expect(findNativeIdle108(animations)).toBeNull();
  });
 });

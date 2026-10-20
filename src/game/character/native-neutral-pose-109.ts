@@ -111,7 +111,10 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
        restored++;
      }
    }
-   for(const skeleton of skeletons)skeleton.prepare();
+   // No skeletal work on a normal frame; groups in this GLB are empty.
+   // If a future animation resets the joints, ensure() reapplies the neutral
+   // quaternion without accumulating another offset.
+   if(restored>0)for(const skeleton of skeletons)skeleton.prepare();
   },
   dispose(){stored.length=0;}
  };
