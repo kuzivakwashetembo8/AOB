@@ -18,6 +18,7 @@ const deploy=candidates[0];
 const OUT="offline001-asset-inventory.json";
 const REQUIRED=[
   "GLBs/Characters/ual.glb",
+  "GLBs/Characters/character.glb",
   "offline001/draco/draco_wasm_wrapper_gltf.js",
   "offline001/draco/draco_decoder_gltf.wasm",
   "offline001/draco/draco_decoder_gltf.js",
@@ -95,7 +96,7 @@ const summary={
   caveats:[
     "Not an OFFLINE-003 full offline-pack manifest or readiness proof",
     "Static asset hashes do not establish glTF subresource or dynamic chunk runtime closure",
-    "Potentially inactive original GLBs and duplicated surface assets are still retained",
+    "Only the optimized Rover and Hilux source GLBs are retained; unused assets may remain",
     "Potential third-party decoder branches and optional online services require independent runtime Network-trace audit",
   ],
 };

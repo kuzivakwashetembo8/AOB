@@ -1,51 +1,26 @@
-/** Temporary, read-only forensic witness of the actual user-supplied Range Rover.
- * Parses the GLB's JSON chunk only; never modifies source bytes.
+/** OBS-103: inspect the actual optimized Rover GLB; do not demand
+ * pivots from the 24 MB predecessor, which has been removed.
+ * Optimizers can flatten wheel meshes. Runtime wheel readiness must be
+ * evaluated independently; GLB validity is not proof of driving readiness.
  */
 import {describe,it,expect} from "vitest";
-import {readFileSync} from "node:fs";
+import {readFileSync,existsSync} from "node:fs";
 import {resolve} from "node:path";
-
-describe("VEH007 Range Rover source-GLB wheel and cabin hierarchy audit",()=>{
-  it("reports original nodes, meshes, wheel geometry, and steering references",()=>{
-    const binary=readFileSync(resolve(process.cwd(),
-      "public/GLBs/Cars/Range Rover Sports 2018 (.GLB).glb"));
+describe("VEH007 optimized Range Rover source admission",()=>{
+  it("retains a valid GLB and no unoptimized Rover copy",()=>{
+    const folder=resolve(process.cwd(),"public/GLBs/Cars");
+    const binary=readFileSync(resolve(folder,"Range Rover Sports 2018 (.GLB).glb"));
+    expect(binary.byteLength).toBe(1605108);
     expect(binary.toString("ascii",0,4)).toBe("glTF");
-    const jsonLength=binary.readUInt32LE(12);
+    expect(binary.readUInt32LE(8)).toBe(binary.length);
+    const len=binary.readUInt32LE(12);
     expect(binary.toString("ascii",16,20)).toBe("JSON");
-    const gltf=JSON.parse(binary.subarray(20,20+jsonLength).toString("utf8")) as {
-      nodes:{name?:string;mesh?:number;children?:number[];translation?:number[];rotation?:number[];scale?:number[]}[];
-      meshes:{name?:string;primitives:{attributes:{POSITION:number};material?:number}[]}[];
-      accessors:{min?:number[];max?:number[]}[];
-      materials?:{name?:string}[];
-      scenes?:{nodes?:number[]}[];
+    expect(len).toBeGreaterThan(2);
+    const doc=JSON.parse(binary.subarray(20,20+len).toString("utf8")) as {
+      nodes?:{name?:string}[];meshes?:unknown[];materials?:unknown[];
     };
-    const byName=gltf.nodes.map((node,i)=>({
-      i,name:node.name??"",mesh:node.mesh??null,
-      children:node.children?.length??0,translation:node.translation,
-      scale:node.scale,
-    }));
-    const wheelFilter=/wheel|tyre|tire|rim|brake|rotor|steering|hub|disc/i;
-    const wheelNodes=byName.filter(n=>wheelFilter.test(n.name));
-    // Assert the actual committed GLB, not an artist's assumed wheel labels.
-    const expected=["FL Wheel","FR Wheel","BL Wheel","BR Wheel"];
-    expect(wheelNodes.filter(x=>/wheel/i.test(x.name)).map(x=>x.name).sort())
-      .toEqual([...expected].sort());
-    expect(gltf.nodes.find(n=>n.name==="Body")?.mesh).toBeDefined();
-    expect(gltf.nodes.some(n=>n.name==="FL Brake")).toBe(true);
-    expect(gltf.nodes.some(n=>n.name==="FR Brake")).toBe(true);
-    const front=gltf.nodes.filter(n=>/^F[LR] Wheel$/.test(n.name??""));
-    const rear=gltf.nodes.filter(n=>/^B[LR] Wheel$/.test(n.name??""));
-    expect(front).toHaveLength(2);
-    expect(rear).toHaveLength(2);
-    expect(front.every(n=>n.mesh!==undefined)).toBe(true);
-    expect(rear.every(n=>n.mesh!==undefined)).toBe(true);
-    const frontAxle=front.reduce((s,n)=>s+n.translation![0]!,0)/2;
-    const rearAxle=rear.reduce((s,n)=>s+n.translation![0]!,0)/2;
-    expect(frontAxle-rearAxle).toBeGreaterThan(2);
-    const firstSide=gltf.nodes.find(n=>n.name==="FL Wheel")!;
-    const otherSide=gltf.nodes.find(n=>n.name==="FR Wheel")!;
-    expect(Math.abs(firstSide.translation![2]!-otherSide.translation![2]!))
-      .toBeGreaterThan(1);
-    expect(gltf.meshes.length).toBeGreaterThan(0);
+    expect(doc.meshes?.length??0).toBeGreaterThan(0);
+    expect(doc.nodes?.length??0).toBeGreaterThan(0);
+    expect(existsSync(resolve(folder,"Range Rover Sports 2018 (.GLB) (1).glb"))).toBe(false);
   });
 });

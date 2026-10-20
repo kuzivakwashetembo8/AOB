@@ -24,10 +24,10 @@ export type MercerExtra006Spec=Readonly<{
 
 export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
   {
-    id:"gtd-veh006-mercer-range-rover",label:"Range Rover Sport 2018",
+    id:"gtd-veh006-mercer-range-rover",label:"Range Rover Sport 2018 (optimized)",
     url:"/GLBs/Cars/Range%20Rover%20Sports%202018%20(.GLB).glb",
     x:-5.45,z:10.55,width:2.03,height:1.80,length:4.85,yaw:Math.PI/2,
-    sourceBytesKnown:24349788,
+    sourceBytesKnown:1605108,
   },
   {
     id:"gtd-veh008-mercer-toyota-hilux",label:"Toyota Hilux 002",
@@ -36,7 +36,7 @@ export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
     // plus a clearance gap for walking around both parking specimens.
     x:-13.45,z:10.55,width:2.15,height:1.87,length:5.25,yaw:Math.PI/2,
     visualOnly:false,
-    sourceBytesKnown:17214188,
+    sourceBytesKnown:323576,
   },
   {
     // Owner-accepted original Defender model, now eligible for drive trials.
