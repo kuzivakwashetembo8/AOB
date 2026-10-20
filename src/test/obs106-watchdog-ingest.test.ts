@@ -1,4 +1,4 @@
-// @vitest-environment node
+// @vitest-environment jsdom
 import {describe,it,expect} from "vitest";
 import {parseObs106Payload} from "../lib/server/obs106-telemetry-ingest";
 const sample={
