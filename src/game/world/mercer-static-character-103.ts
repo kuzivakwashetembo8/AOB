@@ -5,6 +5,7 @@
  */
 import {AbstractMesh,Space,TransformNode,Vector3,loadAssetContainerAsync} from "@babylonjs/core";
 import type {AssetContainer,Scene,Skeleton} from "@babylonjs/core";
+import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 
 export const MERCER_STATIC_CHARACTER_PATH="/GLBs/Characters/character.glb";
 export const MERCER_STATIC_CHARACTER_BYTES=12197104;
@@ -82,11 +83,16 @@ export function createMercerStaticCharacter(
   let container:AssetContainer|null=null;
   let entries:ReturnType<AssetContainer["instantiateModelsToScene"]>|null=null;
   let closed=false;
+  const decodeId="asset:decode:mercer-character";
+  const instantiateId="asset:instantiate:mercer-character";
+  audit.start(decodeId,"Decode character.glb","asset",MERCER_STATIC_CHARACTER_PATH);
   const ready=(async()=>{
     if(!load)await import("@babylonjs/loaders/glTF");
     const asset=await (load?load(MERCER_STATIC_CHARACTER_PATH,scene):
       loadAssetContainerAsync(MERCER_STATIC_CHARACTER_PATH,scene));
     if(closed){asset.dispose();return;}
+    audit.finish(decodeId,"Babylon GLB source loaded",MERCER_STATIC_CHARACTER_BYTES);
+    audit.start(instantiateId,"Instantiate static Mercer Street human","asset");
     container=asset;
     // Neither imported source clips nor cloned animation groups may play.
     stopStaticCharacterAnimations(asset.animationGroups);
@@ -154,12 +160,15 @@ export function createMercerStaticCharacter(
       -(minZ+maxZ)/2);
     anchor.position.set(MERCER_STATIC_CHARACTER_POSE.x,0,
       MERCER_STATIC_CHARACTER_POSE.z);
+    audit.finish(instantiateId,count+" meshes; rig frozen; arm bones "+lowered);
     console.info("[OBS-103] Static Mercer character loaded",{
       source:MERCER_STATIC_CHARACTER_PATH,meshes:count,
       heightMeters:MERCER_STATIC_CHARACTER_POSE.heightMeters,
       animated:false,neutralArmBones:lowered,
     });
   })().catch(error=>{
+    audit.fail(decodeId,error);
+    audit.fail(instantiateId,error);
     // Expose a real failure. The authoritative world readiness promise rejects
     // rather than falsely reporting a successful static-character preview.
     throw error;
