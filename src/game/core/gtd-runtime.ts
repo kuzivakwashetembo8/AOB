@@ -1292,7 +1292,7 @@ export class GTDGameRuntime implements GameRuntime {
       jumpAscending: (!this.grounded && this.verticalVelocity > 0.2) ||
         this.curbStepSeconds > 0,
       dt,
-    });
+    }) : undefined;
     if (gaitDecision?.lastTransition || gaitDecision?.briefGroundLoss ||
         gaitDecision?.briefSpeedLoss) {
       this.gaitEvents.push({
@@ -1311,9 +1311,6 @@ export class GTDGameRuntime implements GameRuntime {
       interiorState === "inside" ? 3.35 : interiorState === "threshold" ? 4.5 : 6.2;
 
     voight.root.position.set(position.x, position.y, position.z);
-    if(this.humanCharacterEnabled)
-      this.world?.staticMercerCharacter?.updateControlled(
-        position,voight.root.rotation.y,correctedPlanarMps,dt);
     if (headingStep) {
       voight.root.rotation.y = headingStep.yaw;
       if(this.humanCharacterEnabled)
