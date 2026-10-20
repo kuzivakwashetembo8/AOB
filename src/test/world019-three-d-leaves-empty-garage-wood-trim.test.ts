@@ -11,7 +11,7 @@ import {cleanWoodBuildingSurrounds,isExcessWoodSurround}
   from "../game/world-generation/wood-exterior-cleanup-019";
 import {woodSurfaceForBuilding} from "../game/world-generation/wood-south-ward-field-trial";
 import {AUTHORED_3D_LEAVES_PATH,AUTHORED_3D_LEAVES_GIT_BLOB,
-  LEAVES_019_GROUPS_PER_TREE}
+  LEAVES_019_GROUPS_PER_TREE,planDenseFoliageGroups020}
   from "../game/world-generation/authored-leaves-019";
 import {planTreeCanopy} from "../game/world-generation/tree-canopy";
 import {planStreetContext} from "../game/world-generation/street-context";
@@ -45,12 +45,18 @@ describe("GTD-TREE/MAT/WORLD-019 owner-directed cleanups",()=>{
     const tree=planStreetContext(FIRST_LIGHT_CITY_SPEC).items.find(i=>i.kind==="tree")!;
     const first=planTreeCanopy(tree,FIRST_LIGHT_CITY_SPEC.generatorVersion);
     expect(first.cards).toHaveLength(LEAVES_019_GROUPS_PER_TREE*3);
-    const centres=Array.from({length:LEAVES_019_GROUPS_PER_TREE},(_,i)=>first.cards[i*3]!);
-    expect(new Set(centres.map(c=>c.x.toFixed(2)+":"+c.z.toFixed(2))).size)
+    const centres=planDenseFoliageGroups020(tree,FIRST_LIGHT_CITY_SPEC.generatorVersion);
+    expect(centres).toHaveLength(16);
+    expect(centres).toHaveLength(LEAVES_019_GROUPS_PER_TREE);
+    expect(first.cards).toHaveLength(30); // fallback grammar unchanged
+    expect(new Set(centres.map(c=>c.x.toFixed(3)+":"+c.z.toFixed(3))).size)
       .toBe(LEAVES_019_GROUPS_PER_TREE);
     expect(centres.some(c=>c.x<-.8)).toBe(true);
     expect(centres.some(c=>c.x>.8)).toBe(true);
-    expect(centres.every(c=>c.y>4.5&&c.y<7)).toBe(true);
+    expect(centres.slice(0,10).every(c=>c.y>4.5&&c.y<7)).toBe(true);
+    expect(centres.slice(10).every(c=>c.y>=4.7&&c.y<=5.3)).toBe(true);
+    expect(planDenseFoliageGroups020(tree,FIRST_LIGHT_CITY_SPEC.generatorVersion))
+      .toEqual(centres);
   });
   it("preserves original wood-family WALL mesh surfaces and roof shells, removes only surrounds",()=>{
     const buildings=resolveCityBuildings(FIRST_LIGHT_CITY_SPEC);
@@ -66,6 +72,11 @@ describe("GTD-TREE/MAT/WORLD-019 owner-directed cleanups",()=>{
         expect(cleaned.filter(p=>p.role==="wall")).toHaveLength(originalWalls);
         expect(cleaned.filter(p=>p.role==="roof")).toHaveLength(untouchedRoof);
         expect(cleaned.some(isExcessWoodSurround)).toBe(false);
+        expect(cleaned.some(p=>p.role==="trim")).toBe(false);
+        expect(cleaned.filter(p=>p.role==="glass").length)
+          .toBe(plan.primitives.filter(p=>p.role==="glass").length);
+        expect(cleaned.filter(p=>p.id.startsWith("door-panel:")).length)
+          .toBe(plan.primitives.filter(p=>p.id.startsWith("door-panel:")).length);
         expect(cleanWoodBuildingSurrounds(plan.primitives,false)).toEqual(plan.primitives);
         const building=generateBuilding(scene,null,b,{
           generatorVersion:FIRST_LIGHT_CITY_SPEC.generatorVersion,
@@ -77,7 +88,10 @@ describe("GTD-TREE/MAT/WORLD-019 owner-directed cleanups",()=>{
           .toBe(true);
         expect(building.meshes.some(m=>m.name.includes(":roof:")&&m.name.includes(":parapet:")))
           .toBe(false);
-        expect(building.meshes.some(m=>m.name.includes("frame:")&&m.name.includes("ma:pedestrian-door")))
+        expect(building.meshes.some(m=>m.name.includes("frame:"))).toBe(false);
+        expect(building.meshes.some(m=>m.metadata?.templateId?.startsWith("facade-")))
+          .toBe(false);
+        expect(building.meshes.some(m=>m.metadata?.architecturalRole==="trim"))
           .toBe(false);
         building.dispose();
       }
