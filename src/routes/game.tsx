@@ -26,7 +26,6 @@ import {
 import type { GameAction } from "@/game/core/types";
 import { StartupTelemetry } from "@/lib/startup-telemetry";
 import {gtdLoadingLedger} from "@/lib/real-loading-ledger";
-import { downloadStartupFailureEvidence } from "@/lib/startup-error-download";
 declare const __GTD_RELEASE_ID__:string;
 import { initialStartupChecklist, applyStartupCheckpoint } from "@/game/core/loading-checklist";
 import {
