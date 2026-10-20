@@ -105,16 +105,17 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
   get report(){return {...report,applied:[...applied],restored};},
   ensure(){
    if(report.status!=="native-joints")return;
+   let changed=false;
    for(const item of stored){
      if(!item.node.isDisposed()&&!near(rotationOf(item.node),item.target)){
        item.node.rotationQuaternion=item.target.clone();
-       restored++;
+       restored++;changed=true;
      }
    }
    // No skeletal work on a normal frame; groups in this GLB are empty.
    // If a future animation resets the joints, ensure() reapplies the neutral
    // quaternion without accumulating another offset.
-   if(restored>0)for(const skeleton of skeletons)skeleton.prepare();
+   if(changed)for(const skeleton of skeletons)skeleton.prepare();
   },
   dispose(){stored.length=0;}
  };
