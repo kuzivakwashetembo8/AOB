@@ -3,8 +3,8 @@
  * Independent of playable Voight (UAL). This is a static display witness,
  * not an NPC controller: no animation playback, physics or update loop.
  */
-import {AbstractMesh,TransformNode,loadAssetContainerAsync} from "@babylonjs/core";
-import type {AssetContainer,Scene} from "@babylonjs/core";
+import {AbstractMesh,Space,TransformNode,Vector3,loadAssetContainerAsync} from "@babylonjs/core";
+import type {AssetContainer,Scene,Skeleton} from "@babylonjs/core";
 
 export const MERCER_STATIC_CHARACTER_PATH="/GLBs/Characters/character.glb";
 export const MERCER_STATIC_CHARACTER_BYTES=12197104;
@@ -17,6 +17,61 @@ export function stopStaticCharacterAnimations(
   groups:readonly {stop:()=>unknown}[],
 ):void {
   for(const group of groups)group.stop();
+}
+
+/** OBS-104: freeze the imported rig in a neutral standing arm position.
+ * Rotates only the shoulder/upper-arm bones, keeping all clips stopped.
+ * Uses measured shoulder→elbow direction instead of guessing left/right
+ * local axes (Blender, Mixamo, and GLB armatures differ).
+ */
+export function lowerStaticCharacterHands(skeletons:readonly Skeleton[]):number{
+  let lowered=0;
+  const normalized=(name:string)=>name.toLowerCase().replace(/[^a-z0-9]/g,"");
+  const side=(name:string):"left"|"right"|null=>{
+    const n=normalized(name);
+    if(n.includes("left")||/(?:upperarm|arm|uparm)l$/.test(n))return "left";
+    if(n.includes("right")||/(?:upperarm|arm|uparm)r$/.test(n))return "right";
+    return null;
+  };
+  for(const skeleton of skeletons){
+    skeleton.prepare();
+    for(const upper of skeleton.bones){
+      const name=normalized(upper.name);
+      const armSide=side(upper.name);
+      if(!armSide||!name.includes("arm")||
+         /forearm|lowerarm|twist|hand|wrist/.test(name))continue;
+      // Only upper arms: e.g. mixamorigLeftArm, LeftUpperArm,
+      // upper_arm_L. Clavicle/shoulder is never rotated.
+      const forearm=skeleton.bones.find(b=>{
+        const n=normalized(b.name);
+        return side(b.name)===armSide&&/(?:forearm|lowerarm|elbow)/.test(n);
+      });
+      if(!forearm)continue;
+      let ancestor=forearm.getParent();
+      let descendant=false;
+      for(let depth=0;ancestor&&depth<8;depth++){
+        if(ancestor===upper){descendant=true;break;}
+        ancestor=ancestor.getParent();
+      }
+      if(!descendant)continue;
+      const shoulder=upper.getAbsolutePosition();
+      const elbow=forearm.getAbsolutePosition();
+      const vec=elbow.subtract(shoulder);
+      if(vec.lengthSquared()<.000001)continue;
+      const original=vec.normalize();
+      // A relaxed hand follows the torso with a slight outward cant.
+      const target=new Vector3(
+        armSide==="left" ? -.16 : .16,-1,0).normalize();
+      const angle=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(original,target))));
+      if(angle<.12)continue;
+      const axis=Vector3.Cross(original,target);
+      if(axis.lengthSquared()<.000001)continue;
+      upper.rotate(axis.normalize(),Math.min(angle,1.9),Space.WORLD);
+      lowered++;
+    }
+    skeleton.prepare();
+  }
+  return lowered;
 }
 
 export function createMercerStaticCharacter(
@@ -39,6 +94,13 @@ export function createMercerStaticCharacter(
       name=>"obs103-mercer-static:"+name,true);
     if(closed){entries.dispose();entries=null;return;}
     stopStaticCharacterAnimations(entries.animationGroups);
+    const lowered=lowerStaticCharacterHands(entries.skeletons);
+    if(lowered<2){
+      console.warn("[OBS-104] No complete bilateral upper-arm rig available; check character source model",{
+        skeletons:entries.skeletons.length,lowered,
+        boneNames:entries.skeletons.flatMap(s=>s.bones.map(b=>b.name)).slice(0,60),
+      });
+    }
     const modelRoot=new TransformNode("obs103-mercer-static-fit",scene);
     modelRoot.parent=anchor;
     for(const root of entries.rootNodes)root.parent=modelRoot;
@@ -95,7 +157,7 @@ export function createMercerStaticCharacter(
     console.info("[OBS-103] Static Mercer character loaded",{
       source:MERCER_STATIC_CHARACTER_PATH,meshes:count,
       heightMeters:MERCER_STATIC_CHARACTER_POSE.heightMeters,
-      animated:false,
+      animated:false,neutralArmBones:lowered,
     });
   })().catch(error=>{
     // Expose a real failure. The authoritative world readiness promise rejects
