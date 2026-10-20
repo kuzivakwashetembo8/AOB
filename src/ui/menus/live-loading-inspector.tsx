@@ -12,6 +12,7 @@ const timing=(value:number)=>value<1000?Math.round(value)+" ms":(value/1000).toF
 const bytes=(value:number|null)=>value===null?"":value>=1048576?(value/1048576).toFixed(2)+" MiB":(value/1024).toFixed(1)+" KiB";
 export function LiveLoadingInspector({snapshot}:{snapshot:AuditSnapshot}){
  const [filter,setFilter]=useState("");
+ const [expanded,setExpanded]=useState<Partial<Record<AuditKind,boolean>>>({});
  const groups=useMemo(()=>order.map(kind=>({
    kind,title:titles[kind],
    rows:snapshot.rows.filter(r=>r.kind===kind&&
@@ -40,7 +41,7 @@ export function LiveLoadingInspector({snapshot}:{snapshot:AuditSnapshot}){
        <summary>{group.title} · {group.rows.length}
          {group.rows.some(row=>row.state==="loading")?" · ACTIVE":""}</summary>
        <div className="gtd-real-group-rows">
-         {group.rows.map(row=><div role="listitem" key={row.id}
+         {group.rows.slice(0,expanded[group.kind]?undefined:80).map(row=><div role="listitem" key={row.id}
            className="gtd-real-row" data-audit-state={row.state} data-audit-kind={row.kind}>
            <span className="gtd-real-icon">{icon(row.state)}</span>
            <span className="gtd-real-row-body">
@@ -55,6 +56,11 @@ export function LiveLoadingInspector({snapshot}:{snapshot:AuditSnapshot}){
              {row.transferBytes!==null&&<small>wire {bytes(row.transferBytes)}</small>}
            </span>
          </div>)}
+         {group.rows.length>80&&<button type="button"
+           className="text-primary underline gtd-real-more"
+           onClick={()=>setExpanded(x=>({...x,[group.kind]:!x[group.kind]}))}>
+           {expanded[group.kind]?"Show fewer":`Show all ${group.rows.length} observations`}
+         </button>}
        </div>
      </details>)}
    </div>
