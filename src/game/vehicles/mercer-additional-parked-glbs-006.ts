@@ -24,7 +24,7 @@ export type MercerExtra006Spec=Readonly<{
 
 export const MERCER_EXTRA_GLB_SPECS:readonly MercerExtra006Spec[]=[
   {
-    id:"gtd-veh006-mercer-range-rover",label:"Range Rover Sport 2018 (optimized)",
+    id:"gtd-veh006-mercer-range-rover",label:"Range Rover Sport 2018",
     url:"/GLBs/Cars/Range%20Rover%20Sports%202018%20(.GLB).glb",
     x:-5.45,z:10.55,width:2.03,height:1.80,length:4.85,yaw:Math.PI/2,
     sourceBytesKnown:1605108,
