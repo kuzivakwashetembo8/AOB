@@ -41,10 +41,10 @@ describe("GTD-TREE/MAT/WORLD-019 owner-directed cleanups",()=>{
       sceneRoots:source.scenes?.map((s:{nodes:number[]})=>s.nodes.length)??[],
     }));
   });
-  it("spreads foliage deterministically across the existing ten tree-crown centres",()=>{
+  it("densifies 10 accepted crown centres with 6 inner 3D GLB fill sprays",()=>{
     const tree=planStreetContext(FIRST_LIGHT_CITY_SPEC).items.find(i=>i.kind==="tree")!;
     const first=planTreeCanopy(tree,FIRST_LIGHT_CITY_SPEC.generatorVersion);
-    expect(first.cards).toHaveLength(LEAVES_019_GROUPS_PER_TREE*3);
+    expect(first.cards).toHaveLength(30); // unchanged legacy fail-safe cards
     const centres=planDenseFoliageGroups020(tree,FIRST_LIGHT_CITY_SPEC.generatorVersion);
     expect(centres).toHaveLength(16);
     expect(centres).toHaveLength(LEAVES_019_GROUPS_PER_TREE);
