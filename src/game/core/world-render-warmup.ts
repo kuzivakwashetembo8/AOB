@@ -1,3 +1,4 @@
+import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 import type { Mesh, Scene } from "@babylonjs/core";
 
 /**
@@ -129,6 +130,7 @@ export function beginWorldRenderWarmup(
   const minimumPostImportRenderAttempts = Math.max(2, Math.min(10,
     Math.floor(options.minimumPostImportRenderAttempts ?? 2),
   ));
+  audit.start("render:world-warmup","Prepare world shaders and submit first actual scene frame","render");
   let cancelled = false;
   let completed = false;
   let assetsSettledAt: number | null = null;
@@ -162,6 +164,7 @@ export function beginWorldRenderWarmup(
   };
   const fail = (error: Error) => {
     if (completed || cancelled) return;
+    audit.fail("render:world-warmup",error);
     completed = true;
     stop();
     reject(error);
@@ -180,6 +183,9 @@ export function beginWorldRenderWarmup(
         return;
       }
       if (assetsSettledAt !== null && lastEvidence.complete) {
+        audit.finish("render:world-warmup",
+          frameCount+" real frames; "+scene.meshes.length+" meshes, "+
+          scene.materials.length+" materials, "+scene.textures.length+" textures");
         completed = true;
         stop();
         resolve(lastEvidence);
