@@ -33,6 +33,7 @@ import type { StreetContextPlan } from "../world-generation/street-context";
 import {SOUTH_WARD_018_BOUNDS,createOpenSouthWard018} from "../world-generation/south-ward-open-roads-018";
 import {createMercerExtraParkedGLBs} from "../vehicles/mercer-additional-parked-glbs-006";
 import {createMercerStaticCharacter} from "./mercer-static-character-103";
+import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 import type { ForestryBudget, ForestryPlan, ForestryDensityFocus } from "../world-generation/urban-forestry-plan";
 import {
   createMeridianEnvironment,
@@ -380,29 +381,34 @@ export function createGeneratedFirstLightWorld(
   const enableCameraBlockers = options.enableCameraBlockers ?? true;
   const enableShadows = options.enableShadows ?? true;
 
-  const ground = createGround(scene, physics, options.enableLandUsePreview ?? false);
-  const urbanSurfaces = createGeneratedUrbanSurfaces(
-    scene,
-    FIRST_LIGHT_CITY_SPEC,
-    {skipLegacyParcelInfill: options.enableLandUsePreview ?? false},
-  );
+  const ground = audit.measure("world:ground","Create terrain meshes and ground collision","world",
+    ()=>createGround(scene, physics, options.enableLandUsePreview ?? false));
+  const urbanSurfaces = audit.measure("world:urban-surfaces",
+    "Generate existing urban roads, pavements and lane geometry","world",
+    ()=>createGeneratedUrbanSurfaces(scene,FIRST_LIGHT_CITY_SPEC,
+      {skipLegacyParcelInfill:options.enableLandUsePreview??false}));
   // WORLD-018: extend only roads and GRN-01 grass. Existing First Light
   // authored 10 buildings, five street IDs, vehicles and props are unchanged.
-  const openRoads=createOpenSouthWard018(scene,physics);
-  const streetPlan = planStreetContext(FIRST_LIGHT_CITY_SPEC, {
-    enableTreePlace001: options.enableTreePlace001 ?? false,
-    treeBudget: options.treeBudget ?? 6,
-    treeDensityFocus: options.treeDensityFocus ?? "balanced",
-  });
-  const streetContext = createGeneratedStreetContext(
-    scene,
-    FIRST_LIGHT_CITY_SPEC,
-    { skipPocketParkGround: options.enableLandUsePreview ?? false,
-      skipParkedCars: options.includeLegacyParkedCars === false, plan: streetPlan },
-  );
+  const openRoads=audit.measure("world:open-roads",
+    "Generate South Ward outward road network and curbs","world",
+    ()=>createOpenSouthWard018(scene,physics));
+  const streetPlan = audit.measure("world:street-plan",
+    "Plan real tree, lamp, prop and parked-car placements","world",
+    ()=>planStreetContext(FIRST_LIGHT_CITY_SPEC,{
+      enableTreePlace001:options.enableTreePlace001??false,
+      treeBudget:options.treeBudget??6,
+      treeDensityFocus:options.treeDensityFocus??"balanced",
+    }));
+  const streetContext = audit.measure("world:street-props",
+    "Construct tree trunks, foliage placeholders, streetlights and props","world",
+    ()=>createGeneratedStreetContext(scene,FIRST_LIGHT_CITY_SPEC,{
+      skipPocketParkGround:options.enableLandUsePreview??false,
+      skipParkedCars:options.includeLegacyParkedCars===false,plan:streetPlan,
+    }));
   const materialLibrary = new BuildingMaterialLibrary(scene);
   const buildings = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC).map((spec) =>
-    generateBuilding(scene, physics, spec, {
+    audit.measure("world:building:"+spec.id,"Generate building "+spec.id,"world",
+      ()=>generateBuilding(scene, physics, spec, {
       generatorVersion: FIRST_LIGHT_CITY_SPEC.generatorVersion,
       materialLibrary,
       enableFacadeDetails: true,
@@ -415,7 +421,7 @@ export function createGeneratedFirstLightWorld(
       woodSurfaceFocusId: options.woodSurfaceFocusId ?? null,
       enableGlassSurfaceFieldTrial: options.enableGlassSurfaceFieldTrial ?? false,
       glassSurfaceFocusId: options.glassSurfaceFocusId ?? null,
-    }),
+      })),
   );
   const heroGarage =
     buildings.find((building) => building.buildingId === "sw-fl-garage") ??
@@ -423,6 +429,7 @@ export function createGeneratedFirstLightWorld(
   const garageInterior = heroGarage
     ? createSouthWardGarageInterior(scene, heroGarage)
     : null;
+  audit.start("world:environment","Create environment lights, shadows and fog","world");
   const environment = createMeridianEnvironment(scene, {
     enableShadows,
     initialMinuteOfDay: 14 * 60 + 30,
@@ -430,16 +437,17 @@ export function createGeneratedFirstLightWorld(
     // the canonical 48-real-minute Meridian day.
     initialTimeScale: 2,
   });
+  audit.finish("world:environment");
   const parkedCollisionHandles = new Map<string, StaticCollisionHandle>();
   const parkedById = new Map(
     streetPlan.items
       .filter((item) => item.kind === "parked-car")
       .map((item) => [item.id, item] as const),
   );
-  const contextCollision = registerStreetContextCollision(
-    physics, streetPlan, parkedCollisionHandles,
-    options.includeLegacyParkedCars !== false,
-  );
+  const contextCollision = audit.measure("physics:street-props",
+    "Register actual street props and tree trunk colliders","physics",
+    ()=>registerStreetContextCollision(physics,streetPlan,parkedCollisionHandles,
+      options.includeLegacyParkedCars!==false));
   // VEH-007–010: Range Rover remains the only drivable member of this
   // extra-GLB review family. Toyota, Defender and Dodge are static originals.
   // Deferred Sedan and ergoninane remain absent. Preserve the world and spawn.
@@ -451,17 +459,17 @@ export function createGeneratedFirstLightWorld(
   const staticMercerCharacter=rangeRoverReview
     ? createMercerStaticCharacter(scene)
     : null;
-  const urbanNavigationCollision = registerUrbanNavigationCollision(
-    physics,
-    urbanSurfaces,
-    options.enableSidewalkSupportCollision ?? false,
-  );
+  const urbanNavigationCollision=audit.measure("physics:urban-surfaces",
+    "Register sidewalk and road navigation colliders","physics",
+    ()=>registerUrbanNavigationCollision(physics,urbanSurfaces,
+      options.enableSidewalkSupportCollision??false));
   // WORLD-019: the garage is completely vacant. The previous furniture
   // collider batch was independent of meshes and otherwise left invisible
   // obstacles after furniture removal. Preserve only the authored shell
   // and real entrance threshold contact.
   const garageThresholdCollision = heroGarage
-    ? registerGarageThresholdCollision(physics, heroGarage)
+    ? audit.measure("physics:garage-threshold","Register garage threshold collider",
+      "physics",()=>registerGarageThresholdCollision(physics,heroGarage))
     : [];
 
   for (const mesh of urbanSurfaces.meshes) {
