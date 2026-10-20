@@ -15,6 +15,7 @@ import type { CitySpec, PublicSpaceSpec } from "./schema";
 import { planStreetContext } from "./street-context";
 import { planTreeCanopy } from "./tree-canopy";
 import {applyAuthoredLeaves019,type TreeFoliageSlot019,type AppliedFoliage019} from "./authored-leaves-019";
+import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 import { planVehicleProxyGeometry } from "./vehicle-proxy-geometry";
 import type { StreetContextItem, StreetContextPlan } from "./street-context";
 
@@ -846,10 +847,24 @@ export function createGeneratedStreetContext(
   // Share the original 3D leaves across ALL generated and authored trees;
   // keep legacy cards until the source arrives as a network-safe fallback.
   if(authoredLeavesSlots.length && !isHeadlessTextureEnvironment(scene)){
+    // Separate source transfer from Babylon GLB parsing and 3D scene instance
+    // creation. This work is asynchronous and MUST appear in the ledger even
+    // when world creation reports ready earlier.
+    const leafId="asset:leaves-glb-instantiation";
+    audit.start(leafId,"Decode / instantiate owner leaves.glb crowns","asset",
+      authoredLeavesSlots.length+" trees × 64 source-shared groups");
     void applyAuthoredLeaves019(scene,authoredLeavesSlots,{cancelled:()=>disposed})
-      .then(result=>{if(disposed)result.dispose();else installed3DFoliage=result;})
-      .catch(error=>console.warn("[TREE-019] GLB unavailable; retaining established foliage",
-        error instanceof Error?error.message:"unknown"));
+      .then(result=>{
+        if(disposed)result.dispose();
+        else installed3DFoliage=result;
+        audit.finish(leafId,result.importedLeaves+" trees, "+
+          result.groups+" 3D foliage groups");
+      })
+      .catch(error=>{
+        audit.fail(leafId,error);
+        console.warn("[TREE-019] GLB unavailable; retaining established foliage",
+          error instanceof Error?error.message:"unknown");
+      });
   }
 
   const materials = [
