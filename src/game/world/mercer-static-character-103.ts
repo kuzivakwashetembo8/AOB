@@ -3,9 +3,10 @@
  * Independent of playable Voight (UAL). This is a static display witness,
  * not an NPC controller: no animation playback, physics or update loop.
  */
-import {AbstractMesh,Space,TransformNode,Vector3,loadAssetContainerAsync} from "@babylonjs/core";
+import {AbstractMesh,Mesh,Space,TransformNode,Vector3,loadAssetContainerAsync} from "@babylonjs/core";
 import type {AssetContainer,Scene,Skeleton} from "@babylonjs/core";
 import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
+import {createHumanDeformer105,type HumanDeformer105} from "../character/human-walking-105";
 
 export const MERCER_STATIC_CHARACTER_PATH="/GLBs/Characters/character.glb";
 export const MERCER_STATIC_CHARACTER_BYTES=12197104;
@@ -83,6 +84,8 @@ export function createMercerStaticCharacter(
   let container:AssetContainer|null=null;
   let entries:ReturnType<AssetContainer["instantiateModelsToScene"]>|null=null;
   let closed=false;
+  let deformer:HumanDeformer105|null=null;
+  let controlled=false;
   const decodeId="asset:decode:mercer-character";
   const instantiateId="asset:instantiate:mercer-character";
   audit.start(decodeId,"Decode character.glb","asset",MERCER_STATIC_CHARACTER_PATH);
@@ -100,13 +103,8 @@ export function createMercerStaticCharacter(
       name=>"obs103-mercer-static:"+name,true);
     if(closed){entries.dispose();entries=null;return;}
     stopStaticCharacterAnimations(entries.animationGroups);
-    const lowered=lowerStaticCharacterHands(entries.skeletons);
-    if(lowered<2){
-      console.warn("[OBS-104] No complete bilateral upper-arm rig available; check character source model",{
-        skeletons:entries.skeletons.length,lowered,
-        boneNames:entries.skeletons.flatMap(s=>s.bones.map(b=>b.name)).slice(0,60),
-      });
-    }
+    // CHAR-105: source animation groups are not assumed to contain a walking
+    // clip or usable armature. The character is posed by its own vertex data.
     const modelRoot=new TransformNode("obs103-mercer-static-fit",scene);
     modelRoot.parent=anchor;
     for(const root of entries.rootNodes)root.parent=modelRoot;
@@ -116,6 +114,8 @@ export function createMercerStaticCharacter(
       if(root instanceof AbstractMesh)meshes.add(root);
       for(const mesh of root.getChildMeshes(false))meshes.add(mesh);
     }
+    deformer=createHumanDeformer105([...meshes].filter((m):m is import("@babylonjs/core").Mesh=>
+      m instanceof Mesh));
     let count=0,minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,
       minZ=Infinity,maxZ=-Infinity;
     for(const mesh of meshes){
@@ -160,11 +160,12 @@ export function createMercerStaticCharacter(
       -(minZ+maxZ)/2);
     anchor.position.set(MERCER_STATIC_CHARACTER_POSE.x,0,
       MERCER_STATIC_CHARACTER_POSE.z);
-    audit.finish(instantiateId,count+" meshes; rig frozen; arm bones "+lowered);
+    audit.finish(instantiateId,count+" meshes; neutral hands down; "+
+      (deformer?.vertexCount??0)+" pose vertices");
     console.info("[OBS-103] Static Mercer character loaded",{
       source:MERCER_STATIC_CHARACTER_PATH,meshes:count,
       heightMeters:MERCER_STATIC_CHARACTER_POSE.heightMeters,
-      animated:false,neutralArmBones:lowered,
+      animated:false,pose:"relaxed-standing",
     });
   })().catch(error=>{
     audit.fail(decodeId,error);
@@ -175,9 +176,31 @@ export function createMercerStaticCharacter(
   });
   return {
     anchor,ready,
+    /** Walk mode takes control of this exact imported actor; no second GLB. */
+    setControlled(enabled:boolean){
+      controlled=enabled;
+      if(!enabled){
+        deformer?.setWalking(false,.1);
+        anchor.position.set(MERCER_STATIC_CHARACTER_POSE.x,0,
+          MERCER_STATIC_CHARACTER_POSE.z);
+        anchor.rotation.y=0;
+      }
+    },
+    updateControlled(position:{x:number;y:number;z:number},
+      headingYaw:number,walkSpeed:number,dt:number){
+      if(!controlled||closed)return;
+      // Shared Rapier capsule centre is 0.92 m above pavement. The fitted
+      // human has a grounded foot origin, so do not transfer the capsule offset.
+      anchor.position.set(position.x,position.y-.92,position.z);
+      anchor.rotation.y=headingYaw;
+      deformer?.setWalking(walkSpeed>.14,dt);
+    },
+    get poseReport(){return {meshCount:deformer?.meshCount??0,
+      vertices:deformer?.vertexCount??0,controlled};},
     dispose(){
       if(closed)return;
       closed=true;
+      deformer?.dispose();deformer=null;
       entries?.dispose();
       container?.dispose();
       anchor.dispose();

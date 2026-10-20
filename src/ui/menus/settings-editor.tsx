@@ -163,6 +163,14 @@ export function SettingsEditor({
             )}
             {category === "Controls" && (
               <>
+                {toggle("enableCharacter", "Enable Character")}
+                <p className="overlay-note">
+                  Switch from the development humanoid to the imported human on
+                  Mercer Street. Walking only in CHAR-105: arrows / WASD or touch
+                  movement work; vehicle and flight abilities remain on the
+                  humanoid until separately verified. Disabling restores your
+                  previous humanoid position.
+                </p>
                 {range("sensitivity", "Mouse look sensitivity", 100, 10)}
                 {toggle("invertY", "Invert look Y axis")}
                 {toggle("vibration", "Controller vibration")}

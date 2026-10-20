@@ -234,6 +234,11 @@ function GamePage() {
   }, [bridge, loaded, settings.touchSensitivity, settings.invertY]);
 
   useEffect(() => {
+    if (!loaded) return;
+    bridge.command({type:"enable-character",enabled:settings.enableCharacter});
+  },[bridge,loaded,settings.enableCharacter]);
+
+  useEffect(() => {
     if (!trialEnabled || !loaded) return;
     bridge.command({ type: "character-locomotion-tuning", settings: headingSettings });
   }, [bridge, trialEnabled, loaded, headingSettings]);

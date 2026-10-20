@@ -34,7 +34,6 @@ export function posturePoint105(p:HumanPosePoint,b:HumanBounds,phase:HumanPosePh
  // Walking test: advance alternating legs around hip (no vehicle/flying pose).
  if(phase!=="idle"&&relativeY<.47){
    const hip=b.bottom+.45*h;
-   const below=smooth(.46,.13,relativeY); // reversed endpoints => explicit below
    const legWeight=1-smooth(.34,.48,relativeY);
    const sign=p.x<b.cx?-1:1;
    const angle=(phase==="left"?1:-1)*sign*.28*legWeight;

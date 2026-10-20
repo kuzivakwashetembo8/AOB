@@ -5,6 +5,7 @@ export function normalizeDrivingTouchLayout(value: unknown): DrivingTouchLayout 
   return value === "arrows" ? "arrows" : "drag";
 }
 export type Settings = {
+  enableCharacter: boolean;
   drivingTouchLayout: DrivingTouchLayout;
   quality: string;
   renderClarity: RenderClarityMode;
@@ -35,6 +36,7 @@ export type Settings = {
   desktopControls: boolean;
 };
 export const defaults: Settings = {
+  enableCharacter: false,
   drivingTouchLayout: "drag",
   quality: "High",
   renderClarity: "Auto",
@@ -77,6 +79,7 @@ export function useSettings() {
         setSettings({
           ...defaults,
           ...stored,
+          enableCharacter: stored.enableCharacter === true,
           drivingTouchLayout: normalizeDrivingTouchLayout(stored.drivingTouchLayout),
           renderClarity: normalizeRenderClarity(stored.renderClarity),
           renderScalePercent: normalizeRenderScalePercent(stored.renderScalePercent),

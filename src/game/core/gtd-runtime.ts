@@ -60,6 +60,7 @@ import {
   type RuntimeFirstLightWorld,
 } from "../world/first-light-runtime-source";
 import type { VoightPrototype } from "../character/voight";
+import {MERCER_STATIC_CHARACTER_POSE} from "../world/mercer-static-character-103";
 import { resolveCharacterTrialStreetWitnesses } from "../character/character-trial-street-witnesses";
 import { southWardLocationAt } from "../world-generation/south-ward-location";
 import { acceptedBrickSurfaceEnabled } from "../world-generation/brick-surface-policy";
@@ -120,6 +121,8 @@ export class GTDGameRuntime implements GameRuntime {
   private camera: ArcRotateCamera | null = null;
   private physics: MeridianPhysics | null = null;
   private voight: VoightPrototype | null = null;
+  private humanCharacterEnabled=false;
+  private humanoidSavedPose:{x:number;y:number;z:number;yaw:number}|null=null;
   private characterTrial: LoadedMeridiaCharacter | null = null;
   private headingSettings: TravelHeadingSettings = DEFAULT_TRAVEL_HEADING;
   private headingTurnSign: -1 | 1 = 1;
@@ -792,6 +795,8 @@ export class GTDGameRuntime implements GameRuntime {
     this.gaitEvents = [];
     this.characterTrial?.disposeDriverContact();
     this.characterTrial = null;
+    this.humanCharacterEnabled=false;
+    this.humanoidSavedPose=null;
     this.removeFL4EvidenceExport?.();
     this.removeFL4EvidenceExport = null;
     this.world?.dispose();
@@ -819,6 +824,10 @@ export class GTDGameRuntime implements GameRuntime {
   }
 
   command(command: GameCommand): void {
+    if(command.type==="enable-character"){
+      this.switchHumanCharacter(command.enabled);
+      return;
+    }
     if (command.type === "move") {
       const next = this.movementArbiter.apply(command);
       if (!next) return;
@@ -868,6 +877,16 @@ export class GTDGameRuntime implements GameRuntime {
       return;
     }
     if (command.type === "action") {
+      if (command.action === "fly" && this.humanCharacterEnabled) {
+        if(command.pressed)this.emit({type:"interaction",
+          label:"CHAR-105 is walking-only; switch back for flight"});
+        return;
+      }
+      if (command.action === "vehicle" && this.humanCharacterEnabled) {
+        if(command.pressed)this.emit({type:"interaction",
+          label:"CHAR-105 vehicle interaction awaits a later verification gate"});
+        return;
+      }
       if (command.action === "fly") {
         if (command.pressed && this.lifecycle === "running") {
           const next = toggleInspectionFlight(
@@ -1044,6 +1063,47 @@ export class GTDGameRuntime implements GameRuntime {
     voight.root.rotation.y=seat.yaw;
   }
 
+  /** CHAR-105 — one Rapier player and one camera, reversible visual actor. */
+  private switchHumanCharacter(enabled:boolean):void{
+    if(enabled===this.humanCharacterEnabled)return;
+    const actor=this.world?.staticMercerCharacter;
+    const physics=this.physics,voight=this.voight,camera=this.camera;
+    if(!actor||!physics||!voight||!camera||this.lifecycle==="destroyed"){
+      this.emit({type:"interaction",label:"Human character asset not ready"});
+      return;
+    }
+    if(enabled&&(this.context!=="walking"||this.flightEnabled)){
+      this.emit({type:"interaction",label:"Exit vehicle / flight before enabling Character"});
+      return;
+    }
+    this.move={x:0,y:0};this.movementArbiter.clear();this.actions.clear();
+    this.verticalVelocity=0;this.grounded=false;
+    if(enabled){
+      const p=physics.playerPosition();
+      this.humanoidSavedPose={...p,yaw:voight.root.rotation.y};
+      const next={x:MERCER_STATIC_CHARACTER_POSE.x,y:.92+MERCER_STATIC_CHARACTER_POSE.y,
+        z:MERCER_STATIC_CHARACTER_POSE.z};
+      physics.setPlayerPosition(next);
+      voight.root.setEnabled(false);
+      this.humanCharacterEnabled=true;
+      actor.setControlled(true);
+      actor.updateControlled(next,0,0,0);
+      camera.target.set(next.x,next.y+.55,next.z);
+      this.emit({type:"interaction",label:"CHAR-105 human enabled · walking verification"});
+    }else{
+      const previous=this.humanoidSavedPose??physics.playerPosition();
+      physics.setPlayerPosition(previous);
+      voight.root.position.set(previous.x,previous.y,previous.z);
+      voight.root.rotation.y=this.humanoidSavedPose?.yaw??0;
+      voight.root.setEnabled(true);
+      actor.setControlled(false);
+      this.humanCharacterEnabled=false;this.humanoidSavedPose=null;
+      camera.target.set(previous.x,previous.y+.55,previous.z);
+      this.emit({type:"interaction",label:"Development humanoid restored"});
+    }
+    this.publishSnapshot(0);
+  }
+
   private schedule() {
     if (this.lifecycle !== "running") return;
     this.frameHandle = requestAnimationFrame((time) => {
@@ -1127,7 +1187,7 @@ export class GTDGameRuntime implements GameRuntime {
     const right = new Vector3(-Math.sin(camera.alpha), 0, Math.cos(camera.alpha));
     const desired = forward.scale(-this.move.y).add(right.scale(this.move.x));
     if (desired.lengthSquared() > 1) desired.normalize();
-    const speed = this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
+    const speed = this.humanCharacterEnabled ? WALK_SPEED : this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
     if (this.flightEnabled) {
       const current = physics.playerPosition();
       const flight = flightDisplacement({
@@ -1224,7 +1284,7 @@ export class GTDGameRuntime implements GameRuntime {
     } else {
       this.curbStepSeconds = Math.max(0, this.curbStepSeconds - dt);
     }
-    const gaitDecision = this.characterTrial?.updateAnimation({
+    const gaitDecision = !this.humanCharacterEnabled ? this.characterTrial?.updateAnimation({
       correctedPlanarSpeed: correctedPlanarMps,
       rawGrounded: this.grounded,
       intentMagnitude: desired.length(),
@@ -1251,8 +1311,14 @@ export class GTDGameRuntime implements GameRuntime {
       interiorState === "inside" ? 3.35 : interiorState === "threshold" ? 4.5 : 6.2;
 
     voight.root.position.set(position.x, position.y, position.z);
+    if(this.humanCharacterEnabled)
+      this.world?.staticMercerCharacter?.updateControlled(
+        position,voight.root.rotation.y,correctedPlanarMps,dt);
     if (headingStep) {
       voight.root.rotation.y = headingStep.yaw;
+      if(this.humanCharacterEnabled)
+        this.world?.staticMercerCharacter?.updateControlled(
+          position,headingStep.yaw,correctedPlanarMps,dt);
       this.locomotionTick++;
       if (this.locomotionTick % 3 === 0) {
         this.locomotionSamples.push({
