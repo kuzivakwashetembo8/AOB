@@ -50,7 +50,7 @@ describe("CHAR-105 imported-human walking gate",()=>{
  it("applies static-only PI orientation; playable facing matches travel",()=>{
    expect(humanVisualYaw105(false)).toBeCloseTo(Math.PI);
    expect(humanVisualYaw105(true)).toBe(0);
-   for(const [dx,dz] of [[0,1],[1,0],[0,-1],[-1,0]]){
+   for(const [dx,dz] of [[0,1],[1,0],[0,-1],[-1,0]] as const){
      const travel=stepTravelHeading(Math.atan2(dx,dz),dx,dz,1/60,DEFAULT_TRAVEL_HEADING);
      const yaw=travel.yaw+humanVisualYaw105(true);
      expect(Math.sin(yaw)).toBeCloseTo(dx,5);
