@@ -217,12 +217,7 @@ export function generateBuilding(
         storefrontLedMaterial.emissiveColor = new Color3(0.035, 0.035, 0.038);
         storefrontLedMaterial.disableLighting = false;
       }
-      const housing = MeshBuilder.CreateBox("generated:" + spec.id + ":" + part.id,
-        { width: part.size.x, height: part.size.y, depth: part.size.z }, scene);
-      housing.position.set(part.center.x, part.center.y, part.center.z);
-      housing.material = materialFor("trim");
-      housing.metadata = { buildingId: spec.id, templateId: part.templateId, renderClass: kind };
-      register(housing, kind);
+      // MAT-021: suppress plank-like housing while retaining the light itself.
       const frontBack = part.size.x > part.size.z;
       const led = MeshBuilder.CreateBox("generated-led:" + spec.id + ":" + part.id,
         { width: frontBack ? part.size.x * 0.94 : part.size.x + 0.025,

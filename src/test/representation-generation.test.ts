@@ -96,7 +96,8 @@ describe("Meridian Step 3 visual representation", () => {
         expect(building.meshes.some((mesh) => mesh.thinInstanceCount > 1)).toBe(true);
       } else {
         expect(building.meshes.some((mesh) => mesh.thinInstanceCount > 0)).toBe(false);
-        expect(building.meshes.length).toBeGreaterThanOrEqual(building.plan.primitives.length);
+        expect(building.meshes.length).toBeGreaterThan(0);
+        expect(building.meshes.length).toBeLessThan(building.plan.primitives.length);
       }
       expect(building.detailPlan.decals.length).toBeGreaterThan(0);
       building.setRepresentationDistance(1000);

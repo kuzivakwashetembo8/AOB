@@ -5,6 +5,7 @@ import {
   resolveCityBuildings,
 } from "../game/world-generation";
 import type { PlannedOpening, ResolvedBuildingSpec } from "../game/world-generation";
+import {cleanWoodBuildingSurrounds} from "../game/world-generation/wood-exterior-cleanup-019";
 
 const version = FIRST_LIGHT_CITY_SPEC.generatorVersion;
 const inventory = resolveCityBuildings(FIRST_LIGHT_CITY_SPEC);
@@ -144,7 +145,8 @@ describe("Meridian Step 2 architecture generation", () => {
       const garage = get("sw-fl-garage");
       const generated = generateBuilding(scene, null, garage, { generatorVersion: version });
       expect(generated.physicsIntegrated).toBe(false);
-      expect(generated.meshes).toHaveLength(generated.plan.primitives.length);
+      expect(generated.meshes).toHaveLength(
+        cleanWoodBuildingSurrounds(generated.plan.primitives,false).length);
       expect(generated.root.position.x).toBe(garage.position.x);
       expect(generated.root.position.z).toBe(garage.position.z);
       expect(scene.meshes.length).toBeGreaterThan(0);

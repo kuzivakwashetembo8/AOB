@@ -11,6 +11,8 @@
 import type {BoxPrimitive} from "./architecture-plan";
 
 export function isExcessWoodSurround(part:BoxPrimitive):boolean{
+  // Keep the functional storefront LED, not its plank-shaped housing.
+  if(part.templateId==="facade-sign-band")return false;
   // Door handles are the sole necessary former "trim" element; they are
   // reclassified as metal below so no wood-family trim material is requested.
   if(part.id.startsWith("door-handle:"))return false;
