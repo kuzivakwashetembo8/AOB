@@ -37,13 +37,28 @@ export class RealLoadingLedger{
  private longestLongTaskMs=0;
  private finished=false;
  private observing=false;
+ private monitor:Worker|null=null;
+ startWatchdog(release:string):void{
+   if(this.monitor||typeof Worker==="undefined")return;
+   try{
+     this.monitor=new Worker("/obs106-watchdog.js");
+     this.monitor.postMessage({type:"init",runId:this.sessionId,release});
+     this.mark("lifecycle","ui-started","starting",{});
+   }catch(error){console.warn("[OBS-106] Worker unavailable",error);this.monitor=null;}
+ }
+ private mark(eventType:"load"|"resource"|"longtask"|"lifecycle",item:string,
+   state:string,metrics:Record<string,string|number|boolean|null>={}):void{
+   this.monitor?.postMessage({type:"mark",eventType,item,state,metrics});
+ }
+ finishWatchdog():void{this.monitor?.postMessage({type:"stop"});}
+
  start(id:string,label:string,kind:AuditKind="stage",detail?:string):void{
    if(this.finished||this.rows.has(id))return;
    if(this.rows.size>=MAX_ROWS)return;
    this.rows.set(id,{id,label:sanitized(label),kind,state:"loading",
      startedMs:now(),endedMs:null,durationMs:0,
      detail:detail?sanitized(detail):null,bytes:null,transferBytes:null,error:null});
-   console.info("[GTD-OBS-105] BEGIN",kind,id);
+   this.mark("load",id,"loading",{kind,label:sanitized(label)});
  }
  finish(id:string,detail?:string,bytes?:number|null):void{
    const row=this.rows.get(id);
@@ -52,14 +67,15 @@ export class RealLoadingLedger{
    row.state="loaded";
    if(detail)row.detail=sanitized(detail);
    if(bytes!==undefined)row.bytes=bytes;
-   console.info("[GTD-OBS-105] DONE",row.kind,id,row.durationMs+"ms",row.detail);
+   this.mark("load",id,"loaded",{duration_ms:row.durationMs,kind:row.kind});
  }
  fail(id:string,error:unknown):void{
    const row=this.rows.get(id);
    if(!row||row.state!=="loading")return;
    row.endedMs=now();row.durationMs=Math.max(0,Math.round(row.endedMs-row.startedMs));
    row.state="failed";row.error=sanitized(error instanceof Error?error.message:error);
-   console.error("[GTD-OBS-105] FAILED",row.kind,id,row.durationMs+"ms",row.error);
+   this.mark("load",id,"failed",{duration_ms:row.durationMs,error:row.error??"unknown"});
+   console.error("[GTD-OBS-106]",id,row.error);
  }
  measure<T>(id:string,label:string,kind:AuditKind,run:()=>T,detail?:string):T{
    this.start(id,label,kind,detail);
@@ -92,11 +108,11 @@ export class RealLoadingLedger{
      error:failed?"HTTP "+responseStatus:null,
    };
    this.rows.set(id,report);
-   if(/\.(glb|gltf|webp|png|jpg|jpeg|ktx2|wasm)(?:$|\?)/i.test(resource))
-     console.info("[GTD-OBS-105] TRANSFER",resource,duration+"ms",report.transferBytes);
+   this.mark("resource",resource,failed?"failed":"observed",{duration_ms:duration});
  }
  private recordLongTask(e:PerformanceEntry):void{
    this.totalLongTaskMs+=e.duration;
+   this.mark("longtask","main-thread-longtask","observed",{duration_ms:Math.round(e.duration)});
    this.longestLongTaskMs=Math.max(this.longestLongTaskMs,e.duration);
    if(this.rows.size>=MAX_ROWS)return;
    const id="longtask:"+Math.round(e.startTime);
@@ -144,6 +160,7 @@ export class RealLoadingLedger{
  }
  dispose():void{
    this.finished=true;
+   this.monitor?.terminate();this.monitor=null;
    for(const observer of this.observers)observer.disconnect();
    this.observers.length=0;
  }
