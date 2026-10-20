@@ -4,8 +4,8 @@
  * alone is overwritten by the linked node on skeleton.prepare(). Keep the
  * source skin weights, upper-body mesh vertices and bind matrices intact.
  */
-import {Quaternion,Vector3} from "@babylonjs/core";
-import type {Skeleton,TransformNode} from "@babylonjs/core";
+import {Quaternion,Vector3,TransformNode} from "@babylonjs/core";
+import type {Skeleton} from "@babylonjs/core";
 import {parentSpaceAimDelta,rotationOf} from "./driver-joint-space";
 
 export type NativePose109Report={
@@ -53,13 +53,13 @@ export function neutralArmDelta109(
 }
 export function createNativePoseController109(skeletons:readonly Skeleton[]):NativePose109Controller{
  const candidates=findLinkedArms109(skeletons);
- const stored:{node:TransformNode;target:Quaternion}[]=[];
+ const stored:{node:TransformNode;target:Quaternion;original:Quaternion}[]=[];
  const applied:string[]=[];
  let reason:string|null=null,restored=0;
  if(candidates.length!==2)reason="source joints lack two linked LeftArm/RightArm and forearms";
  for(const arm of candidates){
    const parent=arm.upper.parent;
-   if(!parent){reason="missing linked arm parent";continue;}
+   if(!(parent instanceof TransformNode)){reason="missing linked arm transform parent";continue;}
    // Refresh Babylon's linked node hierarchy before measuring actual rest
    // shoulder->elbow direction. No skeleton-space/world-space confusion.
    parent.computeWorldMatrix(true);
@@ -86,17 +86,15 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
      arm.upper.computeWorldMatrix(true);
      reason="joint aim increased anatomical error";continue;
    }
-   stored.push({node:arm.upper,target:desired.clone()});
+   stored.push({node:arm.upper,target:desired.clone(),original:original.clone()});
    applied.push(arm.side+"Arm");
  }
  if(stored.length!==2){
-   // Do not leave a half-corrected asymmetric model.
-   for(const entry of stored){
-     // Original transforms are restored below when needed.
-     // No partial correction is accepted as a neutral standing state.
-     const item=candidates.find(a=>a.upper===entry.node);
-     if(item)entry.node.rotationQuaternion=rotationOf(entry.node);
-   }
+   // Never leave only one arm corrected if the other joint failed calibration.
+   for(const item of stored)item.node.rotationQuaternion=item.original.clone();
+   for(const skeleton of skeletons)skeleton.prepare();
+   stored.length=0;
+   applied.length=0;
  }
  for(const skeleton of skeletons)skeleton.prepare();
  const report:NativePose109Report={
