@@ -52,3 +52,18 @@ CHAR-107 corrective attempt:
 - The native rig is a capability, not proof that our procedural skeletal
   rotation produces an anatomically accepted neutral pose; owner preview is
   required. No merge authorization implied.
+
+## Confirmed authored animation inventory (read-only audit, next build)
+The source GLB has **zero authored animation clips** (animations = []). It
+therefore has no embedded neutral idle or walk animation. Its 12 skinned meshes
+and 73-joint armature are the actual supported posture mechanism. The nested
+LeftShoulder > LeftArm > LeftForeArm and mirrored right-side chains are native
+asset data; the previous custom shoulder vertex-warp is no longer appropriate.
+
+## CHAR-107 verification
+CI deployment for code commit 6769b5573a0fe6c35c1829257a4db5e5efb82b64
+completed successfully on the isolated preview, including TypeScript, Vitest
+and offline packaging: 433 game files; 0 missing mandatory resources.
+This is **not** owner visual acceptance; the native joint correction is pending
+front/side/rear inspection in GTD. Foot lifting and locomotion refinement remain
+deferred. Main intentionally unchanged.
