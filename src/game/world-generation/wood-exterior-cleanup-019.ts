@@ -1,22 +1,25 @@
-/** GTD-MAT-019: remove excessive *separate wood-colored surround geometry*
- * only on buildings whose existing wall finish comes from WOOD family.
- * The timber IMAGE wall surfaces, real roof enclosure, doors and openings
- * are deliberately unmodified.
+/** GTD-MAT-020: image-only wood exteriors.
+ * The only allowed visible exterior surfaces on a wood-image building are:
+ * image-derived wall patches, glass panes, the required physical roof shell,
+ * and working door panels with metal handles. Every procedurally generated
+ * surround, sill, lintel, window frame, cornice, fascia, foundation band,
+ * parapet and decorative facade fixture is suppressed BEFORE mesh creation.
+ *
+ * No impact on brick/glass buildings or structural walls, apertures,
+ * collisions, roofs, doors, or UV image scale.
  */
 import type {BoxPrimitive} from "./architecture-plan";
 
-export function isExcessWoodSurround(part:BoxPrimitive):boolean {
-  // The roof SLAB and pitched/shed panels remain intact; only the raised
-  // timber-looking perimeter edge / roof parapet is deleted.
-  if(part.role==="trim" && /^roof:.*:parapet:/.test(part.id))return true;
-  // Non-structural facade ornaments at rooftop and exterior floor level.
-  if(part.role==="trim" &&
-     (part.templateId==="facade-cornice"||
-      part.templateId==="facade-foundation-band"))return true;
-  // Keep the actual door panel and handle; remove only its four wood frame
-  // bars that surround the doorway.
-  if(part.role==="trim" &&
-     part.templateId==="door-standard" && part.id.startsWith("frame:"))
+export function isExcessWoodSurround(part:BoxPrimitive):boolean{
+  // Door handles are the sole necessary former "trim" element; they are
+  // reclassified as metal below so no wood-family trim material is requested.
+  if(part.id.startsWith("door-handle:"))return false;
+  // Includes windows, doors, roof parapets, eaves, fascia, rooflines,
+  // storefront sign bands, sills, lintels, mullions and floor surrounds.
+  if(part.role==="trim")return true;
+  // All facade-only ornaments are generated separately from walls and
+  // openings, including side piping and metallic window shutters/ACs.
+  if(part.id.startsWith("detail:") && part.templateId?.startsWith("facade-"))
     return true;
   return false;
 }
@@ -26,8 +29,7 @@ export function cleanWoodBuildingSurrounds(
 ):BoxPrimitive[]{
   if(!woodSurfaceActive)return [...parts];
   return parts.filter(p=>!isExcessWoodSurround(p)).map(p=>
-    // Door handle remains, but is METAL rather than a residual wooden strip.
     p.id.startsWith("door-handle:")&&p.role==="trim"
-      ?{...p,role:"metal" as const}:p
+      ? {...p,role:"metal" as const}:p
   );
 }
