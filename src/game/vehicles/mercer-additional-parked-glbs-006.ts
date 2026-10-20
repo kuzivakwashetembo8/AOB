@@ -9,6 +9,7 @@ import type {AssetContainer,Scene} from "@babylonjs/core";
 import type {MeridianPhysics,StaticCollisionHandle} from "../physics/rapier-world";
 import type {StreetContextItem} from "../world-generation/street-context";
 import {loadLocalGLBWithRecovery,LocalGLBImportError} from "./local-glb-retry-062";
+import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 import type {LocalGLBLoadErrorCode} from "./local-glb-retry-062";
 
 
@@ -151,6 +152,9 @@ export function createMercerExtraParkedGLBs(
     const loadStartedAt=performance.now();
     const modelRoot=new TransformNode("mercer-extra-visual:"+spec.id,scene);
     modelRoot.parent=anchor;
+    const decodeId="asset:decode:"+spec.id;
+    const instantiateId="asset:instantiate:"+spec.id;
+    audit.start(decodeId,"Download / decode "+spec.label,"asset",spec.url);
     const ready=(async()=>{
       if(!load)await import("@babylonjs/loaders/glTF");
       // WHEEL-001: Only use build-time rigged derivatives on the isolated
@@ -177,7 +181,9 @@ export function createMercerExtraParkedGLBs(
       importPhase=false;
       loaderElapsedMs=performance.now()-loadStartedAt;
       if(closed){glb.dispose();return;}
+      audit.finish(decodeId,"GLB parsed into Babylon asset container; attempts "+loadAttempts,spec.sourceBytesKnown);
       container=glb;
+      audit.start(instantiateId,"Instantiate vehicle "+spec.label,"asset");
       containerReadyMs=performance.now()-loadStartedAt;
       const instantiationStartedAt=performance.now();
       // A single independent owner GLB per slot. Leave embedded paint,
@@ -222,7 +228,10 @@ export function createMercerExtraParkedGLBs(
         spec.yaw,
       );
       instantiateMs=performance.now()-instantiationStartedAt;
+      audit.finish(instantiateId,meshes.length+" visible meshes; collider registered");
     })().catch(error=>{
+      audit.fail(decodeId,error);
+      audit.fail(instantiateId,error);
       // A failing member blocks the authentic six-car boot, but now carries
       // a sanitized per-model terminal reason into user-exportable telemetry.
       errorCode=error instanceof LocalGLBImportError?error.code:
