@@ -32,6 +32,7 @@ import type {
 import type { StreetContextPlan } from "../world-generation/street-context";
 import {SOUTH_WARD_018_BOUNDS,createOpenSouthWard018} from "../world-generation/south-ward-open-roads-018";
 import {createMercerExtraParkedGLBs} from "../vehicles/mercer-additional-parked-glbs-006";
+import {createMercerStaticCharacter} from "./mercer-static-character-103";
 import type { ForestryBudget, ForestryPlan, ForestryDensityFocus } from "../world-generation/urban-forestry-plan";
 import {
   createMeridianEnvironment,
@@ -62,6 +63,7 @@ export interface GeneratedFirstLightWorld {
   /** Owner's Range Rover-only preview, separate from accepted imported slots. */
   readonly rangeRoverReview: ReturnType<typeof createMercerExtraParkedGLBs> | null;
   readonly rangeRoverReviewReady: Promise<void> | null;
+  readonly staticMercerCharacter: ReturnType<typeof createMercerStaticCharacter> | null;
   /**
    * EXP-VEH-001 only: substitute the collision box of an already-existing
    * parked-car slot after its imported visual succeeds. The world retains
@@ -444,6 +446,11 @@ export function createGeneratedFirstLightWorld(
   const rangeRoverReview=options.enableRangeRoverDriveReview
     ? createMercerExtraParkedGLBs(scene,physics,streetPlan.items)
     : null;
+  // OBS-103: Separate from Voight; a single static, unanimated character
+  // stands on Mercer's southern sidewalk near the six vehicle review slots.
+  const staticMercerCharacter=rangeRoverReview
+    ? createMercerStaticCharacter(scene)
+    : null;
   const urbanNavigationCollision = registerUrbanNavigationCollision(
     physics,
     urbanSurfaces,
@@ -514,7 +521,11 @@ export function createGeneratedFirstLightWorld(
     environment,
     garageInterior,
     rangeRoverReview,
-    rangeRoverReviewReady: rangeRoverReview?.ready ?? null,
+    staticMercerCharacter,
+    rangeRoverReviewReady: rangeRoverReview
+      ? Promise.all([rangeRoverReview.ready,
+        staticMercerCharacter?.ready??Promise.resolve()]).then(()=>{})
+      : null,
     shadowGenerator: environment.shadowGenerator,
     suspendParkedCarColliders() {
       if (disposed) throw new Error("Cannot suspend car colliders after world disposal");
@@ -589,6 +600,7 @@ export function createGeneratedFirstLightWorld(
       for (const handle of contextCollision) handle.dispose();
       for (const handle of urbanNavigationCollision) handle.dispose();
       for (const handle of garageThresholdCollision) handle.dispose();
+      staticMercerCharacter?.dispose();
       rangeRoverReview?.dispose();
       garageInterior?.dispose();
       environment.dispose();
