@@ -1085,7 +1085,7 @@ export class GTDGameRuntime implements GameRuntime {
     if(enabled){
       const p=physics.playerPosition();
       this.humanoidSavedPose={...p,yaw:voight.root.rotation.y};
-      const next={x:MERCER_STATIC_CHARACTER_POSE.x,y:.92+MERCER_STATIC_CHARACTER_POSE.y,
+      const next={x:MERCER_STATIC_CHARACTER_POSE.x,y:.92,
         z:MERCER_STATIC_CHARACTER_POSE.z};
       physics.setPlayerPosition(next);
       voight.root.setEnabled(false);

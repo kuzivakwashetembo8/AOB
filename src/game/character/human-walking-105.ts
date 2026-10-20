@@ -77,7 +77,8 @@ export function createHumanDeformer105(meshes:readonly Mesh[]):HumanDeformer105{
      Vector3.TransformCoordinatesToRef(source,world,global);
      for(const [name,destination] of [["idle",idle],["left",left],["right",right]] as const){
        const v=posturePoint105(global,bounds,name);
-       Vector3.TransformCoordinatesToRef(new Vector3(v.x,v.y,v.z),inverse,loc);
+       source.set(v.x,v.y,v.z);
+       Vector3.TransformCoordinatesToRef(source,inverse,loc);
        destination[i]=loc.x;destination[i+1]=loc.y;destination[i+2]=loc.z;
      }
    }
