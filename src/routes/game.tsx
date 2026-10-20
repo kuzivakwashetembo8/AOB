@@ -25,6 +25,7 @@ import {
 } from "@/game/character/locomotion/travel-heading";
 import type { GameAction } from "@/game/core/types";
 import { StartupTelemetry } from "@/lib/startup-telemetry";
+import {gtdLoadingLedger} from "@/lib/real-loading-ledger";
 import { downloadStartupFailureEvidence } from "@/lib/startup-error-download";
 declare const __GTD_RELEASE_ID__:string;
 import { initialStartupChecklist, applyStartupCheckpoint } from "@/game/core/loading-checklist";
@@ -61,6 +62,7 @@ function GamePage() {
   const stopwatch = useRef(new StartupBudgetStopwatch());
   const telemetry = useRef<StartupTelemetry | null>(null);
   const [loadElapsedSeconds, setLoadElapsedSeconds] = useState(0);
+  const [measured, setMeasured] = useState(()=>gtdLoadingLedger.snapshot());
   const [loadCompletedSeconds, setLoadCompletedSeconds] = useState<number | null>(null);
   const [showLoadResult, setShowLoadResult] = useState(true);
   const [interaction, setInteraction] = useState("");
@@ -98,14 +100,19 @@ function GamePage() {
     const started=performance.now();
     stopwatch.current.start(started);
     telemetry.current ??= new StartupTelemetry(started);
+    gtdLoadingLedger.startBrowserObservers();
+    gtdLoadingLedger.start("startup:initialization","Game startup","stage");
     const onPageHide=()=>{void telemetry.current?.finish("aborted",true);};
     window.addEventListener("pagehide",onPageHide);
     const update = () => {
       if (stopwatch.current.completed) return;
       setLoadElapsedSeconds(stopwatch.current.elapsedMillisecondsAt(performance.now())/1000);
+      // One UI update per second, regardless of hundreds of synchronous
+      // world tasks or resource events. The ledger records immediately.
+      setMeasured(gtdLoadingLedger.snapshot());
     };
     update();
-    const interval = window.setInterval(update, 250);
+    const interval = window.setInterval(update, 1000);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("pagehide",onPageHide);
@@ -122,13 +129,27 @@ function GamePage() {
     let cancelled = false;
     const unsubscribe = bridge.subscribeEvent((event) => {
       if (event.type === "interaction") setInteraction(event.label ?? "");
-      if(event.type==="asset-observation")telemetry.current?.asset(event);
+      if(event.type==="asset-observation"){
+        telemetry.current?.asset(event);
+        const id="asset:"+event.assetId;
+        gtdLoadingLedger.start(id,event.assetId,"asset");
+        if(event.result==="failed")gtdLoadingLedger.fail(id,event.errorCode??"asset import failed");
+        else gtdLoadingLedger.finish(id,
+          "container "+String(event.containerReadyMs)+" ms; instantiate "+String(event.instantiateMs)+" ms",
+          event.sourceBytesKnown);
+      }
       if (event.type === "load-checkpoint") {
         telemetry.current?.checkpoint(event);
+        const id="runtime:"+event.id;
+        if(event.status==="running")gtdLoadingLedger.start(id,event.id.replace(/-/g," "),"stage",event.detail);
+        else if(event.status==="failed")gtdLoadingLedger.fail(id,event.detail??"Runtime stage failed");
+        else if(event.status==="done")gtdLoadingLedger.finish(id,event.detail);
         setChecklist((entries) => applyStartupCheckpoint(entries, event));
         setRuntimeDetail(event.detail?.toUpperCase() ?? event.id.replace(/-/g, " ").toUpperCase());
         if (event.id === "first-frame" && event.status === "done") {
           const measuredSeconds = stopwatch.current.stopMilliseconds(performance.now())/1000;
+          gtdLoadingLedger.finish("startup:initialization","First playable frame reached");
+          setMeasured(gtdLoadingLedger.snapshot());
           void telemetry.current?.finish("playable");
           setLoadElapsedSeconds(measuredSeconds);
           setLoadCompletedSeconds(measuredSeconds);
@@ -153,7 +174,9 @@ function GamePage() {
         // Before expensive GLB/physics boot, validate the latest APPROVED
         // deployment; never equate GitHub main with an un-deployed release.
         telemetry.current?.stageStart("version_handshake");
-        const version = await checkGameStartupVersion();
+        const version = await gtdLoadingLedger.measureAsync(
+          "stage:version","Release and service worker version check","stage",
+          ()=>checkGameStartupVersion());
         telemetry.current?.stageEnd("version_handshake",version==="retry-needed"?"failed":"done");
         if(version==="retry-needed")void telemetry.current?.finish("failed");
         if (cancelled || version === "reload") return;
@@ -163,16 +186,23 @@ function GamePage() {
           setBootstrapError("An updated build is available but the refresh could not complete. Retry from this screen, or continue with your currently installed build.");
           return;
         }
-        const { GTDGameRuntime } = await import("@/game/core/gtd-runtime");
+        const { GTDGameRuntime } = await gtdLoadingLedger.measureAsync(
+          "asset:runtime-bundle","Decode game runtime JavaScript","asset",
+          ()=>import("@/game/core/gtd-runtime"));
         if (cancelled) return;
         const runtime = new GTDGameRuntime();
         bridge.attach(runtime);
-        await bridge.bootstrap(host);
+        await gtdLoadingLedger.measureAsync(
+          "stage:runtime-bootstrap","Initialize game renderer and world","stage",
+          ()=>bridge.bootstrap(host));
         if (cancelled) return;
         setLoaded(true);
         bridge.start();
       } catch (error) {
         console.error("GTD runtime bootstrap failed", error);
+        gtdLoadingLedger.fail("startup:initialization",error);
+        gtdLoadingLedger.fail("stage:runtime-bootstrap",error);
+        setMeasured(gtdLoadingLedger.snapshot());
         void telemetry.current?.finish("failed");
         setRuntimeDetail("RUNTIME BOOT FAILED");
         setBootstrapError(error instanceof Error ? error.message : String(error));
@@ -410,17 +440,28 @@ function GamePage() {
         <BootstrapOverlay
           elapsedSeconds={loadElapsedSeconds}
           entries={checklist}
+          measured={measured}
           error={bootstrapError}
           onRetryUpdate={versionBlocked ? retryGameUpdate : undefined}
           onContinueCurrentBuild={versionBlocked ? continueWithInstalledBuild : undefined}
-          onDownloadStartupDiagnostics={bootstrapError
-            ? () => downloadStartupFailureEvidence(bootstrapError,checklist,
-                {startup:telemetry.current?.diagnosticSnapshot()??null,
-                  fleet:(window as Window & {
-                    __GTD_NATIVE_FLEET_DIAGNOSTICS__?:()=>unknown
-                  }).__GTD_NATIVE_FLEET_DIAGNOSTICS__?.()??null},
-                typeof __GTD_RELEASE_ID__==="string"?__GTD_RELEASE_ID__:"development")
-            : undefined}
+          onDownloadStartupDiagnostics={() => {
+            const payload={
+              schema:"gtd.obs105.export.v1",
+              observation:gtdLoadingLedger.snapshot(),
+              previousTelemetry:telemetry.current?.diagnosticSnapshot()??null,
+              fleet:(window as Window &{
+                __GTD_NATIVE_FLEET_DIAGNOSTICS__?:()=>unknown
+              }).__GTD_NATIVE_FLEET_DIAGNOSTICS__?.()??null,
+              error:bootstrapError,
+              release:typeof __GTD_RELEASE_ID__==="string"?__GTD_RELEASE_ID__:"development",
+            };
+            const json=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+            const url=URL.createObjectURL(json);
+            const link=document.createElement("a");
+            link.href=url;link.download="gtd-live-loading-"+gtdLoadingLedger.sessionId+".json";
+            link.click();
+            window.setTimeout(()=>URL.revokeObjectURL(url),3000);
+          }}
           onDownloadDiagnostics={trialEnabled && bootstrapError
             ? () => downloadCharacterTrialEvidence(bootstrapError, checklist, trialBrowserErrors.current)
             : undefined}
