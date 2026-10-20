@@ -46,7 +46,7 @@ jobs:
             --out-dir wheel001-output/defender > wheel001-output/defender.log 2>&1
           echo "Defender exit: $?" >> wheel001-output/summary.txt
           blender -b -t 2 --python scripts/wheel001_onboard_blender.py -- \
-            --source "public/GLBs/Cars/GLBs/Cars/dodge_HP.glb" --model-id dodge-hp \
+            --source "public/GLBs/Cars/dodge_HP.glb" --model-id dodge-hp \
             --out-dir wheel001-output/dodge > wheel001-output/dodge.log 2>&1
           echo "Dodge exit: $?" >> wheel001-output/summary.txt
           cat wheel001-output/summary.txt

@@ -12,7 +12,7 @@ import {pathToFileURL} from "node:url";
 const models=[
  ["toyota-hilux-002","public/GLBs/Cars/toyota hilux 002.glb"],
  ["land-rover-defender-001","public/GLBs/Cars/Land rover defender 001.glb"],
- ["dodge-hp","public/GLBs/Cars/GLBs/Cars/dodge_HP.glb"],
+ ["dodge-hp","public/GLBs/Cars/dodge_HP.glb"],
  ["bmw-m4-competition","public/GLBs/Cars/bmw_m4_competition_m_package (1).glb"],
 ];
 const corners=["frontLeft","frontRight","rearLeft","rearRight"];

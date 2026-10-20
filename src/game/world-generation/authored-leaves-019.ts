@@ -2,7 +2,7 @@
  * shared GLB container then distributed across the existing deterministic
  * city-tree canopy centres. No new trees, trunks, colliders, textures or lots.
  *
- * GLB provenance: public/GLBs/Nature/GLBs/Nature/leaves.glb, Git blob
+ * GLB provenance: public/GLBs/Nature/leaves.glb, Git blob
  * bae1b8731940915e7d55ebb399021058eaa1710c
  * last committed f86f7270d633ea6bcb63b6a6175e270bb307cc22.
  */
