@@ -1,0 +1,38 @@
+/* GTD-OBS-105: real measured ledger; original GTD timer retained on top. */
+.overlay.gtd-real-overlay{display:block;overflow:hidden;padding:clamp(8px,1.4vw,20px)}
+.overlay.gtd-real-overlay .overlay-content.gtd-real-content{
+ width:min(1420px,100%);max-width:100%;height:100%;max-height:100%;
+ margin:0 auto;min-width:0;display:flex;flex-direction:column;gap:10px}
+.gtd-real-heading{flex:0 0 auto;text-align:center}
+.gtd-real-heading .bootstrap-mark{font-size:clamp(48px,6vh,76px);margin:3px auto 0}
+.gtd-real-heading .game-title{margin:0}
+.gtd-real-heading .load-budget-meter{width:min(520px,100%);margin:8px auto 0}
+.gtd-real-ledger{display:flex;flex-direction:column;min-height:0;flex:1;gap:8px}
+.gtd-real-ledger-header{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 24px;border-bottom:1px solid var(--border);padding-bottom:7px;font:11px/1.5 var(--font-mono);color:var(--primary)}
+.gtd-real-search{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.gtd-real-search input{width:min(370px,50%);background:rgb(0 0 0 / 40%);border:1px solid var(--border);padding:7px;color:inherit;font:11px var(--font-mono)}
+.gtd-real-search small{font:10px/1.4 var(--font-mono);color:var(--muted-foreground)}
+.gtd-real-groups{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start;align-items:start;gap:10px;overscroll-behavior:contain}
+.gtd-real-group{min-width:0;border:1px solid var(--border);background:rgb(0 0 0 / 40%);padding:8px 10px}
+.gtd-real-group summary{cursor:pointer;font:11px/1.5 var(--font-mono);color:var(--primary);overflow-wrap:anywhere}
+.gtd-real-group-rows{max-height:min(32vh,275px);overflow:auto;padding-top:6px}
+.gtd-real-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-top:1px solid rgb(255 255 255 / 7%);font:11px/1.3 var(--font-mono)}
+.gtd-real-icon{color:var(--primary);width:12px;flex:0 0 auto}
+.gtd-real-row[data-audit-state="failed"] .gtd-real-icon{color:var(--destructive)}
+.gtd-real-row[data-audit-state="loaded"] .gtd-real-icon{color:#70a99e}
+.gtd-real-row-body{display:flex;flex-direction:column;gap:3px;overflow-wrap:anywhere;min-width:0;flex:1}
+.gtd-real-row-body small{font:9px/1.4 var(--font-mono);color:var(--muted-foreground)}
+.gtd-real-metric{display:flex;flex-direction:column;align-items:flex-end;text-align:right;gap:3px;flex:0 0 auto;font-size:10px}
+.gtd-real-metric small{font-size:9px;color:var(--muted-foreground)}
+.gtd-real-footer{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 22px;border-top:1px solid var(--border);padding-top:9px;font:11px/1.4 var(--font-mono)}
+.gtd-real-overlay,.gtd-real-overlay *{scrollbar-width:none;-ms-overflow-style:none}
+.gtd-real-overlay::-webkit-scrollbar,.gtd-real-overlay *::-webkit-scrollbar{display:none;width:0;height:0}
+@media(min-width:1550px) and (orientation:landscape){.gtd-real-groups{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:900px){.gtd-real-groups{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:550px){.gtd-real-groups{grid-template-columns:minmax(0,1fr)}.gtd-real-search{display:block}.gtd-real-search input{width:100%}}
+@media(max-height:600px) and (orientation:landscape){
+ .gtd-real-heading .bootstrap-mark{font-size:38px}
+ .gtd-real-heading .load-budget-meter{padding:4px 8px}
+ .gtd-real-heading .load-budget-face{font-size:24px}
+ .gtd-real-groups{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
