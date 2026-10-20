@@ -27,7 +27,6 @@ const displayUrl=(value:string)=>{
       decodeURIComponent(url.pathname).slice(0,190);
   }catch {return "unidentified resource";}
 };
-const kindFromPath=(path:string):AuditKind=>"resource";
 const now=()=>typeof performance!=="undefined"?performance.now():Date.now();
 export class RealLoadingLedger{
  readonly sessionId=(typeof crypto!=="undefined"&&"randomUUID"in crypto)?crypto.randomUUID():"local-session";
@@ -37,6 +36,7 @@ export class RealLoadingLedger{
  private totalLongTaskMs=0;
  private longestLongTaskMs=0;
  private finished=false;
+ private observing=false;
  start(id:string,label:string,kind:AuditKind="stage",detail?:string):void{
    if(this.finished||this.rows.has(id))return;
    if(this.rows.size>=MAX_ROWS)return;
@@ -84,7 +84,7 @@ export class RealLoadingLedger{
    const failed=typeof responseStatus==="number"&&responseStatus>=400;
    const duration=Math.max(0,Math.round(e.duration));
    const report:AuditRow={
-     id,label:resource,kind:kindFromPath(resource),state:failed?"failed":"loaded",
+     id,label:resource,kind:"resource",state:failed?"failed":"loaded",
      startedMs:e.startTime,endedMs:e.responseEnd,
      durationMs:duration,detail:"transfer completed ("+type+"); decode and GPU upload not implied",
      bytes:e.decodedBodySize>0?e.decodedBodySize:null,
@@ -107,6 +107,8 @@ export class RealLoadingLedger{
      bytes:null,transferBytes:null,error:null});
  }
  startBrowserObservers():void{
+   if(this.observing)return;
+   this.observing=true;
    if(typeof PerformanceObserver==="undefined"||typeof performance==="undefined")return;
    try{
      performance.setResourceTimingBufferSize?.(2500);
