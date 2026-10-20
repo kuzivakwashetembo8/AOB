@@ -6,6 +6,7 @@
  *
  * This is data-first: the same RoadNetworkSpec feeds world-space 4-way/T
  * topology, batch visuals, real curb collision, and named street HUD.
+ * WORLD-021 flushes every outward road with its grassland boundary.
  */
 import {Mesh,VertexData} from "@babylonjs/core";
 import type {Material,Scene} from "@babylonjs/core";
@@ -27,21 +28,21 @@ type AxisPath={
   readonly breaks:readonly (readonly number[])[];
 };
 const eastWest:readonly AxisPath[]=[
-  {name:"North Reach Road",position:-145,breaks:[[-225,-190,-125,125,190,225]]},
-  {name:"Pine Road",position:-80,breaks:[[-225,-190,-125,125,190,225]]},
+  {name:"North Reach Road",position:-145,breaks:[[SOUTH_WARD_018_BOUNDS.left,-190,-125,125,190,SOUTH_WARD_018_BOUNDS.right]]},
+  {name:"Pine Road",position:-80,breaks:[[SOUTH_WARD_018_BOUNDS.left,-190,-125,125,190,SOUTH_WARD_018_BOUNDS.right]]},
   // The existing First Light parity streets reach precisely to x=±80.
   {name:"Mercer Street",position:8,
-   breaks:[[-225,-190,-125,-80],[80,125,190,225]]},
+   breaks:[[SOUTH_WARD_018_BOUNDS.left,-190,-125,-80],[80,125,190,SOUTH_WARD_018_BOUNDS.right]]},
   {name:"Foundry Lane",position:48,
-   breaks:[[-225,-190,-125,-80],[80,125,190,225]]},
-  {name:"South Field Road",position:120,breaks:[[-225,-190,-125,125,190,225]]},
-  {name:"Outer Ward Road",position:190,breaks:[[-225,-190,-125,125,190,225]]},
+   breaks:[[SOUTH_WARD_018_BOUNDS.left,-190,-125,-80],[80,125,190,SOUTH_WARD_018_BOUNDS.right]]},
+  {name:"South Field Road",position:120,breaks:[[SOUTH_WARD_018_BOUNDS.left,-190,-125,125,190,SOUTH_WARD_018_BOUNDS.right]]},
+  {name:"Outer Ward Road",position:190,breaks:[[SOUTH_WARD_018_BOUNDS.left,-190,-125,125,190,SOUTH_WARD_018_BOUNDS.right]]},
 ];
 const northSouth:readonly AxisPath[]=[
-  {name:"West Loop Road",position:-190,breaks:[[-175,-145,-80,8,48,120,190,210]]},
-  {name:"Birch Avenue",position:-125,breaks:[[-175,-145,-80,8,48,120,190,210]]},
-  {name:"Cedar Avenue",position:125,breaks:[[-175,-145,-80,8,48,120,190,210]]},
-  {name:"East Loop Road",position:190,breaks:[[-175,-145,-80,8,48,120,190,210]]},
+  {name:"West Loop Road",position:-190,breaks:[[SOUTH_WARD_018_BOUNDS.north,-145,-80,8,48,120,190,SOUTH_WARD_018_BOUNDS.south]]},
+  {name:"Birch Avenue",position:-125,breaks:[[SOUTH_WARD_018_BOUNDS.north,-145,-80,8,48,120,190,SOUTH_WARD_018_BOUNDS.south]]},
+  {name:"Cedar Avenue",position:125,breaks:[[SOUTH_WARD_018_BOUNDS.north,-145,-80,8,48,120,190,SOUTH_WARD_018_BOUNDS.south]]},
+  {name:"East Loop Road",position:190,breaks:[[SOUTH_WARD_018_BOUNDS.north,-145,-80,8,48,120,190,SOUTH_WARD_018_BOUNDS.south]]},
 ];
 const points=new Map<string,{id:string;position:WorldPosition}>();
 const edges:RoadNetworkSpec["segments"][number][]=[];

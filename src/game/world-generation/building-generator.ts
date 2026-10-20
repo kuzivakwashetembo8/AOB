@@ -407,10 +407,10 @@ export function generateBuilding(
     const parts = cleanWoodBuildingSurrounds([
       ...plan.primitives, ...detailPlan.primitives,
       ...(physics ? interaction.closedDoorPanels : []),
-      // Glass towers and all non-wood building geometry remain unchanged.
+      // Preserve the accepted metal/3D glazing structure on glass towers.
       ...planSkylineArchitecturalGeometry(plan, spec.id,
         glassSurfaceId !== null),
-    ],woodSurfaceId!==null);
+    ],true);
     if (batchingMode === "thin-instances") makeBatches(parts);
     else if (batchingMode === "individual") {
       for (const part of parts) makeIndividual(part, renderClass(part));

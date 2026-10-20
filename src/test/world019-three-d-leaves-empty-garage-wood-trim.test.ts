@@ -41,12 +41,12 @@ describe("GTD-TREE/MAT/WORLD-019 owner-directed cleanups",()=>{
       sceneRoots:source.scenes?.map((s:{nodes:number[]})=>s.nodes.length)??[],
     }));
   });
-  it("densifies 10 accepted crown centres with 6 inner 3D GLB fill sprays",()=>{
+  it("densifies the existing tree canopy with 54 interlocking 3D leaf sprays",()=>{
     const tree=planStreetContext(FIRST_LIGHT_CITY_SPEC).items.find(i=>i.kind==="tree")!;
     const first=planTreeCanopy(tree,FIRST_LIGHT_CITY_SPEC.generatorVersion);
     expect(first.cards).toHaveLength(30); // unchanged legacy fail-safe cards
     const centres=planDenseFoliageGroups020(tree,FIRST_LIGHT_CITY_SPEC.generatorVersion);
-    expect(centres).toHaveLength(16);
+    expect(centres).toHaveLength(64);
     expect(centres).toHaveLength(LEAVES_019_GROUPS_PER_TREE);
     expect(first.cards).toHaveLength(30); // fallback grammar unchanged
     expect(new Set(centres.map(c=>c.x.toFixed(3)+":"+c.z.toFixed(3))).size)
@@ -54,7 +54,9 @@ describe("GTD-TREE/MAT/WORLD-019 owner-directed cleanups",()=>{
     expect(centres.some(c=>c.x<-.8)).toBe(true);
     expect(centres.some(c=>c.x>.8)).toBe(true);
     expect(centres.slice(0,10).every(c=>c.y>4.5&&c.y<7)).toBe(true);
-    expect(centres.slice(10).every(c=>c.y>=4.7&&c.y<=5.3)).toBe(true);
+    expect(centres.slice(10,28).every(c=>c.y>=4.64&&c.y<=5.38)).toBe(true);
+    expect(centres.slice(28,48).every(c=>c.y>=5.04&&c.y<=5.91)).toBe(true);
+    expect(centres.slice(48).every(c=>c.y>=5.65&&c.y<=6.28)).toBe(true);
     expect(planDenseFoliageGroups020(tree,FIRST_LIGHT_CITY_SPEC.generatorVersion))
       .toEqual(centres);
   });
@@ -77,7 +79,8 @@ describe("GTD-TREE/MAT/WORLD-019 owner-directed cleanups",()=>{
           .toBe(plan.primitives.filter(p=>p.role==="glass").length);
         expect(cleaned.filter(p=>p.id.startsWith("door-panel:")).length)
           .toBe(plan.primitives.filter(p=>p.id.startsWith("door-panel:")).length);
-        expect(cleanWoodBuildingSurrounds(plan.primitives,false)).toEqual(plan.primitives);
+        expect(cleanWoodBuildingSurrounds(plan.primitives,false))
+          .toEqual(cleaned);
         const building=generateBuilding(scene,null,b,{
           generatorVersion:FIRST_LIGHT_CITY_SPEC.generatorVersion,
           enableWoodSurfaceFieldTrial:true,enableFacadeDetails:true,

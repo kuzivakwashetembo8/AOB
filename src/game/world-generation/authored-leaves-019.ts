@@ -1,6 +1,6 @@
 /** GTD-TREE-019 — the owner-authored 3D leaves.glb, installed ONCE as a
  * shared GLB container then distributed across the existing deterministic
- * city-tree canopy centres. TREE-020 adds six inward lower crown sprays.
+ * city-tree canopy centres. TREE-021 densely interlocks 54 new crown sprays around ten retained outer sprays.
  * No new trees, trunks, colliders, textures or lots.
  *
  * GLB provenance: public/GLBs/Nature/leaves.glb, Git blob
@@ -15,47 +15,56 @@ import type {StreetContextItem} from "./street-context";
 
 export const AUTHORED_3D_LEAVES_PATH="/GLBs/Nature/leaves.glb";
 export const AUTHORED_3D_LEAVES_GIT_BLOB="bae1b8731940915e7d55ebb399021058eaa1710c";
-// TREE-020: ten accepted outer sprays + six smaller lower/inner fill sprays.
-// Source geometry and materials are reused from one network-loaded leaves.glb.
+// TREE-021: 64 overlapping groups of the SAME owner-authored leaves.glb
+// per tree. More visible foliage, not extra GLB downloads or new tree trunks.
 export const LEAVES_019_OUTER_GROUPS_PER_TREE=10;
-export const LEAVES_019_INNER_GROUPS_PER_TREE=6;
+export const LEAVES_019_INNER_GROUPS_PER_TREE=54;
 export const LEAVES_019_GROUPS_PER_TREE=
   LEAVES_019_OUTER_GROUPS_PER_TREE+LEAVES_019_INNER_GROUPS_PER_TREE;
 
-export interface DenseFoliageGroup020{
-  readonly x:number;readonly y:number;readonly z:number;
-  readonly yaw:number;readonly size:number;
+export interface DenseFoliageGroup020 {
+  readonly x:number; readonly y:number; readonly z:number;
+  readonly yaw:number; readonly size:number;
 }
-
-/** Deterministic 16-source-spray envelope, close-filled around the trunk tip.
- * Inner sprays sit at 4.70–5.22m, bridging the 5.05m straight trunk to the
- * accepted taller 5–6m outer foliage, rather than widening tree placement.
+/** 10 accepted perimeter centres plus 54 interlocking leaf crowns distributed
+ * in three radii/heights, eliminating empty spaces near branch/trunk joints.
+ * Clusters are deterministic for each tree seed and generator version.
  */
 export function planDenseFoliageGroups020(
-  tree:Pick<StreetContextItem,"scale"|"canopyScale"|"seed">,
-  version:number,
-):readonly DenseFoliageGroup020[]{
-  const cards=planTreeCanopy(tree,version).cards;
-  if(cards.length!==LEAVES_019_OUTER_GROUPS_PER_TREE*3)
-    throw Error("TREE-020: accepted 30-card fallback centres changed");
-  const groups:DenseFoliageGroup020[]=[];
-  for(let k=0;k<LEAVES_019_OUTER_GROUPS_PER_TREE;k++){
-    const c=cards[k*3]!;
-    groups.push({x:c.x,y:c.y,z:c.z,yaw:c.yaw,size:1});
+ tree:Pick<StreetContextItem,"scale"|"canopyScale"|"seed">,
+ version:number,
+):readonly DenseFoliageGroup020[] {
+ const cards=planTreeCanopy(tree,version).cards;
+ if(cards.length!==30)throw Error("TREE-021 fallback plan must stay at 30 cards");
+ const groups:DenseFoliageGroup020[]=[];
+ for(let k=0;k<10;k++){
+  const c=cards[k*3]!;
+  groups.push({x:c.x,y:c.y,z:c.z,yaw:c.yaw,size:1.12});
+ }
+ // Lower inner ring fills the formerly disconnected trunk tips, the middle
+ // and upper rings provide a thick crown silhouette, not sparse branch tips.
+ const bands=[
+  {count:18,rMin:.38,rMax:1.22,yMin:4.64,yMax:5.38,size:1.12},
+  {count:20,rMin:.87,rMax:1.90,yMin:5.04,yMax:5.91,size:1.20},
+  {count:16,rMin:1.12,rMax:2.08,yMin:5.65,yMax:6.28,size:1.12},
+ ] as const;
+ let index=0;
+ for(const band of bands){
+  for(let k=0;k<band.count;k++,index++){
+   const rnd=(key:string)=>featureRandom(tree.seed,version,"tree021:"+index+":"+key);
+   const angle=2*Math.PI*(k+rnd("offset")*.52)/band.count +
+     (index%2===0?0:.21);
+   const radius=band.rMin+(band.rMax-band.rMin)*rnd("radius");
+   groups.push({
+    x:Math.cos(angle)*radius,
+    y:band.yMin+(band.yMax-band.yMin)*rnd("height"),
+    z:Math.sin(angle)*radius,
+    yaw:angle+rnd("yaw")*.4,
+    size:band.size*(.95+.15*rnd("scale")),
+   });
   }
-  for(let k=0;k<LEAVES_019_INNER_GROUPS_PER_TREE;k++){
-    const jitter=featureRandom(tree.seed,version,"dense-tree-inner:"+k);
-    const angle=(k+jitter*.2)*Math.PI/3;
-    const radius=.50+.52*featureRandom(tree.seed,version,"dense-tree-radius:"+k);
-    groups.push({
-      x:Math.cos(angle)*radius,
-      y:4.70+(k%3)*.20 +.10*jitter,
-      z:Math.sin(angle)*radius,
-      yaw:angle,
-      size:.90+.07*jitter,
-    });
-  }
-  return groups;
+ }
+ return groups;
 }
 export interface TreeFoliageSlot019{
   readonly item:StreetContextItem;
@@ -139,7 +148,7 @@ export async function applyAuthoredLeaves019(
         if(options.cancelled?.())break;
         const cluster=centres[k]!;
         const instance=asset.instantiateModelsToScene(
-          name=>"leaves019:"+tree.item.id+":"+k+":"+name,true);
+          name=>"leaves019:"+tree.item.id+":"+k+":"+name,false);
         instances.push(instance);
         if(!envelope)envelope=modelEnvelope(instance.rootNodes as TransformNode[]);
         const crown=new TransformNode("leaves019-crown:"+tree.item.id+":"+k,scene);
@@ -151,7 +160,7 @@ export async function applyAuthoredLeaves019(
           "leaves019-source-fit:"+tree.item.id+":"+k,scene);
         normalized.parent=crown;
         created.push(normalized);
-        // Ten accepted outer sprays, then six smaller central sprays near the
+        // Ten perimeter sprays, then 54 interlocking inner/upper sprays near the
         // trunk tip. The original source remains 3D and uniformly scaled.
         // No additional downloads, trees, colliders or texture materials.
         const ratio=cluster.size*Math.min(

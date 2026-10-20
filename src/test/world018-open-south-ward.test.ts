@@ -29,11 +29,21 @@ describe("WORLD-018 10x connected, grass-only open South Ward",()=>{
     const nodes=new Map(SOUTH_WARD_018_ROADS.nodes.map(n=>[n.id,n.position]));
     for(const s of SOUTH_WARD_018_ROADS.segments){
       for(const p of [nodes.get(s.startNodeId)!,nodes.get(s.endNodeId)!]){
-        expect(p.x).toBeGreaterThan(SOUTH_WARD_018_BOUNDS.left);
-        expect(p.x).toBeLessThan(SOUTH_WARD_018_BOUNDS.right);
-        expect(p.z).toBeGreaterThan(SOUTH_WARD_018_BOUNDS.north);
-        expect(p.z).toBeLessThan(SOUTH_WARD_018_BOUNDS.south);
+        expect(p.x).toBeGreaterThanOrEqual(SOUTH_WARD_018_BOUNDS.left);
+        expect(p.x).toBeLessThanOrEqual(SOUTH_WARD_018_BOUNDS.right);
+        expect(p.z).toBeGreaterThanOrEqual(SOUTH_WARD_018_BOUNDS.north);
+        expect(p.z).toBeLessThanOrEqual(SOUTH_WARD_018_BOUNDS.south);
       }
+    }
+    // Every one of the 6 east-west and 4 north-south outward streets must
+    // physically terminate on the grassland boundary rather than stop short.
+    for(const z of [-145,-80,8,48,120,190]){
+      expect(nodes.has(`sw-018-node:${SOUTH_WARD_018_BOUNDS.left}:${z}`)).toBe(true);
+      expect(nodes.has(`sw-018-node:${SOUTH_WARD_018_BOUNDS.right}:${z}`)).toBe(true);
+    }
+    for(const x of [-190,-125,125,190]){
+      expect(nodes.has(`sw-018-node:${x}:${SOUTH_WARD_018_BOUNDS.north}`)).toBe(true);
+      expect(nodes.has(`sw-018-node:${x}:${SOUTH_WARD_018_BOUNDS.south}`)).toBe(true);
     }
     for(const x of [-80,80])for(const z of [8,48]){
       const ends=SOUTH_WARD_018_ROADS.segments.filter(s=>{
