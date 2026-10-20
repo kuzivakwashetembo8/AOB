@@ -13,7 +13,7 @@ describe("CHAR-105 imported-human walking gate",()=>{
  it("exposes Enable Character in Controls, with Apply not an immediate switch",()=>{
    const apply=vi.fn();
    render(<SettingsEditor initialSettings={defaults} onApply={apply} inGame/>);
-   fireEvent.click(screen.getByRole("button",{name:/Controls/i}));
+   fireEvent.click(screen.getByRole("button",{name:/^Controls$/i}));
    const toggle=screen.getByRole("checkbox",{name:"Enable Character"});
    expect((toggle as HTMLInputElement).checked).toBe(false);
    fireEvent.click(toggle);
