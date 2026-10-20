@@ -8,6 +8,14 @@ import {Matrix,Mesh,Vector3,VertexBuffer} from "@babylonjs/core";
 export type HumanBounds={cx:number;bottom:number;height:number};
 export type HumanPosePoint={x:number;y:number;z:number};
 export type HumanPosePhase="idle"|"left"|"right";
+/**
+ * A static Mercer witness was mounted with an additional PI yaw to face the
+ * road. That presentation correction is NOT the playable model's forward.
+ * CHAR-105 humanoid travel heading already points along +Z at yaw zero.
+ */
+export function humanVisualYaw105(controlled:boolean):number {
+ return controlled ? 0 : Math.PI;
+}
 const smooth=(a:number,b:number,x:number)=>{
   const t=Math.max(0,Math.min(1,(x-a)/(b-a)));
   return t*t*(3-2*t);
@@ -15,14 +23,18 @@ const smooth=(a:number,b:number,x:number)=>{
 export function posturePoint105(p:HumanPosePoint,b:HumanBounds,phase:HumanPosePhase):HumanPosePoint{
  const h=b.height,relativeY=(p.y-b.bottom)/h;
  const side=p.x<b.cx?-1:1;
- const sx=b.cx+side*.19*h,sy=b.bottom+.79*h;
+ // The old .19h shoulder pivot plus a .16h weight ramp left the entire
+ // biceps/triceps horizontal and lowered only the forearm. Anchor at the
+ // torso-to-arm seam and finish the blend within a few centimeters instead.
+ const sx=b.cx+side*.15*h,sy=b.bottom+.79*h;
  let x=p.x,y=p.y,z=p.z;
- // Bring T-pose arms down at the sides, blending through the shoulder joint.
+ // Rotate the UPPER arm and forearm together from the shoulder. Keep a narrow
+ // blend only where shoulder cloth meets torso; avoid an elbow-only hinge.
  if(relativeY>.52){
    const outward=side*(p.x-sx)/h;
-   const w=smooth(.015,.16,outward)*smooth(.52,.63,relativeY);
+   const w=smooth(-.012,.019,outward)*smooth(.59,.75,relativeY);
    if(w>0){
-     const angle=-side*1.43;
+     const angle=-side*1.55;
      const dx=p.x-sx,dy=p.y-sy;
      const ax=sx+Math.cos(angle)*dx-Math.sin(angle)*dy;
      const ay=sy+Math.sin(angle)*dx+Math.cos(angle)*dy;

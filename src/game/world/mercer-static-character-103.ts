@@ -6,7 +6,7 @@
 import {AbstractMesh,Mesh,Space,TransformNode,Vector3,loadAssetContainerAsync} from "@babylonjs/core";
 import type {AssetContainer,Scene,Skeleton} from "@babylonjs/core";
 import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
-import {createHumanDeformer105,type HumanDeformer105} from "../character/human-walking-105";
+import {createHumanDeformer105,humanVisualYaw105,type HumanDeformer105} from "../character/human-walking-105";
 
 export const MERCER_STATIC_CHARACTER_PATH="/GLBs/Characters/character.glb";
 export const MERCER_STATIC_CHARACTER_BYTES=12197104;
@@ -86,6 +86,8 @@ export function createMercerStaticCharacter(
   let closed=false;
   let deformer:HumanDeformer105|null=null;
   let controlled=false;
+  let fittedRoot:TransformNode|null=null;
+  let fittedCenterX=0,fittedCenterZ=0;
   const decodeId="asset:decode:mercer-character";
   const instantiateId="asset:instantiate:mercer-character";
   audit.start(decodeId,"Decode character.glb","asset",MERCER_STATIC_CHARACTER_PATH);
@@ -106,6 +108,7 @@ export function createMercerStaticCharacter(
     // CHAR-105: source animation groups are not assumed to contain a walking
     // clip or usable armature. The character is posed by its own vertex data.
     const modelRoot=new TransformNode("obs103-mercer-static-fit",scene);
+    fittedRoot=modelRoot;
     modelRoot.parent=anchor;
     for(const root of entries.rootNodes)root.parent=modelRoot;
 
@@ -140,7 +143,7 @@ export function createMercerStaticCharacter(
     if(!Number.isFinite(scale)||scale<=0||scale>1000)
       throw Error("OBS-103 invalid character scale");
     modelRoot.scaling.setAll(scale);
-    modelRoot.rotation.y=MERCER_STATIC_CHARACTER_POSE.yaw;
+    modelRoot.rotation.y=humanVisualYaw105(false);
     // Measure after scaling/rotation to align the actual feet with pavement,
     // not an assumed exported origin.
     minX=Infinity;maxX=-Infinity;minY=Infinity;minZ=Infinity;maxZ=-Infinity;
@@ -158,6 +161,10 @@ export function createMercerStaticCharacter(
     modelRoot.position.set(-(minX+maxX)/2,
       MERCER_STATIC_CHARACTER_POSE.y-minY,
       -(minZ+maxZ)/2);
+    // The mesh is centered after its original PI facing correction. Reversing
+    // that correction requires mirroring X/Z offsets, never its foot height.
+    fittedCenterX=modelRoot.position.x;
+    fittedCenterZ=modelRoot.position.z;
     anchor.position.set(MERCER_STATIC_CHARACTER_POSE.x,0,
       MERCER_STATIC_CHARACTER_POSE.z);
     audit.finish(instantiateId,count+" meshes; neutral hands down; "+
@@ -179,6 +186,11 @@ export function createMercerStaticCharacter(
     /** Walk mode takes control of this exact imported actor; no second GLB. */
     setControlled(enabled:boolean){
       controlled=enabled;
+      if(fittedRoot){
+        fittedRoot.rotation.y=humanVisualYaw105(enabled);
+        fittedRoot.position.x=enabled?-fittedCenterX:fittedCenterX;
+        fittedRoot.position.z=enabled?-fittedCenterZ:fittedCenterZ;
+      }
       if(!enabled){
         deformer?.setWalking(false,.1);
         anchor.position.set(MERCER_STATIC_CHARACTER_POSE.x,0,
