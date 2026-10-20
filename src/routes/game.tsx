@@ -100,6 +100,7 @@ function GamePage() {
     stopwatch.current.start(started);
     telemetry.current ??= new StartupTelemetry(started);
     gtdLoadingLedger.startBrowserObservers();
+    gtdLoadingLedger.startWatchdog(typeof __GTD_RELEASE_ID__==="string"?__GTD_RELEASE_ID__:"development");
     gtdLoadingLedger.start("startup:initialization","Game startup","stage");
     const onPageHide=()=>{void telemetry.current?.finish("aborted",true);};
     window.addEventListener("pagehide",onPageHide);
@@ -148,6 +149,7 @@ function GamePage() {
         if (event.id === "first-frame" && event.status === "done") {
           const measuredSeconds = stopwatch.current.stopMilliseconds(performance.now())/1000;
           gtdLoadingLedger.finish("startup:initialization","First playable frame reached");
+          gtdLoadingLedger.finishWatchdog();
           setMeasured(gtdLoadingLedger.snapshot());
           void telemetry.current?.finish("playable");
           setLoadElapsedSeconds(measuredSeconds);
