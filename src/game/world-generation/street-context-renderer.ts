@@ -846,7 +846,12 @@ export function createGeneratedStreetContext(
 
   // Share the original 3D leaves across ALL generated and authored trees;
   // keep legacy cards until the source arrives as a network-safe fallback.
-  if(authoredLeavesSlots.length && !isHeadlessTextureEnvironment(scene)){
+  // Diagnostic isolation only: retain original procedural fallback tree cards
+  // while skipping expensive source-backed foliage instantiation. Do not alter
+  // accepted geometry or assets in ordinary play.
+  const obsNoLeaves=typeof window!=="undefined"&&
+    new URLSearchParams(window.location.search).get("gtdObsNoLeaves")==="1";
+  if(authoredLeavesSlots.length && !isHeadlessTextureEnvironment(scene)&&!obsNoLeaves){
     // Separate source transfer from Babylon GLB parsing and 3D scene instance
     // creation. This work is asynchronous and MUST appear in the ledger even
     // when world creation reports ready earlier.
