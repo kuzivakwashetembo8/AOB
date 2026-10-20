@@ -36,7 +36,7 @@ describe("CHAR-108 native human GLB animation and rig inventory",()=>{
    armJointBases:nodes.filter(n=>armNames.includes(n.name??"")).map(n=>({
      name:n.name,rot:n.rotation??null,translation:n.translation??null,children:n.children??[]
    })),
-   skinnedMeshes:(j.meshes??[]).filter(m=>m.primitives?.some(p=>p.attributes?.JOINTS_0!==undefined&&p.attributes?.WEIGHTS_0!==undefined)).length
+   skinnedMeshes:(j.meshes??[]).filter(m=>m.primitives?.some(p=>p.attributes?.['JOINTS_0']!==undefined&&p.attributes?.['WEIGHTS_0']!==undefined)).length
   };
   console.info("CHAR108_GLB_EVIDENCE="+JSON.stringify(evidence));
   expect(evidence.skinnedMeshes).toBeGreaterThan(0);
