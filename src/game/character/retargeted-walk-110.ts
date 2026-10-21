@@ -78,7 +78,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  return {
   get report(){return {status:disposed?"rejected":"retargeted-ual-walk",
    reason:disposed?"disposed":null,active:weight>.01,jointCount:tracks.length,frames,
-   armSwing:true,cycleSeconds:parsed.duration};},
+   armSwing:true,cycleSeconds:parsed.duration} as WalkReport110;},
   update(speedMps,dt){
    if(disposed||!Number.isFinite(dt)||dt<=0||!Number.isFinite(speedMps))return;
    const step=Math.min(dt,.05),speed=Math.max(0,speedMps);
