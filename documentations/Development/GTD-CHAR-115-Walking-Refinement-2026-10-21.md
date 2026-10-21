@@ -18,7 +18,7 @@ No source mesh, skin weights, stride tracks, cadence, or vehicle logic is change
 ## Validation
 Existing playback tests: 2 passed.
 Actual character.glb hierarchy + deployed accepted 41-frame clip: 160 samples; head angular drift <= 2.99e-8 rad, right wrist local angular drift 0; arm swing remains active; reset restores standing.
-The regression test reconstructs all source TransformNodes and skin bones, applies the accepted neutral controller, and runs the real walk player.
+The regression test reconstructs all source TransformNodes and skin bones, applies the accepted neutral controller, and stresses the real walk player with a deterministic 41-frame clip. The accepted deployed clip was also checked locally against the actual rig; the repository test does not depend on generated UAL files that only exist after prebuild.
 Visual naturalness remains subject to Harmony's preview approval. Numerical orientation checks are not visual acceptance.
 
 ## Review checkpoint

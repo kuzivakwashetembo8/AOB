@@ -1,17 +1,4 @@
-import {readFileSync,copyFileSync,mkdtempSync,mkdirSync,rmSync} from "node:fs";
-import {tmpdir} from "node:os";
-import {join,resolve} from "node:path";
-import {execFileSync} from "node:child_process";
-function bakedClip(){
- const dir=mkdtempSync(join(tmpdir(),"char115-"));
- try{
-  const assets=join(dir,"public/GLBs/Characters");mkdirSync(assets,{recursive:true});
-  for(const file of ["character.glb","ual.glb"])copyFileSync(resolve("public/GLBs/Characters",file),join(assets,file));
-  for(const script of ["char110-bake-ual-walk.mjs","char110e-native-bake.mjs","char110e-activate-native.mjs","char110-verify-leg-lanes.mjs"])
-   execFileSync(process.execPath,[resolve("scripts",script)],{cwd:dir,stdio:"pipe",timeout:30000});
-  return JSON.parse(readFileSync(join(assets,"char110-ual-walk.json"),"utf8"));
- }finally{rmSync(dir,{recursive:true,force:true});}
-}
+import {readFileSync} from "node:fs";
 import assert from "node:assert/strict";
 import {it} from "vitest";
 import {Bone,Matrix,NullEngine,Scene,Skeleton,TransformNode,Quaternion,Vector3} from "@babylonjs/core";
@@ -27,7 +14,7 @@ const nodes:TransformNode[]=j.nodes.map((n:any)=>{
  t.rotationQuaternion=new Quaternion(...(n.rotation??[0,0,0,1]));
  if(n.matrix){const s=new Vector3(),q=Quaternion.Identity(),p=new Vector3();Matrix.FromArray(n.matrix).decompose(s,q,p);t.position=p;t.scaling=s;t.rotationQuaternion=q;}
  return t;
-},120000);
+});
 j.nodes.forEach((n:any,i:number)=>(n.children??[]).forEach((c:number)=>nodes[c]!.parent=nodes[i]!));
 for(const i of j.skins[0].joints){const bone=new Bone(j.nodes[i].name,sk,null,Matrix.Identity());bone.linkTransformNode(nodes[i]!);}
 // The neutral controller checks bone ancestry as well as linked-node ancestry.
@@ -39,7 +26,16 @@ const q=(name:string)=>names.get(name)!.rotationQuaternion!;
 const anchor=names.get("Hips")!.parent;
 function relative(n:any):Quaternion{return !n||n===anchor?Quaternion.Identity():relative(n.parent).multiply(n.rotationQuaternion).normalize();}
 const head=relative(names.get("Head")),wrist=q("RightHand").clone();
-const clip=bakedClip(),player=createWalkPlayer110([sk],clip);
+const clip={
+ schema:"gtd.char110.ual-walk.v1" as const,duration:1.333333,sampleCount:41,walkTargetMps:1.5,frameBasis:[0,0,0,1],
+ tracks:["Hips","Spine","Spine1","Spine2","Neck","Head","LeftShoulder","LeftArm","LeftForeArm","LeftHand","RightShoulder","RightArm","RightForeArm","RightHand","LeftUpLeg","LeftLeg","LeftFoot","LeftToeBase","RightUpLeg","RightLeg","RightFoot","RightToeBase"].map(name=>({
+  node:name,source:name,peakRadians:.3,keys:Array.from({length:41},(_,i)=>{
+   // Stress inherited head tilt and wrist twist, with opposite bilateral swing.
+   const delta=Quaternion.RotationAxis(Vector3.Right(),.3*Math.sin(i/40*Math.PI*2)*(name.startsWith("Left")?-1:1));
+   return delta.asArray();
+  })
+ }))
+},player=createWalkPlayer110([sk],clip);
 const error=(a:Quaternion,b:Quaternion)=>2*Math.acos(Math.min(1,Math.abs(Quaternion.Dot(a,b))));
 for(let i=0;i<120;i++)player.update(1.5,1/60);
 let maxHead=0,maxWrist=0,armMotion=0;
