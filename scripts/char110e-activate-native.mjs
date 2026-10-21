@@ -12,7 +12,9 @@ if(old.schema!=="gtd.char110.ual-walk.v1"||candidate.schema!==old.schema||
  throw Error("CHAR110E native candidate must retain original 22 mapped joints and 41 frames");
 const namesOld=old.tracks.map(t=>t.node).join("|"),namesNew=candidate.tracks.map(t=>t.node).join("|");
 if(namesOld!==namesNew)throw Error("CHAR110E mismatched anatomical map");
-const modified=["Hips","LeftUpLeg","LeftLeg","LeftFoot","LeftToeBase","RightUpLeg","RightLeg","RightFoot","RightToeBase"];
+// Keep CHAR-110D ankle/toe animation: first native attempt improved strides but
+// regressed shoe headings (6 left and 9 right unresolved samples).
+const modified=["Hips","LeftUpLeg","LeftLeg","RightUpLeg","RightLeg"];
 for(const name of modified){
  const a=old.tracks.find(t=>t.node===name),b=candidate.tracks.find(t=>t.node===name);
  if(!a||!b||!Array.isArray(b.keys)||b.keys.length!==41)throw Error("CHAR110E missing "+name);
@@ -20,7 +22,7 @@ for(const name of modified){
    Math.abs(q.reduce((s,v)=>s+v*v,0)-1)>.007))throw Error("CHAR110E invalid native quaternion "+name);
  b.peakRadians=Math.max(...b.keys.map(q=>2*Math.acos(Math.min(1,Math.abs(q[3])))));
 }
-candidate.retargetMethod="Babylon 9 per-bone reference-frame candidate, source-authored gait";
+candidate.retargetMethod="Babylon 9 per-bone pelvis/thigh/knee retarget + previously accepted ankle/toe and arm tracks";
 candidate.retargetGate="CHAR-110E longitudinal alternation and CHAR-110C/D lateral/foot checks required";
 writeFileSync(file,JSON.stringify(candidate));
 console.info("CHAR110E_NATIVE_SELECTED="+JSON.stringify({method:candidate.retargetMethod,
