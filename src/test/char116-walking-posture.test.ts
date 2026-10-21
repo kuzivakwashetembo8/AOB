@@ -34,7 +34,11 @@ for(const side of ["Left","Right"]){
  const orientation=Quaternion.Identity();hand.getWorldMatrix().decompose(new Vector3(),orientation,new Vector3());
  palmReferences.set(side,orientation);upper.rotationQuaternion=original;
 }
+// CHAR-117: neutral calibration must not touch the accepted pelvis/legs.
+const protectedNodes=nodes.filter(n=>!/^(Left|Right)(Arm|ForeArm|Hand)$/.test(n.name));
+const protectedRotations=protectedNodes.map(n=>n.rotationQuaternion!.asArray());
 const neutral=createNativePoseController109([sk]);assert.equal(neutral.report.status,"native-joints");
+protectedNodes.forEach((n,i)=>assert.deepEqual(n.rotationQuaternion!.asArray(),protectedRotations[i],"neutral changed "+n.name));
 const names=new Map<string,TransformNode>(nodes.map(n=>[n.name,n]));
 const q=(name:string)=>names.get(name)!.rotationQuaternion!;
 const anchor=names.get("Hips")!.parent;
@@ -48,7 +52,11 @@ function hipPoint(name:string){
 }
 for(const side of ["Left","Right"]){
  const sign=side==="Left"?1:-1;
- assert.ok((hipPoint(side+"ForeArm").x-hipPoint(side+"Arm").x)*sign>.01,"outward elbow gap");
+ assert.ok((hipPoint(side+"ForeArm").x-hipPoint(side+"Arm").x)*sign>.055,"CHAR-117 articulated elbow clearance");
+ const upper=hipPoint(side+"ForeArm").subtract(hipPoint(side+"Arm")).normalize();
+ const lower=hipPoint(side+"Hand").subtract(hipPoint(side+"ForeArm")).normalize();
+ const bend=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(upper,lower))));
+ assert.ok(bend>.18&&bend<.45,"gentle elbow bend rather than sleeve roll");
  const hand=names.get(side+"Hand")!;hand.computeWorldMatrix(true);
  const orientation=Quaternion.Identity();hand.getWorldMatrix().decompose(new Vector3(),orientation,new Vector3());
  assert.ok(Math.abs(Quaternion.Dot(orientation,palmReferences.get(side)!))>.999999,"preserve palm orientation");
@@ -88,3 +96,4 @@ console.log(JSON.stringify({actualGLB:true,samples:160,maxHeadRadians:maxHead,ma
 scene.dispose();engine.dispose();
 
 },120000);
+

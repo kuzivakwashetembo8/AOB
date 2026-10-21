@@ -90,7 +90,7 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
    other?.upper.computeWorldMatrix(true);
    const outward=other?shoulder.subtract(other.upper.getAbsolutePosition()):new Vector3(arm.side==="left"?-1:1,0,0);
    outward.y=0;outward.normalize();
-   const target=outward.scale(.06).add(new Vector3(0,-1,0)).normalize();
+   const target=outward.scale(.24).add(new Vector3(0,-1,0)).normalize();
    const delta=neutralArmDelta109(current,target,parent,2.15);
    if(!delta){reason="joint-parent transform is not a safe rotation frame";continue;}
    const desired=delta.multiply(original).normalize();
@@ -110,17 +110,29 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
    applied.push(arm.side+"Arm");
    if(hand&&hand.parent===arm.forearm&&palmWorld&&hand.position.lengthSquared()>1e-8){
     const forearmOriginal=rotationOf(arm.forearm),handOriginal=rotationOf(hand);
-    // Axial roll changes forearm/elbow surface facing without changing the
-    // wrist endpoint. This is a fixed neutral correction, not a wrist cycle.
-    const twist=Quaternion.RotationAxis(hand.position.normalizeToNew(),arm.side==="left"?.24:-.24);
-    const forearmTarget=forearmOriginal.multiply(twist).normalize();
+    // CHAR-117: articulate the elbow rather than rolling the sleeve around
+    // an almost straight arm. A small forward bend and a narrower forearm
+    // cant leave the elbow outside the waist without spreading the wrists.
+    hand.computeWorldMatrix(true);
+    const wristDirection=hand.getAbsolutePosition().subtract(arm.forearm.getAbsolutePosition());
+    const across=outward.clone();
+    // The shoulder parent carries actor yaw; derive forward in that frame.
+    const shoulderParent=parent.parent;
+    const forward=shoulderParent instanceof TransformNode
+      ?Vector3.TransformNormal(Vector3.Forward(),shoulderParent.getWorldMatrix()).normalize()
+      :Vector3.Forward();
+    forward.y=0;forward.normalize();
+    const forearmDirection=across.scale(.08).add(new Vector3(0,-1,0)).add(forward.scale(.20)).normalize();
+    const elbowDelta=neutralArmDelta109(wristDirection,forearmDirection,arm.upper,.65);
+    if(!elbowDelta){reason="cannot solve relaxed elbow frame";applied.pop();continue;}
+    const forearmTarget=elbowDelta.multiply(forearmOriginal).normalize();
     arm.forearm.rotationQuaternion=forearmTarget;
     arm.forearm.computeWorldMatrix(true);
     const local=palmWorld.multiply(arm.forearm.getWorldMatrix().clone().invert());
     const scale=new Vector3(),handTarget=Quaternion.Identity(),position=new Vector3();
     if(!local.decompose(scale,handTarget,position)){
      arm.forearm.rotationQuaternion=forearmOriginal;
-     reason="cannot preserve relaxed palm frame";
+     reason="cannot preserve relaxed palm frame";applied.pop();
     }else{
      hand.rotationQuaternion=handTarget.normalize();
      stored.push({node:arm.forearm,target:forearmTarget,original:forearmOriginal},
@@ -159,3 +171,4 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
   dispose(){stored.length=0;}
  };
 }
+
