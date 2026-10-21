@@ -76,6 +76,8 @@ const names=[
 ];
 const clip=source.j.animations?.find(a=>a.name==="Walk_Loop");
 if(!clip)throw Error("UAL Walk_Loop absent — no synthetic fallback allowed");
+const idleClip=source.j.animations?.find(a=>a.name==="Idle_Loop");
+if(!idleClip)throw Error("UAL Idle_Loop absent — neutral-relative transfer forbidden");
 const sourceJoints=new Set((source.j.skins??[]).flatMap(s=>s.joints));
 const targetJoints=new Set((target.j.skins??[]).flatMap(s=>s.joints));
 const tracked=new Map();
@@ -88,6 +90,17 @@ for(const ch of clip.channels){
  if(times.length!==values.length||times.length<2)throw Error("Invalid clip keyframes");
  tracked.set(ch.target.node,{times,values,kind:sample.interpolation??"LINEAR"});
 }
+// Walk_Loop is authored relative to UAL\u0027s bind pose (arms initially extended).
+// CHAR-109 already supplies a DOWN-ARM target idle pose. Retargeting against
+// bind would lower Voight\u0027s arms twice. Use actual UAL Idle_Loop as baseline.
+const idleRotations=new Map();
+for(const ch of idleClip.channels){
+ if(ch.target.path!=="rotation")continue;
+ const sm=idleClip.samplers[ch.sampler];
+ if(!sm||!["LINEAR","STEP"].includes(sm.interpolation??"LINEAR"))throw Error("Unsupported UAL idle interpolation");
+ idleRotations.set(ch.target.node,{times:source.access(sm.input).map(x=>x[0]),values:source.access(sm.output),kind:sm.interpolation??"LINEAR"});
+}
+if(idleRotations.size<20)throw Error("UAL Idle_Loop has insufficient rotation channels");
 let duration=0;
 for(const tr of tracked.values())duration=Math.max(duration,tr.times.at(-1));
 if(!(duration>.3&&duration<10))throw Error("Walk duration out of policy range");
@@ -117,6 +130,13 @@ function sampleAt(track,time){
  return Quaternion.Slerp(a,b,fraction).normalize();
 }
 const samples=41;
+const idleCache=new Map();
+function sourceIdleLocal(i){const tr=idleRotations.get(i);return tr?sampleAt(tr,0):source.rest[i].q;}
+function sourceIdleGlobal(i){
+ if(idleCache.has(i))return idleCache.get(i);
+ const p=source.parent[i];const q=p<0?sourceIdleLocal(i).clone():mul(sourceIdleGlobal(p),sourceIdleLocal(i));
+ idleCache.set(i,q);return q;
+}
 const tracks=[];
 for(const [sourceName,targetName] of names){
  const si=source.names.get(sourceName),ti=target.names.get(targetName);
@@ -126,14 +146,14 @@ for(const [sourceName,targetName] of names){
  if(!clipTrack)throw Error("No authored Walk_Loop rotation for "+sourceName);
  const sp=source.parent[si],tp=target.parent[ti];
  if(sp<0||tp<0)throw Error("Unexpected root joint at "+sourceName);
- const sourceParent=source.rotation(sp),targetParent=target.rotation(tp);
- const sourceRest=source.rest[si].q;
+ const sourceParent=sourceIdleGlobal(sp),targetParent=target.rotation(tp);
+ const sourceIdle=sourceIdleLocal(si);
  const keys=[];
  let peak=0;
  for(let i=0;i<samples;i++){
   const sourceAnimated=sampleAt(clipTrack,duration*i/(samples-1));
   // Source local rest-delta → anatomical world → target parent-local delta.
-  const sourceDelta=mul(sourceAnimated,inv(sourceRest));
+  const sourceDelta=mul(sourceAnimated,inv(sourceIdle));
   const worldDelta=mul(mul(sourceParent,sourceDelta),inv(sourceParent));
   const correctedWorld=mul(mul(alignment,worldDelta),inv(alignment));
   const localDelta=mul(mul(inv(targetParent),correctedWorld),targetParent);
@@ -148,12 +168,12 @@ for(const [sourceName,targetName] of names){
  tracks.push({node:targetName,source:sourceName,peakRadians:+peak.toFixed(3),keys});
 }
 if(tracks.length!==names.length)throw Error("Incomplete retarget");
-const output={schema:"gtd.char110.ual-walk.v1",source:"Quaternius UAL Walk_Loop (pinned GLB)",target:"character.glb",duration:+duration.toFixed(6),
+const output={schema:"gtd.char110.ual-walk.v1",source:"Quaternius UAL Walk_Loop relative to UAL Idle_Loop (pinned GLB)",target:"character.glb",duration:+duration.toFixed(6),
  sampleCount:samples,walkTargetMps:1.5,frameBasis:[+alignment.x.toFixed(6),+alignment.y.toFixed(6),+alignment.z.toFixed(6),+alignment.w.toFixed(6)],
  tracks};
 writeFileSync(resolve(outputFile),JSON.stringify(output));
 console.info("CHAR110_RETARGET_SUCCESS="+JSON.stringify({sourceJointCount:sourceJoints.size,targetJointCount:targetJoints.size,
- duration,samples,tracks:tracks.map(t=>({node:t.node,source:t.source,peakRadians:t.peakRadians})),
+ duration,samples,idleCalibration:"UAL Idle_Loop frame 0",tracks:tracks.map(t=>({node:t.node,source:t.source,peakRadians:t.peakRadians})),
  anatomicalSource:{right:sf.right,up:sf.up,forward:sf.forward},
  anatomicalTarget:{right:tf.right,up:tf.up,forward:tf.forward},
  frameBasis:output.frameBasis,outputBytes:readFileSync(resolve(outputFile)).length}));
