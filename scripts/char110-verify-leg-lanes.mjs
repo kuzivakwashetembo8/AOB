@@ -189,9 +189,15 @@ for(const side of sides){
  const t=tracks.get(side.foot);
  if(!t)throw Error("CHAR-110D: Foot animation track missing");
  const beforeAngles=[],afterAngles=[],fix=[];
+ let unmeasurableFrames=0,unresolvedFrames=0;
  for(let n=0;n<clip.sampleCount;n++){
   const p=pose(n)[side.side],h=footHeading(p);beforeAngles.push(h.angle);
-  if(h.length<.025)throw Error("CHAR-110D: Toe bone lacks a reliable forward vector "+side.side+" "+n);
+  if(h.length<.025){
+   // Toe can point vertically during liftoff: horizontal heading is undefined.
+   // Preserve the real source-foot rotation rather than manufacturing yaw.
+   unmeasurableFrames++;beforeAngles.push(0);afterAngles.push(0);fix.push(0);
+   continue;
+  }
   // Apply pelvis-up yaw transformed into the animated foot-parent local basis.
   // The native glTF and authored knee flexion remain intact.
   const original=Q(t.keys[n]);
@@ -213,10 +219,12 @@ for(const side of sides){
     [original.x,original.y,original.z,original.w].map(x=>+x.toFixed(6));
   const solved=footHeading(pose(n)[side.side]);afterAngles.push(solved.angle);
   fix.push(best?.angle??0);
+  if(!best&&Math.abs(solved.angle)>.28)unresolvedFrames++;
  }
  footReport[side.side]={originalMaxAngle:+Math.max(...beforeAngles.map(Math.abs)).toFixed(3),
  correctedMaxAngle:+Math.max(...afterAngles.map(Math.abs)).toFixed(3),
- maxYawCorrection:+Math.max(...fix.map(Math.abs)).toFixed(3)};
+ maxYawCorrection:+Math.max(...fix.map(Math.abs)).toFixed(3),
+ unmeasurableFrames,unresolvedFrames};
 }
 // Re-check lane after shoe yaw changes so toe rotation cannot undo CHAR-110C.
 const shoeLane=report("SHOE_LANES_AFTER");
