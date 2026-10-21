@@ -176,6 +176,17 @@ export class MeridianPhysics {
     this.playerBody.setNextKinematicTranslation(position);
   }
 
+  /** World-accurate ray against existing Rapier ground; exclude player capsule. */
+  probeGround(origin: Vec3, maxDistance = 2): { x:number;y:number;z:number;normal:Vec3 } | null {
+    const max = Math.max(0.1, Math.min(4, maxDistance));
+    const ray = new RAPIER.Ray(origin, { x:0, y:-1, z:0 });
+    const hit = this.world.castRayAndGetNormal(ray,max,true,undefined,undefined,this.playerCollider);
+    if(!hit)return null;
+    const distance=hit.timeOfImpact;
+    return {x:origin.x,y:origin.y-distance,z:origin.z,
+      normal:{x:hit.normal.x,y:hit.normal.y,z:hit.normal.z}};
+  }
+
   playerPosition(): Vec3 {
     const p = this.playerBody.translation();
     return { x: p.x, y: p.y, z: p.z };
