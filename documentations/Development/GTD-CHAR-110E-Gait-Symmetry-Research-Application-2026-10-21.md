@@ -35,3 +35,24 @@ The isolated comparison `scripts/char110e-native-bake.mjs` applies the **same pe
 
 ## Change-control boundary
 Previous experimental user preview `gtd-5951rmvzc-interlinkglobaltech.vercel.app` remains the historical reference for right-step/catch-up behavior. Research instrumentation and offline retarget A/B run on a separate branch. No changes to `main`, no production preview claim before the new gait gate passes.
+
+
+## Native A/B results (source GLB, unmodified lower-body target before C/D)
+The second build-time audit used exactly the original UAL Walk_Loop and target's original joint reference matrices. `scripts/char110e-native-bake.mjs` reproduces Babylon.js 9's documented _retargetAnimationKeys per-bone matrix change-of-basis *as an offline calculation*; **do not claim the browser runs AnimatorAvatar**. The source retained original STEP and LINEAR interpolations. The generated candidate was sampled at 81 equal phases, with the same hip-local FK metrics as source/raw:
+
+| Metric | Original UAL | Previous Voight | Babylon-reference candidate |
+|---|---:|---:|---:|
+| Left-leading frames | 40 | 24 | **39** |
+| Right-leading frames | 39 | 53 | **39** |
+| Maximum left lead | +0.6160m | +0.2657m | **+0.6420m** |
+| Maximum right lead | -0.5997m | -0.9414m | **-0.6153m** |
+| Left / right stride excursion | .6576/.6475m | .6533/.6175m | **.6515/.6418m** |
+| Leading-magnitude min/max ratio | .974 | .282 | **.958** |
+
+This is the first measured restoration of UAL's intended bilateral half-cycle gait on Voight's 73-joint GLB. The original failure was not absence of left steps: it was a backwards shift of the left foot's fore/aft trajectory caused by incompatible target/source bone reference compensation. CHAR-110C's lateral correction did not change the measured lead statistics.
+
+**Promotion:** `scripts/char110e-activate-native.mjs` copies the candidate's **nine pelvis/lower-body joint tracks only** into the standard 22-track, 41-key Voight clip and preserves the already-improved upper-body CHAR-110D track data. The unchanged CHAR-110C/D verifier then revalidates ipsilateral knee/ankle/toe lanes, shoe heading, and palm preservation. The final `char110e-sagittal-audit.mjs` enforces a new strict longitudinal pass: 32+ measurable left-leading frames and 32+ right-leading frames out of 81, lead-magnitude symmetry ratio >=0.75 and stride excursion ratio >=0.7. This is on the actual baked asset, not a synthetic rig.
+
+**Remaining:** final production build of promoted and corrected candidate and owner visual inspection still pending. Physics/Foot IK remains optional visualization; no live IK gait generation is added. Pelvis authoring translation (~7.3cm) is documented and deferred as a separate carefully calibrated improvement, because it cannot by itself explain the left/right phase imbalance.
+
+**Important provenance:** This experiment reuses UAL source clips staged by OFFLINE-001 and the already-imported Voight mesh; no new runtime GLB, no extra player actor, no Three.js dependency and no new internet fetch at game startup.
