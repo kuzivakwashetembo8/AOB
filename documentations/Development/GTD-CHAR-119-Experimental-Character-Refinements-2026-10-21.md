@@ -2,7 +2,7 @@
 
 Date: 2026-10-21. Branch: Experimental-Character-Refinements.
 Baseline: e469d50cdcf1c19edf6058fa11df7fb339f84d45 (accepted CHAR-118).
-Status: experimental; implementation and preview authorized. No merge or production deployment authorized.
+Status: all three refinements fully accepted by Harmony after preview review; merge to main and production deployment authorized.
 
 ## Confirmed intent
 1. Add restrained elbow articulation while the complete arm swings, avoiding a rigid straight-arm impression or forearms held in front of the torso.
@@ -25,3 +25,13 @@ Preserve accepted CHAR-117 arm clearance and CHAR-118 five-degree walking back i
 - Targeted TypeScript check of the changed player and regression passed. Vercel additionally runs the repository-wide type check and test suite before building.
 - Actual-GLB CPU-skinned side/three-quarter comparison inspected across walking phases: the added bend is modest and the accepted back/upper-arm silhouette remains. This is diagnostic evidence, not browser visual acceptance.
 - Preview is required for Harmony's acceptance or denial. Do not merge or deploy production until instructed.
+
+## Acceptance gate — 2026-10-21
+Harmony: “The experiments were all successful. Document the additions, merge with main then deploy.”
+
+Accepted runtime: 08294f8ec43f0fee60d89cfae47f2001bf51daef.
+Reviewed preview: https://gtd-mrnfrvp19-interlinkglobaltech.vercel.app/game .
+
+Accepted additions: gentle phase-varying forearm flex; 10% faster imported-character walking (1.65 m/s with actual-speed cadence synchronization); subtle idle breathing, occasional head/arm adjustments and synchronized authored head/eyelash blinking. Preserve the previously accepted arm clearance, wrist facing and five-degree distributed walking back inclination. No further runtime modifications are included in this acceptance commit.
+
+Eight targeted regression tests passed, followed by the repository-wide type check, test suite and successful Vercel preview build. The reviewed preview /game and build-version.json both returned HTTP 200 and reported the exact runtime above. Harmony's visual review closes the experimental gate. Earlier experimental-only/no-release instructions in this document are historical and superseded by the explicit merge/deploy authorization.
