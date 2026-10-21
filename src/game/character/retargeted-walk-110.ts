@@ -3,9 +3,9 @@
  * The base pose is captured AFTER accepted CHAR-109 arm relaxation.
  * Babylon linked TransformNodes, not Bone.rotate, are authoritative.
  */
-import {Quaternion,TransformNode} from "@babylonjs/core";
+import {Quaternion,TransformNode,Vector3,Matrix} from "@babylonjs/core";
 import type {Skeleton} from "@babylonjs/core";
-import {rotationOf} from "./driver-joint-space";
+import {rotationOf,parentSpaceAimDelta} from "./driver-joint-space";
 
 export type WalkClip110={
  schema:"gtd.char110.ual-walk.v1";
@@ -80,6 +80,76 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   const a=Math.floor(wrapped);
   return Quaternion.Slerp(track.keys[a]!,track.keys[a+1]!,wrapped-a).normalize();
  };
+ // Keep the full source tracks untouched: the previous amplitude remains
+ // the running research reference. Walking removes the cycle's forward bias.
+ const armCenters=new Map<string,Quaternion>();
+ for(const track of tracks){
+  if(!/^(Left|Right)(Arm|ForeArm|Shoulder)$/.test(track.name))continue;
+  const ref=track.keys[0]!,sum=new Quaternion(0,0,0,0);
+  for(const q of track.keys.slice(0,-1)){
+   const sign=Quaternion.Dot(ref,q)<0?-1:1;
+   sum.x+=q.x*sign;sum.y+=q.y*sign;sum.z+=q.z*sign;sum.w+=q.w*sign;
+  }
+  armCenters.set(track.name,sum.normalize());
+ }
+ function walkDelta(track:Track,cursor:number):Quaternion{
+  const q=sample(track,cursor),center=armCenters.get(track.name);
+  if(!center)return q;
+  const gain=track.name.endsWith("Shoulder")?.55:track.name.endsWith("ForeArm")?.35:.42;
+  return Quaternion.Slerp(Quaternion.Identity(),q.multiply(Quaternion.Inverse(center)).normalize(),gain).normalize();
+ }
+ const hips=names.get("Hips")!;
+ const legSides=["Left","Right"] as const;
+ function refineLegs(blend:number){
+  hips.computeWorldMatrix(true);
+  const hipWorld=hips.getWorldMatrix(),hipInverse=Matrix.Invert(hipWorld);
+  const point=(node:TransformNode)=>{
+   node.computeWorldMatrix(true);
+   return Vector3.TransformCoordinates(node.getAbsolutePosition(),hipInverse);
+  };
+  for(const side of legSides){
+   const upper=names.get(side+"UpLeg")!,knee=names.get(side+"Leg")!;
+   const foot=names.get(side+"Foot")!,toe=names.get(side+"ToeBase")!;
+   if(upper.parent!==hips||foot.parent!==knee||toe.parent!==foot)continue;
+   const sign=Math.sign(upper.position.x);
+   if(!sign)continue;
+   const start=point(upper),ankle=point(foot);
+   // Reduce only excessive lateral spread; never pull a foot across center.
+   const excess=Math.max(0,ankle.x*sign-.10);
+   const shift=Math.min(.035,excess*.5)*blend;
+   if(shift>1e-6){
+    const desired=ankle.clone();desired.x-=sign*shift;
+    const from=Vector3.TransformNormal(ankle.subtract(start),hipWorld);
+    const to=Vector3.TransformNormal(desired.subtract(start),hipWorld);
+    const delta=parentSpaceAimDelta(from,to,hipWorld,.055);
+    if(delta){
+     const before=rotationOf(upper);
+     upper.rotationQuaternion=delta.multiply(before).normalize();
+     if([knee,foot,toe].some(node=>point(node).x*sign<.04)){
+      upper.rotationQuaternion=before;upper.computeWorldMatrix(true);
+     }
+    }
+   }
+   const a=point(foot),b=point(toe),direction=b.subtract(a);
+   const horizontal=Math.hypot(direction.x,direction.z);
+   // Pitch/roll and toe lift remain authored. Heading is undefined during
+   // near-vertical toe lift, so do not manufacture a yaw at those samples.
+   if(horizontal<.045||direction.z<=.025)continue;
+   const angle=Math.atan2(direction.x,direction.z);
+   const desiredAngle=Math.max(-.10,Math.min(.10,angle));
+   const yaw=(desiredAngle-angle)*blend;
+   const desiredDirection=new Vector3(Math.sin(angle+yaw)*horizontal,0,Math.cos(angle+yaw)*horizontal);
+   const horizontalWorld=Vector3.TransformNormal(new Vector3(direction.x,0,direction.z),hipWorld);
+   const desiredWorld=Vector3.TransformNormal(desiredDirection,hipWorld);
+   knee.computeWorldMatrix(true);
+   const delta=parentSpaceAimDelta(horizontalWorld,desiredWorld,knee.getWorldMatrix(),.9);
+   if(delta){
+    const before=rotationOf(foot);
+    foot.rotationQuaternion=delta.multiply(before).normalize();
+    if(point(toe).x*sign<.04)foot.rotationQuaternion=before;
+   }
+  }
+ }
  const head=byName.get("Head")!;
  const anchor=names.get("Hips")!.parent;
  // Local quaternion products stop at the actor's root: world yaw is retained,
@@ -113,11 +183,9 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    if(moving)elapsed=(elapsed+step*Math.max(.35,Math.min(1.35,speed/parsed.walkTargetMps)))%parsed.duration;
    if(weight<=.00001){restore();return}
    const cursor=elapsed/parsed.duration*(parsed.sampleCount-1);
-   const a=Math.min(parsed.sampleCount-2,Math.floor(cursor));
-   const alpha=Math.max(0,Math.min(1,cursor-a));
    for(const track of tracks){
     if(track.node.isDisposed())continue;
-    const delta=Quaternion.Slerp(track.keys[a]!,track.keys[a+1]!,alpha).normalize();
+    const delta=walkDelta(track,cursor);
     const movingPose=delta.multiply(track.base).normalize();
     track.node.rotationQuaternion=Quaternion.Slerp(track.base,movingPose,weight).normalize();
    }
@@ -127,12 +195,13 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
      // No authored/counter-rotated wrist delta: the relaxed wrist follows its
      // forearm as a unit. Preserve the accepted right elbow flexion and swing.
      const rightPose=part==="Hand"?right.base:
-      sample(right,cursor+(parsed.sampleCount-1)/2).multiply(right.base).normalize();
+      walkDelta(right,cursor+(parsed.sampleCount-1)/2).multiply(right.base).normalize();
      left.node.rotationQuaternion=Quaternion.Slerp(left.base,mirror(rightPose),weight).normalize();
     }
     const wrist=byName.get("RightHand")!;
     wrist.node.rotationQuaternion=wrist.base.clone();
    }
+   refineLegs(weight);
    if(anchor&&head.node.parent instanceof TransformNode){
     const parentRotation=relativeRotation(head.node.parent);
     const level=Quaternion.Inverse(parentRotation).multiply(neutralHead).normalize();
