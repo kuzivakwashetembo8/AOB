@@ -239,6 +239,17 @@ function GamePage() {
   },[bridge,loaded,settings.enableCharacter]);
 
   useEffect(() => {
+    if (!loaded) return;
+    bridge.command({type:"physics-foot-debug",settings:{
+      physicsDebug:settings.physicsDebug,physicsCapsuleDebug:settings.physicsCapsuleDebug,
+      footIKProbes:settings.footIKProbes,footIKDebug:settings.footIKDebug,
+      footIKPrediction:settings.footIKPrediction,footIKReachCm:settings.footIKReachCm,
+      footIKPredictionMs:settings.footIKPredictionMs,
+    }});
+  },[bridge,loaded,settings.physicsDebug,settings.physicsCapsuleDebug,settings.footIKProbes,
+    settings.footIKDebug,settings.footIKPrediction,settings.footIKReachCm,settings.footIKPredictionMs]);
+
+  useEffect(() => {
     if (!trialEnabled || !loaded) return;
     bridge.command({ type: "character-locomotion-tuning", settings: headingSettings });
   }, [bridge, trialEnabled, loaded, headingSettings]);
