@@ -8,6 +8,7 @@ import type {AssetContainer,Scene} from "@babylonjs/core";
 import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 import {humanVisualYaw105} from "../character/human-walking-105";
 import {createWalkPlayer110,fetchWalkClip110,type WalkPlayer110} from "../character/retargeted-walk-110";
+import {createFootPhysicsInspector110,type FootPhysicsDebugOptions,type GroundQuery110} from "../character/foot-ik-inspector-110";
 import {createNativePoseController109,type NativePose109Controller} from "../character/native-neutral-pose-109";
 
 export const MERCER_STATIC_CHARACTER_PATH="/GLBs/Characters/character.glb";
@@ -32,6 +33,9 @@ export function createMercerStaticCharacter(
   let entries:ReturnType<AssetContainer["instantiateModelsToScene"]>|null=null;
   let closed=false;
   let walk:WalkPlayer110|null=null;
+  let footInspector:ReturnType<typeof createFootPhysicsInspector110>|null=null;
+  let footDebugOptions:FootPhysicsDebugOptions|null=null;
+  let footGroundQuery:GroundQuery110|null=null;
   let meshCount=0;
   let controlled=false;
   let fittedRoot:TransformNode|null=null;
@@ -126,6 +130,8 @@ export function createMercerStaticCharacter(
     // Capture accepted CHAR-109 relaxed-arm rest pose before creating animation.
     // Animation deltas use this calibrated rest pose; no shoulder T-pose on stop.
     walk=createWalkPlayer110(entries.skeletons,await fetchWalkClip110());
+    footInspector=createFootPhysicsInspector110(scene,entries.skeletons);
+    if(footDebugOptions&&footGroundQuery)footInspector.configure(footDebugOptions,footGroundQuery);
     audit.finish(instantiateId,count+" meshes; "+
       neutralPose.report.applied.length+" linked upper-arm joints; "+
       walk.report.jointCount+" retargeted UAL walk joints");
@@ -145,10 +151,15 @@ export function createMercerStaticCharacter(
   });
   return {
     anchor,ready,
+    /** Connect the existing Rapier collision query to opt-in Foot IK diagnostics. */
+    configureFootDebug(options:FootPhysicsDebugOptions,query:GroundQuery110){
+      footDebugOptions=options;footGroundQuery=query;
+      footInspector?.configure(options,query);
+    },
     /** Walk mode takes control of this exact imported actor; no second GLB. */
     setControlled(enabled:boolean){
       controlled=enabled;
-      if(!enabled)walk?.reset();
+      if(!enabled){walk?.reset();footInspector?.hide();}
       neutralPose?.ensure();
       if(fittedRoot){
         fittedRoot.rotation.y=humanVisualYaw105(enabled);
@@ -171,14 +182,17 @@ export function createMercerStaticCharacter(
       // CHAR-109 owns idle posture. During walking, the authored clip owns
       // arms and legs, preventing the old per-tick idle shoulder clamp.
       walk?.update(walkSpeed,dt);
+      footInspector?.update(position,dt);
     },
     get poseReport(){return {meshCount,
       vertices:0,controlled,
-      pose:neutralPose?.report??null,walk:walk?.report??null};},
+      pose:neutralPose?.report??null,walk:walk?.report??null,
+      footGeometry:footInspector?.report??null};},
     dispose(){
       if(closed)return;
       closed=true;
       walk?.dispose();walk=null;
+      footInspector?.dispose();footInspector=null;
       neutralPose?.dispose();neutralPose=null;
       entries?.dispose();
       container?.dispose();
