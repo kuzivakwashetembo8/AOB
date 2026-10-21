@@ -37,6 +37,7 @@ export type GameCommand =
   | { type: "look-delta"; x: number; y: number }
   | { type: "camera-settings"; touchSensitivity: number; invertY: boolean }
   | { type: "enable-character"; enabled: boolean }
+  | { type: "physics-foot-debug"; settings: import("../character/foot-ik-inspector-110").FootPhysicsDebugOptions }
   | { type: "render-clarity"; mode: import("../renderer/render-clarity").RenderClarityMode; scalePercent: number }
   | { type: "action"; action: GameAction; pressed: boolean }
   | { type: "set-context"; context: HudContext }
