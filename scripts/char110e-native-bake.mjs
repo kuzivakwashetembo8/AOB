@@ -40,14 +40,15 @@ const byJoint=new Map();
 for(const c of clip.channels){
  if(c.target.path!=="rotation")continue;
  const sampler=clip.samplers[c.sampler];
- if((sampler.interpolation??"LINEAR")!=="LINEAR")throw Error("Unsupported interpolation");
- byJoint.set(c.target.node,{times:src.access(sampler.input).map(t=>t[0]),
+ if(!["LINEAR","STEP"].includes(sampler.interpolation??"LINEAR"))throw Error("Unsupported interpolation");
+ byJoint.set(c.target.node,{kind:sampler.interpolation??"LINEAR",times:src.access(sampler.input).map(t=>t[0]),
     rots:src.access(sampler.output).map(q=>new Quaternion(...q).normalize())});
 }
 function sample(tr,time){
  let a=0;
  while(a<tr.times.length-2&&tr.times[a+1]<time)a++;
  const span=Math.max(1e-7,tr.times[a+1]-tr.times[a]);
+ if(tr.kind==="STEP")return tr.rots[a].clone();
  return Quaternion.Slerp(tr.rots[a],tr.rots[a+1],Math.min(1,Math.max(0,(time-tr.times[a])/span))).normalize();
 }
 const changed=[];
