@@ -70,7 +70,9 @@ function pose(sample,extra={}){
   const val=name=>Vector3.TransformCoordinates(
     Vector3.TransformCoordinates(Vector3.Zero(),resolveMatrix(lookup.get(name))),hipInv);
   const knee=val(side.knee),foot=val(side.foot),toe=val(side.toe),upper=val(side.upper);
-  result[side.side]={hip:upper.x,knee:knee.x,foot:foot.x,toe:toe.x,z:foot.z,toeZ:toe.z,y:foot.y,toeY:toe.y};
+  const footParentWorld=resolveMatrix(parents[lookup.get(side.foot)]);
+  const upAxis=Vector3.TransformNormal(Vector3.Up(),Matrix.Invert(footParentWorld)).normalize();
+  result[side.side]={hip:upper.x,knee:knee.x,foot:foot.x,toe:toe.x,z:foot.z,toeZ:toe.z,y:foot.y,toeY:toe.y,footYawAxis:upAxis.asArray()};
  }
  return result;
 }
@@ -182,8 +184,15 @@ console.info("CHAR110_ELBOW_DIRECTION="+JSON.stringify({rightForearmReversed:tru
 // Character face convention: in source/model pelvis space forward is -Z.
 // When a shoe turns inward/outward, the toe-to-ankle horizontal direction
 // drifts away from -Z. Measure via actual baked skeletal FK; only correct yaw.
-function footHeading(p){const dx=p.toe-p.foot,dz=p.toeZ-p.z;
- const length=Math.hypot(dx,dz);return {angle:Math.atan2(dx,-dz),length,forward:-dz};}
+// Imported foot pivots do not necessarily share pelvis or mesh forward axes.
+// Determine the reference sign from the ACTUAL source ankle-to-toe projected geometry.
+const toeForwardSum=sides.reduce((sum,side)=>sum+Array.from({length:clip.sampleCount},(_,n)=>{
+ const p=pose(n)[side.side];return p.toeZ-p.z;
+}).reduce((a,b)=>a+b,0),0);
+if(Math.abs(toeForwardSum)<.15)throw Error("CHAR-110D: Foot forward axis cannot be calibrated");
+const toeForwardSign=Math.sign(toeForwardSum);
+function footHeading(p){const dx=p.toe-p.foot,dz=(p.toeZ-p.z)*toeForwardSign;
+ const length=Math.hypot(dx,dz);return {angle:Math.atan2(dx,dz),length,forward:dz};}
 const footReport={};
 for(const side of sides){
  const t=tracks.get(side.foot);
@@ -204,7 +213,7 @@ for(const side of sides){
   let best=null;
   for(let step=0;step<=110;step++){
    const angle=(step===0?0:(step%2===1?1:-1)*Math.ceil(step/2)*.01);
-   const trial=Quaternion.RotationAxis(Vector3.Up(),angle).multiply(original).normalize();
+   const trial=Quaternion.RotationAxis(Vector3.FromArray(p.footYawAxis),angle).multiply(original).normalize();
    t.keys[n]=[trial.x,trial.y,trial.z,trial.w];
    const candidate=pose(n)[side.side],dir=footHeading(candidate);
    const margin=minSide(candidate,side);
@@ -230,7 +239,7 @@ for(const side of sides){
 const shoeLane=report("SHOE_LANES_AFTER");
 if(sides.some(s=>shoeLane[s.side].crossingSamples.length||shoeLane[s.side].violatingSamples.length))
  throw Error("CHAR-110D: Foot-facing correction regressed the accepted bilateral lanes");
-console.info("CHAR110_SHOE_FORWARD="+JSON.stringify(footReport));
+console.info("CHAR110_SHOE_FORWARD="+JSON.stringify({referenceToeForwardSign:toeForwardSign,footReport}));
 
 clip.laneGuard={version:1,metric:"pelvis-local signed knee/ankle/toe X",
  margins,corrections};
