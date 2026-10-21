@@ -172,6 +172,8 @@ const output={schema:"gtd.char110.ual-walk.v1",source:"Quaternius UAL Walk_Loop 
  sampleCount:samples,walkTargetMps:1.5,frameBasis:[+alignment.x.toFixed(6),+alignment.y.toFixed(6),+alignment.z.toFixed(6),+alignment.w.toFixed(6)],
  tracks};
 writeFileSync(resolve(outputFile),JSON.stringify(output));
+// CHAR-110E research audit retains the uncorrected offline retarget for A/B diagnostics.
+writeFileSync(resolve(".char110-raw-walk.json"),JSON.stringify(output));
 console.info("CHAR110_RETARGET_SUCCESS="+JSON.stringify({sourceJointCount:sourceJoints.size,targetJointCount:targetJoints.size,
  duration,samples,idleCalibration:"UAL Idle_Loop frame 0",tracks:tracks.map(t=>({node:t.node,source:t.source,peakRadians:t.peakRadians})),
  anatomicalSource:{right:sf.right,up:sf.up,forward:sf.forward},
