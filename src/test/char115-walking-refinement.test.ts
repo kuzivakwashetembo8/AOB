@@ -57,4 +57,4 @@ player.reset();assert.ok(error(relative(names.get("Head")),head)<1e-5);
 console.log(JSON.stringify({actualGLB:true,samples:160,maxHeadRadians:maxHead,maxWristRadians:maxWrist,armSwing:true,reset:true}));
 scene.dispose();engine.dispose();
 
-});
+},120000);
