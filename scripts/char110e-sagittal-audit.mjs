@@ -110,9 +110,17 @@ const nativeResult=measure("NATIVE",target,native);
 const translated=translationAudit.filter(t=>t.maxExcursion>.005).sort((a,b)=>b.maxExcursion-a.maxExcursion);
 console.info("CHAR110E_TRANSLATION="+JSON.stringify({totalTranslationChannels:translationAudit.length,animated:translated.slice(0,35)}));
 const gate=r=>r.leftLeadingFrames>=5&&r.rightLeadingFrames>=5&&r.minLead<-.04&&r.maxLead>.04&&r.excursionRatio>.4;
+const balanced=r=>{
+ const a=Math.abs(r.minLead),b=Math.abs(r.maxLead);
+ const ratio=Math.min(a,b)/Math.max(a,b);
+ return r.leftLeadingFrames>=32&&r.rightLeadingFrames>=32&&ratio>=.75&&ratio<=1&&r.excursionRatio>=.7;
+};
 const assessment={source:gate(sourceResult),raw:gate(rawResult),corrected:gate(fixedResult),native:gate(nativeResult),
+ sourceBalanced:balanced(sourceResult),rawBalanced:balanced(rawResult),correctedBalanced:balanced(fixedResult),nativeBalanced:balanced(nativeResult),
  sourceWasAlternating:sourceResult.minLead<-.04&&sourceResult.maxLead>.04};
 console.info("CHAR110E_VERDICT="+JSON.stringify(assessment));
-if(!assessment.sourceWasAlternating)throw Error("CHAR110E source measurements invalid; calibration requires investigation");
+if(!assessment.sourceWasAlternating||!assessment.sourceBalanced)throw Error("CHAR110E source measurements invalid; calibration requires investigation");
+if(!assessment.nativeBalanced||!assessment.correctedBalanced)
+ throw Error("CHAR110E gait FAIL: Voight must alternately lead with both feet for similar fractions and distances (source matched but target not)");
 // A/B diagnostic pass is informational until a candidate is chosen; DO NOT
 // mistake this diagnostic-only build for the accepted walking checkpoint.
