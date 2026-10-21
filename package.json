@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prebuild": "node scripts/stage-offline001-runtime.mjs && node scripts/char110-rig-audit.mjs && node scripts/char110-bake-ual-walk.mjs && node scripts/char110-verify-leg-lanes.mjs && node scripts/char110e-sagittal-audit.mjs",
+    "prebuild": "node scripts/stage-offline001-runtime.mjs && node scripts/char110-rig-audit.mjs && node scripts/char110-bake-ual-walk.mjs && node scripts/char110e-native-bake.mjs && node scripts/char110-verify-leg-lanes.mjs && node scripts/char110e-sagittal-audit.mjs",
     "prebuild:dev": "node scripts/stage-offline001-runtime.mjs",
     "predev": "node scripts/stage-offline001-runtime.mjs",
     "offline:stage": "node scripts/stage-offline001-runtime.mjs",
