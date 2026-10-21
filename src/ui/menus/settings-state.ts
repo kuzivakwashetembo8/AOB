@@ -6,6 +6,13 @@ export function normalizeDrivingTouchLayout(value: unknown): DrivingTouchLayout 
 }
 export type Settings = {
   enableCharacter: boolean;
+  physicsDebug: boolean;
+  physicsCapsuleDebug: boolean;
+  footIKProbes: boolean;
+  footIKDebug: boolean;
+  footIKPrediction: boolean;
+  footIKReachCm: number;
+  footIKPredictionMs: number;
   drivingTouchLayout: DrivingTouchLayout;
   quality: string;
   renderClarity: RenderClarityMode;
@@ -37,6 +44,13 @@ export type Settings = {
 };
 export const defaults: Settings = {
   enableCharacter: false,
+  physicsDebug: false,
+  physicsCapsuleDebug: false,
+  footIKProbes: false,
+  footIKDebug: false,
+  footIKPrediction: false,
+  footIKReachCm: 50,
+  footIKPredictionMs: 220,
   drivingTouchLayout: "drag",
   quality: "High",
   renderClarity: "Auto",
@@ -80,6 +94,13 @@ export function useSettings() {
           ...defaults,
           ...stored,
           enableCharacter: stored.enableCharacter === true,
+          physicsDebug: stored.physicsDebug === true,
+          physicsCapsuleDebug: stored.physicsCapsuleDebug === true,
+          footIKProbes: stored.footIKProbes === true,
+          footIKDebug: stored.footIKDebug === true,
+          footIKPrediction: stored.footIKPrediction === true,
+          footIKReachCm: Number.isFinite(stored.footIKReachCm) ? Math.max(15,Math.min(100,Number(stored.footIKReachCm))) : 50,
+          footIKPredictionMs: Number.isFinite(stored.footIKPredictionMs) ? Math.max(100,Math.min(500,Number(stored.footIKPredictionMs))) : 220,
           drivingTouchLayout: normalizeDrivingTouchLayout(stored.drivingTouchLayout),
           renderClarity: normalizeRenderClarity(stored.renderClarity),
           renderScalePercent: normalizeRenderScalePercent(stored.renderScalePercent),

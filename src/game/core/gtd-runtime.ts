@@ -862,6 +862,11 @@ export class GTDGameRuntime implements GameRuntime {
       if (this.engine && this.diagnosticHardwareScale === null) this.resize();
       return;
     }
+    if(command.type==="physics-foot-debug"){
+      this.humanAsset()?.configureFootDebug(command.settings,(point,distance)=>
+        this.physics?.probeGround(point,distance)??null);
+      return;
+    }
     if (command.type === "camera-settings") {
       this.touchCameraSensitivity = normalizeTouchCameraSensitivity(command.touchSensitivity);
       this.invertLookY = command.invertY;
@@ -1191,7 +1196,9 @@ export class GTDGameRuntime implements GameRuntime {
     const right = new Vector3(-Math.sin(camera.alpha), 0, Math.cos(camera.alpha));
     const desired = forward.scale(-this.move.y).add(right.scale(this.move.x));
     if (desired.lengthSquared() > 1) desired.normalize();
-    const speed = this.humanCharacterEnabled ? WALK_SPEED : this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
+    // CHAR-110: match UAL Walk_Loop cadence to ordinary 1.5 m/s walking.
+    // No running/sprint permission for the ungraduated human in this gate.
+    const speed = this.humanCharacterEnabled ? 1.5 : this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
     if (this.flightEnabled) {
       const current = physics.playerPosition();
       const flight = flightDisplacement({

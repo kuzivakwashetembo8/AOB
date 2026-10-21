@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, RotateCcw, Monitor, Volume2, Gamepad2, Eye, PanelsTopLeft, Smartphone } from "lucide-react";
+import { Check, RotateCcw, Monitor, Volume2, Gamepad2, Eye, PanelsTopLeft, Smartphone, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -11,6 +11,7 @@ const categories = [
   { name: "Graphics", icon: Monitor },
   { name: "Audio", icon: Volume2 },
   { name: "Controls", icon: Gamepad2 },
+  { name: "Physics & Foot IK", icon: Activity },
   { name: "Accessibility", icon: Eye },
   { name: "Interface", icon: PanelsTopLeft },
   { name: "Mobile Controls", icon: Smartphone },
@@ -183,6 +184,19 @@ export function SettingsEditor({
                   <span>Interact / Enter vehicle</span>
                   <span className="system-label">E / F</span>
                 </div>
+              </>
+            )}
+            {category === "Physics & Foot IK" && (
+              <>
+                <p className="overlay-note">Rapier physics remains active for the game. These options show the real character collision capsule and foot-ground queries while testing CHAR-110. The two-bone Foot IK solver is not yet enabled; target probes are diagnostic and do not alter physics or bone placement.</p>
+                {toggle("physicsDebug", "Physics: ground contact probes")}
+                {toggle("physicsCapsuleDebug", "Physics: player capsule geometry")}
+                {toggle("footIKProbes", "Foot IK: inspect ground targets")}
+                {toggle("footIKDebug", "Foot IK: show bone and target markers")}
+                {toggle("footIKPrediction", "Foot IK: predictive landing probes")}
+                {range("footIKReachCm", "Ground detection reach", 100, 15, " cm")}
+                {range("footIKPredictionMs", "Landing prediction horizon", 500, 100, " ms")}
+                <p className="overlay-note">The reference Foot IK uses predictive probes, sole contacts, stance phases and a two-bone solver. This stage exposes measured ground targets first; pelvis adjustment, planted-foot locking and reactive joint correction remain pending. All diagnostic meshes are optional.</p>
               </>
             )}
             {category === "Accessibility" && (
