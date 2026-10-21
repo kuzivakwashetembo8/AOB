@@ -2,7 +2,7 @@
 
 Date: 2026-10-21. Branch: Walking-Torso-Inclination.
 Baseline: 45413d32333768fc9dd37f497366652a3a5e8726 (accepted CHAR-117).
-Status: observations committed before implementation; walking torso patch implemented for preview. Merge awaits Harmony's confirmation.
+Status: five-degree walking torso inclination accepted by Harmony; merge to main authorized. Production deployment is not part of this acceptance instruction.
 
 ## Observations confirmed by Harmony
 References: Screenshot (505).png (humanoid), torso too straight, stride too forward..png (Voight).
@@ -28,3 +28,8 @@ Verify the actual GLB and skinned silhouette in matched side/three-quarter views
 - Separate baseline/candidate playback with the actual retargeted walk clip at standing plus 160 phases: standing and lower-body world matrices have maximum difference 0; neck position moves 0.02790–0.02822 m forward relative to the pelvis.
 - [Matched skinned diagnostic](CHAR-118-torso-inclination-comparison.png): accepted baseline above, candidate below; standing side, two walking phases and walking three-quarter. CPU linear-blend skinning of original GLB triangles is diagnostic evidence, not a browser screenshot or artistic acceptance.
 - No change to neutral-arm calibration, GLB bytes, leg stride or source clip. No merge or production deployment. Preview is the decision gate.
+
+## Acceptance gate — 2026-10-21
+Harmony: “5-deg is acceptable, merge it with main then once merged return for experimental refining otherwise we achieved the objective we wanted today.”
+
+Accepted preview runtime: c4d6b8be65a5cc7aec23ca4259a9d1b6c090797f at https://gtd-dpvyx3k2q-interlinkglobaltech.vercel.app/game . The earlier preview-only merge restriction above is superseded by this explicit instruction. Preserve the five-degree distributed inclination (2/1.75/1.25 degrees), standing reset, accepted arm articulation and existing lower-body playback as the new main checkpoint. Return after merge before starting experimental refinements. No further runtime change or production deployment is included in this checkpoint.
