@@ -201,7 +201,7 @@ for(const side of sides){
    const trial=Quaternion.RotationAxis(Vector3.Up(),angle).multiply(original).normalize();
    t.keys[n]=[trial.x,trial.y,trial.z,trial.w];
    const candidate=pose(n)[side.side],dir=footHeading(candidate);
-   const margin=Math.min(candidate.knee,candidate.foot,candidate.toe)*side.sign;
+   const margin=minSide(candidate,side);
    const score=Math.abs(dir.angle);
    if(margin>=margins[side.side]-.006 &&
        dir.forward>.025 && (score<=.28||step===110)){
