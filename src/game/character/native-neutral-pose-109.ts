@@ -55,6 +55,11 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
  const candidates=findLinkedArms109(skeletons);
  const stored:{node:TransformNode;target:Quaternion;original:Quaternion}[]=[];
  const applied:string[]=[];
+ const hands=new Map<string,TransformNode>();
+ for(const skel of skeletons)for(const bone of skel.bones){
+  const node=bone.getTransformNode();
+  if(node)hands.set(normal(bone.name),node);
+ }
  let reason:string|null=null,restored=0;
  if(candidates.length!==2)reason="source joints lack two linked LeftArm/RightArm and forearms";
  for(const arm of candidates){
@@ -69,10 +74,25 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
    const elbow=arm.forearm.getAbsolutePosition().clone();
    const current=elbow.subtract(shoulder);
    if(current.lengthSquared()<1e-8){reason="invalid shoulder-to-elbow bind vector";continue;}
-   const target=new Vector3(arm.side==="left" ? -.10:.10,-1,0).normalize();
+   // Keep the accepted palm orientation as a reference before adjusting the
+   // elbow/forearm. Derive outward from real shoulder locations, not name sign.
+   const hand=hands.get(arm.side+"hand");
+   const other=candidates.find(c=>c.side!==arm.side);
+   const original=rotationOf(arm.upper);
+   const legacyTarget=new Vector3(arm.side==="left"?-.10:.10,-1,0).normalize();
+   const legacyDelta=neutralArmDelta109(current,legacyTarget,parent,2.15);
+   let palmWorld:import("@babylonjs/core").Matrix|null=null;
+   if(hand&&hand.parent===arm.forearm&&legacyDelta){
+    arm.upper.rotationQuaternion=legacyDelta.multiply(original).normalize();
+    hand.computeWorldMatrix(true);palmWorld=hand.getWorldMatrix().clone();
+    arm.upper.rotationQuaternion=original;arm.upper.computeWorldMatrix(true);
+   }
+   other?.upper.computeWorldMatrix(true);
+   const outward=other?shoulder.subtract(other.upper.getAbsolutePosition()):new Vector3(arm.side==="left"?-1:1,0,0);
+   outward.y=0;outward.normalize();
+   const target=outward.scale(.06).add(new Vector3(0,-1,0)).normalize();
    const delta=neutralArmDelta109(current,target,parent,2.15);
    if(!delta){reason="joint-parent transform is not a safe rotation frame";continue;}
-   const original=rotationOf(arm.upper);
    const desired=delta.multiply(original).normalize();
    arm.upper.rotationQuaternion=desired;
    arm.upper.computeWorldMatrix(true);
@@ -88,8 +108,27 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
    }
    stored.push({node:arm.upper,target:desired.clone(),original:original.clone()});
    applied.push(arm.side+"Arm");
+   if(hand&&hand.parent===arm.forearm&&palmWorld&&hand.position.lengthSquared()>1e-8){
+    const forearmOriginal=rotationOf(arm.forearm),handOriginal=rotationOf(hand);
+    // Axial roll changes forearm/elbow surface facing without changing the
+    // wrist endpoint. This is a fixed neutral correction, not a wrist cycle.
+    const twist=Quaternion.RotationAxis(hand.position.normalizeToNew(),arm.side==="left"?.24:-.24);
+    const forearmTarget=forearmOriginal.multiply(twist).normalize();
+    arm.forearm.rotationQuaternion=forearmTarget;
+    arm.forearm.computeWorldMatrix(true);
+    const local=palmWorld.multiply(arm.forearm.getWorldMatrix().clone().invert());
+    const scale=new Vector3(),handTarget=Quaternion.Identity(),position=new Vector3();
+    if(!local.decompose(scale,handTarget,position)){
+     arm.forearm.rotationQuaternion=forearmOriginal;
+     reason="cannot preserve relaxed palm frame";
+    }else{
+     hand.rotationQuaternion=handTarget.normalize();
+     stored.push({node:arm.forearm,target:forearmTarget,original:forearmOriginal},
+      {node:hand,target:handTarget.clone(),original:handOriginal});
+    }
+   }
  }
- if(stored.length!==2){
+ if(applied.length!==2){
    // Never leave only one arm corrected if the other joint failed calibration.
    for(const item of stored)item.node.rotationQuaternion=item.original.clone();
    for(const skeleton of skeletons)skeleton.prepare();
@@ -98,8 +137,8 @@ export function createNativePoseController109(skeletons:readonly Skeleton[]):Nat
  }
  for(const skeleton of skeletons)skeleton.prepare();
  const report:NativePose109Report={
-  status:stored.length===2?"native-joints":"rejected",
-  applied,reason:stored.length===2?null:reason??"neutral arm correction incomplete",restored:0
+  status:applied.length===2?"native-joints":"rejected",
+  applied,reason:applied.length===2?null:reason??"neutral arm correction incomplete",restored:0
  };
  return {
   get report(){return {...report,applied:[...applied],restored};},
