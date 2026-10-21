@@ -70,7 +70,7 @@ function pose(sample,extra={}){
   const val=name=>Vector3.TransformCoordinates(
     Vector3.TransformCoordinates(Vector3.Zero(),resolveMatrix(lookup.get(name))),hipInv);
   const knee=val(side.knee),foot=val(side.foot),toe=val(side.toe),upper=val(side.upper);
-  result[side.side]={hip:upper.x,knee:knee.x,foot:foot.x,toe:toe.x,z:foot.z,y:foot.y};
+  result[side.side]={hip:upper.x,knee:knee.x,foot:foot.x,toe:toe.x,z:foot.z,toeZ:toe.z,y:foot.y,toeY:toe.y};
  }
  return result;
 }
@@ -153,6 +153,77 @@ for(const side of sides){
 // Reject any hidden retarget pipeline that produces no improvement.
 if(sides.some(s=>corrections[s.side].maxAngleRadians>0.55))
  throw Error("CHAR-110C: Hip correction exceeds bounded anatomical limit");
+// CHAR-110D: preserve the authored clip while correcting a mirrored elbow bend.
+// Right elbow flex is reversed relative to source idle; wrist gets an exact
+// counter-rotation so the already-approved palm facing stays unchanged.
+const elbow=tracks.get("RightForeArm"),wrist=tracks.get("RightHand");
+if(!elbow||!wrist)throw Error("CHAR-110D: Missing right elbow or wrist mapping");
+const restElbow=rest[lookup.get("RightForeArm")].q;
+const invQuat=q=>Quaternion.Inverse(q).normalize();
+const elbowAngles=[];
+for(let n=0;n<clip.sampleCount;n++){
+ const e=Q(elbow.keys[n]),h=Q(wrist.keys[n]);
+ // Invert source-idle-relative forearm bending, not the target bind pose.
+ const bent=invQuat(e);
+ // Preserve the original global palm orientation after elbow correction.
+ const before=e.multiply(restElbow).normalize();
+ const after=bent.multiply(restElbow).normalize();
+ const compensator=invQuat(after).multiply(before).normalize();
+ const hand=compensator.multiply(h).normalize();
+ elbow.keys[n]=[bent.x,bent.y,bent.z,bent.w].map(x=>+x.toFixed(6));
+ wrist.keys[n]=[hand.x,hand.y,hand.z,hand.w].map(x=>+x.toFixed(6));
+ const diff=2*Math.acos(Math.min(1,Math.abs(Quaternion.Dot(before.multiply(h).normalize(),after.multiply(hand).normalize()))));
+ if(diff>.006)throw Error("CHAR-110D: Palm facing preservation failed at "+n+" "+diff);
+ elbowAngles.push(2*Math.acos(Math.min(1,Math.abs(e.w))));
+}
+console.info("CHAR110_ELBOW_DIRECTION="+JSON.stringify({rightForearmReversed:true,
+ rightHandCompensated:true,maxSourceDeltaRadians:Math.max(...elbowAngles)}));
+
+// Character face convention: in source/model pelvis space forward is -Z.
+// When a shoe turns inward/outward, the toe-to-ankle horizontal direction
+// drifts away from -Z. Measure via actual baked skeletal FK; only correct yaw.
+function footHeading(p){const dx=p.toe-p.foot,dz=p.toeZ-p.z;
+ const length=Math.hypot(dx,dz);return {angle:Math.atan2(dx,-dz),length,forward:-dz};}
+const footReport={};
+for(const side of sides){
+ const t=tracks.get(side.foot);
+ if(!t)throw Error("CHAR-110D: Foot animation track missing");
+ const beforeAngles=[],afterAngles=[],fix=[];
+ for(let n=0;n<clip.sampleCount;n++){
+  const p=pose(n)[side.side],h=footHeading(p);beforeAngles.push(h.angle);
+  if(h.length<.025)throw Error("CHAR-110D: Toe bone lacks a reliable forward vector "+side.side+" "+n);
+  // Apply pelvis-up yaw transformed into the animated foot-parent local basis.
+  // The native glTF and authored knee flexion remain intact.
+  const original=Q(t.keys[n]);
+  let best=null;
+  for(let step=0;step<=110;step++){
+   const angle=(step===0?0:(step%2===1?1:-1)*Math.ceil(step/2)*.01);
+   const trial=Quaternion.RotationAxis(Vector3.Up(),angle).multiply(original).normalize();
+   t.keys[n]=[trial.x,trial.y,trial.z,trial.w];
+   const candidate=pose(n)[side.side],dir=footHeading(candidate);
+   const margin=Math.min(candidate.knee,candidate.foot,candidate.toe)*side.sign;
+   const score=Math.abs(dir.angle);
+   if(margin>=margins[side.side]-.006 &&
+       dir.forward>.025 && (score<=.28||step===110)){
+     if(!best||score<best.score)best={angle,score,trial};
+     if(score<=.28)break;
+   }
+  }
+  t.keys[n]=best?[best.trial.x,best.trial.y,best.trial.z,best.trial.w].map(x=>+x.toFixed(6)):
+    [original.x,original.y,original.z,original.w].map(x=>+x.toFixed(6));
+  const solved=footHeading(pose(n)[side.side]);afterAngles.push(solved.angle);
+  fix.push(best?.angle??0);
+ }
+ footReport[side.side]={originalMaxAngle:+Math.max(...beforeAngles.map(Math.abs)).toFixed(3),
+ correctedMaxAngle:+Math.max(...afterAngles.map(Math.abs)).toFixed(3),
+ maxYawCorrection:+Math.max(...fix.map(Math.abs)).toFixed(3)};
+}
+// Re-check lane after shoe yaw changes so toe rotation cannot undo CHAR-110C.
+const shoeLane=report("SHOE_LANES_AFTER");
+if(sides.some(s=>shoeLane[s.side].crossingSamples.length||shoeLane[s.side].violatingSamples.length))
+ throw Error("CHAR-110D: Foot-facing correction regressed the accepted bilateral lanes");
+console.info("CHAR110_SHOE_FORWARD="+JSON.stringify(footReport));
+
 clip.laneGuard={version:1,metric:"pelvis-local signed knee/ankle/toe X",
  margins,corrections};
 writeFileSync(output,JSON.stringify(clip));
