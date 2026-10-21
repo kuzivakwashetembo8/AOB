@@ -129,7 +129,20 @@ export function createMercerStaticCharacter(
       MERCER_STATIC_CHARACTER_POSE.z);
     // Capture accepted CHAR-109 relaxed-arm rest pose before creating animation.
     // Animation deltas use this calibrated rest pose; no shoulder T-pose on stop.
-    walk=createWalkPlayer110(entries.skeletons,await fetchWalkClip110());
+    // Blink both head and eyelash morphs from this cloned instance only.
+    const blinkTargets:{influence:number}[]=[];
+    const seenTargets=new Set<object>();
+    for(const mesh of meshes){
+      const manager=mesh.morphTargetManager;
+      if(!manager)continue;
+      for(let i=0;i<manager.numTargets;i++){
+        const target=manager.getTarget(i);
+        if(/^eyeBlink(Left|Right)$/i.test(target.name)&&!seenTargets.has(target)){
+          seenTargets.add(target);blinkTargets.push(target);
+        }
+      }
+    }
+    walk=createWalkPlayer110(entries.skeletons,await fetchWalkClip110(),blinkTargets);
     footInspector=createFootPhysicsInspector110(scene,entries.skeletons);
     if(footDebugOptions&&footGroundQuery)footInspector.configure(footDebugOptions,footGroundQuery);
     audit.finish(instantiateId,count+" meshes; "+
