@@ -1191,7 +1191,7 @@ export class GTDGameRuntime implements GameRuntime {
     const right = new Vector3(-Math.sin(camera.alpha), 0, Math.cos(camera.alpha));
     const desired = forward.scale(-this.move.y).add(right.scale(this.move.x));
     if (desired.lengthSquared() > 1) desired.normalize();
-    const speed = this.humanCharacterEnabled ? WALK_SPEED : this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
+    // CHAR-110: match UAL Walk_Loop cadence to ordinary 1.5 m/s walking.\n    // No running/sprint permission for the ungraduated human in this gate.\n    const speed = this.humanCharacterEnabled ? 1.5 : this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
     if (this.flightEnabled) {
       const current = physics.playerPosition();
       const flight = flightDisplacement({
