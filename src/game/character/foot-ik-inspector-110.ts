@@ -77,7 +77,7 @@ export function createFootPhysicsInspector110(scene:Scene,skeletons:readonly Ske
     const foot=read(i===0?"LeftFoot":"RightFoot");
     const knee=read(i===0?"LeftLeg":"RightLeg");
     set(feet[i]!,foot,showFeet);set(knees[i]!,knee,showFeet);
-    if(showGround&&settings.footIKProbes){
+    if(showGround&&(settings.footIKProbes||settings.physicsDebug)){
      // Cast against the current live Rapier world, excluding the player's capsule.
      const origin={x:foot.x,y:foot.y+settings.footIKReachCm/100,z:foot.z};
      const hit=query(origin,1+settings.footIKReachCm/100);
