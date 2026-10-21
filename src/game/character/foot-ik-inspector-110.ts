@@ -76,22 +76,22 @@ export function createFootPhysicsInspector110(scene:Scene,skeletons:readonly Ske
    for(let i=0;i<2;i++){
     const foot=read(i===0?"LeftFoot":"RightFoot");
     const knee=read(i===0?"LeftLeg":"RightLeg");
-    set(feet[i],foot,showFeet);set(knees[i],knee,showFeet);
+    set(feet[i]!,foot,showFeet);set(knees[i]!,knee,showFeet);
     if(showGround&&settings.footIKProbes){
      // Cast against the current live Rapier world, excluding the player's capsule.
      const origin={x:foot.x,y:foot.y+settings.footIKReachCm/100,z:foot.z};
      const hit=query(origin,1+settings.footIKReachCm/100);
-     if(hit){hits++;set(contacts[i],new Vector3(hit.x,hit.y+.015,hit.z),true)}
-     else contacts[i].setEnabled(false);
-    }else contacts[i].setEnabled(false);
+     if(hit){hits++;set(contacts[i]!,new Vector3(hit.x,hit.y+.015,hit.z),true)}
+     else contacts[i]!.setEnabled(false);
+    }else contacts[i]!.setEnabled(false);
     if(showFeet&&settings.footIKPrediction&&speed>.15){
      const travel=velocity.scale(clamp(settings.footIKPredictionMs/1000,0.1,0.5));
      if(travel.lengthSquared()>.5*.5)travel.normalize().scaleInPlace(.5);
      const target=foot.add(travel);
      const pred=query({x:target.x,y:target.y+.7,z:target.z},2);
-     if(pred){predicted++;set(predictions[i],new Vector3(pred.x,pred.y+.025,pred.z),true)}
-     else predictions[i].setEnabled(false);
-    }else predictions[i].setEnabled(false);
+     if(pred){predicted++;set(predictions[i]!,new Vector3(pred.x,pred.y+.025,pred.z),true)}
+     else predictions[i]!.setEnabled(false);
+    }else predictions[i]!.setEnabled(false);
    }
    set(capsule,new Vector3(position.x,position.y,position.z),settings.physicsCapsuleDebug);
    lastHits=hits;lastPredictions=predicted;
