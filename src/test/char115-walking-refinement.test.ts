@@ -7,7 +7,7 @@ import {createNativePoseController109} from "../game/character/native-neutral-po
 it("keeps actual character head level, wrists neutral and restores standing",()=>{
 const b=readFileSync("public/GLBs/Characters/character.glb"),j=JSON.parse(b.toString("utf8",20,20+b.readUInt32LE(12)));
 const engine=new NullEngine(),scene=new Scene(engine),sk=new Skeleton("real-rig","real-rig",scene);
-const nodes=j.nodes.map((n:any)=>{
+const nodes:TransformNode[]=j.nodes.map((n:any)=>{
  const t=new TransformNode(n.name,scene);
  t.position=Vector3.FromArray(n.translation??[0,0,0]);
  t.scaling=Vector3.FromArray(n.scale??[1,1,1]);
@@ -15,13 +15,13 @@ const nodes=j.nodes.map((n:any)=>{
  if(n.matrix){const s=new Vector3(),q=Quaternion.Identity(),p=new Vector3();Matrix.FromArray(n.matrix).decompose(s,q,p);t.position=p;t.scaling=s;t.rotationQuaternion=q;}
  return t;
 });
-j.nodes.forEach((n:any,i:number)=>(n.children??[]).forEach((c:number)=>nodes[c].parent=nodes[i]));
-for(const i of j.skins[0].joints){const bone=new Bone(j.nodes[i].name,sk,null,Matrix.Identity());bone.linkTransformNode(nodes[i]);}
+j.nodes.forEach((n:any,i:number)=>(n.children??[]).forEach((c:number)=>nodes[c]!.parent=nodes[i]!));
+for(const i of j.skins[0].joints){const bone=new Bone(j.nodes[i].name,sk,null,Matrix.Identity());bone.linkTransformNode(nodes[i]!);}
 // The neutral controller checks bone ancestry as well as linked-node ancestry.
 const bones=new Map(sk.bones.map(b=>[b.name,b]));
 for(const bone of sk.bones){const p=bone.getTransformNode()!.parent;if(p&&bones.has(p.name))bone.setParent(bones.get(p.name)!);}
 const neutral=createNativePoseController109([sk]);assert.equal(neutral.report.status,"native-joints");
-const names=new Map(nodes.map((n:any)=>[n.name,n]));
+const names=new Map<string,TransformNode>(nodes.map(n=>[n.name,n]));
 const q=(name:string)=>names.get(name)!.rotationQuaternion!;
 const anchor=names.get("Hips")!.parent;
 function relative(n:any):Quaternion{return !n||n===anchor?Quaternion.Identity():relative(n.parent).multiply(n.rotationQuaternion).normalize();}
