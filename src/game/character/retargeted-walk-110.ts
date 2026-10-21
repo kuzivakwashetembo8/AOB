@@ -52,7 +52,9 @@ export async function fetchWalkClip110(fetcher:typeof fetch=fetch):Promise<WalkC
  return validateWalkClip110(await response.json());
 }
 type Track={node:TransformNode;base:Quaternion;keys:Quaternion[];name:string};
-export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip110):WalkPlayer110{
+export const HUMAN_WALK_SPEED_119=1.65;
+export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip110,
+ blinkTargets:readonly {influence:number}[]=[]):WalkPlayer110{
  const parsed=validateWalkClip110(clip);
  const tracks:Track[]=[];
  const names=new Map<string,TransformNode>();
@@ -186,6 +188,45 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   const l=byName.get("Left"+part)!,r=byName.get("Right"+part)!;
   return l.node.parent instanceof TransformNode&&r.node.parent instanceof TransformNode;
  });
+ const blinkBases=blinkTargets.map(t=>t.influence);
+ const setBlink=(value:number)=>blinkTargets.forEach((t,i)=>t.influence=blinkBases[i]!+(1-blinkBases[i]!)*value);
+ let idleTime=0;
+ function addLocal(name:string,axis:Vector3,radians:number){
+  const node=names.get(name);if(node)node.rotationQuaternion=rotationOf(node).multiply(Quaternion.RotationAxis(axis,radians)).normalize();
+ }
+ const pulse=(time:number,start:number,duration:number)=>{
+  const t=(time-start)/duration;return t>0&&t<1?Math.sin(Math.PI*t)**2:0;
+ };
+ function animateIdle(dt:number){
+  idleTime+=dt;
+  const fade=Math.max(0,Math.min(1,(idleTime-.6)/1.2));
+  const breath=Math.sin(idleTime*2*Math.PI/4.8)*.004*fade;
+  addLocal("Spine1",Vector3.Right(),breath);
+  addLocal("Spine2",Vector3.Right(),-breath*.5);
+  const glance=pulse(idleTime%11,4,2.8)*fade;
+  addLocal("Head",Vector3.Up(),.035*glance);
+  addLocal("Head",Vector3.Right(),.025*glance);
+  const gesture=pulse(idleTime%14,8,3.2)*fade;
+  addLocal("RightArm",Vector3.Right(),.012*gesture);
+  addLocal("RightForeArm",Vector3.Right(),.045*gesture);
+  const blink=pulse(idleTime%9.3,2.2,.20)+pulse(idleTime%9.3,6.8,.18);
+  setBlink(blink*fade);
+ }
+ function flexWalkingForearms(cursor:number,blend:number){
+  hips.computeWorldMatrix(true);
+  const forward=Vector3.TransformNormal(Vector3.Forward(),hips.getWorldMatrix()).normalize();
+  for(const [index,side] of ["Right","Left"].entries()){
+   const elbow=names.get(side+"ForeArm")!,hand=names.get(side+"Hand")!;
+   if(!(elbow.parent instanceof TransformNode)||hand.parent!==elbow)continue;
+   elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
+   const from=hand.getAbsolutePosition().subtract(elbow.getAbsolutePosition());
+   const phase=cursor/(parsed.sampleCount-1)*Math.PI*2+index*Math.PI;
+   const strength=(.035+.045*(.5+.5*Math.cos(phase)))*blend;
+   const to=from.normalizeToNew().add(forward.scale(strength)).normalize();
+   const delta=parentSpaceAimDelta(from,to,elbow.parent.getWorldMatrix(),.09*blend);
+   if(delta)elbow.rotationQuaternion=delta.multiply(rotationOf(elbow)).normalize();
+  }
+ }
  let elapsed=0,weight=0,frames=0,disposed=false;
  function restore(){
   for(const track of tracks)if(!track.node.isDisposed())
@@ -201,7 +242,8 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    const moving=speed>.12;
    weight=Math.max(0,Math.min(1,weight+(moving?1:-1)*step/.20));
    if(moving)elapsed=(elapsed+step*Math.max(.35,Math.min(1.35,speed/parsed.walkTargetMps)))%parsed.duration;
-   if(weight<=.00001){restore();return}
+   if(moving){idleTime=0;setBlink(0);}
+   if(weight<=.00001){restore();animateIdle(step);return}
    const cursor=elapsed/parsed.duration*(parsed.sampleCount-1);
    for(const track of tracks){
     if(track.node.isDisposed())continue;
@@ -223,6 +265,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
    refineLegs(weight);
    inclineWalkingBack(weight);
+   flexWalkingForearms(cursor,weight);
    if(anchor&&head.node.parent instanceof TransformNode){
     const parentRotation=relativeRotation(head.node.parent);
     const level=Quaternion.Inverse(parentRotation).multiply(neutralHead).normalize();
@@ -230,8 +273,8 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
    frames++;
   },
-  reset(){elapsed=0;weight=0;restore();},
-  dispose(){restore();disposed=true;tracks.length=0;}
+  reset(){elapsed=0;weight=0;idleTime=0;setBlink(0);restore();},
+  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;}
  };
 }
 

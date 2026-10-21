@@ -2,7 +2,7 @@ import {readFileSync} from "node:fs";
 import assert from "node:assert/strict";
 import {it} from "vitest";
 import {Bone,Matrix,NullEngine,Scene,Skeleton,TransformNode,Quaternion,Vector3} from "@babylonjs/core";
-import {createWalkPlayer110} from "../game/character/retargeted-walk-110";
+import {createWalkPlayer110,HUMAN_WALK_SPEED_119} from "../game/character/retargeted-walk-110";
 import {createNativePoseController109} from "../game/character/native-neutral-pose-109";
 function rig(control:boolean,yaw:number){
 const b=readFileSync("public/GLBs/Characters/character.glb"),j=JSON.parse(b.toString("utf8",20,20+b.readUInt32LE(12)));
@@ -60,7 +60,7 @@ it("CHAR-118 inclines only the walking spine and preserves accepted arms, legs, 
     const x=candidate.names.get(name)!,y=control.names.get(name)!;x.computeWorldMatrix(true);y.computeWorldMatrix(true);
     assert.ok(x.getWorldMatrix().equalsWithEpsilon(y.getWorldMatrix(),1e-6),"protected body changed "+name);
    }
-   for(const side of ["Left","Right"])for(const part of ["Shoulder","Arm","ForeArm","Hand"]){
+   for(const side of ["Left","Right"])for(const part of ["Shoulder","Arm","Hand"]){
     assert.ok(error(candidate.names.get(side+part)!.rotationQuaternion!,control.names.get(side+part)!.rotationQuaternion!)<1e-6,"accepted arm changed");
    }
    if(i>15){
@@ -80,4 +80,51 @@ it("CHAR-118 inclines only the walking spine and preserves accepted arms, legs, 
   for(const [name,q] of idle)assert.ok(error(candidate.names.get(name)!.rotationQuaternion!,q)<1e-6,"reset did not restore "+name);
   candidate.dispose();control.dispose();
  }
+},120000);
+
+it("CHAR-119 adds bounded elbow flex and idle life, clears blink on movement and reset",()=>{
+ const r=rig(false,0),blink=[{influence:0},{influence:0}];
+ const player=createWalkPlayer110([r.sk],clip,blink);
+ assert.ok(Math.abs(HUMAN_WALK_SPEED_119/1.5-1.1)<1e-10,"10 percent actual walking speed");
+ const idleHead=r.names.get("Head")!.rotationQuaternion!.clone();
+ const idleLeg=r.names.get("LeftUpLeg")!.rotationQuaternion!.clone();
+ let maxBlink=0,maxHead=0,maxArm=0,minBlink=1;
+ const error=(a:Quaternion,b:Quaternion)=>2*Math.acos(Math.min(1,Math.abs(Quaternion.Dot(a.clone().normalize(),b.clone().normalize()))));
+ const arm=r.names.get("RightForeArm")!,armBase=arm.rotationQuaternion!.clone();
+ for(let i=0;i<20*60;i++){
+  player.update(0,1/60);maxBlink=Math.max(maxBlink,blink[0]!.influence);minBlink=Math.min(minBlink,blink[0]!.influence);
+  maxHead=Math.max(maxHead,error(r.names.get("Head")!.rotationQuaternion!,idleHead));
+  maxArm=Math.max(maxArm,error(arm.rotationQuaternion!,armBase));
+  assert.ok(error(r.names.get("LeftUpLeg")!.rotationQuaternion!,idleLeg)<1e-6,"idle legs moved");
+  assert.equal(blink[0]!.influence,blink[1]!.influence,"blink sides differ");
+ }
+ assert.ok(maxBlink>.95&&minBlink===0,"blink must close and reopen");
+ assert.ok(maxHead>.02&&maxHead<.06,"restrained occasional head movement");
+ assert.ok(maxArm>.02&&maxArm<.06,"restrained idle arm adjustment");
+ player.update(HUMAN_WALK_SPEED_119,1/60);assert.equal(blink[0]!.influence,0,"blink leaked into movement");
+ player.reset();assert.ok(error(arm.rotationQuaternion!,armBase)<1e-6,"arm reset");
+ assert.ok(error(r.names.get("Head")!.rotationQuaternion!,idleHead)<1e-6,"head reset");
+ assert.equal(blink[0]!.influence,0);r.dispose();
+},120000);
+
+it("CHAR-119 elbow flex remains below six degrees without changing wrist pose or leg playback",()=>{
+ const candidate=rig(false,0),control=rig(false,0);
+ for(const side of ["Left","Right"]){
+  const hand=control.names.get(side+"Hand")!,elbow=control.names.get(side+"ForeArm")!;
+  const intermediary=new TransformNode("unmapped-wrist-"+side,elbow.getScene());intermediary.parent=elbow;hand.parent=intermediary;
+ }
+ const a=createWalkPlayer110([candidate.sk],clip),b=createWalkPlayer110([control.sk],clip);
+ const error=(a:Quaternion,b:Quaternion)=>2*Math.acos(Math.min(1,Math.abs(Quaternion.Dot(a.clone().normalize(),b.clone().normalize()))));
+ let maxFlex=0,minFlex=1;
+ for(let i=0;i<180;i++){
+  a.update(HUMAN_WALK_SPEED_119,1/60);b.update(HUMAN_WALK_SPEED_119,1/60);
+  for(const side of ["Left","Right"]){
+   const q=candidate.names.get(side+"ForeArm")!.rotationQuaternion!,base=control.names.get(side+"ForeArm")!.rotationQuaternion!;
+   const angle=error(q,base);maxFlex=Math.max(maxFlex,angle);if(i>15)minFlex=Math.min(minFlex,angle);
+   assert.ok(angle<.091,"excessive forearm bend");
+   assert.ok(error(candidate.names.get(side+"Hand")!.rotationQuaternion!,control.names.get(side+"Hand")!.rotationQuaternion!)<1e-6,"wrist twist");
+  }
+ }
+ assert.ok(maxFlex>.05&&minFlex<.04,"elbow flex must vary gently through cycle");
+ candidate.dispose();control.dispose();
 },120000);
