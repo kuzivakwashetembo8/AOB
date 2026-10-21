@@ -82,7 +82,9 @@ for(const side of sides){
  if(p.hip*side.sign<=.035)throw Error("CHAR-110C: Source hips not ipsilateral: "+side.side+" "+p.hip);
  margins[side.side]=Math.max(.03,Math.min(.055,Math.abs(p.hip)*.6));
 }
-// Apply anatomical side sign to EACH endpoint before taking the minimum.\n// Otherwise a right-side negative x can conceal an inward crossing at another joint.\nconst minSide=(poseValue,side)=>Math.min(poseValue.knee*side.sign,poseValue.foot*side.sign,poseValue.toe*side.sign);
+// Apply anatomical side sign to EACH endpoint before taking the minimum.
+// Otherwise a right-side negative x can conceal an inward crossing at another joint.
+const minSide=(poseValue,side)=>Math.min(poseValue.knee*side.sign,poseValue.foot*side.sign,poseValue.toe*side.sign);
 function report(label){
  const data={};
  for(const side of sides){
