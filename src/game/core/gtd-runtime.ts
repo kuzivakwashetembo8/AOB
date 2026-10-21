@@ -862,6 +862,11 @@ export class GTDGameRuntime implements GameRuntime {
       if (this.engine && this.diagnosticHardwareScale === null) this.resize();
       return;
     }
+    if(command.type==="physics-foot-debug"){
+      this.humanAsset()?.configureFootDebug(command.settings,(point,distance)=>
+        this.physics?.probeGround(point,distance)??null);
+      return;
+    }
     if (command.type === "camera-settings") {
       this.touchCameraSensitivity = normalizeTouchCameraSensitivity(command.touchSensitivity);
       this.invertLookY = command.invertY;
