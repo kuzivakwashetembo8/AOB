@@ -74,3 +74,7 @@ Before any future implementation, inspect the actual rendered arm silhouette fro
 ## Review record
 Harmony's accepted standard: “The humanoid is the standard Voight should follow.”
 This commit records observations only. Torso implementation awaits a further instruction.
+
+
+## Subsequent acceptance — 2026-10-21
+The observation-only record above is historical. Harmony authorized implementation, reviewed preview runtime 4ee747980aa3c7fb6383d246c353d730aff8f069, and fully accepted the standing/walking upper body. Merge and production deployment are now authorized. Lower-body stride refinement remains open. See [the accepted implementation and NPC reuse guide](GTD-CHAR-117-Upper-Body-Acceptance-and-NPC-Reuse-2026-10-21.md).

@@ -1,6 +1,6 @@
 # CHAR-117 — Torso Posture Implementation — 2026-10-21
 
-Status: candidate implemented on Walking-Posture-Refinement; awaiting Harmony's visual acceptance.
+Status: fully accepted by Harmony after review of runtime 4ee747980aa3c7fb6383d246c353d730aff8f069; merge and production deployment authorized.
 Reference: [standing and walking observations](GTD-CHAR-117-Standing-and-Walking-Torso-Observations-2026-10-21.md).
 Baseline: e5b1a2f217bc86345f65b0f924ed3412bdfbda85.
 Harmony's current instruction authorizes applying the reference; the original observations remain unchanged.
@@ -21,4 +21,4 @@ Walking retains the existing CHAR-116 player, moderate cycle-centred arm swing, 
 - [Diagnostic comparison](CHAR-117-torso-skinned-comparison.png): baseline above, candidate below; standing front/three-quarter and sampled walking front/side. Neutral material and CPU lighting are diagnostic, not a browser screenshot or in-game visual acceptance.
 
 ## Release boundary
-No merge or deployment. Commit only to Walking-Posture-Refinement. A browser preview and Harmony's visual acceptance remain the next release checkpoint. The diagnostic improves evidence; it does not establish final artistic acceptance.
+The earlier candidate restriction is superseded by Harmony's explicit full upper-body acceptance and instruction to merge with main and deploy. Reviewed preview: https://gtd-or9b1p15j-interlinkglobaltech.vercel.app/game . Lower-body stride refinement remains open. See [the acceptance and NPC reuse guide](GTD-CHAR-117-Upper-Body-Acceptance-and-NPC-Reuse-2026-10-21.md) for the exact accepted implementation and preservation rules.
