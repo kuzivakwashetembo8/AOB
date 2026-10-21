@@ -1,3 +1,5 @@
+> **CURRENT DIRECTIVE — 2026-10-21 RETARGETING PIVOT:** The owner visually rejected the CHAR-110 sine/joint-procedural walking preview (moonwalking/no effective foot lift, no arm swing, over-fast translation). Procedural full-body gait is **not** an accepted primary solution. Read `documentations/Issues/GTD-CHAR-110-111-Procedural-Walk-Failure-Register-and-Retarget-Pivot-2026-10-21.md` and `documentations/Development/GTD-CHAR-110-Retargeting-First-Trajectory-Decision-2026-10-21.md` BEFORE modifying walking. Prefer validated offline UAL/Josh animation retargeting. Preserve CHAR-109 accepted standing. Historical instructions below are preserved for chronology and may be superseded.
+
 # GTD-CHAR-109 — Accepted Human Neutral Posture and CHAR-114 Handoff
 
 Date: 2026-10-21
