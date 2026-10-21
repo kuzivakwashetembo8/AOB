@@ -150,6 +150,26 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
   }
  }
+ // CHAR-118: distribute a slight walking-only inclination through the back.
+ // The arms inherit the torso motion with their accepted local pose unchanged.
+ const back=[names.get("Spine")!,names.get("Spine1")!,names.get("Spine2")!];
+ const backDegrees=[2,1.75,1.25];
+ const supportedBack=back[0]!.parent===hips&&back[1]!.parent===back[0]&&back[2]!.parent===back[1];
+ function inclineWalkingBack(blend:number){
+  if(!supportedBack)return;
+  hips.computeWorldMatrix(true);
+  const up=Vector3.TransformNormal(Vector3.Up(),hips.getWorldMatrix()).normalize();
+  const forward=Vector3.TransformNormal(Vector3.Forward(),hips.getWorldMatrix()).normalize();
+  for(let i=0;i<back.length;i++){
+   const node=back[i]!,parent=node.parent as TransformNode;
+   parent.computeWorldMatrix(true);
+   const angle=backDegrees[i]!*Math.PI/180*blend;
+   if(angle<=1e-8)continue;
+   const desired=up.scale(Math.cos(angle)).add(forward.scale(Math.sin(angle)));
+   const delta=parentSpaceAimDelta(up,desired,parent.getWorldMatrix(),angle+1e-6);
+   if(delta)node.rotationQuaternion=delta.multiply(rotationOf(node)).normalize();
+  }
+ }
  const head=byName.get("Head")!;
  const anchor=names.get("Hips")!.parent;
  // Local quaternion products stop at the actor's root: world yaw is retained,
@@ -202,6 +222,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
     wrist.node.rotationQuaternion=wrist.base.clone();
    }
    refineLegs(weight);
+   inclineWalkingBack(weight);
    if(anchor&&head.node.parent instanceof TransformNode){
     const parentRotation=relativeRotation(head.node.parent);
     const level=Quaternion.Inverse(parentRotation).multiply(neutralHead).normalize();
@@ -213,3 +234,4 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   dispose(){restore();disposed=true;tracks.length=0;}
  };
 }
+
