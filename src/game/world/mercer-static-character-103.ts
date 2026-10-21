@@ -3,10 +3,11 @@
  * Independent of playable Voight (UAL). This is a static display witness,
  * not an NPC controller: no animation playback, physics or update loop.
  */
-import {AbstractMesh,Mesh,TransformNode,loadAssetContainerAsync} from "@babylonjs/core";
+import {AbstractMesh,TransformNode,loadAssetContainerAsync} from "@babylonjs/core";
 import type {AssetContainer,Scene} from "@babylonjs/core";
 import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
-import {createHumanDeformer105,humanVisualYaw105,type HumanDeformer105} from "../character/human-walking-105";
+import {humanVisualYaw105} from "../character/human-walking-105";
+import {createWalkPlayer110,fetchWalkClip110,type WalkPlayer110} from "../character/retargeted-walk-110";
 import {createNativePoseController109,type NativePose109Controller} from "../character/native-neutral-pose-109";
 
 export const MERCER_STATIC_CHARACTER_PATH="/GLBs/Characters/character.glb";
@@ -30,7 +31,8 @@ export function createMercerStaticCharacter(
   let container:AssetContainer|null=null;
   let entries:ReturnType<AssetContainer["instantiateModelsToScene"]>|null=null;
   let closed=false;
-  let deformer:HumanDeformer105|null=null;
+  let walk:WalkPlayer110|null=null;
+  let meshCount=0;
   let controlled=false;
   let fittedRoot:TransformNode|null=null;
   let fittedCenterX=0,fittedCenterZ=0;
@@ -71,8 +73,7 @@ export function createMercerStaticCharacter(
       if(root instanceof AbstractMesh)meshes.add(root);
       for(const mesh of root.getChildMeshes(false))meshes.add(mesh);
     }
-    deformer=createHumanDeformer105([...meshes].filter((m):m is import("@babylonjs/core").Mesh=>
-      m instanceof Mesh));
+    // CHAR-110: no vertex deformation. All motion must target actual linked joints.
     let count=0,minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,
       minZ=Infinity,maxZ=-Infinity;
     for(const mesh of meshes){
@@ -89,6 +90,7 @@ export function createMercerStaticCharacter(
       mesh.receiveShadows=true;
       count++;
     }
+    meshCount=count;
     const actualHeight=maxY-minY;
     if(!count||!Number.isFinite(actualHeight)||actualHeight<=0.0001)
       throw Error("OBS-103 static character has no valid render geometry");
@@ -121,9 +123,13 @@ export function createMercerStaticCharacter(
     fittedCenterZ=modelRoot.position.z;
     anchor.position.set(MERCER_STATIC_CHARACTER_POSE.x,0,
       MERCER_STATIC_CHARACTER_POSE.z);
+    // Capture accepted CHAR-109 relaxed-arm rest pose before creating animation.
+    // Animation deltas use this calibrated rest pose; no shoulder T-pose on stop.
+    walk=createWalkPlayer110(entries.skeletons,await fetchWalkClip110());
     audit.finish(instantiateId,count+" meshes; "+
       neutralPose.report.applied.length+" linked upper-arm joints; "+
-      (deformer?.vertexCount??0)+" leg-pose vertices");
+      walk.report.jointCount+" retargeted UAL walk joints");
+    console.info("[CHAR-110] UAL walking transfer ready",walk.report);
     console.info("[OBS-103] Static Mercer character loaded",{
       source:MERCER_STATIC_CHARACTER_PATH,meshes:count,
       heightMeters:MERCER_STATIC_CHARACTER_POSE.heightMeters,
@@ -142,6 +148,7 @@ export function createMercerStaticCharacter(
     /** Walk mode takes control of this exact imported actor; no second GLB. */
     setControlled(enabled:boolean){
       controlled=enabled;
+      if(!enabled)walk?.reset();
       neutralPose?.ensure();
       if(fittedRoot){
         fittedRoot.rotation.y=humanVisualYaw105(enabled);
@@ -149,7 +156,6 @@ export function createMercerStaticCharacter(
         fittedRoot.position.z=enabled?-fittedCenterZ:fittedCenterZ;
       }
       if(!enabled){
-        deformer?.setWalking(false,.1);
         anchor.position.set(MERCER_STATIC_CHARACTER_POSE.x,0,
           MERCER_STATIC_CHARACTER_POSE.z);
         anchor.rotation.y=0;
@@ -162,16 +168,17 @@ export function createMercerStaticCharacter(
       // human has a grounded foot origin, so do not transfer the capsule offset.
       anchor.position.set(position.x,position.y-.92,position.z);
       anchor.rotation.y=headingYaw;
-      neutralPose?.ensure();
-      deformer?.setWalking(walkSpeed>.14,dt);
+      // CHAR-109 owns idle posture. During walking, the authored clip owns
+      // arms and legs, preventing the old per-tick idle shoulder clamp.
+      walk?.update(walkSpeed,dt);
     },
-    get poseReport(){return {meshCount:deformer?.meshCount??0,
-      vertices:deformer?.vertexCount??0,controlled,
-      pose:neutralPose?.report??null};},
+    get poseReport(){return {meshCount,
+      vertices:0,controlled,
+      pose:neutralPose?.report??null,walk:walk?.report??null};},
     dispose(){
       if(closed)return;
       closed=true;
-      deformer?.dispose();deformer=null;
+      walk?.dispose();walk=null;
       neutralPose?.dispose();neutralPose=null;
       entries?.dispose();
       container?.dispose();
