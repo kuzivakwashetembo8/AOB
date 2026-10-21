@@ -32,6 +32,7 @@ function loadGLB(path){
 const source=loadGLB(sourcePath),target=loadGLB(targetPath);
 const raw=JSON.parse(readFileSync(".char110-raw-walk.json","utf8"));
 const corrected=JSON.parse(readFileSync("public/GLBs/Characters/char110-ual-walk.json","utf8"));
+const native=JSON.parse(readFileSync(".char110-native-walk.json","utf8"));
 const COUNT=81;
 function timeKeys(values,times,at,path){
  let i=0;while(i<times.length-2&&times[i+1]<at)i++;
@@ -105,10 +106,11 @@ function measure(label,asset,clip){
 const sourceResult=measure("UAL",source,null);
 const rawResult=measure("RAW",target,raw);
 const fixedResult=measure("CORRECTED",target,corrected);
+const nativeResult=measure("NATIVE",target,native);
 const translated=translationAudit.filter(t=>t.maxExcursion>.005).sort((a,b)=>b.maxExcursion-a.maxExcursion);
 console.info("CHAR110E_TRANSLATION="+JSON.stringify({totalTranslationChannels:translationAudit.length,animated:translated.slice(0,35)}));
 const gate=r=>r.leftLeadingFrames>=5&&r.rightLeadingFrames>=5&&r.minLead<-.04&&r.maxLead>.04&&r.excursionRatio>.4;
-const assessment={source:gate(sourceResult),raw:gate(rawResult),corrected:gate(fixedResult),
+const assessment={source:gate(sourceResult),raw:gate(rawResult),corrected:gate(fixedResult),native:gate(nativeResult),
  sourceWasAlternating:sourceResult.minLead<-.04&&sourceResult.maxLead>.04};
 console.info("CHAR110E_VERDICT="+JSON.stringify(assessment));
 if(!assessment.sourceWasAlternating)throw Error("CHAR110E source measurements invalid; calibration requires investigation");
