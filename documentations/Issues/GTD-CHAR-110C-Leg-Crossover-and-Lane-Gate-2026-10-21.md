@@ -31,3 +31,28 @@ No evidence has yet shown that UAL itself crosses its knees, that the left and r
 4. Treat stride as a subsequent independent tuning problem (CHAR-111), not part of the leg-lane gate.
 
 If this limited anatomical correction cannot satisfy the real asset's lane bounds, stop and document the measured failure. Do not silently fall back to sinusoidal/procedural walking; that earlier approach is explicitly rejected by `documentations/Issues/GTD-CHAR-110-111-Procedural-Walk-Failure-Register-and-Retarget-Pivot-2026-10-21.md`.
+
+## Actual build measurements and correction history
+2026-10-21 full-glTF build audit, deployment build commit `cf498d487c8a4a0cdc71060a55f0afe84a6431e5`:
+
+| Grounded measurement | Left leg | Right leg |
+| --- | ---: | ---: |
+| Original pre-correction centerline-crossing samples | 28 / 41 | 28 / 41 |
+| Minimum signed knee x before correction | -0.0165 m | -0.0285 m |
+| Minimum signed ankle x before correction | -0.0226 m | -0.1528 m |
+| Minimum signed toe x before correction | +0.0015 m | -0.1697 m |
+| Maximum corrective hip-abduction angle | 0.170 rad (9.7 degrees) | 0.245 rad (14.0 degrees) |
+| Corrected sampled frames | 41 / 41 | 35 / 41 |
+| Minimum signed knee x after correction | +0.0454 m | +0.0738 m |
+| Minimum signed ankle x after correction | +0.0460 m | +0.0485 m |
+| Minimum signed toe x after correction | +0.0714 m | +0.0457 m |
+| Remaining centerline crossings / lane violations | **0 / 0** | **0 / 0** |
+
+The anatomical margin is **+0.0434 m from the pelvis centerline** per leg, computed as a fraction of actual target thigh separation. The post-bake checker validated every original clip frame and the interpolated halfway frames, and emitted `CHAR110_LEG_LANE_ACCEPTED`.
+
+**Verification defect discovered and repaired:** initial diagnostic calculated `min(kneeX,footX,toeX) * sign`, which is incorrect for the negative-x anatomical right side and falsely accepted a right-foot crossing. A second build attempted to use the corrected calculation but failed because literal escaped newline characters put the validator definition inside a JavaScript comment. Both mistakes were isolated, explicitly fixed, and the later audit executed `min(kneeX*sign, footX*sign, toeX*sign)` successfully. Neither failed intermediate build should be treated as an accepted preview.
+
+**Interpretation:** the longitudinal stepping is still the 1.333-second authored UAL Walk_Loop transferred to Voight. Only the left/right thigh tracks received minimal outward alignment corrections; the other 20 anatomical joint tracks, cadence, translation speed, pose/skin weights and foot-lift source were not replaced. Geometric lane compliance does not guarantee high-quality shoe-ground contact or natural stride length. Visual acceptance remains pending.
+
+## Completion disposition
+The **baked animated-joint lane constraint passed**. Next required step: wait for full Vercel READY state and have the owner inspect front/back/side during movement. The branch stays experimental and unmerged pending that result.
