@@ -70,6 +70,32 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    new Quaternion(q[0]!,q[1]!,q[2]!,q[3]!).normalize())});
  }
  if(tracks.length!==targetNames.length)throw Error("Incomplete retargeted anatomy");
+ // CHAR-115: the target rig's bilateral joint frames are X reflections
+ // (audited character.glb). Mirror the accepted right chain at half a cycle,
+ // including the absolute neutral quaternion, rather than guessing Euler axes.
+ const byName=new Map(tracks.map(t=>[t.name,t]));
+ const mirror=(q:Quaternion)=>new Quaternion(q.x,-q.y,-q.z,q.w).normalize();
+ const sample=(track:Track,cursor:number)=>{
+  const wrapped=((cursor%(parsed.sampleCount-1))+(parsed.sampleCount-1))%(parsed.sampleCount-1);
+  const a=Math.floor(wrapped);
+  return Quaternion.Slerp(track.keys[a]!,track.keys[a+1]!,wrapped-a).normalize();
+ };
+ const head=byName.get("Head")!;
+ const anchor=names.get("Hips")!.parent;
+ // Local quaternion products stop at the actor's root: world yaw is retained,
+ // while animated pelvis/spine/neck roll and pitch are counteracted.
+ function relativeRotation(node:TransformNode|null):Quaternion{
+  if(!node||node===anchor)return Quaternion.Identity();
+  const parent=node.parent instanceof TransformNode?node.parent:null;
+  return relativeRotation(parent).multiply(rotationOf(node)).normalize();
+ }
+ const neutralHead=relativeRotation(head.node);
+ const paired=["Shoulder","Arm","ForeArm","Hand"] as const;
+ // Rootless synthetic/unsupported rigs retain the original playback behavior.
+ const symmetric=paired.every(part=>{
+  const l=byName.get("Left"+part)!,r=byName.get("Right"+part)!;
+  return l.node.parent instanceof TransformNode&&r.node.parent instanceof TransformNode;
+ });
  let elapsed=0,weight=0,frames=0,disposed=false;
  function restore(){
   for(const track of tracks)if(!track.node.isDisposed())
@@ -94,6 +120,23 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
     const delta=Quaternion.Slerp(track.keys[a]!,track.keys[a+1]!,alpha).normalize();
     const movingPose=delta.multiply(track.base).normalize();
     track.node.rotationQuaternion=Quaternion.Slerp(track.base,movingPose,weight).normalize();
+   }
+   if(symmetric){
+    for(const part of paired){
+     const left=byName.get("Left"+part)!,right=byName.get("Right"+part)!;
+     // No authored/counter-rotated wrist delta: the relaxed wrist follows its
+     // forearm as a unit. Preserve the accepted right elbow flexion and swing.
+     const rightPose=part==="Hand"?right.base:
+      sample(right,cursor+(parsed.sampleCount-1)/2).multiply(right.base).normalize();
+     left.node.rotationQuaternion=Quaternion.Slerp(left.base,mirror(rightPose),weight).normalize();
+    }
+    const wrist=byName.get("RightHand")!;
+    wrist.node.rotationQuaternion=wrist.base.clone();
+   }
+   if(anchor&&head.node.parent instanceof TransformNode){
+    const parentRotation=relativeRotation(head.node.parent);
+    const level=Quaternion.Inverse(parentRotation).multiply(neutralHead).normalize();
+    head.node.rotationQuaternion=Quaternion.Slerp(rotationOf(head.node),level,weight).normalize();
    }
    frames++;
   },
