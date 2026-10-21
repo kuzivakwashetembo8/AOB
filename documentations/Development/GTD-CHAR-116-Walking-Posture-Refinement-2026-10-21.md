@@ -1,6 +1,6 @@
 # CHAR-116 — Walking Posture Refinement — 2026-10-21
 
-Status: experimental, awaiting Harmony's visual approval. Do not merge.
+Status: partial visual acceptance; checkpoint merge authorized. Lower-body walking accepted; elbow/torso issue unresolved. No deployment authorized.
 Branch: Walking-Posture-Refinement (Git-safe form of “Walking Posture Refinement”).
 Asset: public/GLBs/Characters/character.glb.
 Baseline: af54b4778143e29e2a82ac612e3ed165aa4f50d3 (accepted CHAR-115).
@@ -38,4 +38,12 @@ These are skeletal numerical checks, not a claim of visual acceptance.
 
 ## Regression and review
 The new actual-rig regression validates outward elbow gap, preserved palm facing, moderate upper-arm amplitude, narrower lanes, forward shoes, no crossover, head alignment, wrists and standing reset. Its deterministic clip does not depend on generated prebuild assets. Existing neutral and walking tests are also run.
-Deliver one Vercel preview after the full build passes. Main stays unchanged pending review.
+Preview reviewed by Harmony. Merge this full current state as a preservation checkpoint without deployment; continue torso refinement on Walking-Posture-Refinement.
+
+## Visual review and preservation checkpoint — 2026-10-21
+Harmony's verdict: “The elbow issue has not been solved however the feet issue has. His lower body has achieved the intended walking behavior.”
+- Accepted: lower-body walking, foot alignment and stance.
+- Unresolved: resting elbow/torso posture. The measured outward joint gap and passing numerical tests did not establish the intended visible elbow anatomy; do not describe the elbow patch as solved.
+- Preserve the complete reviewed state at runtime commit 9dc5c237fce2ebccef0bea51c85e791b34f62730 by merging PR #40 to main.
+- Explicit release restriction: do not deploy this checkpoint. Existing production stays on its prior deployed commit.
+- Keep Walking-Posture-Refinement available for subsequent torso work. Further edits must retain the accepted lower-body behavior and be reviewed before another merge or deployment.
