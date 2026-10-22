@@ -171,9 +171,20 @@ describe("CHAR-120A: only existing authored sprint upper arms and elbows change"
      expect(dist(a.nodes.get(name)!.rotationQuaternion!,
       b.nodes.get(name)!.rotationQuaternion!)).toBeLessThan(1e-5);
     }
-    // A factor of 0.90 on an authored 0.80-radian mean, as opposed to the
-    // previous 0.65 factor: an added 0.20 rad source-relative elbow bend.
-    expect(angA-angB).toBeCloseTo(.72,3);
+    // CHAR-120C: signed elbow bend must now be reversed on the target rig,
+    // not merely nonzero. Invert only the mean; the cycle remains unchanged.
+    expect(angA-angB).toBeCloseTo(-.72,3);
+    for(const side of ["Right","Left"]){
+     const wristA=a.nodes.get(side+"Hand")!,wristB=b.nodes.get(side+"Hand")!;
+     const elbowA=a.nodes.get(side+"ForeArm")!,elbowB=b.nodes.get(side+"ForeArm")!;
+     wristA.computeWorldMatrix(true);wristB.computeWorldMatrix(true);
+     elbowA.computeWorldMatrix(true);elbowB.computeWorldMatrix(true);
+     const wristForwardA=wristA.getAbsolutePosition().z-elbowA.getAbsolutePosition().z;
+     const wristForwardB=wristB.getAbsolutePosition().z-elbowB.getAbsolutePosition().z;
+     // The corrected bend projects each hand FORWARD from its elbow instead
+     // of carrying the hand backward, in this anatomically parented test rig.
+     expect(wristForwardA-wristForwardB).toBeGreaterThan(.07);
+    }
    }
    const excursion=(values:number[])=>Math.max(...values)-Math.min(...values);
    expect(excursion(diffAngles)).toBeLessThan(.005);
