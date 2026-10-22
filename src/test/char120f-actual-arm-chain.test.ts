@@ -1,4 +1,4 @@
-// @vitest-environment node
+// @vitest-environment jsdom
 /** Requires npm run prebuild: evaluates the shipped GLB and freshly baked clip. */
 import {existsSync,readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
