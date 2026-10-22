@@ -34,3 +34,11 @@ Leading forearm carried forward and upward, trailing elbow behind/beside torso w
 - Strict TypeScript check of changed runtime and test modules passed. Existing CHAR-120 lower-body sagittal audit passed, corrected symmetry ratio 0.979.
 - Run npm run prebuild before npm test so actual-rig tests consume freshly baked assets.
 - Preview deployment and complete repository build/test gate pending. Owner visual acceptance remains pending.
+
+## Deployment repair: failed staging build on 22 October 2026
+
+- Failed URL: `https://gtd-b13i4asbb-interlinkglobaltech.vercel.app/game`; deployment `dpl_EurUuUyAQhBsYg1GzvFYUeZZAeWv`, commit `8d05594712ddb70a3412de55df9b1f20dbffbfd6` (state `ERROR`; `lint_or_type_error`).
+- Exact compiler diagnostic: `src/test/char120f-actual-arm-chain.test.ts(78,103) TS2379`. An attempted legacy fixture set `armMotion: undefined`, incompatible with the optional `SprintClip120.armMotion` under `exactOptionalPropertyTypes: true`. The fixture must **omit** the key; production types remain strict. This test-only correction was already present when the repair was inspected.
+- Additional build-order mismatch: the Vercel build command runs `npx tsc --noEmit && npx vitest run && npm run build`. The new actual-GLB test reads `char110-ual-walk.json` and `char120-ual-sprint.json` at module initialization; both JSON artifacts are intentionally untracked. Without earlier generation, Vitest fails before `prebuild` runs automatically under `npm run build`.
+- Repair commit `488d0bbb1bfff94f24e165ebfb1bd1316cbd4e5f` adds guarded `npm run prebuild` to the new test's clean-checkout fixture preparation. The generator runs only if either JSON fixture is absent. No sprint runtime, GLB, gait, geometry or physics implementation was changed by this commit.
+- Replacement deployment `dpl_EC2Q6mGKApdtbKscABjhy4Pc9DYV` was created using that repair commit. **Build and visual verification pending at the time of this log.** Do not consider a passing TypeScript check evidence of an accepted sprint animation.
