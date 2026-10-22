@@ -39,7 +39,7 @@ describe("CHAR-120 authored natural athletic sprint",()=>{
   const {sprint}=clips();expect(validateSprintClip120(sprint).tracks).toHaveLength(22);
   expect(()=>validateSprintClip120({...sprint,tracks:sprint.tracks.slice(1)})).toThrow();
   expect(()=>validateSprintClip120({...sprint,tracks:sprint.tracks.map(t=>t.node==="LeftUpLeg"?{...t,peakRadians:0}:t)})).toThrow();
-  expect(()=>validateSprintClip120({...sprint,tracks:sprint.tracks.map((t,i)=>i===0?{...t,keys:t.keys.map(()=>[1,0,0,0])}:t)})).toThrow();
+  expect(()=>validateSprintClip120({...sprint,tracks:sprint.tracks.map(t=>t.node==="RightArm"?{...t,keys:t.keys.map(()=>[1,0,0,0])}:t)})).toThrow();
   expect(()=>validateSprintClip120({...sprint,tracks:sprint.tracks.map((t,i)=>i===0?{...t,keys:t.keys.map((q,j)=>j===40?[0,1,0,0]:q)}:t)})).toThrow();
  });
  it("ramps actual movement separately from clip selection and exactly restores accepted walk",()=>{
