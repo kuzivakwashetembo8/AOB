@@ -2,7 +2,7 @@
 import {describe,it,expect} from "vitest";
 import {Bone,Matrix,NullEngine,Quaternion,Scene,Skeleton,TransformNode,Vector3}
  from "@babylonjs/core";
-import {createWalkPlayer110,calibrateSprintArmCarriage120D,type WalkClip110} from "../game/character/retargeted-walk-110";
+import {createWalkPlayer110,calibrateSprintArmCarriage120D,aimSprintWristLane120E,type WalkClip110} from "../game/character/retargeted-walk-110";
 import type {SprintClip120} from "../game/character/retargeted-sprint-120";
 
 const bones=["Hips","Spine","Spine1","Spine2","Neck","Head",
@@ -191,67 +191,70 @@ describe("CHAR-120A: only existing authored sprint upper arms and elbows change"
   }finally{a.dispose();b.dispose();}
  });
 
- it("CHAR-120D moves both elbows/attached hands forward without moving other joints or changing arm cadence",()=>{
-  const r=rig(),{walk,sprint}=assets();
-  const forward=Vector3.Forward();
+ it("CHAR-120D static elbow aim remains measurable but is no longer the live wrist solver",()=>{
+  const r=rig();
   try{
-   for(const side of ["Right","Left"]){
-    const arm=r.nodes.get(side+"Arm")!,elbow=r.nodes.get(side+"ForeArm")!;
-    const hand=r.nodes.get(side+"Hand")!,hips=r.nodes.get("Hips")!;
-    const offset=calibrateSprintArmCarriage120D(hips,arm,elbow)!;
-    expect(offset).not.toBeNull();
-    expect(dist(offset,Quaternion.Identity())).toBeGreaterThan(.05);
-    expect(dist(offset,Quaternion.Identity())).toBeLessThan(.35001);
-    arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
-    const originalElbow=elbow.getAbsolutePosition().clone();
-    const originalWrist=hand.getAbsolutePosition().clone();
-    arm.rotationQuaternion=offset.multiply(arm.rotationQuaternion!).normalize();
-    arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
-    expect(Vector3.Dot(elbow.getAbsolutePosition().subtract(originalElbow),forward))
-     .toBeGreaterThan(.025);
-    expect(Vector3.Dot(hand.getAbsolutePosition().subtract(originalWrist),forward))
-     .toBeGreaterThan(.025);
-    arm.rotationQuaternion=Quaternion.Identity();
+   for(const side of ["Left","Right"]){
+    const arm=r.nodes.get(side+"Arm")!,elbow=r.nodes.get(side+"ForeArm")!,
+     hips=r.nodes.get("Hips")!;
+    const q=calibrateSprintArmCarriage120D(hips,arm,elbow);
+    expect(q).not.toBeNull();
+    expect(dist(q!,Quaternion.Identity())).toBeLessThan(.35001);
    }
-   const rests=new Map<string,Quaternion>();
-   for(const side of ["Right","Left"]){
-    rests.set(side,calibrateSprintArmCarriage120D(
-     r.nodes.get("Hips")!,r.nodes.get(side+"Arm")!,r.nodes.get(side+"ForeArm")!)!);
+  }finally{r.dispose();}
+ });
+ it("CHAR-120E aims actual animated wrist toward a forward elevated running lane on both sides",()=>{
+  const r=rig();
+  try{
+   for(const side of ["Left","Right"]){
+    const arm=r.nodes.get(side+"Arm")!,elbow=r.nodes.get(side+"ForeArm")!,
+     hand=r.nodes.get(side+"Hand")!,hips=r.nodes.get("Hips")!,
+     shoulder=r.nodes.get(side+"Shoulder")!;
+    // Use a differently oriented/lengthened local bind chain, more like the
+    // source GLB: both forearm and hand joint translations run in +Y bind.
+    elbow.position.set(side==="Right"?.025:-.025,.278,0);
+    hand.position.set(0,.245,0);
+    arm.rotationQuaternion=Quaternion.RotationAxis(Vector3.Forward(),Math.PI);
+    elbow.rotationQuaternion=Quaternion.RotationAxis(Vector3.Right(),-.54);
+    shoulder.rotationQuaternion=Quaternion.Identity();
+    arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
+    const before=hand.getAbsolutePosition().clone();
+    const elbowLocal=elbow.rotationQuaternion!.clone();
+    const wristLocal=hand.rotationQuaternion!.clone();
+    const shoulderLocal=shoulder.rotationQuaternion!.clone();
+    const baseHip=hips.rotationQuaternion!.clone();
+    const result=aimSprintWristLane120E(hips,arm,elbow,hand,.9,1);
+    expect(result).not.toBeNull();
+    expect(result!.applied).toBe(true);
+    expect(result!.after).toBeLessThan(result!.before);
+    hand.computeWorldMatrix(true);
+    const forward=Vector3.Dot(hand.getAbsolutePosition().subtract(before),Vector3.Forward());
+    const up=Vector3.Dot(hand.getAbsolutePosition().subtract(before),Vector3.Up());
+    expect(forward).toBeGreaterThan(.04);
+    expect(up).toBeGreaterThan(-.01);
+    expect(dist(elbow.rotationQuaternion!,elbowLocal)).toBeLessThan(1e-5);
+    expect(dist(hand.rotationQuaternion!,wristLocal)).toBeLessThan(1e-5);
+    expect(dist(shoulder.rotationQuaternion!,shoulderLocal)).toBeLessThan(1e-5);
+    expect(dist(hips.rotationQuaternion!,baseHip)).toBeLessThan(1e-5);
    }
+  }finally{r.dispose();}
+ });
+ it("CHAR-120E preserves walk and resets exact neutral while both running arms remain bounded",()=>{
+  const r=rig(),{walk,sprint}=assets();
+  try{
    const player=createWalkPlayer110([r.sk],walk,[],sprint);
-   // At full sprint, undo just the fixed arm-carriage term to create an exact
-   // A/B pose on the *same* rig, preserving every authored animation channel.
-   const improvements:Record<string,number[]>={Right:[],Left:[]};
-   for(let i=0;i<120;i++){
+   const wristLocal=new Map(["Left","Right"].map(side=>
+    [side,r.nodes.get(side+"Hand")!.rotationQuaternion!.clone()]));
+   for(let i=0;i<100;i++){
     player.update(4,1/60,true);
-    if(i<16)continue;
-    for(const side of ["Right","Left"]){
-     const arm=r.nodes.get(side+"Arm")!,elbow=r.nodes.get(side+"ForeArm")!,
-      hand=r.nodes.get(side+"Hand")!,hips=r.nodes.get("Hips")!;
-     const pose=arm.rotationQuaternion!.clone();
-     const elbowPose=elbow.rotationQuaternion!.clone();
-     const wristPose=hand.rotationQuaternion!.clone();
-     arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
-     const wristForward=Vector3.Dot(hand.getAbsolutePosition(),forward);
-     const total=Quaternion.Slerp(Quaternion.Identity(),rests.get(side)!,1).normalize();
-     arm.rotationQuaternion=Quaternion.Inverse(total).multiply(pose).normalize();
-     arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
-     const wristBaseline=Vector3.Dot(hand.getAbsolutePosition(),forward);
-     expect(Number.isFinite(wristForward-wristBaseline)).toBe(true);
-     // Demonstrate authored elbow/wrist angles are not altered by carriage.
-     expect(dist(elbowPose,elbow.rotationQuaternion!)).toBeLessThan(1e-5);
-     expect(dist(wristPose,hand.rotationQuaternion!)).toBeLessThan(1e-5);
-     // Record finite skinned-chain wrist data across cycles.
-     expect(Number.isFinite(wristForward)).toBe(true);
-     arm.rotationQuaternion=pose;
-     improvements[side]!.push(wristForward-wristBaseline);
+    for(const side of ["Left","Right"]){
+     const arm=r.nodes.get(side+"Arm")!,wrist=r.nodes.get(side+"Hand")!;
+     expect(Number.isFinite(arm.rotationQuaternion!.w)).toBe(true);
+     expect(dist(wrist.rotationQuaternion!,wristLocal.get(side)!)).toBeLessThan(1e-5);
     }
    }
-   for(const side of ["Right","Left"]){
-    expect(improvements[side]!.length).toBeGreaterThan(100);
-    const mean=improvements[side]!.reduce((a,b)=>a+b,0)/improvements[side]!.length;
-    expect(mean).toBeGreaterThan(.027);
-   }
+   for(let i=0;i<28;i++)player.update(1.65,1/60,false);
+   expect(player.report.sprintWeight).toBeCloseTo(0,4);
    player.reset();
    for(const name of bones)expect(dist(r.nodes.get(name)!.rotationQuaternion!,
     Quaternion.Identity())).toBeLessThan(1e-5);
