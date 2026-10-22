@@ -7,7 +7,7 @@ import {Bone,Matrix,NullEngine,Scene,Skeleton,TransformNode,Quaternion,Vector3} 
 import {createWalkPlayer110,type WalkClip110} from '../game/character/retargeted-walk-110';
 import {validateSprintClip120} from '../game/character/retargeted-sprint-120';
 import {createNativePoseController109} from '../game/character/native-neutral-pose-109';
-import {createSprintArmChain120F,sampleSprintArm120F} from '../game/character/sprint-arm-chain-120f';
+import {createSprintArmChain120F,jogArmCarriage123,sampleSprintArm120F,URGENT_JOG_ARM_ADDUCTION_123} from '../game/character/sprint-arm-chain-120f';
 const root='public/GLBs/Characters/';
 // Vercel runs `npx vitest run` before `npm run build`. Generated clips
 // are intentionally not committed; prepare them on a clean checkout.
@@ -35,6 +35,30 @@ function rig(yaw=0,scale=1,reflect=false){
 }
 const qdiff=(a:Quaternion,b:Quaternion)=>1-Math.abs(Quaternion.Dot(a,b));
 describe('CHAR-120F actual GLB sprint anatomy',()=>{
+ it('CHAR-123 rotates both real-clip arm segments inward without changing fore/aft drive, elbow flexion or loop seam',()=>{
+  expect(URGENT_JOG_ARM_ADDUCTION_123).toBeGreaterThan(.10);
+  expect(URGENT_JOG_ARM_ADDUCTION_123).toBeLessThan(.28);
+  for(const side of ['Left','Right'] as const){
+   const keys=side==='Left'?sprint.armMotion!.left:sprint.armMotion!.right;
+   let inward=0;
+   for(let i=0;i<80;i++){
+    const raw=sampleSprintArm120F(keys,i/2);
+    const refined=jogArmCarriage123(raw,side);
+    const sign=side==='Left'?1:-1;
+    for(const j of [0,3]){
+     const u=Vector3.FromArray(raw,j),v=Vector3.FromArray(refined,j);
+     expect(v.length()).toBeCloseTo(u.length(),8);
+     expect(v.z).toBe(u.z);
+     inward+=sign*(u.x-v.x);
+    }
+    const a=Vector3.FromArray(raw),b=Vector3.FromArray(raw,3);
+    const aa=Vector3.FromArray(refined),bb=Vector3.FromArray(refined,3);
+    expect(Vector3.Dot(a,b)).toBeCloseTo(Vector3.Dot(aa,bb),7);
+   }
+   expect(inward).toBeGreaterThan(2);
+   expect(jogArmCarriage123(keys[0]!,side)).toEqual(jogArmCarriage123(keys[40]!,side));
+  }
+ });
  it('bakes a finite continuous authored arm path and rejects malformed directions',()=>{
   expect(sprint.armMotion?.left).toHaveLength(41);expect(sprint.armMotion?.right).toHaveLength(41);
   const bad=structuredClone(sprint);bad.armMotion!.left[5]![0]=NaN;expect(()=>validateSprintClip120(bad)).toThrow();
@@ -52,13 +76,14 @@ describe('CHAR-120F actual GLB sprint anatomy',()=>{
     for(const side of ['Left','Right'] as const){
      const s=r.point(side+'Arm'),e=r.point(side+'ForeArm'),w=r.point(side+'Hand');
      const u=e.subtract(s),v=w.subtract(e),keys=side==='Left'?sprint.armMotion!.left:sprint.armMotion!.right;
-     const source=sampleSprintArm120F(keys,k/2),du=Vector3.FromArray(source),dv=Vector3.FromArray(source,3);
+     const source=jogArmCarriage123(sampleSprintArm120F(keys,k/2),side),du=Vector3.FromArray(source),dv=Vector3.FromArray(source,3);
      expect(Vector3.Distance(e,s.add(du.scale(u.length())))).toBeLessThan(.00002);
      expect(Vector3.Distance(w,s.add(du.scale(u.length())).add(dv.scale(v.length())))).toBeLessThan(.00002);
      const flex=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(u.normalizeToNew(),v.normalizeToNew()))))*180/Math.PI;
      minFlex=Math.min(minFlex,flex);maxFlex=Math.max(maxFlex,flex);
      const sign=side==='Left'?1:-1;
-     expect(e.x*sign).toBeGreaterThan(.12);expect(w.x*sign).toBeGreaterThan(.12);
+     // Preserve clearance from torso centerline while tightening the arm lanes.
+     expect(e.x*sign).toBeGreaterThan(.075);expect(w.x*sign).toBeGreaterThan(.075);
      hands.push(w.subtract(s));
      for(const part of ['Arm','ForeArm']){
       const name=side+part,q=r.node(name).rotationQuaternion!;
