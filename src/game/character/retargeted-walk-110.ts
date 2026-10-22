@@ -7,7 +7,7 @@ import {Quaternion,TransformNode,Vector3,Matrix} from "@babylonjs/core";
 import type {Skeleton} from "@babylonjs/core";
 import {rotationOf,parentSpaceAimDelta} from "./driver-joint-space";
 import {validateSprintClip120,type SprintClip120} from "./retargeted-sprint-120";
-import {createSprintArmChain120F,sampleSprintArm120F} from "./sprint-arm-chain-120f";
+import {createSprintArmChain120F,jogArmCarriage123,sampleSprintArm120F} from "./sprint-arm-chain-120f";
 
 export type WalkClip110={
  schema:"gtd.char110.ual-walk.v1";
@@ -214,11 +214,13 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    const authoredBend=Quaternion.Slerp(Quaternion.Identity(),bendCenter,meanGain).normalize();
    return swing.multiply(authoredBend).normalize();
   }
-  const gain=track.name.endsWith("Shoulder")?.65:.85;
+  // CHAR-123: restrained clavicle swing for a hurried jog.
+  const gain=track.name.endsWith("Shoulder")?.24:.85;
   return Quaternion.Slerp(Quaternion.Identity(),cycle,gain).normalize();
  }
  const hips=names.get("Hips")!;
  const anatomicalArms=sprint?.armMotion?(["Right","Left"] as const).map(side=>({
+  side,
   solve:createSprintArmChain120F(hips,names.get(side+"Arm")!,names.get(side+"ForeArm")!,names.get(side+"Hand")!),
   keys:side==="Right"?sprint.armMotion!.right:sprint.armMotion!.left,
  })):null;
@@ -292,9 +294,12 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    const toe=names.get(side+"ToeBase")!,track=byName.get(side+"Leg")!;
    if(foot.parent!==knee||toe.parent!==foot)continue;
    // The native-reference knee clip is over-flexed on Voight's target rig.
-   // Reduce its local rotation toward the accepted relaxed knee by at most
-   // 18%, scaled by sprint blend, without editing the 41 source keys.
-   knee.rotationQuaternion=Quaternion.Slerp(rotationOf(knee),track.base,.38*blend).normalize();
+   // CHAR-123: preserve slightly more natural flex during trailing swing,
+   // without reintroducing the original excessive sprint-knee bend.
+   const ankleBefore=point(foot);
+   const trailing=Math.max(0,Math.min(1,(-ankleBefore.z-.09)/.25));
+   const moderation=.38-.055*trailing;
+   knee.rotationQuaternion=Quaternion.Slerp(rotationOf(knee),track.base,moderation*blend).normalize();
    const a=point(foot),b=point(toe),direction=b.subtract(a);
    const horizontal=Math.hypot(direction.x,direction.z);
    if(horizontal<.045||direction.z<-.06)continue;
@@ -319,7 +324,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  // The arms inherit the torso motion with their accepted local pose unchanged.
  const back=[names.get("Spine")!,names.get("Spine1")!,names.get("Spine2")!];
  const backDegrees=[2,1.75,1.25];
- const sprintBackDegrees=[3.25,3.0,2.25]; // provisional athletic pitch
+ const sprintBackDegrees=[1.15,.90,.65]; // CHAR-123 more upright fast jog
  const supportedBack=back[0]!.parent===hips&&back[1]!.parent===back[0]&&back[2]!.parent===back[1];
  function inclineWalkingBack(blend:number,sprintBlend=0){
   if(!supportedBack)return;
@@ -461,7 +466,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    // Local elbows, wrists, shoulders, torso and accepted legs are unmodified.
    if(anatomicalArms&&sprintWeight>.00001){
     for(const arm of anatomicalArms)
-     if(!arm.solve(sampleSprintArm120F(arm.keys,sprintCursor),weight*sprintWeight))sprintArmFailures++;
+     if(!arm.solve(jogArmCarriage123(sampleSprintArm120F(arm.keys,sprintCursor),arm.side),weight*sprintWeight))sprintArmFailures++;
    }else if(sprint&&sprintWeight>.00001){
     const forward=Vector3.TransformNormal(Vector3.Forward(),
      (hips.computeWorldMatrix(true),hips.getWorldMatrix())).normalize();
