@@ -74,7 +74,10 @@ describe('CHAR-120F actual GLB sprint anatomy',()=>{
  it('leaves every other local joint unchanged, preserves walking and returns cleanly from sprint',()=>{
   const a=rig(),b=rig();
   try{
-   const legacy={...sprint,armMotion:undefined};
+   // exactOptionalPropertyTypes: an absent legacy channel must be omitted,
+   // not supplied explicitly as undefined.
+   const legacy=structuredClone(sprint);
+   delete legacy.armMotion;
    const active=createWalkPlayer110([a.sk],walk,[],sprint),control=createWalkPlayer110([b.sk],walk,[],legacy);
    for(const [speed,held,count] of [[1.65,false,30],[4,true,120],[1.65,false,40],[0,false,30]] as const){
     for(let i=0;i<count;i++){
