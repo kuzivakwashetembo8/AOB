@@ -24,5 +24,14 @@ Do **not** copy CHAR-121 or CHAR-122 failed arm-direction edits: ad hoc pelvis-X
 - No arm pops, shoulders clipping, foot inversion, or walking/driving regression.
 - Final checkpoint: preview on new branch, no merge to main.
 
+## Implementation parameters
+
+- Experiment source: CHAR-122B `982dca28125549eb863afe2b1f787d59cf40b880`, all 440 tests passing, leg heading improved.
+- Travel target: 4.0 → **3.25 m/s** (11.7 km/h), leaving UAL authored source-speed metadata fixed at 4.0 for integrity checks and naturally reducing clip cadence.
+- Sprint clavicle angular gain: 0.65 → 0.24. Three spine forward pitches: 3.25/3.0/2.25° → 1.15/0.90/0.65°.
+- New `jogArmCarriage123`: **fixed mirrored ±0.19-radian** pelvis-forward-axis rotation to BOTH upper-arm and forearm direction vectors before the unchanged CHAR-120F anatomical solve. Unlike the rejected phase-dependent X clamps, this preserves Z trajectory, segment lengths, exact elbow flexion and mathematical phase continuity.
+- Rear-leg swing: trailing phase knee-neutral moderation reduced from 0.38 to a bounded 0.325, potentially lifting the trailing foot; toe-forward correction from CHAR-122B untouched.
+
 ## Verification record
-Pending patch and build. One final experimental attempt today. Record failures if not ready.
+
+Pending strict TypeScript, all tests, packaging and owner review. Failed builds remain branch-only.
