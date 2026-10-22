@@ -156,7 +156,6 @@ describe("CHAR-120A: only existing authored sprint upper arms and elbows change"
    const control=createWalkPlayer110([b.sk],walk,[],neutralForearm);
    const diffAngles:number[]=[];
    const aAngles:number[]=[],bAngles:number[]=[];
-   const forwardGains:Record<string,number[]>={Right:[],Left:[]};
    for(let i=0;i<125;i++){
     enhanced.update(4,1/60,true);
     control.update(4,1/60,true);
@@ -175,27 +174,9 @@ describe("CHAR-120A: only existing authored sprint upper arms and elbows change"
     // CHAR-120C: signed elbow bend must now be reversed on the target rig,
     // not merely nonzero. Invert only the mean; the cycle remains unchanged.
     expect(angA-angB).toBeCloseTo(-.72,3);
-    for(const side of ["Right","Left"]){
-     const wristA=a.nodes.get(side+"Hand")!,wristB=b.nodes.get(side+"Hand")!;
-     const elbowA=a.nodes.get(side+"ForeArm")!,elbowB=b.nodes.get(side+"ForeArm")!;
-     wristA.computeWorldMatrix(true);wristB.computeWorldMatrix(true);
-     elbowA.computeWorldMatrix(true);elbowB.computeWorldMatrix(true);
-     const wristForwardA=wristA.getAbsolutePosition().z-elbowA.getAbsolutePosition().z;
-     const wristForwardB=wristB.getAbsolutePosition().z-elbowB.getAbsolutePosition().z;
-     // An elbow's wrist excursion varies with the accepted upper-arm drive.
-     // Collect the complete running cycle: sign and mean, not an arbitrary
-     // minimum 7 cm displacement at every individual running phase.
-     forwardGains[side]!.push(wristForwardA-wristForwardB);
-    }
-   }
-   for(const side of ["Right","Left"]){
-    const gains=forwardGains[side]!;
-    expect(gains.length).toBeGreaterThan(80);
-    const meanForward=gains.reduce((total,value)=>total+value,0)/gains.length;
-    // The inverted elbow must deliver the wrist forwards on AVERAGE
-    // on BOTH sides, without overriding the normal fore/aft swing phases.
-    expect(meanForward).toBeGreaterThan(.035);
-    expect(gains.filter(v=>v>0).length/gains.length).toBeGreaterThan(.75);
+    // CHAR-120D owns absolute world-space wrist carriage. This forearm test
+    // remains deliberately local: the corrected signed elbow bias and its
+    // unchanged oscillation must not depend on a new upper-arm lane offset.
    }
    const excursion=(values:number[])=>Math.max(...values)-Math.min(...values);
    expect(excursion(diffAngles)).toBeLessThan(.005);
