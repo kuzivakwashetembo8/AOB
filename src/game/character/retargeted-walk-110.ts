@@ -126,10 +126,21 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   const q=Quaternion.Slerp(keys[a]!,keys[a+1]!,wrapped-a).normalize();
   const center=sprintArmCenters.get(track.name);
   if(!center)return q;
-  const gain=track.name.endsWith("Shoulder")?.65:
-   track.name.endsWith("ForeArm")?.70:.85;
-  return Quaternion.Slerp(Quaternion.Identity(),
-   q.multiply(Quaternion.Inverse(center)).normalize(),gain).normalize();
+  // CHAR-120A: restore a bounded portion of Sprint_Loop's authored
+  // elbow/arm mean pose; centering the cycle alone discarded nearly 55°
+  // of source-relative elbow flex. Keep shoulder/clavicle motion untouched.
+  const isForearm=track.name.endsWith("ForeArm");
+  const isUpperArm=track.name.endsWith("Arm")&&!isForearm;
+  const cycle=q.multiply(Quaternion.Inverse(center)).normalize();
+  if(isForearm||isUpperArm){
+   const swingGain=isForearm?1.10:1.35;
+   const meanGain=isForearm?.65:.50;
+   const swing=Quaternion.Slerp(Quaternion.Identity(),cycle,swingGain).normalize();
+   const authoredBend=Quaternion.Slerp(Quaternion.Identity(),center,meanGain).normalize();
+   return swing.multiply(authoredBend).normalize();
+  }
+  const gain=track.name.endsWith("Shoulder")?.65:.85;
+  return Quaternion.Slerp(Quaternion.Identity(),cycle,gain).normalize();
  }
  const hips=names.get("Hips")!;
  const legSides=["Left","Right"] as const;
