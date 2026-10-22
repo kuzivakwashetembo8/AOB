@@ -42,6 +42,10 @@ The deployed, generated `char120-ual-sprint.json` was read from the verified pre
 ## Execution log
 
 - **2026-10-22:** Observation and isolation strategy authorized. Existing CHAR-120 running legs declared visually successful; arm motion remains developmental. Offline running source and retargeted foot symmetry previously passed. This entry is committed **before** the authorized runtime refinement.
-- **Refinement implementation:** pending when this document was first written. Subsequent runtime commits and preview build status should be appended only after verified.
+- **Runtime implementation:** commit `2259b4a431474fd048ea3de486fe6c501d580f74` modifies `sprintDelta()` only. Upper arms now use 1.35× authored oscillation plus 0.50× source-relative mean; forearms use 1.10× oscillation plus 0.65× source-relative mean bend. The shoulder path remains unchanged at 0.65× centered oscillation; no hip/leg/foot, torso, neck/head, hand, speed, input or walking logic was changed.
+- **Protection tests:** commit `6e430784c871f642c8067635d36009dc08199b1e` adds `src/test/char120a-sprint-arm-isolation.test.ts` (3 new tests). It verifies identical standing/walking transforms with or without the sprint asset, identical local non-arm sprint transforms when only running arm channels vary, observable authored elbow bend/arm swing, and reset restoration.
+- **Automated verification:** Vercel preview build completed **READY**, TypeScript validation passed and **427/427 tests passed (110 files)**, including the three new isolation tests and the prior CHAR-120 sprint tests. The original UAL-to-Voight sprint and walking gait audits and offline packaging completed successfully.
+- **Checkpoint build:** release `6e430784c871f642c8067635d36009dc08199b1e`, preview `https://gtd-6xhvl197m-interlinkglobaltech.vercel.app/game`; HTTP 200 verified for `/game`, `/build-version.json` (matching commit) and `/GLBs/Characters/char120-ual-sprint.json`.
+- **Owner visual acceptance:** **pending**. Automated tests cannot prove naturally directed forward/back hand travel or absence of inward elbows on a rendered, skinned avatar. Do not merge to `main` or deploy production until the owner reviews the new preview.
 
 **Do not mark CHAR-120 sprint posture accepted until the owner reviews the refined preview.**
