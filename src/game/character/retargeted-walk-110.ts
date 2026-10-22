@@ -134,7 +134,8 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   const cycle=q.multiply(Quaternion.Inverse(center)).normalize();
   if(isForearm||isUpperArm){
    const swingGain=isForearm?1.10:1.35;
-   const meanGain=isForearm?.65:.50;
+   // CHAR-120B: stronger authored elbow flex only; keep arm drive unchanged.
+   const meanGain=isForearm?.90:.50;
    const swing=Quaternion.Slerp(Quaternion.Identity(),cycle,swingGain).normalize();
    const authoredBend=Quaternion.Slerp(Quaternion.Identity(),center,meanGain).normalize();
    return swing.multiply(authoredBend).normalize();
