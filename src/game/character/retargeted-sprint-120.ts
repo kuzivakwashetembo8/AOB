@@ -2,10 +2,12 @@
  * The accepted walking clip and linked-bone neutral pose remain separate.
  */
 import type {WalkClip110} from "./retargeted-walk-110";
+import type {SprintArmMotion120F} from "./sprint-arm-chain-120f";
 
 export type SprintClip120 = Omit<WalkClip110,"schema"|"walkTargetMps"> & {
   schema:"gtd.char120.ual-sprint.v1";
   runTargetMps:number;
+  armMotion?:SprintArmMotion120F;
 };
 export const RETARGET_SPRINT_PATH_120="/GLBs/Characters/char120-ual-sprint.json";
 export const HUMAN_SPRINT_SPEED_120=4.0;
@@ -49,13 +51,30 @@ export function validateSprintClip120(value:unknown):SprintClip120 {
  if(["LeftArm","RightArm","LeftUpLeg","RightUpLeg"].some(name=>
   (v.tracks!.find(t=>t.node===name)?.peakRadians??0)<.03))
   throw Error("CHAR-120 sprint lacks actual authored running limb motion");
+ if(v.armMotion){
+  const a=v.armMotion;
+  if(a.schema!=="gtd.char120.arm-directions.v1"||a.frame!=="pelvis")throw Error("Invalid CHAR120F arm frame");
+  for(const side of [a.left,a.right]){
+   if(!Array.isArray(side)||side.length!==v.sampleCount)throw Error("Invalid CHAR120F arm samples");
+   for(const k of side){
+    if(!Array.isArray(k)||k.length!==6||k.some(x=>!Number.isFinite(x)))throw Error("Invalid CHAR120F arm direction");
+    for(const offset of [0,3])if(Math.abs(Math.hypot(...k.slice(offset,offset+3))-1)>.002)
+     throw Error("Non-unit CHAR120F arm direction");
+    const dot=k[0]!*k[3]!+k[1]!*k[4]!+k[2]!*k[5]!;
+    if(Math.abs(dot)>.98)throw Error("Degenerate CHAR120F elbow plane");
+   }
+   if(side[0]!.some((x,i)=>Math.abs(x-side[side.length-1]![i]!)>.025))throw Error("CHAR120F arm seam");
+  }
+ }
  return v as SprintClip120;
 }
 
 export async function fetchSprintClip120(fetcher:typeof fetch=fetch):Promise<SprintClip120> {
  const response=await fetcher(RETARGET_SPRINT_PATH_120);
  if(!response.ok)throw Error("CHAR-120 sprint missing: HTTP "+response.status);
- return validateSprintClip120(await response.json());
+ const clip=validateSprintClip120(await response.json());
+ if(!clip.armMotion)throw Error("CHAR120F arm directions missing — rebuild sprint asset");
+ return clip;
 }
 
 /** Eases actual player velocity; never merely accelerates animation playback. */
@@ -66,3 +85,4 @@ export function stepHumanTravelSpeed120(current:number,sprintHeld:boolean,dt:num
  const move=(HUMAN_SPRINT_SPEED_120-walk)/seconds*Math.max(0,Math.min(.1,dt));
  return previous+Math.sign(target-previous)*Math.min(Math.abs(target-previous),move);
 }
+

@@ -22,4 +22,15 @@ CHAR-120C inverts the complete mean forearm quaternion rather than a calibrated 
 Leading forearm carried forward and upward, trailing elbow behind/beside torso with hand near the hip; no backwards folding, torso crossing, shoulder displacement or leg regression. Geometry tests are necessary but the owner retains final in-game visual acceptance.
 
 ## Execution
-Pending measurement, implementation and preview.
+- Documentation committed first: b8955a79207ef7338dc3e18498e6a5ecbd250537.
+- Verified actual character.glb Git blob: 609ec8da25b61e8e3eaea1975a014520c34a07c3.
+- Implemented build-time armMotion directions from UAL Sprint_Loop in pelvis coordinates (+Y up, +Z forward; left +X). Source segment translations were audited: only pelvis translates, which cancels in pelvis-relative arm directions. Original 22 quaternion tracks and lower-body bake are unchanged. Exact first/last direction closure removes a small source seam mismatch.
+- Runtime maps authored upper/lower directions onto actual target segment lengths. A paired-vector frame fixes upper-arm swing AND twist/bend plane; the forearm then bends within that plane toward the reachable wrist target. Both absolute elbow and wrist positions must pass a length-relative tolerance. Capture CHAR-109 neutral before playback; blend from accepted walk, reset every frame, and expose sprintArmFailures.
+- The loaded sprint file must contain armMotion; an old cached quaternion-only file fails visibly instead of silently using the superseded correction. Legacy quaternion-only helpers remain for historical fixture compatibility but are not the live path for newly baked clips.
+- Actual GLB hierarchy evaluated at 80 phases. Elbow flexion (0 degrees straight): baseline 23.3–57.1 degrees; candidate 78.8–93.9 degrees. Leading wrist below its shoulder: baseline 0.407–0.512 m; candidate 0.110–0.267 m. Candidate leading wrist stays more than 0.20 m forward of its shoulder.
+- CPU skinning using actual vertex weights and inverse bind matrices inspected at side phases 0/50%, front phase 0%, three-quarter phase 25%. The raised leading forearm and rear elbow/hip carriage are visible; this is an offline skinned witness, not an in-game browser capture.
+- All other local joint rotations were identical to baseline across the measured sprint cycle. Hand-local and finger poses are retained; this patch addresses the arm chain.
+- Focused tests: 16/16 passed, including 6 new actual-GLB tests. Absolute elbow/wrist target error below 0.00002 model units across 80 phases; yaw, uniform scale and reflected root covered. Tests also require no torso-midline crossing, 75–100 degree flexion, continuous motion, neutral reset, walking preservation, unchanged non-arm joints and zero solver failures.
+- Strict TypeScript check of changed runtime and test modules passed. Existing CHAR-120 lower-body sagittal audit passed, corrected symmetry ratio 0.979.
+- Run npm run prebuild before npm test so actual-rig tests consume freshly baked assets.
+- Preview deployment and complete repository build/test gate pending. Owner visual acceptance remains pending.

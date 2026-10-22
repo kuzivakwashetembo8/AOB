@@ -7,6 +7,7 @@ import {Quaternion,TransformNode,Vector3,Matrix} from "@babylonjs/core";
 import type {Skeleton} from "@babylonjs/core";
 import {rotationOf,parentSpaceAimDelta} from "./driver-joint-space";
 import {validateSprintClip120,type SprintClip120} from "./retargeted-sprint-120";
+import {createSprintArmChain120F,sampleSprintArm120F} from "./sprint-arm-chain-120f";
 
 export type WalkClip110={
  schema:"gtd.char110.ual-walk.v1";
@@ -14,7 +15,7 @@ export type WalkClip110={
  tracks:{node:string;source:string;peakRadians:number;keys:number[][]}[];
 };
 export type WalkReport110={status:"retargeted-ual-walk"|"rejected";reason:string|null;active:boolean;
- jointCount:number;frames:number;armSwing:boolean;cycleSeconds:number;sprintActive?:boolean;sprintWeight?:number};
+ jointCount:number;frames:number;armSwing:boolean;cycleSeconds:number;sprintActive?:boolean;sprintWeight?:number;sprintArmFailures?:number};
 export type WalkPlayer110={
  readonly report:WalkReport110;
  update(speedMps:number,dt:number,sprintHeld?:boolean):void;reset():void;dispose():void;
@@ -217,6 +218,11 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   return Quaternion.Slerp(Quaternion.Identity(),cycle,gain).normalize();
  }
  const hips=names.get("Hips")!;
+ const anatomicalArms=sprint?.armMotion?(["Right","Left"] as const).map(side=>({
+  solve:createSprintArmChain120F(hips,names.get(side+"Arm")!,names.get(side+"ForeArm")!,names.get(side+"Hand")!),
+  keys:side==="Right"?sprint.armMotion!.right:sprint.armMotion!.left,
+ })):null;
+ const anatomicalJoint=(name:string)=>!!anatomicalArms&&/^(Left|Right)(Arm|ForeArm)$/.test(name);
  // CHAR-120E replaces the neutral elbow carriage with live wrist targets.
  const legSides=["Left","Right"] as const;
  function refineLegs(blend:number){
@@ -346,7 +352,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    if(delta)elbow.rotationQuaternion=delta.multiply(rotationOf(elbow)).normalize();
   }
  }
- let elapsed=0,sprintElapsed=0,sprintWeight=0,lastSprintRequest=false;
+ let elapsed=0,sprintElapsed=0,sprintWeight=0,lastSprintRequest=false,sprintArmFailures=0;
  let weight=0,frames=0,disposed=false;
  function restore(){
   for(const track of tracks)if(!track.node.isDisposed())
@@ -356,7 +362,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   get report(){return {status:disposed?"rejected":"retargeted-ual-walk",
    reason:disposed?"disposed":null,active:weight>.01,jointCount:tracks.length,frames,
    armSwing:true,cycleSeconds:parsed.duration,
-   sprintActive:sprintWeight>.5,sprintWeight} as WalkReport110;},
+   sprintActive:sprintWeight>.5,sprintWeight,sprintArmFailures} as WalkReport110;},
   update(speedMps,dt,sprintHeld=false){
    if(disposed||!Number.isFinite(dt)||dt<=0||!Number.isFinite(speedMps))return;
    const step=Math.min(dt,.05),speed=Math.max(0,speedMps);
@@ -383,7 +389,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    for(const track of tracks){
     if(track.node.isDisposed())continue;
     let delta=walkDelta(track,cursor);
-    if(sprint&&sprintWeight>0.00001)
+    if(sprint&&sprintWeight>0.00001&&!anatomicalJoint(track.name))
       delta=Quaternion.Slerp(delta,sprintDelta(track,sprintCursor),sprintWeight).normalize();
     const movingPose=delta.multiply(track.base).normalize();
     track.node.rotationQuaternion=Quaternion.Slerp(track.base,movingPose,weight).normalize();
@@ -395,7 +401,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
      // forearm as a unit. Preserve the accepted right elbow flexion and swing.
      let rightPose=part==="Hand"?right.base:
       walkDelta(right,cursor+(parsed.sampleCount-1)/2).multiply(right.base).normalize();
-     if(sprint&&sprintWeight>0.00001){
+     if(sprint&&sprintWeight>0.00001&&!anatomicalJoint(right.name)){
       const sprintPose=part==="Hand"?right.base:
        sprintDelta(right,sprintCursor+(sprint.sampleCount-1)/2).multiply(right.base).normalize();
       rightPose=Quaternion.Slerp(rightPose,sprintPose,sprintWeight).normalize();
@@ -412,7 +418,10 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    // CHAR-120E: read BOTH animated shoulder-elbow-wrist chains before
    // correcting either one. The more forward wrist leads; the other trails.
    // Local elbows, wrists, shoulders, torso and accepted legs are unmodified.
-   if(sprint&&sprintWeight>.00001){
+   if(anatomicalArms&&sprintWeight>.00001){
+    for(const arm of anatomicalArms)
+     if(!arm.solve(sampleSprintArm120F(arm.keys,sprintCursor),weight*sprintWeight))sprintArmFailures++;
+   }else if(sprint&&sprintWeight>.00001){
     const forward=Vector3.TransformNormal(Vector3.Forward(),
      (hips.computeWorldMatrix(true),hips.getWorldMatrix())).normalize();
     const positions=(["Right","Left"] as const).map(side=>{
@@ -437,9 +446,10 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
    frames++;
   },
-  reset(){elapsed=0;sprintElapsed=0;sprintWeight=0;lastSprintRequest=false;
+  reset(){elapsed=0;sprintElapsed=0;sprintWeight=0;lastSprintRequest=false;sprintArmFailures=0;
    weight=0;idleTime=0;setBlink(0);restore();},
   dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();}
  };
 }
+
 

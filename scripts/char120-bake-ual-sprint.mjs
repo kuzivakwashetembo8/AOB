@@ -168,9 +168,34 @@ for(const [sourceName,targetName] of names){
  tracks.push({node:targetName,source:sourceName,peakRadians:+peak.toFixed(3),keys});
 }
 if(tracks.length!==names.length)throw Error("Incomplete retarget");
+// CHAR-120F: retain actual anatomical arm directions, not ambiguous local
+// quaternion means. Both source and target pelvis frames use +Y up / +Z
+// forward; left is +X. Evaluate the complete authored hierarchy first.
+const armMotion={schema:"gtd.char120.arm-directions.v1",frame:"pelvis",left:[],right:[]};
+for(let k=0;k<samples;k++){
+ const cache=[];
+ function animatedWorld(i){
+  if(cache[i])return cache[i];
+  const r=source.rest[i],tr=tracked.get(i),pa=source.parent[i];
+  const local=Matrix.Compose(r.s,tr?sampleAt(tr,duration*k/(samples-1)):r.q,r.t);
+  return cache[i]=pa<0?local:local.multiply(animatedWorld(pa));
+ }
+ const hipInverse=Matrix.Invert(animatedWorld(source.names.get("pelvis")));
+ const point=name=>Vector3.TransformCoordinates(Vector3.Zero(),
+  animatedWorld(source.names.get(name)).multiply(hipInverse));
+ for(const [side,suffix] of [["left","l"],["right","r"]]){
+  const shoulder=point("upperarm_"+suffix),elbow=point("lowerarm_"+suffix),wrist=point("hand_"+suffix);
+  const upper=elbow.subtract(shoulder).normalize(),lower=wrist.subtract(elbow).normalize();
+  if(Vector3.Cross(upper,lower).lengthSquared()<.04)throw Error("CHAR120F degenerate source elbow plane");
+  armMotion[side].push([...upper.asArray(),...lower.asArray()].map(x=>+x.toFixed(7)));
+ }
+}
+// UAL has a small first/last pose mismatch. Close the direction path exactly
+// so sub-frame rounding across the loop cannot introduce an elbow-plane pop.
+for(const side of ["left","right"])armMotion[side][samples-1]=[...armMotion[side][0]];
 const output={schema:"gtd.char120.ual-sprint.v1",source:"Quaternius UAL Sprint_Loop relative to UAL Idle_Loop (pinned GLB)",target:"character.glb",duration:+duration.toFixed(6),
  sampleCount:samples,runTargetMps:4,frameBasis:[+alignment.x.toFixed(6),+alignment.y.toFixed(6),+alignment.z.toFixed(6),+alignment.w.toFixed(6)],
- tracks};
+ tracks,armMotion};
 writeFileSync(resolve(outputFile),JSON.stringify(output));
 // CHAR-110E research audit retains the uncorrected offline retarget for A/B diagnostics.
 writeFileSync(resolve(".char120-raw-sprint.json"),JSON.stringify(output));
@@ -179,3 +204,4 @@ console.info("CHAR120_RETARGET_SUCCESS="+JSON.stringify({sourceJointCount:source
  anatomicalSource:{right:sf.right,up:sf.up,forward:sf.forward},
  anatomicalTarget:{right:tf.right,up:tf.up,forward:tf.forward},
  frameBasis:output.frameBasis,outputBytes:readFileSync(resolve(outputFile)).length}));
+
