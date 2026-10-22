@@ -62,6 +62,22 @@ export function createSprintArmChain120F(hips:TransformNode,arm:TransformNode,
  };
 }
 
+/** CHAR-123: fixed, mirror-symmetric inward arm plane for a hurried jog.
+ * The same proper Z rotation is applied to upper and lower direction vectors
+ * across every animation frame. This keeps their dot-product (elbow flexion),
+ * segment length, authored forward/back trajectory and continuity intact.
+ */
+export const URGENT_JOG_ARM_ADDUCTION_123=.19;
+export function jogArmCarriage123(key:readonly number[],side:"Left"|"Right"):number[]{
+ if(key.length!==6||key.some(x=>!Number.isFinite(x)))return [...key];
+ const a=side==="Left"?-URGENT_JOG_ARM_ADDUCTION_123:URGENT_JOG_ARM_ADDUCTION_123;
+ const c=Math.cos(a),s=Math.sin(a);
+ return [0,3].flatMap(i=>{
+  const x=key[i]!,y=key[i+1]!,z=key[i+2]!;
+  return [c*x-s*y,s*x+c*y,z];
+ });
+}
+
 export function sampleSprintArm120F(keys:number[][],cursor:number):number[]{
  const frames=keys.length-1,wrapped=((cursor%frames)+frames)%frames,i=Math.floor(wrapped),t=wrapped-i;
  const a=keys[i]!,b=keys[i+1]!;
