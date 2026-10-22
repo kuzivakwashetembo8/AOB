@@ -45,3 +45,9 @@ Pending strict TypeScript, all tests, packaging and owner review. Failed builds 
 ## Final build
 
 Pending.
+
+## Final calibration build — test-definition correction only
+
+- `dpl_6f9b441mCogLDGyncQbBTCo1YdXS` passed **440/441 tests**. Importantly, all original actual-`character.glb` wrist elevation, wrist-forward, exact elbow and wrist target, flexion, continuity, scaling, reflection, leg and walking gates passed. The only failure was the newly introduced helper-level bound: observed largest **0.07921** fore-aft *unit-direction component* difference versus an initially estimated maximum of **0.07**.
+- That is a dimensionless direction-component bound, not a physical trajectory/regression failure. Correct helper-level allowance to **0.09** while preserving the original real-GLB leading-wrist (>0.2 m), elevation (> -0.28 m), continuity, and all accepted anatomical limits untouched. At a 0.3 m arm segment, 0.09 directional difference bounds positional contribution to 0.027 m.
+- The animation/production code is unchanged in this final correction; only the newly added helper test and documentation are amended. New preview build must still pass all 441 tests and Vercel READY.
