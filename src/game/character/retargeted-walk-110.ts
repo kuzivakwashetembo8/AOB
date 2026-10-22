@@ -6,6 +6,7 @@
 import {Quaternion,TransformNode,Vector3,Matrix} from "@babylonjs/core";
 import type {Skeleton} from "@babylonjs/core";
 import {rotationOf,parentSpaceAimDelta} from "./driver-joint-space";
+import {validateSprintClip120,type SprintClip120} from "./retargeted-sprint-120";
 
 export type WalkClip110={
  schema:"gtd.char110.ual-walk.v1";
@@ -13,10 +14,10 @@ export type WalkClip110={
  tracks:{node:string;source:string;peakRadians:number;keys:number[][]}[];
 };
 export type WalkReport110={status:"retargeted-ual-walk"|"rejected";reason:string|null;active:boolean;
- jointCount:number;frames:number;armSwing:boolean;cycleSeconds:number};
+ jointCount:number;frames:number;armSwing:boolean;cycleSeconds:number;sprintActive?:boolean;sprintWeight?:number};
 export type WalkPlayer110={
  readonly report:WalkReport110;
- update(speedMps:number,dt:number):void;reset():void;dispose():void;
+ update(speedMps:number,dt:number,sprintHeld?:boolean):void;reset():void;dispose():void;
 };
 export const RETARGET_WALK_PATH_110="/GLBs/Characters/char110-ual-walk.json";
 const targetNames=["Hips","Spine","Spine1","Spine2","Neck","Head",
@@ -54,8 +55,9 @@ export async function fetchWalkClip110(fetcher:typeof fetch=fetch):Promise<WalkC
 type Track={node:TransformNode;base:Quaternion;keys:Quaternion[];name:string};
 export const HUMAN_WALK_SPEED_119=1.65;
 export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip110,
- blinkTargets:readonly {influence:number}[]=[]):WalkPlayer110{
+ blinkTargets:readonly {influence:number}[]=[],sprintClip:SprintClip120|null=null):WalkPlayer110{
  const parsed=validateWalkClip110(clip);
+ const sprint=sprintClip?validateSprintClip120(sprintClip):null;
  const tracks:Track[]=[];
  const names=new Map<string,TransformNode>();
  for(const skel of skeletons)for(const bone of skel.bones){
@@ -72,6 +74,12 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    new Quaternion(q[0]!,q[1]!,q[2]!,q[3]!).normalize())});
  }
  if(tracks.length!==targetNames.length)throw Error("Incomplete retargeted anatomy");
+ const sprintTracks=new Map<string,Quaternion[]>();
+ if(sprint)for(const track of sprint.tracks)
+  sprintTracks.set(track.node,track.keys.map(q=>
+   new Quaternion(q[0]!,q[1]!,q[2]!,q[3]!).normalize()));
+ if(sprint&&targetNames.some(n=>sprintTracks.get(n)?.length!==sprint.sampleCount))
+  throw Error("Incomplete retargeted CHAR-120 sprint anatomy");
  // CHAR-115: the target rig's bilateral joint frames are X reflections
  // (audited character.glb). Mirror the accepted right chain at half a cycle,
  // including the absolute neutral quaternion, rather than guessing Euler axes.
@@ -99,6 +107,29 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   if(!center)return q;
   const gain=track.name.endsWith("Shoulder")?.55:track.name.endsWith("ForeArm")?.35:.42;
   return Quaternion.Slerp(Quaternion.Identity(),q.multiply(Quaternion.Inverse(center)).normalize(),gain).normalize();
+ }
+ const sprintArmCenters=new Map<string,Quaternion>();
+ if(sprint)for(const [name,keys] of sprintTracks){
+  if(!/^(Left|Right)(Arm|ForeArm|Shoulder)$/.test(name))continue;
+  const ref=keys[0]!,sum=new Quaternion(0,0,0,0);
+  for(const q of keys.slice(0,-1)){
+   const sign=Quaternion.Dot(ref,q)<0?-1:1;
+   sum.x+=q.x*sign;sum.y+=q.y*sign;sum.z+=q.z*sign;sum.w+=q.w*sign;
+  }
+  sprintArmCenters.set(name,sum.normalize());
+ }
+ function sprintDelta(track:Track,cursor:number):Quaternion{
+  if(!sprint)return Quaternion.Identity();
+  const keys=sprintTracks.get(track.name)!;
+  const frames=sprint.sampleCount-1;
+  const wrapped=((cursor%frames)+frames)%frames,a=Math.floor(wrapped);
+  const q=Quaternion.Slerp(keys[a]!,keys[a+1]!,wrapped-a).normalize();
+  const center=sprintArmCenters.get(track.name);
+  if(!center)return q;
+  const gain=track.name.endsWith("Shoulder")?.65:
+   track.name.endsWith("ForeArm")?.70:.85;
+  return Quaternion.Slerp(Quaternion.Identity(),
+   q.multiply(Quaternion.Inverse(center)).normalize(),gain).normalize();
  }
  const hips=names.get("Hips")!;
  const legSides=["Left","Right"] as const;
@@ -156,8 +187,9 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  // The arms inherit the torso motion with their accepted local pose unchanged.
  const back=[names.get("Spine")!,names.get("Spine1")!,names.get("Spine2")!];
  const backDegrees=[2,1.75,1.25];
+ const sprintBackDegrees=[3.25,3.0,2.25]; // provisional athletic pitch
  const supportedBack=back[0]!.parent===hips&&back[1]!.parent===back[0]&&back[2]!.parent===back[1];
- function inclineWalkingBack(blend:number){
+ function inclineWalkingBack(blend:number,sprintBlend=0){
   if(!supportedBack)return;
   hips.computeWorldMatrix(true);
   const up=Vector3.TransformNormal(Vector3.Up(),hips.getWorldMatrix()).normalize();
@@ -165,7 +197,8 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   for(let i=0;i<back.length;i++){
    const node=back[i]!,parent=node.parent as TransformNode;
    parent.computeWorldMatrix(true);
-   const angle=backDegrees[i]!*Math.PI/180*blend;
+   const degrees=backDegrees[i]!*(1-sprintBlend)+sprintBackDegrees[i]!*sprintBlend;
+   const angle=degrees*Math.PI/180*blend;
    if(angle<=1e-8)continue;
    const desired=up.scale(Math.cos(angle)).add(forward.scale(Math.sin(angle)));
    const delta=parentSpaceAimDelta(up,desired,parent.getWorldMatrix(),angle+1e-6);
@@ -227,7 +260,8 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    if(delta)elbow.rotationQuaternion=delta.multiply(rotationOf(elbow)).normalize();
   }
  }
- let elapsed=0,weight=0,frames=0,disposed=false;
+ let elapsed=0,sprintElapsed=0,sprintWeight=0,lastSprintRequest=false;
+ let weight=0,frames=0,disposed=false;
  function restore(){
   for(const track of tracks)if(!track.node.isDisposed())
    track.node.rotationQuaternion=track.base.clone();
@@ -235,19 +269,36 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  return {
   get report(){return {status:disposed?"rejected":"retargeted-ual-walk",
    reason:disposed?"disposed":null,active:weight>.01,jointCount:tracks.length,frames,
-   armSwing:true,cycleSeconds:parsed.duration} as WalkReport110;},
-  update(speedMps,dt){
+   armSwing:true,cycleSeconds:parsed.duration,
+   sprintActive:sprintWeight>.5,sprintWeight} as WalkReport110;},
+  update(speedMps,dt,sprintHeld=false){
    if(disposed||!Number.isFinite(dt)||dt<=0||!Number.isFinite(speedMps))return;
    const step=Math.min(dt,.05),speed=Math.max(0,speedMps);
    const moving=speed>.12;
+   const wantsSprint=!!sprint&&sprintHeld&&speed>.25;
+   // Phase synchronization on transition, no half-stride resets.
+   if(sprint&&wantsSprint!==lastSprintRequest){
+    if(wantsSprint)sprintElapsed=(elapsed/parsed.duration)*sprint.duration;
+    else elapsed=(sprintElapsed/sprint.duration)*parsed.duration;
+    lastSprintRequest=wantsSprint;
+   }
    weight=Math.max(0,Math.min(1,weight+(moving?1:-1)*step/.20));
-   if(moving)elapsed=(elapsed+step*Math.max(.35,Math.min(1.35,speed/parsed.walkTargetMps)))%parsed.duration;
+   sprintWeight=Math.max(0,Math.min(1,sprintWeight+
+    (wantsSprint?1:-1)*step/.22));
+   if(moving){
+    elapsed=(elapsed+step*Math.max(.35,Math.min(1.35,speed/parsed.walkTargetMps)))%parsed.duration;
+    if(sprint)sprintElapsed=(sprintElapsed+
+     step*Math.max(.45,Math.min(1.5,speed/sprint.runTargetMps)))%sprint.duration;
+   }
    if(moving){idleTime=0;setBlink(0);}
    if(weight<=.00001){restore();animateIdle(step);return}
    const cursor=elapsed/parsed.duration*(parsed.sampleCount-1);
+   const sprintCursor=sprint?sprintElapsed/sprint.duration*(sprint.sampleCount-1):0;
    for(const track of tracks){
     if(track.node.isDisposed())continue;
-    const delta=walkDelta(track,cursor);
+    let delta=walkDelta(track,cursor);
+    if(sprint&&sprintWeight>0.00001)
+      delta=Quaternion.Slerp(delta,sprintDelta(track,sprintCursor),sprintWeight).normalize();
     const movingPose=delta.multiply(track.base).normalize();
     track.node.rotationQuaternion=Quaternion.Slerp(track.base,movingPose,weight).normalize();
    }
@@ -256,16 +307,22 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
      const left=byName.get("Left"+part)!,right=byName.get("Right"+part)!;
      // No authored/counter-rotated wrist delta: the relaxed wrist follows its
      // forearm as a unit. Preserve the accepted right elbow flexion and swing.
-     const rightPose=part==="Hand"?right.base:
+     let rightPose=part==="Hand"?right.base:
       walkDelta(right,cursor+(parsed.sampleCount-1)/2).multiply(right.base).normalize();
+     if(sprint&&sprintWeight>0.00001){
+      const sprintPose=part==="Hand"?right.base:
+       sprintDelta(right,sprintCursor+(sprint.sampleCount-1)/2).multiply(right.base).normalize();
+      rightPose=Quaternion.Slerp(rightPose,sprintPose,sprintWeight).normalize();
+     }
      left.node.rotationQuaternion=Quaternion.Slerp(left.base,mirror(rightPose),weight).normalize();
     }
     const wrist=byName.get("RightHand")!;
     wrist.node.rotationQuaternion=wrist.base.clone();
    }
-   refineLegs(weight);
-   inclineWalkingBack(weight);
-   flexWalkingForearms(cursor,weight);
+   // Walking-specific corrections must not distort the authored sprint shoes.
+   refineLegs(weight*(1-sprintWeight));
+   inclineWalkingBack(weight,sprintWeight);
+   flexWalkingForearms(cursor,weight*(1-sprintWeight));
    if(anchor&&head.node.parent instanceof TransformNode){
     const parentRotation=relativeRotation(head.node.parent);
     const level=Quaternion.Inverse(parentRotation).multiply(neutralHead).normalize();
@@ -273,8 +330,9 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
    frames++;
   },
-  reset(){elapsed=0;weight=0;idleTime=0;setBlink(0);restore();},
-  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;}
+  reset(){elapsed=0;sprintElapsed=0;sprintWeight=0;lastSprintRequest=false;
+   weight=0;idleTime=0;setBlink(0);restore();},
+  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();}
  };
 }
 
