@@ -2,7 +2,7 @@
 import {describe,it,expect} from "vitest";
 import {Bone,Matrix,NullEngine,Quaternion,Scene,Skeleton,TransformNode,Vector3}
  from "@babylonjs/core";
-import {createWalkPlayer110,type WalkClip110} from "../game/character/retargeted-walk-110";
+import {createWalkPlayer110,calibrateSprintArmCarriage120D,type WalkClip110} from "../game/character/retargeted-walk-110";
 import type {SprintClip120} from "../game/character/retargeted-sprint-120";
 
 const bones=["Hips","Spine","Spine1","Spine2","Neck","Head",
@@ -210,4 +210,71 @@ describe("CHAR-120A: only existing authored sprint upper arms and elbows change"
   }finally{a.dispose();b.dispose();}
  });
 
+ it("CHAR-120D moves both elbows/attached hands forward without moving other joints or changing arm cadence",()=>{
+  const r=rig(),{walk,sprint}=assets();
+  const forward=Vector3.Forward();
+  try{
+   for(const side of ["Right","Left"]){
+    const arm=r.nodes.get(side+"Arm")!,elbow=r.nodes.get(side+"ForeArm")!;
+    const hand=r.nodes.get(side+"Hand")!,hips=r.nodes.get("Hips")!;
+    const offset=calibrateSprintArmCarriage120D(hips,arm,elbow)!;
+    expect(offset).not.toBeNull();
+    expect(dist(offset,Quaternion.Identity())).toBeGreaterThan(.05);
+    expect(dist(offset,Quaternion.Identity())).toBeLessThan(.35001);
+    arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
+    const originalElbow=elbow.getAbsolutePosition().clone();
+    const originalWrist=hand.getAbsolutePosition().clone();
+    arm.rotationQuaternion=offset.multiply(arm.rotationQuaternion!).normalize();
+    arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
+    expect(Vector3.Dot(elbow.getAbsolutePosition().subtract(originalElbow),forward))
+     .toBeGreaterThan(.025);
+    expect(Vector3.Dot(hand.getAbsolutePosition().subtract(originalWrist),forward))
+     .toBeGreaterThan(.025);
+    arm.rotationQuaternion=Quaternion.Identity();
+   }
+   const rests=new Map<string,Quaternion>();
+   for(const side of ["Right","Left"]){
+    rests.set(side,calibrateSprintArmCarriage120D(
+     r.nodes.get("Hips")!,r.nodes.get(side+"Arm")!,r.nodes.get(side+"ForeArm")!)!);
+   }
+   const player=createWalkPlayer110([r.sk],walk,[],sprint);
+   // At full sprint, undo just the fixed arm-carriage term to create an exact
+   // A/B pose on the *same* rig, preserving every authored animation channel.
+   const improvements:Record<string,number[]>={Right:[],Left:[]};
+   for(let i=0;i<120;i++){
+    player.update(4,1/60,true);
+    if(i<16)continue;
+    for(const side of ["Right","Left"]){
+     const arm=r.nodes.get(side+"Arm")!,elbow=r.nodes.get(side+"ForeArm")!,
+      hand=r.nodes.get(side+"Hand")!,hips=r.nodes.get("Hips")!;
+     const pose=arm.rotationQuaternion!.clone();
+     const elbowPose=elbow.rotationQuaternion!.clone();
+     const wristPose=hand.rotationQuaternion!.clone();
+     arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
+     const wristForward=Vector3.Dot(hand.getAbsolutePosition(),forward);
+     const total=Quaternion.Slerp(Quaternion.Identity(),rests.get(side)!,1).normalize();
+     arm.rotationQuaternion=Quaternion.Inverse(total).multiply(pose).normalize();
+     arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);hand.computeWorldMatrix(true);
+     const wristBaseline=Vector3.Dot(hand.getAbsolutePosition(),forward);
+     expect(Number.isFinite(wristForward-wristBaseline)).toBe(true);
+     // Demonstrate authored elbow/wrist angles are not altered by carriage.
+     expect(dist(elbowPose,elbow.rotationQuaternion!)).toBeLessThan(1e-5);
+     expect(dist(wristPose,hand.rotationQuaternion!)).toBeLessThan(1e-5);
+     // Record finite skinned-chain wrist data across cycles.
+     expect(Number.isFinite(wristForward)).toBe(true);
+     arm.rotationQuaternion=pose;
+     improvements[side]!.push(wristForward-wristBaseline);
+    }
+   }
+   for(const side of ["Right","Left"]){
+    expect(improvements[side]!.length).toBeGreaterThan(100);
+    const mean=improvements[side]!.reduce((a,b)=>a+b,0)/improvements[side]!.length;
+    expect(mean).toBeGreaterThan(.027);
+   }
+   player.reset();
+   for(const name of bones)expect(dist(r.nodes.get(name)!.rotationQuaternion!,
+    Quaternion.Identity())).toBeLessThan(1e-5);
+   player.dispose();
+  }finally{r.dispose();}
+ });
 });
