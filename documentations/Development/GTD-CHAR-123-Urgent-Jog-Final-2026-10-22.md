@@ -35,3 +35,13 @@ Do **not** copy CHAR-121 or CHAR-122 failed arm-direction edits: ad hoc pelvis-X
 ## Verification record
 
 Pending strict TypeScript, all tests, packaging and owner review. Failed builds remain branch-only.
+
+## First complete build — rejected, physical hand-height gate
+
+- Build `dpl_7Yk4nr4wKqvNqXvYMPCRTRpTTCnu`, 438/441 tests passed; exactly three yaw/scale/reflection actual-arm tests failed leading-hand height: **-0.295132 m**, required **>-0.280 m**. This was created by rotating the entire XY arm plane inward by 0.19 rad; no elbow flexion failures or non-arm failures were reported.
+- Do not reduce physical inward correction to trivial levels and do not weaken the arm height test. Add an additional **constant -0.11 rad proper rotation about pelvis X** to both segment direction vectors, so the leading wrist lifts while the trailing arm keeps a natural lowered follow-through.
+- Combined rigid rotations preserve upper/forearm dot product, exact lengths and phase-continuous sample timing. Sagittal forward component can change slightly (bounded in the real GLB test); forward-reach and height gates remain unchanged. This is the final calibration permitted in today's experiment.
+
+## Final build
+
+Pending.
