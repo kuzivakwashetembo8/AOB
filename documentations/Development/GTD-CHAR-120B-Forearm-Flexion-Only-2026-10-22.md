@@ -43,6 +43,10 @@ For the first CHAR-120B experiment, change only the **forearm's authored mean re
 ## 5. Execution register
 
 - **2026-10-22 — Owner review:** CHAR-120A arm motion and shoulder coordination accepted as visually successful; forearm flex still underarticulated. Isolation of the new correction explicitly authorized. **This specification records intended implementation before changing runtime code.**
-- **Implementation, test result and preview:** pending and to be appended after factual verification.
+- **Runtime implementation:** commit `1f35e022cd78e49db01fcfc48c049cbbc9040b26`. Replaced only `meanGain=isForearm?.65:.50` with `meanGain=isForearm?.90:.50` inside `sprintDelta()`. Forearm cycle motion remains `swingGain=1.10`; upper arm remains `1.35/0.50`; clavicles/shoulders and all other animation/physics paths are unchanged.
+- **Targeted test:** commit `b701c30f9d7eb8ff7b5912e85942937beb30f50f` extended `char120a-sprint-arm-isolation.test.ts` with a phase-sampled authored forearm bias test. It confirms that a 0.80-rad synthetic authored forearm offset creates the expected 0.72-rad retained pose at `meanGain=0.90`, while preserving the original cycle excursion; remaining local joints match the unaffected control; walking and reset restore.
+- **Build and regression result:** Vercel preview `dpl_BgVMCJBQH9LfAJGdroUSkJEbzxXS` reached `READY`; **428/428 tests passed in 110 files**, TypeScript check passed, CHAR-120 authored sprint gait symmetry audit passed, PWA game/shell packaging completed with no missing mandatory resources.
+- **Verified preview:** release `b701c30f9d7eb8ff7b5912e85942937beb30f50f`, `https://gtd-dsrtcjsyn-interlinkglobaltech.vercel.app/game`. Confirmed HTTP 200 for `/game`, `/build-version.json` (exact release SHA), and `/GLBs/Characters/char120-ual-sprint.json`.
+- **Visual status:** **owner approval pending**. Synthetic/unit tests prove scope isolation, not final skinned elbow direction. Hold main and production unchanged until visual review.
 
 **Disposition:** Developmental; pending owner visual acceptance.
