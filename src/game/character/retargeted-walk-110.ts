@@ -137,7 +137,11 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    // CHAR-120B: stronger authored elbow flex only; keep arm drive unchanged.
    const meanGain=isForearm?.90:.50;
    const swing=Quaternion.Slerp(Quaternion.Identity(),cycle,swingGain).normalize();
-   const authoredBend=Quaternion.Slerp(Quaternion.Identity(),center,meanGain).normalize();
+   // CHAR-120C: target forearm flex was pointed outward/backward. Reverse
+   // the source-relative mean BEND only; keep authored oscillation, upper arms,
+   // shoulder motion and every wrist local transform completely unchanged.
+   const bendCenter=isForearm?Quaternion.Inverse(center).normalize():center;
+   const authoredBend=Quaternion.Slerp(Quaternion.Identity(),bendCenter,meanGain).normalize();
    return swing.multiply(authoredBend).normalize();
   }
   const gain=track.name.endsWith("Shoulder")?.65:.85;
