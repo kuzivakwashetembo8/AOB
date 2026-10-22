@@ -89,13 +89,42 @@ describe('CHAR-120F actual GLB sprint anatomy',()=>{
     for(let i=0;i<count;i++){
      active.update(speed,1/60,held);control.update(speed,1/60,held);
      for(const n of a.nodes){
-      if(/^(Left|Right)(Arm|ForeArm)$/.test(n.name)&&(held||(active.report.sprintWeight??0)>0))continue;
+      if(/^(Left|Right)(Arm|ForeArm|Leg|Foot)$/.test(n.name)&&(held||(active.report.sprintWeight??0)>0))continue;
       expect(qdiff(n.rotationQuaternion!,b.node(n.name).rotationQuaternion!)).toBeLessThan(1e-7);
      }
     }
    }
    expect(active.report.sprintArmFailures).toBe(0);active.dispose();control.dispose();
   }finally{a.dispose();b.dispose();}
+ });
+ it.each([[0,1,false],[1.3,1.75,false],[-2.4,.65,true]])('CHAR-122B keeps sprint knees and toes forward yaw=%s scale=%s reflection=%s',(yaw,scale,reflect)=>{
+  const r=rig(yaw as number,scale as number,reflect as boolean);
+  try{
+   const player=createWalkPlayer110([r.sk],walk,[],sprint);
+   for(let i=0;i<80;i++)player.update(4,sprint.duration/80,true);
+   let maxKneeBend=0,maxToeHeading=0,validToes=0;
+   for(let k=0;k<80;k++){
+    for(const side of ['Left','Right'] as const){
+     const thigh=r.point(side+'UpLeg'),knee=r.point(side+'Leg'),ankle=r.point(side+'Foot'),toe=r.point(side+'ToeBase');
+     const upper=knee.subtract(thigh).normalize(),lower=ankle.subtract(knee).normalize();
+     const bend=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(upper,lower))))*180/Math.PI;
+     maxKneeBend=Math.max(maxKneeBend,bend);
+     const direction=toe.subtract(ankle),horizontal=Math.hypot(direction.x,direction.z);
+     if(horizontal>.045&&direction.z>-.06){
+      validToes++;
+      maxToeHeading=Math.max(maxToeHeading,Math.abs(Math.atan2(direction.x,direction.z)));
+     }
+    }
+    player.update(4,sprint.duration/80,true);
+   }
+   console.info('CHAR122B_LEG_RIG='+JSON.stringify({yaw,scale,reflect,maxKneeBend:+maxKneeBend.toFixed(2),
+    maxToeHeadingDegrees:+(maxToeHeading*180/Math.PI).toFixed(2),validToes}));
+   expect(validToes).toBeGreaterThan(100);
+   expect(maxKneeBend).toBeLessThan(95);
+   expect(maxToeHeading).toBeLessThan(25*Math.PI/180);
+   expect(player.report.sprintArmFailures).toBe(0);
+   player.dispose();
+  }finally{r.dispose();}
  });
  it('rejects degenerate requests without leaving partial arm transforms',()=>{
   const r=rig();try{
