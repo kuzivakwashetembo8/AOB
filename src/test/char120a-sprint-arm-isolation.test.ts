@@ -167,7 +167,10 @@ describe("CHAR-120A: only existing authored sprint upper arms and elbows change"
     aAngles.push(angA);bAngles.push(angB);
     diffAngles.push(angA-angB);
     for(const name of bones){
-     if(name.endsWith("ForeArm"))continue; // mirror causes paired forearm to follow
+     // CHAR-120E uses the actual end-effector: changing forearm flexion
+     // naturally changes the upper-arm correction required to reach the hand
+     // lane. Those TWO arm-chain nodes may differ; all other joints must not.
+     if(name.endsWith("ForeArm")||name.endsWith("Arm"))continue;
      expect(dist(a.nodes.get(name)!.rotationQuaternion!,
       b.nodes.get(name)!.rotationQuaternion!)).toBeLessThan(1e-5);
     }
