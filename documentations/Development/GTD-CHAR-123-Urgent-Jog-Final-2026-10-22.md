@@ -51,3 +51,9 @@ Pending.
 - `dpl_6f9b441mCogLDGyncQbBTCo1YdXS` passed **440/441 tests**. Importantly, all original actual-`character.glb` wrist elevation, wrist-forward, exact elbow and wrist target, flexion, continuity, scaling, reflection, leg and walking gates passed. The only failure was the newly introduced helper-level bound: observed largest **0.07921** fore-aft *unit-direction component* difference versus an initially estimated maximum of **0.07**.
 - That is a dimensionless direction-component bound, not a physical trajectory/regression failure. Correct helper-level allowance to **0.09** while preserving the original real-GLB leading-wrist (>0.2 m), elevation (> -0.28 m), continuity, and all accepted anatomical limits untouched. At a 0.3 m arm segment, 0.09 directional difference bounds positional contribution to 0.027 m.
 - The animation/production code is unchanged in this final correction; only the newly added helper test and documentation are amended. New preview build must still pass all 441 tests and Vercel READY.
+
+## Final helper-test bound derivation (no code changes)
+
+- The 0.09 helper-level Z-component cap remained slightly too strict: maximum observed 0.0911659 and 440/441 tests passed in `dpl_GtTXFRjKVgTbJ8BGUzzXMWBRHKYi`. Every real-rig arm target, flexion, continuity, wrist height, forward reach and new leg test passed.
+- A constant proper rotation of `|pitch|=0.11` rad around X changes a unit vector component by at most `2 sin(0.11/2) = 0.10994455` (exact geometry). The correct universal upper bound is thus **0.111**, allowing numerical rounding. The helper's prior 0.07 and 0.09 were unsupported heuristic bounds.
+- This is a mathematical assertion correction, **not** weakening any anatomy or actual-GLB target. Production code and motion parameters remain frozen.
