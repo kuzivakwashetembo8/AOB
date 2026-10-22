@@ -139,4 +139,53 @@ describe("CHAR-120A: only existing authored sprint upper arms and elbows change"
    player.dispose();
   }finally{r.dispose();}
  });
+ it("CHAR-120B increases only the source-derived forearm bend, retaining full arm cadence and walk reset",()=>{
+  const a=rig(),b=rig(),{walk,sprint}=assets();
+  try{
+   // Control removes only the mean right-forearm source bend; both clips retain
+   // identical sinusoidal forearm swing and all other 21 authored tracks.
+   const neutralForearm:SprintClip120={
+    ...sprint,
+    tracks:sprint.tracks.map(track=>track.node==="RightForeArm"?
+     {...track,keys:track.keys.map((q,i)=>{
+      const angle=.22*Math.sin(i/40*2*Math.PI);
+      return Quaternion.RotationAxis(Vector3.Right(),angle).asArray();
+     })}:track)
+   };
+   const enhanced=createWalkPlayer110([a.sk],walk,[],sprint);
+   const control=createWalkPlayer110([b.sk],walk,[],neutralForearm);
+   const diffAngles:number[]=[];
+   const aAngles:number[]=[],bAngles:number[]=[];
+   for(let i=0;i<125;i++){
+    enhanced.update(4,1/60,true);
+    control.update(4,1/60,true);
+    if(i<20)continue; // allow the preexisting sprint blend to reach 1
+    const left=a.nodes.get("RightForeArm")!.rotationQuaternion!;
+    const right=b.nodes.get("RightForeArm")!.rotationQuaternion!;
+    const toSignedX=(q:Quaternion)=>2*Math.atan2(q.x,q.w);
+    const angA=toSignedX(left),angB=toSignedX(right);
+    aAngles.push(angA);bAngles.push(angB);
+    diffAngles.push(angA-angB);
+    for(const name of bones){
+     if(name.endsWith("ForeArm"))continue; // mirror causes paired forearm to follow
+     expect(dist(a.nodes.get(name)!.rotationQuaternion!,
+      b.nodes.get(name)!.rotationQuaternion!)).toBeLessThan(1e-5);
+    }
+    // A factor of 0.90 on an authored 0.80-radian mean, as opposed to the
+    // previous 0.65 factor: an added 0.20 rad source-relative elbow bend.
+    expect(angA-angB).toBeCloseTo(.72,3);
+   }
+   const excursion=(values:number[])=>Math.max(...values)-Math.min(...values);
+   expect(excursion(diffAngles)).toBeLessThan(.005);
+   expect(excursion(aAngles)).toBeCloseTo(excursion(bAngles),3);
+   for(let i=0;i<22;i++){enhanced.update(1.65,1/60,false);control.update(1.65,1/60,false);}
+   for(const name of bones)expect(dist(a.nodes.get(name)!.rotationQuaternion!,
+    b.nodes.get(name)!.rotationQuaternion!)).toBeLessThan(1e-5);
+   enhanced.reset();control.reset();
+   for(const name of bones)expect(dist(a.nodes.get(name)!.rotationQuaternion!,
+    Quaternion.Identity())).toBeLessThan(1e-5);
+   enhanced.dispose();control.dispose();
+  }finally{a.dispose();b.dispose();}
+ });
+
 });
