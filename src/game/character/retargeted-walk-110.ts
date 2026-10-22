@@ -275,6 +275,46 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
   }
  }
+ // CHAR-122: sprint-only lower-body silhouette correction. Unlike
+ // walking, sprint currently bypasses its foot-heading alignment entirely.
+ // Keep authored thigh/hip gait and timing unchanged; moderate only the
+ // knee fold, then steer the toe yaw relative to the current pelvis.
+ function refineSprintLegs(blend:number){
+  if(blend<=.00001)return;
+  hips.computeWorldMatrix(true);
+  const body=hips.getWorldMatrix(),inverse=Matrix.Invert(body);
+  const point=(node:TransformNode)=>{
+   node.computeWorldMatrix(true);
+   return Vector3.TransformCoordinates(node.getAbsolutePosition(),inverse);
+  };
+  for(const side of legSides){
+   const knee=names.get(side+"Leg")!,foot=names.get(side+"Foot")!;
+   const toe=names.get(side+"ToeBase")!,track=byName.get(side+"Leg")!;
+   if(foot.parent!==knee||toe.parent!==foot)continue;
+   // The native-reference knee clip is over-flexed on Voight's target rig.
+   // Reduce its local rotation toward the accepted relaxed knee by at most
+   // 18%, scaled by sprint blend, without editing the 41 source keys.
+   knee.rotationQuaternion=Quaternion.Slerp(rotationOf(knee),track.base,.38*blend).normalize();
+   const a=point(foot),b=point(toe),direction=b.subtract(a);
+   const horizontal=Math.hypot(direction.x,direction.z);
+   if(horizontal<.045||direction.z<-.06)continue;
+   const angle=Math.atan2(direction.x,direction.z);
+   const heading=Math.max(-.12,Math.min(.12,angle));
+   const deltaHeading=Math.max(-1.4,Math.min(1.4,(heading-angle)*blend));
+   if(Math.abs(deltaHeading)<.001)continue;
+   const desired=new Vector3(Math.sin(angle+deltaHeading)*horizontal,0,
+    Math.cos(angle+deltaHeading)*horizontal);
+   const from=Vector3.TransformNormal(new Vector3(direction.x,0,direction.z),body);
+   const to=Vector3.TransformNormal(desired,body);
+   const delta=parentSpaceAimDelta(from,to,knee.getWorldMatrix(),1.42);
+   if(!delta)continue;
+   const previous=rotationOf(foot);
+   foot.rotationQuaternion=delta.multiply(previous).normalize();
+   // Never aim a toe through the pelvis centerline.
+   const sign=side==="Left"?1:-1;
+   if(point(toe).x*sign<.025)foot.rotationQuaternion=previous;
+  }
+ }
  // CHAR-118: distribute a slight walking-only inclination through the back.
  // The arms inherit the torso motion with their accepted local pose unchanged.
  const back=[names.get("Spine")!,names.get("Spine1")!,names.get("Spine2")!];
@@ -413,6 +453,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
    // Walking-specific corrections must not distort the authored sprint shoes.
    refineLegs(weight*(1-sprintWeight));
+   refineSprintLegs(weight*sprintWeight);
    inclineWalkingBack(weight,sprintWeight);
    flexWalkingForearms(cursor,weight*(1-sprintWeight));
    // CHAR-120E: read BOTH animated shoulder-elbow-wrist chains before
