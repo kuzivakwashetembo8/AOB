@@ -33,9 +33,8 @@ export function validateSprintClip120(value:unknown):SprintClip120 {
    if(!Array.isArray(key)||key.length!==4||key.some(x=>!Number.isFinite(x))||
     Math.abs(key.reduce((n,x)=>n+x*x,0)-1)>.008)
     throw Error("Invalid CHAR-120 sprint quaternion at "+t.node);
-  const seam=t.keys[0]![0]*t.keys.at(-1)![0]+
-   t.keys[0]![1]*t.keys.at(-1)![1]+t.keys[0]![2]*t.keys.at(-1)![2]+
-   t.keys[0]![3]*t.keys.at(-1)![3];
+  const first=t.keys[0]!,last=t.keys[t.keys.length-1]!;
+  const seam=first.reduce((sum,value,i)=>sum+value*(last[i]??0),0);
   if(Math.abs(seam)<.985)throw Error("CHAR-120 sprint loop discontinuity "+t.node);
   // Do not trust claimed peakRadians alone: a flat rotation track is not an
   // authored sprint even if the JSON header advertises a moving leg.
