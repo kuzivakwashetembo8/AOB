@@ -72,6 +72,55 @@ export function calibrateSprintArmCarriage120D(
  const desired=original.add(forward.scale(forwardMetres));
  return parentSpaceAimDelta(original,desired,arm.parent.getWorldMatrix(),maxRadians);
 }
+/** CHAR-120E: solve the *actual* wrist direction from the shoulder, not
+ * CHAR-120D's neutral elbow-only aim. A positive leadFactor designates the
+ * forward arm. All points are read from the live linked TransformNode chain.
+ * Only the upper-arm local quaternion is allowed to change.
+ */
+export function aimSprintWristLane120E(
+ hips:TransformNode,arm:TransformNode,elbow:TransformNode,hand:TransformNode,
+ leadFactor:number,blend=1,
+):{applied:boolean;before:number;after:number;wristForward:number}|null{
+ if(!(arm.parent instanceof TransformNode)||elbow.parent!==arm||
+  hand.parent!==elbow||![leadFactor,blend].every(Number.isFinite))return null;
+ hips.computeWorldMatrix(true);arm.parent.computeWorldMatrix(true);
+ arm.computeWorldMatrix(true);elbow.computeWorldMatrix(true);
+ hand.computeWorldMatrix(true);
+ const shoulder=arm.getAbsolutePosition().clone();
+ const wrist=hand.getAbsolutePosition().clone();
+ const forward=Vector3.TransformNormal(Vector3.Forward(),hips.getWorldMatrix()).normalize();
+ const up=Vector3.TransformNormal(Vector3.Up(),hips.getWorldMatrix()).normalize();
+ const armToWrist=wrist.subtract(shoulder);
+ if(armToWrist.lengthSquared()<.005||forward.lengthSquared()<.5||
+  up.lengthSquared()<.5)return null;
+ const lead=Math.max(0,Math.min(1,leadFactor));
+ const distanceForward=Vector3.Dot(armToWrist,forward);
+ const distanceUp=Vector3.Dot(armToWrist,up);
+ // The rear hand travels close to the hip; the leading fist rises toward
+ // the lower chest. Never pull an already-good wrist backwards or downwards.
+ const forwardGoal=-.035+.225*lead;
+ const verticalGoal=-.435+.165*lead;
+ const forwardShift=Math.max(0,forwardGoal-distanceForward);
+ const verticalShift=Math.max(0,verticalGoal-distanceUp);
+ if(forwardShift<.001&&verticalShift<.001)
+  return {applied:false,before:0,after:0,wristForward:distanceForward};
+ const desired=armToWrist.add(forward.scale(forwardShift)).
+  add(up.scale(verticalShift));
+ const delta=parentSpaceAimDelta(armToWrist,desired,arm.parent.getWorldMatrix(),.72);
+ if(!delta)return null;
+ const base=rotationOf(arm),strength=Math.max(0,Math.min(1,blend));
+ const corrected=Quaternion.Slerp(Quaternion.Identity(),delta,strength).normalize();
+ const before=Vector3.DistanceSquared(armToWrist,desired);
+ arm.rotationQuaternion=corrected.multiply(base).normalize();
+ hand.computeWorldMatrix(true);
+ const result=hand.getAbsolutePosition().subtract(shoulder);
+ const after=Vector3.DistanceSquared(result,desired);
+ if(!Number.isFinite(after)||after>before+1e-7){
+  arm.rotationQuaternion=base;hand.computeWorldMatrix(true);
+  return {applied:false,before,after:before,wristForward:distanceForward};
+ }
+ return {applied:true,before,after,wristForward:Vector3.Dot(result,forward)};
+}
 type Track={node:TransformNode;base:Quaternion;keys:Quaternion[];name:string};
 export const HUMAN_WALK_SPEED_119=1.65;
 export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip110,
@@ -168,14 +217,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
   return Quaternion.Slerp(Quaternion.Identity(),cycle,gain).normalize();
  }
  const hips=names.get("Hips")!;
- // Neutral one-time anatomical calibration: lift the entire bent-arm swing
- // lane slightly forward in each shoulder's parent frame. No gait-key edits.
- const sprintArmCarriage=new Map<string,Quaternion>();
- if(sprint)for(const side of ["Right","Left"] as const){
-  const arm=names.get(side+"Arm")!,elbow=names.get(side+"ForeArm")!;
-  const q=calibrateSprintArmCarriage120D(hips,arm,elbow);
-  if(q)sprintArmCarriage.set(side,q);
- }
+ // CHAR-120E replaces the neutral elbow carriage with live wrist targets.
  const legSides=["Left","Right"] as const;
  function refineLegs(blend:number){
   hips.computeWorldMatrix(true);
@@ -367,13 +409,26 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    refineLegs(weight*(1-sprintWeight));
    inclineWalkingBack(weight,sprintWeight);
    flexWalkingForearms(cursor,weight*(1-sprintWeight));
-   // CHAR-120D: fixed forward shift of the already accepted upper-arm swing
-   // lane; no changes to forearm rotation/bend or hand/wrist local orientation.
-   if(sprintWeight>.00001)for(const [side,offset] of sprintArmCarriage){
-    const arm=names.get(side+"Arm")!;
-    const delta=Quaternion.Slerp(Quaternion.Identity(),offset,
-     weight*sprintWeight).normalize();
-    arm.rotationQuaternion=delta.multiply(rotationOf(arm)).normalize();
+   // CHAR-120E: read BOTH animated shoulder-elbow-wrist chains before
+   // correcting either one. The more forward wrist leads; the other trails.
+   // Local elbows, wrists, shoulders, torso and accepted legs are unmodified.
+   if(sprint&&sprintWeight>.00001){
+    const forward=Vector3.TransformNormal(Vector3.Forward(),
+     (hips.computeWorldMatrix(true),hips.getWorldMatrix())).normalize();
+    const positions=(["Right","Left"] as const).map(side=>{
+     const arm=names.get(side+"Arm")!,wrist=names.get(side+"Hand")!;
+     arm.computeWorldMatrix(true);wrist.computeWorldMatrix(true);
+     return {side,projection:Vector3.Dot(
+      wrist.getAbsolutePosition().subtract(arm.getAbsolutePosition()),forward)};
+    });
+    const phase=Math.max(-1,Math.min(1,
+     (positions[0]!.projection-positions[1]!.projection)/.18));
+    for(const sample of positions){
+     const lead=Math.max(0,sample.side==="Right"?phase:-phase);
+     aimSprintWristLane120E(hips,names.get(sample.side+"Arm")!,
+      names.get(sample.side+"ForeArm")!,names.get(sample.side+"Hand")!,
+      lead,weight*sprintWeight);
+    }
    }
    if(anchor&&head.node.parent instanceof TransformNode){
     const parentRotation=relativeRotation(head.node.parent);
