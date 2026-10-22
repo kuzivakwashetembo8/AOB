@@ -1,4 +1,5 @@
 import {HUMAN_WALK_SPEED_119} from "../character/retargeted-walk-110";
+import {stepHumanTravelSpeed120} from "../character/retargeted-sprint-120";
 import {
   ArcRotateCamera,
   Color3,
@@ -123,6 +124,7 @@ export class GTDGameRuntime implements GameRuntime {
   private physics: MeridianPhysics | null = null;
   private voight: VoightPrototype | null = null;
   private humanCharacterEnabled=false;
+  private humanTravelSpeedMps=HUMAN_WALK_SPEED_119;
   private humanoidSavedPose:{x:number;y:number;z:number;yaw:number}|null=null;
   private characterTrial: LoadedMeridiaCharacter | null = null;
   private headingSettings: TravelHeadingSettings = DEFAULT_TRAVEL_HEADING;
@@ -1096,6 +1098,7 @@ export class GTDGameRuntime implements GameRuntime {
       physics.setPlayerPosition(next);
       voight.root.setEnabled(false);
       this.humanCharacterEnabled=true;
+      this.humanTravelSpeedMps=HUMAN_WALK_SPEED_119;
       actor.setControlled(true);
       actor.updateControlled(next,0,0,0);
       camera.target.set(next.x,next.y+.55,next.z);
@@ -1108,6 +1111,7 @@ export class GTDGameRuntime implements GameRuntime {
       voight.root.setEnabled(true);
       actor.setControlled(false);
       this.humanCharacterEnabled=false;this.humanoidSavedPose=null;
+      this.humanTravelSpeedMps=HUMAN_WALK_SPEED_119;
       camera.target.set(previous.x,previous.y+.55,previous.z);
       this.emit({type:"interaction",label:"Development humanoid restored"});
     }
@@ -1197,9 +1201,15 @@ export class GTDGameRuntime implements GameRuntime {
     const right = new Vector3(-Math.sin(camera.alpha), 0, Math.cos(camera.alpha));
     const desired = forward.scale(-this.move.y).add(right.scale(this.move.x));
     if (desired.lengthSquared() > 1) desired.normalize();
-    // CHAR-119: 10% faster travel; player cadence follows actual corrected speed.
-    // No running/sprint permission for the ungraduated human in this gate.
-    const speed = this.humanCharacterEnabled ? HUMAN_WALK_SPEED_119 : this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
+    // CHAR-120: sprint on imported Voight is a separate authored gait AND real
+    // physical acceleration. Preserve the established walk speed and legacy UAL policy.
+    const humanSprintRequested=this.humanCharacterEnabled && this.context==="walking" &&
+      this.actions.has("sprint") && desired.lengthSquared()>0.001;
+    if(this.humanCharacterEnabled)
+      this.humanTravelSpeedMps=stepHumanTravelSpeed120(
+        this.humanTravelSpeedMps,humanSprintRequested,dt);
+    const speed = this.humanCharacterEnabled ? this.humanTravelSpeedMps :
+      this.actions.has("sprint") ? SPRINT_SPEED : WALK_SPEED;
     if (this.flightEnabled) {
       const current = physics.playerPosition();
       const flight = flightDisplacement({
@@ -1327,7 +1337,8 @@ export class GTDGameRuntime implements GameRuntime {
       voight.root.rotation.y = headingStep.yaw;
       if(this.humanCharacterEnabled)
         this.humanAsset()?.updateControlled(
-          position,headingStep.yaw,correctedPlanarMps,dt);
+          position,headingStep.yaw,correctedPlanarMps,dt,
+          humanSprintRequested && this.grounded && correctedPlanarMps>.25);
       this.locomotionTick++;
       if (this.locomotionTick % 3 === 0) {
         this.locomotionSamples.push({
