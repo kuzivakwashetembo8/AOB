@@ -12,3 +12,7 @@ Read [WORLD-IMPORT-001: Hybrid Building Pipeline and Team Handoff](documentation
 - This is a documentation handoff on main. The villa trial remains separate; no runtime change, merge of PR #44 or deployment is authorized by this record.
 
 Detailed continuation state, asset facts, proposed fields, ownership, visual checkpoints and open decisions are in the linked directive.
+
+## Closed 20-villa experiment — future Birch Avenue
+
+Read [Birch Avenue: exact 20-villa reconstruction recipe and closure](documentations/Directives/GTD-BIRCH-AVENUE-20-Villa-Reconstruction-And-Closure-2026-10-22.md) before recreating this neighborhood. The two facing rows and colour/timber recipe are documented on main. PR #45 is retired without runtime merge. The final mobile review still showed no road/driveways; those remain visually unsuccessful and require a fresh implementation/acceptance gate. Use the recipe rather than resuming or merging the experiment.
