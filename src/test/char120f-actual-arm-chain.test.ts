@@ -49,7 +49,8 @@ describe('CHAR-120F actual GLB sprint anatomy',()=>{
      const u=Vector3.FromArray(raw,j),v=Vector3.FromArray(refined,j);
      expect(v.length()).toBeCloseTo(u.length(),8);
      // The small fixed pitch restores leading hand height; sagittal range stays close.
-     expect(Math.abs(v.z-u.z)).toBeLessThan(.09);
+     // For a proper 0.11-radian X rotation, |Δz| ≤ 2 sin(0.11/2) < .1100.
+     expect(Math.abs(v.z-u.z)).toBeLessThan(.111);
      inward+=sign*(u.x-v.x);
     }
     const a=Vector3.FromArray(raw),b=Vector3.FromArray(raw,3);
