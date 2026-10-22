@@ -1,6 +1,7 @@
 // @vitest-environment node
 /** Requires npm run prebuild: evaluates the shipped GLB and freshly baked clip. */
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
 import {describe,it,expect} from 'vitest';
 import {Bone,Matrix,NullEngine,Scene,Skeleton,TransformNode,Quaternion,Vector3} from '@babylonjs/core';
 import {createWalkPlayer110,type WalkClip110} from '../game/character/retargeted-walk-110';
@@ -8,6 +9,11 @@ import {validateSprintClip120} from '../game/character/retargeted-sprint-120';
 import {createNativePoseController109} from '../game/character/native-neutral-pose-109';
 import {createSprintArmChain120F,sampleSprintArm120F} from '../game/character/sprint-arm-chain-120f';
 const root='public/GLBs/Characters/';
+// Vercel runs `npx vitest run` before `npm run build`. Generated clips
+// are intentionally not committed; prepare them on a clean checkout.
+if(!existsSync(root+'char110-ual-walk.json')||!existsSync(root+'char120-ual-sprint.json')){
+ execFileSync('npm',['run','prebuild'],{stdio:'inherit'});
+}
 const walk=JSON.parse(readFileSync(root+'char110-ual-walk.json','utf8')) as WalkClip110;
 const sprint=validateSprintClip120(JSON.parse(readFileSync(root+'char120-ual-sprint.json','utf8')));
 const b=readFileSync(root+'character.glb');
