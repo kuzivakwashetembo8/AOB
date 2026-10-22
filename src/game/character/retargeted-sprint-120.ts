@@ -37,6 +37,14 @@ export function validateSprintClip120(value:unknown):SprintClip120 {
    t.keys[0]![1]*t.keys.at(-1)![1]+t.keys[0]![2]*t.keys.at(-1)![2]+
    t.keys[0]![3]*t.keys.at(-1)![3];
   if(Math.abs(seam)<.985)throw Error("CHAR-120 sprint loop discontinuity "+t.node);
+  // Do not trust claimed peakRadians alone: a flat rotation track is not an
+  // authored sprint even if the JSON header advertises a moving leg.
+  if(["LeftArm","RightArm","LeftUpLeg","RightUpLeg"].includes(t.node)){
+   const first=t.keys[0]!;
+   const spread=Math.max(...t.keys.map(q=>2*Math.acos(Math.min(1,
+    Math.abs(q.reduce((sum,c,i)=>sum+c*first[i]!,0))))));
+   if(spread<.04)throw Error("CHAR-120 stationary limb is not sprinting: "+t.node);
+  }
  }
  if(required.some(n=>!seen.has(n)))throw Error("CHAR-120 sprint missing required joint");
  if(["LeftArm","RightArm","LeftUpLeg","RightUpLeg"].some(name=>
@@ -55,7 +63,7 @@ export async function fetchSprintClip120(fetcher:typeof fetch=fetch):Promise<Spr
 export function stepHumanTravelSpeed120(current:number,sprintHeld:boolean,dt:number):number {
  const walk=1.65,target=sprintHeld?HUMAN_SPRINT_SPEED_120:walk;
  const previous=Number.isFinite(current)?Math.max(walk,Math.min(HUMAN_SPRINT_SPEED_120,current)):walk;
- const seconds=sprintHeld?.35:.30;
+ const seconds=sprintHeld ? .35 : .30;
  const move=(HUMAN_SPRINT_SPEED_120-walk)/seconds*Math.max(0,Math.min(.1,dt));
  return previous+Math.sign(target-previous)*Math.min(Math.abs(target-previous),move);
 }
