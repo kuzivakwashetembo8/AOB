@@ -8,6 +8,7 @@ import type {AssetContainer,Scene} from "@babylonjs/core";
 import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 import {humanVisualYaw105} from "../character/human-walking-105";
 import {createWalkPlayer110,fetchWalkClip110,type WalkPlayer110} from "../character/retargeted-walk-110";
+import {fetchSprintClip120} from "../character/retargeted-sprint-120";
 import {createFootPhysicsInspector110,type FootPhysicsDebugOptions,type GroundQuery110} from "../character/foot-ik-inspector-110";
 import {createNativePoseController109,type NativePose109Controller} from "../character/native-neutral-pose-109";
 
@@ -142,7 +143,10 @@ export function createMercerStaticCharacter(
         }
       }
     }
-    walk=createWalkPlayer110(entries.skeletons,await fetchWalkClip110(),blinkTargets);
+    // Both source motions are baked offline to Voight's 22 mapped linked joints.
+    // A missing sprint file must fail visibly; never silently run the walking clip faster.
+    const [walkClip,sprintClip]=await Promise.all([fetchWalkClip110(),fetchSprintClip120()]);
+    walk=createWalkPlayer110(entries.skeletons,walkClip,blinkTargets,sprintClip);
     footInspector=createFootPhysicsInspector110(scene,entries.skeletons);
     if(footDebugOptions&&footGroundQuery)footInspector.configure(footDebugOptions,footGroundQuery);
     audit.finish(instantiateId,count+" meshes; "+
@@ -186,7 +190,7 @@ export function createMercerStaticCharacter(
       }
     },
     updateControlled(position:{x:number;y:number;z:number},
-      headingYaw:number,walkSpeed:number,dt:number){
+      headingYaw:number,walkSpeed:number,dt:number,sprintHeld=false){
       if(!controlled||closed)return;
       // Shared Rapier capsule centre is 0.92 m above pavement. The fitted
       // human has a grounded foot origin, so do not transfer the capsule offset.
@@ -194,7 +198,7 @@ export function createMercerStaticCharacter(
       anchor.rotation.y=headingYaw;
       // CHAR-109 owns idle posture. During walking, the authored clip owns
       // arms and legs, preventing the old per-tick idle shoulder clamp.
-      walk?.update(walkSpeed,dt);
+      walk?.update(walkSpeed,dt,sprintHeld);
       footInspector?.update(position,dt);
     },
     get poseReport(){return {meshCount,
