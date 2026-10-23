@@ -29,4 +29,16 @@ A heel moving behind and upward in pelvis-local Y/Z, not simply a higher forward
 - Run Vercel preview tests and offline packaging. Owner judges front, side, rear view before promotion.
 
 ## Implementation and measured verification
-Pending commits and CI. Keep failures documented, do not weaken existing posture gates.
+### Attempt 1 — rejected (not for preview)
+- First actual-rig build stopped at TypeScript due to raw-ankle history naming collision; corrected without changing behavior.
+- `dpl_F7mkdstMkBRPnkVCYgsNGVLiqdXM`: 440/446 tests passed, 6 failed in `char120f-actual-arm-chain.test.ts`. The paired actual-GLB test measured **60 trailing-recovery samples**, +**0.1602 m peak heel lift**, +**0.1098 m mean lift** while behind the pelvis, zero negative lift samples.
+- This proves meaningful rear heel elevation, but the unbounded 3D shin re-aim also caused **49.64° maximum shoe heading** (existing limit <25°), **0.1792 m frame-to-frame relative ankle jump** (new limit <0.09 m), and **0.011 m stance deviation** (new limit <0.008 m). Unacceptable; preserve existing tests.
+
+### Attempt 2 — corrective refinement
+- Preserve the sprint phase condition (ankle behind pelvis, progressing forward after toe-off), neutral knee blend, upper body and foot-yaw solver.
+- Replace unconstrained shin 3D target with a **pelvis-sagittal Y/Z-only aim**, fixing shin X exactly and retaining length. This avoids introducing lateral leg rotation.
+- Slew-limit the heel-recovery envelope at at most `dt / 0.115` per frame and suppress new recovery onset when the baseline ankle is not clearly behind the pelvis. Both entry and exit are bounded, across the loop seam, reset and sprint-to-walk transition.
+- No source GLB modification, no changes to original <95° knee or <25° shoe heading acceptance tests.
+- Re-run strict TypeScript, 446 tests and Vercel preview build. Preview only on READY.
+
+Current status: attempt 2 validation pending; user visual acceptance required.
