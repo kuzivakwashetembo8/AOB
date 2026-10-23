@@ -226,6 +226,15 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  })):null;
  const anatomicalJoint=(name:string)=>!!anatomicalArms&&/^(Left|Right)(Arm|ForeArm)$/.test(name);
  // CHAR-120E replaces the neutral elbow carriage with live wrist targets.
+/** CHAR-124 pure, continuous phase proxy for trailing-foot recovery.
+ * Start folding as soon as the ankle passes 2cm behind the pelvis, instead
+ * of waiting 9cm. Complete by 24cm; stance/leading legs retain baseline.
+ */
+ export const rearLegRecovery124=(ankleForwardZ:number):number=>{
+  if(!Number.isFinite(ankleForwardZ))return 0;
+  const t=Math.max(0,Math.min(1,(-ankleForwardZ-.02)/.22));
+  return t*t*(3-2*t);
+ };
  const legSides=["Left","Right"] as const;
  function refineLegs(blend:number){
   hips.computeWorldMatrix(true);
@@ -297,8 +306,10 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    // CHAR-123: preserve slightly more natural flex during trailing swing,
    // without reintroducing the original excessive sprint-knee bend.
    const ankleBefore=point(foot);
-   const trailing=Math.max(0,Math.min(1,(-ankleBefore.z-.09)/.25));
-   const moderation=.38-.055*trailing;
+   const recovery=rearLegRecovery124(ankleBefore.z);
+   // Retain more source knee flex only behind the body, lifting the heel
+   // before forward recovery; no change to shoe heading or grounded stance.
+   const moderation=.38-.075*recovery;
    knee.rotationQuaternion=Quaternion.Slerp(rotationOf(knee),track.base,moderation*blend).normalize();
    const a=point(foot),b=point(toe),direction=b.subtract(a);
    const horizontal=Math.hypot(direction.x,direction.z);
@@ -324,7 +335,8 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  // The arms inherit the torso motion with their accepted local pose unchanged.
  const back=[names.get("Spine")!,names.get("Spine1")!,names.get("Spine2")!];
  const backDegrees=[2,1.75,1.25];
- const sprintBackDegrees=[1.15,.90,.65]; // CHAR-123 more upright fast jog
+ // CHAR-124: 12% less additive forward jog pitch than CHAR-123 (>=8%).
+ const sprintBackDegrees=[1.012,.792,.572];
  const supportedBack=back[0]!.parent===hips&&back[1]!.parent===back[0]&&back[2]!.parent===back[1];
  function inclineWalkingBack(blend:number,sprintBlend=0){
   if(!supportedBack)return;
