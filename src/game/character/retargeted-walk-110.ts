@@ -133,8 +133,17 @@ export const rearLegRecovery124=(ankleForwardZ:number):number=>{
  const t=Math.max(0,Math.min(1,(-ankleForwardZ-.02)/.22));
  return t*t*(3-2*t);
 };
+/** CHAR-125: independent bilateral gate, nonzero only during trailing swing.
+ * The heel correction must not affect a rearward-moving planted foot.
+ */
+export function heelRecoveryGate125(ankleZ:number,forwardVelocity:number):number{
+ if(!Number.isFinite(ankleZ)||!Number.isFinite(forwardVelocity))return 0;
+ const smooth=(t:number)=>{const v=Math.max(0,Math.min(1,t));return v*v*(3-2*v);};
+ return smooth((-ankleZ-.045)/.17)*smooth((forwardVelocity-.025)/.62);
+}
 export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip110,
- blinkTargets:readonly {influence:number}[]=[],sprintClip:SprintClip120|null=null):WalkPlayer110{
+ blinkTargets:readonly {influence:number}[]=[],sprintClip:SprintClip120|null=null,
+ options:{heelRecovery125?:boolean}={}):WalkPlayer110{
  const parsed=validateWalkClip110(clip);
  const sprint=sprintClip?validateSprintClip120(sprintClip):null;
  const tracks:Track[]=[];
@@ -236,6 +245,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  const anatomicalJoint=(name:string)=>!!anatomicalArms&&/^(Left|Right)(Arm|ForeArm)$/.test(name);
  // CHAR-120E replaces the neutral elbow carriage with live wrist targets.
  const legSides=["Left","Right"] as const;
+ const previousRawAnkleZ=new Map<"Left"|"Right",number>();
  function refineLegs(blend:number){
   hips.computeWorldMatrix(true);
   const hipWorld=hips.getWorldMatrix(),hipInverse=Matrix.Invert(hipWorld);
@@ -290,7 +300,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  // walking, sprint currently bypasses its foot-heading alignment entirely.
  // Keep authored thigh/hip gait and timing unchanged; moderate only the
  // knee fold, then steer the toe yaw relative to the current pelvis.
- function refineSprintLegs(blend:number){
+ function refineSprintLegs(blend:number,dt:number){
   if(blend<=.00001)return;
   hips.computeWorldMatrix(true);
   const body=hips.getWorldMatrix(),inverse=Matrix.Invert(body);
@@ -307,10 +317,44 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    // without reintroducing the original excessive sprint-knee bend.
    const ankleBefore=point(foot);
    const recovery=rearLegRecovery124(ankleBefore.z);
-   // Retain more source knee flex only behind the body, lifting the heel
-   // before forward recovery; no change to shoe heading or grounded stance.
    const moderation=.38-.075*recovery;
    knee.rotationQuaternion=Quaternion.Slerp(rotationOf(knee),track.base,moderation*blend).normalize();
+   // CHAR-125: measure RAW ankle movement. Begin heel fold only after
+   // push-off, when the rear foot starts moving forward from behind.
+   const previous=previousRawAnkleZ.get(side);
+   const velocity=previous===undefined?0:(ankleBefore.z-previous)/Math.max(.001,dt);
+   previousRawAnkleZ.set(side,ankleBefore.z);
+   const gate=options.heelRecovery125===false?0:
+    heelRecoveryGate125(ankleBefore.z,velocity)*blend;
+   if(gate>.0001&&knee.parent instanceof TransformNode){
+    knee.parent.computeWorldMatrix(true);
+    const joint=point(knee),ankle=point(foot);
+    const shin=ankle.subtract(joint),length=shin.length();
+    if(length>.10){
+     const thigh=names.get(side+"UpLeg")!;
+     const thighDir=joint.subtract(point(thigh)).normalize();
+     // Raise the ankle and guide it behind the knee. Keep anatomical X.
+     const desired=shin.add(new Vector3(0,.18*gate,-.19*gate)).normalize();
+     const maximum=92*Math.PI/180;
+     const flex=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(thighDir,desired))));
+     const allowed=flex>maximum?
+      Vector3.Lerp(thighDir,desired,maximum/flex).normalize():desired;
+     const target=joint.add(allowed.scale(length));
+     if(target.y>ankle.y+.0005&&target.z<ankle.z+.002){
+      const from=Vector3.TransformNormal(shin,body);
+      const to=Vector3.TransformNormal(target.subtract(joint),body);
+      const aim=parentSpaceAimDelta(from,to,knee.parent.getWorldMatrix(),.42);
+      if(aim){
+       const initial=rotationOf(knee);
+       knee.rotationQuaternion=aim.multiply(initial).normalize();
+       const raised=point(foot),raisedDir=raised.subtract(joint).normalize();
+       const bend=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(thighDir,raisedDir))));
+       if(raised.y<ankle.y-.001||raised.z>ankle.z+.01||
+        bend>maximum+.015)knee.rotationQuaternion=initial;
+      }
+     }
+    }
+   }
    const a=point(foot),b=point(toe),direction=b.subtract(a);
    const horizontal=Math.hypot(direction.x,direction.z);
    if(horizontal<.045||direction.z<-.06)continue;
@@ -430,6 +474,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
     if(wantsSprint)sprintElapsed=(elapsed/parsed.duration)*sprint.duration;
     else elapsed=(sprintElapsed/sprint.duration)*parsed.duration;
     lastSprintRequest=wantsSprint;
+    previousRawAnkleZ.clear();
    }
    weight=Math.max(0,Math.min(1,weight+(moving?1:-1)*step/.20));
    sprintWeight=Math.max(0,Math.min(1,sprintWeight+
@@ -470,7 +515,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
    // Walking-specific corrections must not distort the authored sprint shoes.
    refineLegs(weight*(1-sprintWeight));
-   refineSprintLegs(weight*sprintWeight);
+   refineSprintLegs(weight*sprintWeight,step);
    inclineWalkingBack(weight,sprintWeight);
    flexWalkingForearms(cursor,weight*(1-sprintWeight));
    // CHAR-120E: read BOTH animated shoulder-elbow-wrist chains before
@@ -505,8 +550,9 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    frames++;
   },
   reset(){elapsed=0;sprintElapsed=0;sprintWeight=0;lastSprintRequest=false;sprintArmFailures=0;
+   previousRawAnkleZ.clear();
    weight=0;idleTime=0;setBlink(0);restore();},
-  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();}
+  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();previousRawAnkleZ.clear();}
  };
 }
 
