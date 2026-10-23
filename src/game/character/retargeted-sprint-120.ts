@@ -10,7 +10,9 @@ export type SprintClip120 = Omit<WalkClip110,"schema"|"walkTargetMps"> & {
   armMotion?:SprintArmMotion120F;
 };
 export const RETARGET_SPRINT_PATH_120="/GLBs/Characters/char120-ual-sprint.json";
-export const HUMAN_SPRINT_SPEED_120=4.0;
+// CHAR-123: a hurried jog (~11.7 km/h), not an athletic race sprint.
+// Keep the source UAL clip's original authored 4 m/s metadata unchanged.
+export const HUMAN_SPRINT_SPEED_120=3.25;
 const required=["Hips","Spine","Spine1","Spine2","Neck","Head",
  "LeftShoulder","LeftArm","LeftForeArm","LeftHand",
  "RightShoulder","RightArm","RightForeArm","RightHand",
@@ -21,7 +23,7 @@ export function validateSprintClip120(value:unknown):SprintClip120 {
  const v=value as Partial<SprintClip120>|null;
  if(!v||v.schema!=="gtd.char120.ual-sprint.v1"||
  !Number.isFinite(v.duration)||!(v.duration!>.2&&v.duration!<5)||
- v.sampleCount!==41||v.runTargetMps!==HUMAN_SPRINT_SPEED_120||
+ v.sampleCount!==41||v.runTargetMps!==4.0||
  !Array.isArray(v.tracks)||v.tracks.length!==required.length)
   throw Error("Invalid CHAR-120 authored sprint header");
  const seen=new Set<string>();

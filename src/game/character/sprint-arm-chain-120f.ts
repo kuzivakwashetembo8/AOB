@@ -62,6 +62,28 @@ export function createSprintArmChain120F(hips:TransformNode,arm:TransformNode,
  };
 }
 
+/** CHAR-123: fixed, mirror-symmetric inward arm plane for a hurried jog.
+ * The same two proper rigid rotations are applied to both direction vectors
+ * across every animation frame. This keeps their dot-product (elbow flexion),
+ * segment length, authored forward/back trajectory and continuity intact.
+ */
+/** CHAR-124: small additional inward carriage; keep the fixed whole-chain rotation. */
+export const URGENT_JOG_ARM_ADDUCTION_123=.215;
+export function jogArmCarriage123(key:readonly number[],side:"Left"|"Right"):number[]{
+ if(key.length!==6||key.some(x=>!Number.isFinite(x)))return [...key];
+ const a=side==="Left"?-URGENT_JOG_ARM_ADDUCTION_123:URGENT_JOG_ARM_ADDUCTION_123;
+ const c=Math.cos(a),s=Math.sin(a);
+ // A second FIXED pitch of the whole two-segment chain restores the leading
+ // wrist height lost during inward rotation. Neither angle depends on phase.
+ // Same X-axis pitch for both arms: leading hand rises, trailing hand lowers.
+ const pitch=-.11,cp=Math.cos(pitch),sp=Math.sin(pitch);
+ return [0,3].flatMap(i=>{
+  const x=key[i]!,y=key[i+1]!,z=key[i+2]!;
+  const tx=c*x-s*y,ty=s*x+c*y;
+  return [tx,cp*ty-sp*z,sp*ty+cp*z];
+ });
+}
+
 export function sampleSprintArm120F(keys:number[][],cursor:number):number[]{
  const frames=keys.length-1,wrapped=((cursor%frames)+frames)%frames,i=Math.floor(wrapped),t=wrapped-i;
  const a=keys[i]!,b=keys[i+1]!;

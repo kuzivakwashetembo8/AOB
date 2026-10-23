@@ -7,7 +7,7 @@ import {Quaternion,TransformNode,Vector3,Matrix} from "@babylonjs/core";
 import type {Skeleton} from "@babylonjs/core";
 import {rotationOf,parentSpaceAimDelta} from "./driver-joint-space";
 import {validateSprintClip120,type SprintClip120} from "./retargeted-sprint-120";
-import {createSprintArmChain120F,sampleSprintArm120F} from "./sprint-arm-chain-120f";
+import {createSprintArmChain120F,jogArmCarriage123,sampleSprintArm120F} from "./sprint-arm-chain-120f";
 
 export type WalkClip110={
  schema:"gtd.char110.ual-walk.v1";
@@ -124,8 +124,26 @@ export function aimSprintWristLane120E(
 }
 type Track={node:TransformNode;base:Quaternion;keys:Quaternion[];name:string};
 export const HUMAN_WALK_SPEED_119=1.65;
+/** CHAR-124 pure, continuous phase proxy for trailing-foot recovery.
+* Start folding as soon as the ankle passes 2cm behind the pelvis, instead
+* of waiting 9cm. Complete by 24cm; stance/leading legs retain baseline.
+*/
+export const rearLegRecovery124=(ankleForwardZ:number):number=>{
+ if(!Number.isFinite(ankleForwardZ))return 0;
+ const t=Math.max(0,Math.min(1,(-ankleForwardZ-.02)/.22));
+ return t*t*(3-2*t);
+};
+/** CHAR-125: independent bilateral gate, nonzero only during trailing swing.
+ * The heel correction must not affect a rearward-moving planted foot.
+ */
+export function heelRecoveryGate125(ankleZ:number,forwardVelocity:number):number{
+ if(!Number.isFinite(ankleZ)||!Number.isFinite(forwardVelocity))return 0;
+ const smooth=(t:number)=>{const v=Math.max(0,Math.min(1,t));return v*v*(3-2*v);};
+ return smooth((-ankleZ-.045)/.17)*smooth((forwardVelocity-.025)/.62);
+}
 export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip110,
- blinkTargets:readonly {influence:number}[]=[],sprintClip:SprintClip120|null=null):WalkPlayer110{
+ blinkTargets:readonly {influence:number}[]=[],sprintClip:SprintClip120|null=null,
+ options:{heelRecovery125?:boolean}={}):WalkPlayer110{
  const parsed=validateWalkClip110(clip);
  const sprint=sprintClip?validateSprintClip120(sprintClip):null;
  const tracks:Track[]=[];
@@ -214,17 +232,22 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    const authoredBend=Quaternion.Slerp(Quaternion.Identity(),bendCenter,meanGain).normalize();
    return swing.multiply(authoredBend).normalize();
   }
-  const gain=track.name.endsWith("Shoulder")?.65:.85;
+  // CHAR-123: restrained clavicle swing for a hurried jog.
+  const gain=track.name.endsWith("Shoulder")?.24:.85;
   return Quaternion.Slerp(Quaternion.Identity(),cycle,gain).normalize();
  }
  const hips=names.get("Hips")!;
  const anatomicalArms=sprint?.armMotion?(["Right","Left"] as const).map(side=>({
+  side,
   solve:createSprintArmChain120F(hips,names.get(side+"Arm")!,names.get(side+"ForeArm")!,names.get(side+"Hand")!),
   keys:side==="Right"?sprint.armMotion!.right:sprint.armMotion!.left,
  })):null;
  const anatomicalJoint=(name:string)=>!!anatomicalArms&&/^(Left|Right)(Arm|ForeArm)$/.test(name);
  // CHAR-120E replaces the neutral elbow carriage with live wrist targets.
  const legSides=["Left","Right"] as const;
+ const previousRawAnkleZ=new Map<"Left"|"Right",number>();
+ const heelRecoveryBlend=new Map<"Left"|"Right",number>();
+ const heelCorrection125=new Map<"Left"|"Right",Quaternion>();
  function refineLegs(blend:number){
   hips.computeWorldMatrix(true);
   const hipWorld=hips.getWorldMatrix(),hipInverse=Matrix.Invert(hipWorld);
@@ -275,11 +298,128 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
   }
  }
+ // CHAR-122: sprint-only lower-body silhouette correction. Unlike
+ // walking, sprint currently bypasses its foot-heading alignment entirely.
+ // Keep authored thigh/hip gait and timing unchanged; moderate only the
+ // knee fold, then steer the toe yaw relative to the current pelvis.
+ function refineSprintLegs(blend:number,dt:number){
+  if(blend<=.00001)return;
+  hips.computeWorldMatrix(true);
+  const body=hips.getWorldMatrix(),inverse=Matrix.Invert(body);
+  const point=(node:TransformNode)=>{
+   node.computeWorldMatrix(true);
+   return Vector3.TransformCoordinates(node.getAbsolutePosition(),inverse);
+  };
+  for(const side of legSides){
+   const knee=names.get(side+"Leg")!,foot=names.get(side+"Foot")!;
+   const toe=names.get(side+"ToeBase")!,track=byName.get(side+"Leg")!;
+   if(foot.parent!==knee||toe.parent!==foot)continue;
+   // The native-reference knee clip is over-flexed on Voight's target rig.
+   // CHAR-123: preserve slightly more natural flex during trailing swing,
+   // without reintroducing the original excessive sprint-knee bend.
+   const ankleBefore=point(foot);
+   const recovery=rearLegRecovery124(ankleBefore.z);
+   const moderation=.38-.075*recovery;
+   knee.rotationQuaternion=Quaternion.Slerp(rotationOf(knee),track.base,moderation*blend).normalize();
+   // CHAR-125: measure RAW ankle movement. Begin heel fold only after
+   // push-off, when the rear foot starts moving forward from behind.
+   const previous=previousRawAnkleZ.get(side);
+   const velocity=previous===undefined?0:(ankleBefore.z-previous)/Math.max(.001,dt);
+   previousRawAnkleZ.set(side,ankleBefore.z);
+   const ankleBaseline=point(foot);
+   const beforeToeDirection=point(toe).subtract(ankleBaseline);
+   const requested=options.heelRecovery125===false||ankleBaseline.z>-.055?0:
+    heelRecoveryGate125(ankleBefore.z,velocity)*blend;
+   const oldBlend=heelRecoveryBlend.get(side)??0;
+   const maxChange=Math.max(0,dt)/.115;
+   const gate=oldBlend+Math.max(-maxChange,Math.min(maxChange,requested-oldBlend));
+   heelRecoveryBlend.set(side,gate);
+   let goal=Quaternion.Identity();
+   if(gate>.0001&&knee.parent instanceof TransformNode){
+    knee.parent.computeWorldMatrix(true);
+    const joint=point(knee),ankle=point(foot);
+    const shin=ankle.subtract(joint),length=shin.length();
+    if(length>.10){
+     const thigh=names.get(side+"UpLeg")!;
+     const thighDir=joint.subtract(point(thigh)).normalize();
+     // Sagittal-only knee target: retain lateral shin X and leg length.
+     const yzY=shin.y+.16*gate,yzZ=shin.z-.17*gate;
+     const yzLength=Math.hypot(yzY,yzZ);
+     if(yzLength>.0001){
+      const lateral=shin.x/length;
+      const planar=Math.sqrt(Math.max(0,1-lateral*lateral));
+      const desired=new Vector3(lateral,planar*yzY/yzLength,
+       planar*yzZ/yzLength).normalize();
+      const maximum=92*Math.PI/180;
+      const flex=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(thighDir,desired))));
+      const allowed=flex>maximum?
+       Vector3.Lerp(thighDir,desired,maximum/flex).normalize():desired;
+      const target=joint.add(allowed.scale(length));
+      if(target.y>ankle.y+.0001&&target.z<ankle.z+.002){
+       const from=Vector3.TransformNormal(shin,body);
+       const to=Vector3.TransformNormal(target.subtract(joint),body);
+       goal=parentSpaceAimDelta(from,to,knee.parent.getWorldMatrix(),.42)??Quaternion.Identity();
+      }
+     }
+    }
+   }
+   // Smooth the *joint-space correction* as well as the phase gate.
+   // A binary accept/reject at a contact frame caused 17cm foot pops.
+   const previousAim=heelCorrection125.get(side)??Quaternion.Identity();
+   const relative=2*Math.acos(Math.max(-1,Math.min(1,
+    Math.abs(Quaternion.Dot(previousAim,goal)))));
+   const fraction=relative<.00001?1:Math.min(1,4.0*dt/relative);
+   const eased=Quaternion.Slerp(previousAim,goal,fraction).normalize();
+   heelCorrection125.set(side,eased);
+   // The position envelope goes to zero BEFORE stance/forward crossing,
+   // even when the temporal filter still holds a residual correction.
+   const t=Math.max(0,Math.min(1,(-ankleBaseline.z-.06)/.13));
+   const behind=t*t*(3-2*t);
+   const applied=Quaternion.Slerp(Quaternion.Identity(),eased,behind).normalize();
+   if(behind>.00001){
+    const initial=rotationOf(knee);
+    knee.rotationQuaternion=applied.multiply(initial).normalize();
+    // Restore the original foot direction after folding the SHIN. The
+    // heel rises but the shoe should not inherit a 50-degree sideways yaw.
+    const afterToeDirection=point(toe).subtract(point(foot));
+    const footParent=knee.getWorldMatrix();
+    const from=Vector3.TransformNormal(afterToeDirection,body);
+    const to=Vector3.TransformNormal(beforeToeDirection,body);
+    const counter=parentSpaceAimDelta(from,to,footParent,.42);
+    if(counter){
+     foot.rotationQuaternion=counter.multiply(rotationOf(foot)).normalize();
+    }
+   }
+   const a=point(foot),b=point(toe),direction=b.subtract(a);
+   const horizontal=Math.hypot(direction.x,direction.z);
+   if(horizontal<.045||direction.z<-.06)continue;
+   const angle=Math.atan2(direction.x,direction.z);
+   const heading=Math.max(-.12,Math.min(.12,angle));
+   const deltaHeading=Math.max(-1.4,Math.min(1.4,(heading-angle)*blend));
+   if(Math.abs(deltaHeading)<.001)continue;
+   const desired=new Vector3(Math.sin(angle+deltaHeading)*horizontal,0,
+    Math.cos(angle+deltaHeading)*horizontal);
+   const from=Vector3.TransformNormal(new Vector3(direction.x,0,direction.z),body);
+   const to=Vector3.TransformNormal(desired,body);
+   const delta=parentSpaceAimDelta(from,to,knee.getWorldMatrix(),1.42);
+   if(!delta)continue;
+   const previousFootRotation=rotationOf(foot);
+   const sign=side==="Left"?1:-1;
+   const beforeToeX=point(toe).x*sign;
+   foot.rotationQuaternion=delta.multiply(previousFootRotation).normalize();
+   const afterToeX=point(toe).x*sign;
+   // Prevent the correction from pushing a toe further across the pelvis
+   // midline; do not reject an improvement to an already-close-to-center toe.
+   if(afterToeX<.025&&afterToeX<beforeToeX-.001)
+    foot.rotationQuaternion=previousFootRotation;
+  }
+ }
  // CHAR-118: distribute a slight walking-only inclination through the back.
  // The arms inherit the torso motion with their accepted local pose unchanged.
  const back=[names.get("Spine")!,names.get("Spine1")!,names.get("Spine2")!];
  const backDegrees=[2,1.75,1.25];
- const sprintBackDegrees=[3.25,3.0,2.25]; // provisional athletic pitch
+ // CHAR-124: 12% less additive forward jog pitch than CHAR-123 (>=8%).
+ const sprintBackDegrees=[1.012,.792,.572];
  const supportedBack=back[0]!.parent===hips&&back[1]!.parent===back[0]&&back[2]!.parent===back[1];
  function inclineWalkingBack(blend:number,sprintBlend=0){
   if(!supportedBack)return;
@@ -373,6 +513,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
     if(wantsSprint)sprintElapsed=(elapsed/parsed.duration)*sprint.duration;
     else elapsed=(sprintElapsed/sprint.duration)*parsed.duration;
     lastSprintRequest=wantsSprint;
+    previousRawAnkleZ.clear();heelRecoveryBlend.clear();heelCorrection125.clear();
    }
    weight=Math.max(0,Math.min(1,weight+(moving?1:-1)*step/.20));
    sprintWeight=Math.max(0,Math.min(1,sprintWeight+
@@ -413,6 +554,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    }
    // Walking-specific corrections must not distort the authored sprint shoes.
    refineLegs(weight*(1-sprintWeight));
+   refineSprintLegs(weight*sprintWeight,step);
    inclineWalkingBack(weight,sprintWeight);
    flexWalkingForearms(cursor,weight*(1-sprintWeight));
    // CHAR-120E: read BOTH animated shoulder-elbow-wrist chains before
@@ -420,7 +562,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    // Local elbows, wrists, shoulders, torso and accepted legs are unmodified.
    if(anatomicalArms&&sprintWeight>.00001){
     for(const arm of anatomicalArms)
-     if(!arm.solve(sampleSprintArm120F(arm.keys,sprintCursor),weight*sprintWeight))sprintArmFailures++;
+     if(!arm.solve(jogArmCarriage123(sampleSprintArm120F(arm.keys,sprintCursor),arm.side),weight*sprintWeight))sprintArmFailures++;
    }else if(sprint&&sprintWeight>.00001){
     const forward=Vector3.TransformNormal(Vector3.Forward(),
      (hips.computeWorldMatrix(true),hips.getWorldMatrix())).normalize();
@@ -447,8 +589,9 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    frames++;
   },
   reset(){elapsed=0;sprintElapsed=0;sprintWeight=0;lastSprintRequest=false;sprintArmFailures=0;
+   previousRawAnkleZ.clear();heelRecoveryBlend.clear();heelCorrection125.clear();
    weight=0;idleTime=0;setBlink(0);restore();},
-  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();}
+  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();previousRawAnkleZ.clear();heelRecoveryBlend.clear();heelCorrection125.clear();}
  };
 }
 
