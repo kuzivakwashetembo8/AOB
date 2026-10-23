@@ -247,6 +247,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  const legSides=["Left","Right"] as const;
  const previousRawAnkleZ=new Map<"Left"|"Right",number>();
  const heelRecoveryBlend=new Map<"Left"|"Right",number>();
+ const heelCorrection125=new Map<"Left"|"Right",Quaternion>();
  function refineLegs(blend:number){
   hips.computeWorldMatrix(true);
   const hipWorld=hips.getWorldMatrix(),hipInverse=Matrix.Invert(hipWorld);
@@ -326,14 +327,14 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    const velocity=previous===undefined?0:(ankleBefore.z-previous)/Math.max(.001,dt);
    previousRawAnkleZ.set(side,ankleBefore.z);
    const ankleBaseline=point(foot);
+   const beforeToeDirection=point(toe).subtract(ankleBaseline);
    const requested=options.heelRecovery125===false||ankleBaseline.z>-.055?0:
     heelRecoveryGate125(ankleBefore.z,velocity)*blend;
-   // Bound heel trajectory speed: do not let the recovered ankle jump
-   // instantaneously when the swing velocity changes sign.
    const oldBlend=heelRecoveryBlend.get(side)??0;
    const maxChange=Math.max(0,dt)/.115;
    const gate=oldBlend+Math.max(-maxChange,Math.min(maxChange,requested-oldBlend));
    heelRecoveryBlend.set(side,gate);
+   let goal=Quaternion.Identity();
    if(gate>.0001&&knee.parent instanceof TransformNode){
     knee.parent.computeWorldMatrix(true);
     const joint=point(knee),ankle=point(foot);
@@ -341,36 +342,52 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
     if(length>.10){
      const thigh=names.get(side+"UpLeg")!;
      const thighDir=joint.subtract(point(thigh)).normalize();
-     // Raise the ankle and guide it behind the knee. Keep anatomical X.
-     // Preserve lateral X of the shin exactly. An unconstrained 3D
-     // direction normalisation tilted the foot sideways by ~50 degrees.
-     // Normalize the sagittal Y/Z section alone to a constant leg length:
-     // this yields pure pelvis-X knee pitch without new toe yaw.
-     const desiredYZ=new Vector3(0,shin.y+.18*gate,shin.z-.19*gate);
-     const yzLength=Math.hypot(desiredYZ.y,desiredYZ.z);
-     if(yzLength<.0001)continue;
-     const lateral=shin.x/length;
-     const planar=Math.sqrt(Math.max(0,1-lateral*lateral));
-     const desired=new Vector3(lateral,
-      planar*desiredYZ.y/yzLength,planar*desiredYZ.z/yzLength).normalize();
-     const maximum=92*Math.PI/180;
-     const flex=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(thighDir,desired))));
-     const allowed=flex>maximum?
-      Vector3.Lerp(thighDir,desired,maximum/flex).normalize():desired;
-     const target=joint.add(allowed.scale(length));
-     if(target.y>ankle.y+.0005&&target.z<ankle.z+.002){
-      const from=Vector3.TransformNormal(shin,body);
-      const to=Vector3.TransformNormal(target.subtract(joint),body);
-      const aim=parentSpaceAimDelta(from,to,knee.parent.getWorldMatrix(),.42);
-      if(aim){
-       const initial=rotationOf(knee);
-       knee.rotationQuaternion=aim.multiply(initial).normalize();
-       const raised=point(foot),raisedDir=raised.subtract(joint).normalize();
-       const bend=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(thighDir,raisedDir))));
-       if(raised.y<ankle.y-.001||raised.z>ankle.z+.01||
-        bend>maximum+.015)knee.rotationQuaternion=initial;
+     // Sagittal-only knee target: retain lateral shin X and leg length.
+     const yzY=shin.y+.16*gate,yzZ=shin.z-.17*gate;
+     const yzLength=Math.hypot(yzY,yzZ);
+     if(yzLength>.0001){
+      const lateral=shin.x/length;
+      const planar=Math.sqrt(Math.max(0,1-lateral*lateral));
+      const desired=new Vector3(lateral,planar*yzY/yzLength,
+       planar*yzZ/yzLength).normalize();
+      const maximum=92*Math.PI/180;
+      const flex=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(thighDir,desired))));
+      const allowed=flex>maximum?
+       Vector3.Lerp(thighDir,desired,maximum/flex).normalize():desired;
+      const target=joint.add(allowed.scale(length));
+      if(target.y>ankle.y+.0001&&target.z<ankle.z+.002){
+       const from=Vector3.TransformNormal(shin,body);
+       const to=Vector3.TransformNormal(target.subtract(joint),body);
+       goal=parentSpaceAimDelta(from,to,knee.parent.getWorldMatrix(),.42)??Quaternion.Identity();
       }
      }
+    }
+   }
+   // Smooth the *joint-space correction* as well as the phase gate.
+   // A binary accept/reject at a contact frame caused 17cm foot pops.
+   const previousAim=heelCorrection125.get(side)??Quaternion.Identity();
+   const relative=2*Math.acos(Math.max(-1,Math.min(1,
+    Math.abs(Quaternion.Dot(previousAim,goal)))));
+   const fraction=relative<.00001?1:Math.min(1,4.0*dt/relative);
+   const eased=Quaternion.Slerp(previousAim,goal,fraction).normalize();
+   heelCorrection125.set(side,eased);
+   // The position envelope goes to zero BEFORE stance/forward crossing,
+   // even when the temporal filter still holds a residual correction.
+   const t=Math.max(0,Math.min(1,(-ankleBaseline.z-.06)/.13));
+   const behind=t*t*(3-2*t);
+   const applied=Quaternion.Slerp(Quaternion.Identity(),eased,behind).normalize();
+   if(behind>.00001){
+    const initial=rotationOf(knee);
+    knee.rotationQuaternion=applied.multiply(initial).normalize();
+    // Restore the original foot direction after folding the SHIN. The
+    // heel rises but the shoe should not inherit a 50-degree sideways yaw.
+    const afterToeDirection=point(toe).subtract(point(foot));
+    const footParent=knee.getWorldMatrix();
+    const from=Vector3.TransformNormal(afterToeDirection,body);
+    const to=Vector3.TransformNormal(beforeToeDirection,body);
+    const counter=parentSpaceAimDelta(from,to,footParent,.42);
+    if(counter){
+     foot.rotationQuaternion=counter.multiply(rotationOf(foot)).normalize();
     }
    }
    const a=point(foot),b=point(toe),direction=b.subtract(a);
@@ -387,10 +404,14 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    const delta=parentSpaceAimDelta(from,to,knee.getWorldMatrix(),1.42);
    if(!delta)continue;
    const previousFootRotation=rotationOf(foot);
-   foot.rotationQuaternion=delta.multiply(previousFootRotation).normalize();
-   // Never aim a toe through the pelvis centerline.
    const sign=side==="Left"?1:-1;
-   if(point(toe).x*sign<.025)foot.rotationQuaternion=previousFootRotation;
+   const beforeToeX=point(toe).x*sign;
+   foot.rotationQuaternion=delta.multiply(previousFootRotation).normalize();
+   const afterToeX=point(toe).x*sign;
+   // Prevent the correction from pushing a toe further across the pelvis
+   // midline; do not reject an improvement to an already-close-to-center toe.
+   if(afterToeX<.025&&afterToeX<beforeToeX-.001)
+    foot.rotationQuaternion=previousFootRotation;
   }
  }
  // CHAR-118: distribute a slight walking-only inclination through the back.
@@ -492,7 +513,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
     if(wantsSprint)sprintElapsed=(elapsed/parsed.duration)*sprint.duration;
     else elapsed=(sprintElapsed/sprint.duration)*parsed.duration;
     lastSprintRequest=wantsSprint;
-    previousRawAnkleZ.clear();heelRecoveryBlend.clear();
+    previousRawAnkleZ.clear();heelRecoveryBlend.clear();heelCorrection125.clear();
    }
    weight=Math.max(0,Math.min(1,weight+(moving?1:-1)*step/.20));
    sprintWeight=Math.max(0,Math.min(1,sprintWeight+
@@ -568,9 +589,9 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    frames++;
   },
   reset(){elapsed=0;sprintElapsed=0;sprintWeight=0;lastSprintRequest=false;sprintArmFailures=0;
-   previousRawAnkleZ.clear();heelRecoveryBlend.clear();
+   previousRawAnkleZ.clear();heelRecoveryBlend.clear();heelCorrection125.clear();
    weight=0;idleTime=0;setBlink(0);restore();},
-  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();previousRawAnkleZ.clear();heelRecoveryBlend.clear();}
+  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();previousRawAnkleZ.clear();heelRecoveryBlend.clear();heelCorrection125.clear();}
  };
 }
 
