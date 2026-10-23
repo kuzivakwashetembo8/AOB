@@ -51,4 +51,14 @@ A heel moving behind and upward in pelvis-local Y/Z, not simply a higher forward
 - Counter-aim only the *foot node* to restore its previously authored shoe direction **after the shin moves**. Continue the existing heading correction but reject only changes that **worsen** an already close-to-center toe rather than rejecting all close-center fixes.
 - All original CHAR-124 upper-body, foot-heading, full-cycle and ordinary walk gates unchanged. Next build must pass all tests and be READY before preview.
 
-Current status: third experimental build pending; no merge or production change.
+
+### Attempt 3 — passing, preview ready
+- Tested Git commit: `740bea0d73a83f172384a3a979f3a1ec26c95c6c` (code commit `7c09815365a4638fc353bc538153f9d710942728`).
+- Vercel preview `dpl_DhLhhGANqWSUAAjTAxP5SfxE3ita` → **READY**, `https://gtd-ms7gzhos6-interlinkglobaltech.vercel.app/game`. No promotion or merge.
+- Strict TypeScript passed. **446/446 tests passed** across 111 files including existing physical knee bend, shoe heading, mirrored rig transforms, wrist/arm continuation and the three new actual-GLB trailing heel comparisons.
+- Per-rig actual `character.glb` (all three yaw/scale/reflection combinations, 60 recovery samples): **0.1449m peak additional rear heel lift**, **0.0606m mean lift**, zero negative lift samples, **0m stance deviation** and **0.0587m peak relative one-frame displacement** (limit 0.09m).
+- Vite production build completed; offline shell and game assets packaged, mandatory inventory missing=0.
+- Upper body and CHAR-124 gait speed are unchanged. Visual front/side/rear acceptance of the resulting back-kick is **pending owner review**, despite passing automated gates.
+
+**Next checkpoint:** owner inspects the trailing leg: rearward heel must rise before forward leg swing without sliding/floating and without resetting current upper-body form. If accepted, discuss separate merge authorization.
+
