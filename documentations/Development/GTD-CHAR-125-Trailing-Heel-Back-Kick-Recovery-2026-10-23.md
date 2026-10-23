@@ -41,4 +41,14 @@ A heel moving behind and upward in pelvis-local Y/Z, not simply a higher forward
 - No source GLB modification, no changes to original <95° knee or <25° shoe heading acceptance tests.
 - Re-run strict TypeScript, 446 tests and Vercel preview build. Preview only on READY.
 
-Current status: attempt 2 validation pending; user visual acceptance required.
+### Attempt 2 — rejected
+- `dpl_AbAzU2ybeYUcXwrWRkZYrGS8jadQ` real-GLB phase comparisons: +**0.1573 m** peak lift, +**0.0707 m** mean lift in 60 recovery samples. Nevertheless, **49.64°** shoe-heading deviation (same original 25° gate), **0.1758 m** relative foot displacement in one step, **0.1561 m** residual front/stance disturbance. Six failures confined to actual-GLB suite. The sagittal target fixed the original shin X but left a rotated child foot orientation; the filtered gate also lingered into the forward/stance phase.
+- Retain failure logs, preserve baseline and tests. No preview.
+
+### Attempt 3 — corrective bounded joint-space blend
+- Separate desired `goal` quaternion from its filtered joint-space application. Maximum angular correction changes at **4 rad/s**, with both phase and spatial envelopes. Apply a second smooth rear-only attenuation reaching exactly zero before forward crossing, not merely a temporal release.
+- Reduce requested sagittal offset slightly to +0.16 m upward, -0.17 m posterior at full gate. Keep knee flex clamp 92°.
+- Counter-aim only the *foot node* to restore its previously authored shoe direction **after the shin moves**. Continue the existing heading correction but reject only changes that **worsen** an already close-to-center toe rather than rejecting all close-center fixes.
+- All original CHAR-124 upper-body, foot-heading, full-cycle and ordinary walk gates unchanged. Next build must pass all tests and be READY before preview.
+
+Current status: third experimental build pending; no merge or production change.
