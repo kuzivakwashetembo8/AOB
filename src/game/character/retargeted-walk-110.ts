@@ -368,11 +368,11 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    const to=Vector3.TransformNormal(desired,body);
    const delta=parentSpaceAimDelta(from,to,knee.getWorldMatrix(),1.42);
    if(!delta)continue;
-   const previous=rotationOf(foot);
-   foot.rotationQuaternion=delta.multiply(previous).normalize();
+   const previousFootRotation=rotationOf(foot);
+   foot.rotationQuaternion=delta.multiply(previousFootRotation).normalize();
    // Never aim a toe through the pelvis centerline.
    const sign=side==="Left"?1:-1;
-   if(point(toe).x*sign<.025)foot.rotationQuaternion=previous;
+   if(point(toe).x*sign<.025)foot.rotationQuaternion=previousFootRotation;
   }
  }
  // CHAR-118: distribute a slight walking-only inclination through the back.
