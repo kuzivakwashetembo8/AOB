@@ -9,6 +9,7 @@ import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 import {humanVisualYaw105} from "../character/human-walking-105";
 import {createWalkPlayer110,fetchWalkClip110,type WalkPlayer110} from "../character/retargeted-walk-110";
 import {fetchSprintClip120} from "../character/retargeted-sprint-120";
+import {createJumpPlayer127,fetchJumpClip127,type JumpPlayer127} from "../character/retargeted-jump-127";
 import {createFootPhysicsInspector110,type FootPhysicsDebugOptions,type GroundQuery110} from "../character/foot-ik-inspector-110";
 import {createNativePoseController109,type NativePose109Controller} from "../character/native-neutral-pose-109";
 
@@ -34,6 +35,7 @@ export function createMercerStaticCharacter(
   let entries:ReturnType<AssetContainer["instantiateModelsToScene"]>|null=null;
   let closed=false;
   let walk:WalkPlayer110|null=null;
+  let jump:JumpPlayer127|null=null;
   let footInspector:ReturnType<typeof createFootPhysicsInspector110>|null=null;
   let footDebugOptions:FootPhysicsDebugOptions|null=null;
   let footGroundQuery:GroundQuery110|null=null;
@@ -145,8 +147,9 @@ export function createMercerStaticCharacter(
     }
     // Both source motions are baked offline to Voight's 22 mapped linked joints.
     // A missing sprint file must fail visibly; never silently run the walking clip faster.
-    const [walkClip,sprintClip]=await Promise.all([fetchWalkClip110(),fetchSprintClip120()]);
+    const [walkClip,sprintClip,jumpClip]=await Promise.all([fetchWalkClip110(),fetchSprintClip120(),fetchJumpClip127()]);
     walk=createWalkPlayer110(entries.skeletons,walkClip,blinkTargets,sprintClip);
+    jump=createJumpPlayer127(entries.skeletons,jumpClip);
     footInspector=createFootPhysicsInspector110(scene,entries.skeletons);
     if(footDebugOptions&&footGroundQuery)footInspector.configure(footDebugOptions,footGroundQuery);
     audit.finish(instantiateId,count+" meshes; "+
@@ -176,7 +179,7 @@ export function createMercerStaticCharacter(
     /** Walk mode takes control of this exact imported actor; no second GLB. */
     setControlled(enabled:boolean){
       controlled=enabled;
-      if(!enabled){walk?.reset();footInspector?.hide();}
+      if(!enabled){walk?.reset();jump?.reset();footInspector?.hide();}
       neutralPose?.ensure();
       if(fittedRoot){
         fittedRoot.rotation.y=humanVisualYaw105(enabled);
@@ -190,7 +193,8 @@ export function createMercerStaticCharacter(
       }
     },
     updateControlled(position:{x:number;y:number;z:number},
-      headingYaw:number,walkSpeed:number,dt:number,sprintHeld=false){
+      headingYaw:number,walkSpeed:number,dt:number,sprintHeld=false,
+      grounded=true,verticalVelocity=0){
       if(!controlled||closed)return;
       // Shared Rapier capsule centre is 0.92 m above pavement. The fitted
       // human has a grounded foot origin, so do not transfer the capsule offset.
@@ -198,17 +202,19 @@ export function createMercerStaticCharacter(
       anchor.rotation.y=headingYaw;
       // CHAR-109 owns idle posture. During walking, the authored clip owns
       // arms and legs, preventing the old per-tick idle shoulder clamp.
-      walk?.update(walkSpeed,dt,sprintHeld);
+      walk?.update(grounded?walkSpeed:0,dt,grounded&&sprintHeld);
+      jump?.update({grounded,verticalVelocity,dt});
       footInspector?.update(position,dt);
     },
     get poseReport(){return {meshCount,
       vertices:0,controlled,
-      pose:neutralPose?.report??null,walk:walk?.report??null,
+      pose:neutralPose?.report??null,walk:walk?.report??null,jump:jump?.report??null,
       footGeometry:footInspector?.report??null};},
     dispose(){
       if(closed)return;
       closed=true;
       walk?.dispose();walk=null;
+      jump?.dispose();jump=null;
       footInspector?.dispose();footInspector=null;
       neutralPose?.dispose();neutralPose=null;
       entries?.dispose();
