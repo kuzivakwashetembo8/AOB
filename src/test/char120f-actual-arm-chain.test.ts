@@ -4,7 +4,7 @@ import {existsSync,readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {describe,it,expect} from 'vitest';
 import {Bone,Matrix,NullEngine,Scene,Skeleton,TransformNode,Quaternion,Vector3} from '@babylonjs/core';
-import {createWalkPlayer110,type WalkClip110} from '../game/character/retargeted-walk-110';
+import {createWalkPlayer110,rearLegRecovery124,type WalkClip110} from '../game/character/retargeted-walk-110';
 import {validateSprintClip120} from '../game/character/retargeted-sprint-120';
 import {createNativePoseController109} from '../game/character/native-neutral-pose-109';
 import {createSprintArmChain120F,jogArmCarriage123,sampleSprintArm120F,URGENT_JOG_ARM_ADDUCTION_123} from '../game/character/sprint-arm-chain-120f';
@@ -35,8 +35,24 @@ function rig(yaw=0,scale=1,reflect=false){
 }
 const qdiff=(a:Quaternion,b:Quaternion)=>1-Math.abs(Quaternion.Dot(a,b));
 describe('CHAR-120F actual GLB sprint anatomy',()=>{
+ it('CHAR-124 triggers continuous rear-leg recovery before the old 9cm trailing threshold',()=>{
+  expect(rearLegRecovery124(.025)).toBe(0);
+  expect(rearLegRecovery124(-.02)).toBe(0);
+  expect(rearLegRecovery124(-.06)).toBeGreaterThan(0);
+  expect(rearLegRecovery124(-.18)).toBeGreaterThan(.7);
+  expect(rearLegRecovery124(-.25)).toBe(1);
+  expect(rearLegRecovery124(Number.NaN)).toBe(0);
+  let previous=0;
+  for(let i=0;i<=100;i++){
+   const value=rearLegRecovery124(.02-.31*i/100);
+   expect(value).toBeGreaterThanOrEqual(previous-1e-12);
+   expect(value).toBeLessThanOrEqual(1);
+   previous=value;
+  }
+ });
+
  it('CHAR-123 rotates both real-clip arm segments inward without changing fore/aft drive, elbow flexion or loop seam',()=>{
-  expect(URGENT_JOG_ARM_ADDUCTION_123).toBeGreaterThan(.10);
+  expect(URGENT_JOG_ARM_ADDUCTION_123).toBeGreaterThan(.20);
   expect(URGENT_JOG_ARM_ADDUCTION_123).toBeLessThan(.28);
   for(const side of ['Left','Right'] as const){
    const keys=side==='Left'?sprint.armMotion!.left:sprint.armMotion!.right;
