@@ -246,6 +246,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  // CHAR-120E replaces the neutral elbow carriage with live wrist targets.
  const legSides=["Left","Right"] as const;
  const previousRawAnkleZ=new Map<"Left"|"Right",number>();
+ const heelRecoveryBlend=new Map<"Left"|"Right",number>();
  function refineLegs(blend:number){
   hips.computeWorldMatrix(true);
   const hipWorld=hips.getWorldMatrix(),hipInverse=Matrix.Invert(hipWorld);
@@ -324,8 +325,15 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    const previous=previousRawAnkleZ.get(side);
    const velocity=previous===undefined?0:(ankleBefore.z-previous)/Math.max(.001,dt);
    previousRawAnkleZ.set(side,ankleBefore.z);
-   const gate=options.heelRecovery125===false?0:
+   const ankleBaseline=point(foot);
+   const requested=options.heelRecovery125===false||ankleBaseline.z>-.055?0:
     heelRecoveryGate125(ankleBefore.z,velocity)*blend;
+   // Bound heel trajectory speed: do not let the recovered ankle jump
+   // instantaneously when the swing velocity changes sign.
+   const oldBlend=heelRecoveryBlend.get(side)??0;
+   const maxChange=Math.max(0,dt)/.115;
+   const gate=oldBlend+Math.max(-maxChange,Math.min(maxChange,requested-oldBlend));
+   heelRecoveryBlend.set(side,gate);
    if(gate>.0001&&knee.parent instanceof TransformNode){
     knee.parent.computeWorldMatrix(true);
     const joint=point(knee),ankle=point(foot);
@@ -334,7 +342,17 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
      const thigh=names.get(side+"UpLeg")!;
      const thighDir=joint.subtract(point(thigh)).normalize();
      // Raise the ankle and guide it behind the knee. Keep anatomical X.
-     const desired=shin.add(new Vector3(0,.18*gate,-.19*gate)).normalize();
+     // Preserve lateral X of the shin exactly. An unconstrained 3D
+     // direction normalisation tilted the foot sideways by ~50 degrees.
+     // Normalize the sagittal Y/Z section alone to a constant leg length:
+     // this yields pure pelvis-X knee pitch without new toe yaw.
+     const desiredYZ=new Vector3(0,shin.y+.18*gate,shin.z-.19*gate);
+     const yzLength=Math.hypot(desiredYZ.y,desiredYZ.z);
+     if(yzLength<.0001)continue;
+     const lateral=shin.x/length;
+     const planar=Math.sqrt(Math.max(0,1-lateral*lateral));
+     const desired=new Vector3(lateral,
+      planar*desiredYZ.y/yzLength,planar*desiredYZ.z/yzLength).normalize();
      const maximum=92*Math.PI/180;
      const flex=Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(thighDir,desired))));
      const allowed=flex>maximum?
@@ -474,7 +492,7 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
     if(wantsSprint)sprintElapsed=(elapsed/parsed.duration)*sprint.duration;
     else elapsed=(sprintElapsed/sprint.duration)*parsed.duration;
     lastSprintRequest=wantsSprint;
-    previousRawAnkleZ.clear();
+    previousRawAnkleZ.clear();heelRecoveryBlend.clear();
    }
    weight=Math.max(0,Math.min(1,weight+(moving?1:-1)*step/.20));
    sprintWeight=Math.max(0,Math.min(1,sprintWeight+
@@ -550,9 +568,9 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
    frames++;
   },
   reset(){elapsed=0;sprintElapsed=0;sprintWeight=0;lastSprintRequest=false;sprintArmFailures=0;
-   previousRawAnkleZ.clear();
+   previousRawAnkleZ.clear();heelRecoveryBlend.clear();
    weight=0;idleTime=0;setBlink(0);restore();},
-  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();previousRawAnkleZ.clear();}
+  dispose(){restore();setBlink(0);disposed=true;tracks.length=0;sprintTracks.clear();previousRawAnkleZ.clear();heelRecoveryBlend.clear();}
  };
 }
 
