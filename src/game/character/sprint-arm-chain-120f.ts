@@ -67,7 +67,8 @@ export function createSprintArmChain120F(hips:TransformNode,arm:TransformNode,
  * across every animation frame. This keeps their dot-product (elbow flexion),
  * segment length, authored forward/back trajectory and continuity intact.
  */
-export const URGENT_JOG_ARM_ADDUCTION_123=.19;
+/** CHAR-124: small additional inward carriage; keep the fixed whole-chain rotation. */
+export const URGENT_JOG_ARM_ADDUCTION_123=.215;
 export function jogArmCarriage123(key:readonly number[],side:"Left"|"Right"):number[]{
  if(key.length!==6||key.some(x=>!Number.isFinite(x)))return [...key];
  const a=side==="Left"?-URGENT_JOG_ARM_ADDUCTION_123:URGENT_JOG_ARM_ADDUCTION_123;
