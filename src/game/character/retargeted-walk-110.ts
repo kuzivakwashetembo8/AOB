@@ -124,6 +124,15 @@ export function aimSprintWristLane120E(
 }
 type Track={node:TransformNode;base:Quaternion;keys:Quaternion[];name:string};
 export const HUMAN_WALK_SPEED_119=1.65;
+/** CHAR-124 pure, continuous phase proxy for trailing-foot recovery.
+* Start folding as soon as the ankle passes 2cm behind the pelvis, instead
+* of waiting 9cm. Complete by 24cm; stance/leading legs retain baseline.
+*/
+export const rearLegRecovery124=(ankleForwardZ:number):number=>{
+ if(!Number.isFinite(ankleForwardZ))return 0;
+ const t=Math.max(0,Math.min(1,(-ankleForwardZ-.02)/.22));
+ return t*t*(3-2*t);
+};
 export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip110,
  blinkTargets:readonly {influence:number}[]=[],sprintClip:SprintClip120|null=null):WalkPlayer110{
  const parsed=validateWalkClip110(clip);
@@ -226,15 +235,6 @@ export function createWalkPlayer110(skeletons:readonly Skeleton[],clip:WalkClip1
  })):null;
  const anatomicalJoint=(name:string)=>!!anatomicalArms&&/^(Left|Right)(Arm|ForeArm)$/.test(name);
  // CHAR-120E replaces the neutral elbow carriage with live wrist targets.
-/** CHAR-124 pure, continuous phase proxy for trailing-foot recovery.
- * Start folding as soon as the ankle passes 2cm behind the pelvis, instead
- * of waiting 9cm. Complete by 24cm; stance/leading legs retain baseline.
- */
- export const rearLegRecovery124=(ankleForwardZ:number):number=>{
-  if(!Number.isFinite(ankleForwardZ))return 0;
-  const t=Math.max(0,Math.min(1,(-ankleForwardZ-.02)/.22));
-  return t*t*(3-2*t);
- };
  const legSides=["Left","Right"] as const;
  function refineLegs(blend:number){
   hips.computeWorldMatrix(true);
