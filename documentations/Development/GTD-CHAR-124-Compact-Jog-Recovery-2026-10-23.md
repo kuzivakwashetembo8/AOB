@@ -29,4 +29,10 @@ Working branch: `feat/char-124-compact-jog-recovery-20261023`.
 - No failure in previously accepted walk/idle or vehicle behavior.
 
 ## Implementation / verification record
-Pending. Owner visual approval is the final acceptance gate.
+Implemented on isolated branch:
+- Additive jog-only spine pitch changed [1.15, .90, .65] → [1.012, .792, .572] degrees (**12% lower**), walking spine unaffected.
+- Whole-chain fixed bilateral arm adduction increased .190 → .215 rad (**+0.025 rad**), maintaining -0.11 rad fixed pitch and CHAR-120F IK solver.
+- Smooth CHAR-124 heel-recovery gate starts at 2cm behind pelvis (previously 9cm), reaches full at ~24cm behind; rearward knee-neutral moderation .38 - .075·recovery (previously .38 - .055·trailing). Leading leg and forward shoe-yaw gate unaffected.
+- Added pure recovery phase test and retained the actual GLB 80-phase physical elbow/wrist, 60Hz smoothness, 3 rig transforms, knee (<95°) and toe (<25°) tests.
+
+Verification: pending TypeScript, test suite, deployment READY and owner visual confirmation. Main/production unchanged.
