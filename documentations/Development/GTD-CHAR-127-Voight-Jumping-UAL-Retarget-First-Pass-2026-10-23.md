@@ -31,3 +31,14 @@ If initial trial fails the anatomy or phases, refine the retarget and re-preview
 
 ## Branch boundaries
 Do not touch driver-cabin-pose, driver-joint-space, car assets, seat anchors or seating branch; do not merge. This research is based on code and screenshot inspection. Live rendered character correctness is not asserted until a preview has been inspected.
+
+## First preview result — 2026-10-23
+- Implementation commit: `982ceed54f5ddd39a205429d7bbfafc148c17bab`.
+- Vercel deployment: `dpl_FrRNJCuBLLvRpeyU8pFzEMejVTuL`, state **READY**.
+- Preview: https://gtd-cyu61u1bg-interlinkglobaltech.vercel.app/game
+- Confirmed pinned source: real `Jump_Loop` of **2.5 seconds**; build-time UAL idle-relative retarget successfully produced **41 samples × 22 target joint tracks**. Output: `char127-ual-jump.json`, **33,292 bytes**.
+- Observed source-derived peak absolute joint deltas (radians): left thigh 0.664, left knee 1.591; right thigh 0.329, right knee 0.632; left upper arm 0.957, right upper arm 0.971. These are animation audit measurements, **not** visual acceptance or confirmation of anatomically correct direction.
+- New CHAR-127 regression tests: **3 passing**; Vercel complete release packaging and build finished successfully.
+- Physics integration: existing Rapier jump speed/gravity untouched; custom character controller now receives authoritative grounded and vertical velocity; UAL-derived linked-joint jump overrides gait only during actual flight and fades after impact.
+- Known limitations: no pre-takeoff anticipatory physics delay; only the real UAL `Jump_Loop` was sampled in this first pass (not distinct Jump_Start/Jump_Land), and the clip is time-warped across the physical ballistic arc. Shoulder/leg appearance, game feel, mobile input and contact clipping require owner-side visual inspection.
+- Status: **experimental first preview**, independent of seating, main unchanged, no production deployment.
