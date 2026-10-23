@@ -1338,7 +1338,8 @@ export class GTDGameRuntime implements GameRuntime {
       if(this.humanCharacterEnabled)
         this.humanAsset()?.updateControlled(
           position,headingStep.yaw,correctedPlanarMps,dt,
-          humanSprintRequested && this.grounded && correctedPlanarMps>.25);
+          humanSprintRequested && this.grounded && correctedPlanarMps>.25,
+          this.grounded,this.verticalVelocity);
       this.locomotionTick++;
       if (this.locomotionTick % 3 === 0) {
         this.locomotionSamples.push({
