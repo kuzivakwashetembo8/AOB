@@ -4,7 +4,7 @@ import {existsSync,readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {describe,it,expect} from 'vitest';
 import {Bone,Matrix,NullEngine,Scene,Skeleton,TransformNode,Quaternion,Vector3} from '@babylonjs/core';
-import {createWalkPlayer110,rearLegRecovery124,type WalkClip110} from '../game/character/retargeted-walk-110';
+import {createWalkPlayer110,heelRecoveryGate125,rearLegRecovery124,type WalkClip110} from '../game/character/retargeted-walk-110';
 import {validateSprintClip120} from '../game/character/retargeted-sprint-120';
 import {createNativePoseController109} from '../game/character/native-neutral-pose-109';
 import {createSprintArmChain120F,jogArmCarriage123,sampleSprintArm120F,URGENT_JOG_ARM_ADDUCTION_123} from '../game/character/sprint-arm-chain-120f';
@@ -51,6 +51,61 @@ describe('CHAR-120F actual GLB sprint anatomy',()=>{
   }
  });
 
+ it('CHAR-125 recovery gate discriminates post-push-off from stance with smooth transitions',()=>{
+  expect(heelRecoveryGate125(-.25,-1)).toBe(0);
+  expect(heelRecoveryGate125(-.25,0)).toBe(0);
+  expect(heelRecoveryGate125(.10,1)).toBe(0);
+  expect(heelRecoveryGate125(-.25,1)).toBe(1);
+  expect(heelRecoveryGate125(-.10,.4)).toBeGreaterThan(0);
+  expect(heelRecoveryGate125(Number.NaN,1)).toBe(0);
+  let last=0;
+  for(let i=0;i<=100;i++){
+   const value=heelRecoveryGate125(-.25,i/100);
+   expect(value).toBeGreaterThanOrEqual(last-1e-9);
+   last=value;
+  }
+ });
+ it.each([[0,1,false],[1.3,1.75,false],[-2.4,.65,true]])('CHAR-125 raises rear heel BEFORE forward crossing yaw=%s scale=%s reflection=%s',(yaw,scale,reflect)=>{
+  const active=rig(yaw as number,scale as number,reflect as boolean),control=rig(yaw as number,scale as number,reflect as boolean);
+  try{
+   const run=createWalkPlayer110([active.sk],walk,[],sprint);
+   const baseline=createWalkPlayer110([control.sk],walk,[],sprint,{heelRecovery125:false});
+   const dt=sprint.duration/80;
+   for(let i=0;i<95;i++){run.update(4,dt,true);baseline.update(4,dt,true);}
+   const prev=new Map<string,number>();
+   let raised=0,peak=0,meanLift=0,negative=0,stanceError=0,peakFootJump=0;
+   const priorActive=new Map<string,Vector3>(),priorBase=new Map<string,Vector3>();
+   for(let k=0;k<160;k++){
+    for(const side of ['Left','Right'] as const){
+     const c=control.point(side+'Foot'),a=active.point(side+'Foot');
+     const before=prev.get(side);
+     const returning=before!==undefined&&(c.z-before)>.0002;
+     if(c.z<-.075&&returning){
+      const lift=a.y-c.y;
+      peak=Math.max(peak,lift);meanLift+=lift;raised++;
+      if(lift<-.002)negative++;
+     }
+     if(c.z>.12)stanceError=Math.max(stanceError,Vector3.Distance(a,c));
+     const oldA=priorActive.get(side),oldC=priorBase.get(side);
+     if(oldA&&oldC)peakFootJump=Math.max(peakFootJump,
+      Vector3.Distance(a,oldA.subtract(oldC).add(c)));
+     priorActive.set(side,a.clone());priorBase.set(side,c.clone());
+     prev.set(side,c.z);
+    }
+    run.update(4,dt,true);baseline.update(4,dt,true);
+   }
+   console.info('CHAR125_HEEL_COMPARE='+JSON.stringify({yaw,scale,reflect,raised,
+    peakLiftMetres:+peak.toFixed(4),meanLiftMetres:+(meanLift/Math.max(1,raised)).toFixed(4),
+    negativeSamples:negative,stanceError:+stanceError.toFixed(4),peakRelativeFootDelta:+peakFootJump.toFixed(4)}));
+   expect(raised).toBeGreaterThan(8);
+   expect(peak).toBeGreaterThan(.025);
+   expect(negative).toBe(0);
+   expect(stanceError).toBeLessThan(.008);
+   expect(peakFootJump).toBeLessThan(.09);
+   expect(run.report.sprintArmFailures).toBe(0);
+   run.dispose();baseline.dispose();
+  }finally{active.dispose();control.dispose();}
+ });
  it('CHAR-123 rotates both real-clip arm segments inward without changing fore/aft drive, elbow flexion or loop seam',()=>{
   expect(URGENT_JOG_ARM_ADDUCTION_123).toBeGreaterThan(.20);
   expect(URGENT_JOG_ARM_ADDUCTION_123).toBeLessThan(.28);
