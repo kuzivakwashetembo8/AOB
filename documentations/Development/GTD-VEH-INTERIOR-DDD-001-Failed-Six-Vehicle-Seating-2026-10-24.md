@@ -171,12 +171,12 @@ The following titles and immutable SHAs are returned by the GitHub PR #49 commit
 67. [`ea08b4e8b3ea`](https://github.com/interlinkglobal/GTD/commit/ea08b4e8b3ea215d47fe95256a17534fb90c220a) — test(VEH-SEAT-CAL-001): validate all six calibrated lanes at four headings and reject bad parameters
 68. [`d4cf306d015a`](https://github.com/interlinkglobal/GTD/commit/d4cf306d015a21e508c78a8e1ffe38f8e4d9cdc6) — test(VEH-SEAT-CAL-001): all six curated driver profiles, yaw invariance and isolation
 
-## 8. Procedure DDD execution checklist
+## 8. Procedure DDD execution results (verified 2026-10-24)
 
-- [x] Record entire scope, stages, code changes, tests, failures, expected vs actual visuals, and 68-commit evidence on `main`, where branch decommissioning cannot erase it.
-- [x] Independently verify PR #49 targets CHAR-130 feature branch (not main), is **open draft and unmerged** before DDD closure; the main branch had separately diverged but no merge from this PR occurred.
-- [ ] Close PR #49 as **rejected/unmerged** and leave a reference to this report.
-- [ ] Delete the experimental branch ref, **or state explicitly if available GitHub operations cannot perform ref deletion**. Do not misrepresent a ref reset or closed PR as deletion.
-- [ ] Confirm PR #48 / accepted CHAR-130 branch and production main were not modified by the failed implementation.
+- [x] **Permanent documentation:** this 68-commit forensic record is committed on `main`. A second, independently authored [DDD postmortem](https://github.com/interlinkglobal/GTD/blob/main/documentations/Development/GTD-PROCEDURE-DDD-VEH-INTERIOR-001-TO-005-SEAT-CAL-001-2026-10-24.md) is also on `main` and linked from PR #49. Both retain the full rejected history.
+- [x] **PR sealed:** [PR #49](https://github.com/interlinkglobal/GTD/pull/49) was **CLOSED WITHOUT MERGE** at `2026-10-24T09:48:35Z`; its title and body explicitly mark the entire experiment **DDD failed / do not merge**. The final rejected tip remains identified as `d4cf306d015a21e508c78a8e1ffe38f8e4d9cdc6`.
+- [x] **Experimental code removed from active branch tip by ref reset (NOT deletion):** the branch `feat/veh-interior-001-cabin-mapper-20261023` was safely returned to parent SHA `d48b735aa3f2c5fab733f0de6d354c9beaf0eda5`. GitHub ref GET confirmed the current branch tip matches the original CHAR-130 parent, and comparing against that parent now shows `ahead_by=0`, `behind_by=0`, `status=identical`. The rejected 68-commit series is still accessible through immutable commit SHAs in this record and the closed PR.
+- [x] **Isolation verified:** PR #48 remains **open and unmerged**, with its head intact at `d48b735a...`. Checks on `main` returned 404/not-present for `src/game/vehicles/vehicle-seat-profiles-006.ts`, `vehicle-seat-constraints-005.ts`, `six-fleet-driver-fit-003.ts`, and `scripts/veh-interior-001-decode-fleet.mjs`. No failed seating implementation was introduced into `main` by DDD; only documentation was added.
+- [ ] **Physical branch deletion outstanding:** the installed GitHub connection has `update_ref` but exposes **no Git ref/branch deletion action**. After the safe ref reset, the *branch name still exists*. A GitHub repository operator must select **Delete branch** on the [closed PR #49](https://github.com/interlinkglobal/GTD/pull/49) or remove that branch ref with authorized GitHub administration. Do not report it deleted until the branch search returns no entry.
 
-**Final status must be updated after closure / branch cleanup actions are actually verified.**
+**Operational result:** DDD implemented as far as tool permissions allow: comprehensive historic record, rejected/unmerged PR, branch reset to unmodified accepted parent, verification that failed code never entered `main`. **Branch deletion remains an explicit unresolved housekeeping step.** No new gameplay implementation or production deployment was undertaken.
