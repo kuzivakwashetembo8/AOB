@@ -4,7 +4,7 @@
 **Repository:** interlinkglobal/GTD  
 **Branch:** feat/voight-flight-v2-native-rig-20261024  
 **Branch origin:** clean `main`, commit `06399a5aaef46b5061db41c6206c70d3e218882c`. NOT descended from rejected CHAR-128.  
-**Status:** NEW EXPERIMENT — DOCUMENTATION/RESEARCH GATE. Implementation not yet authorized on this new scope.  
+**Status:** Implementation authorized and first preview READY, owner visual acceptance pending. No merge or production deployment.  
 **Owner direction:** "Open a new flight branch using the failed one as a negative schema. You now know everything that you should not do."
 
 ## 1. Decision
@@ -131,6 +131,31 @@ Tests on the **actual target GLB and skeleton hierarchy** take priority over red
 
 ## 8. Approval boundary
 
-Creating this clean experimental branch and recording a negative design schema **does not** restore approval for CHAR-128 or authorize implementation. The next authorized development directive should explicitly enable **CHAR-129 Phase 0/1**. No previews, merges or deployments have been requested for this planning step.
+Owner subsequently approved: **"Plan approved. Implementation flight with appropriate posture."** CHAR-129 implementation was authorized on the new native branch only. Preview is a distinct visual validation gate; merge and production deployment are still excluded.
 
 **Guiding constraint:** Do not try to make Voight's anatomy resemble UAL's rig. Make Voight's existing anatomy fly.
+
+## 9. Implementation and verification record — 2026-10-24
+
+**Source branch:** `feat/voight-flight-v2-native-rig-20261024`. Implementation commit `17d8209142affe52d087fae78cf146b3a805d22c`.
+
+### Native anatomy
+
+The actual original `character.glb` passed a build-time joint-chain audit using its embedded GLB transform hierarchy (not fabricated UAL animation). Source bytes: **12,197,104**, SHA-256 `d03aa5aae26d3d61105017efffc324628da1770d5e57df4c94eff869ff94cf81`; 73 skin joints. Source-rest shoulder span **0.15364 native units**, heel/ankle span **0.26138 native units**. Signed foot lanes relative to the source shoulder axis: left **-0.130691**, right **+0.130691**; toe lanes **-0.173348** and **+0.173348**. Note these are *source bind/rest units*, not the final 1.78 m scaled character and not the CHAR-109 arm-corrected pose. A runtime baseline measurement is taken after accepted CHAR-109/110 controllers restore neutral, and is checked against subsequent hover frames.
+
+### Native flight implementation
+
+- `scripts/char129-audit-native-rig.mjs`: mandatory build audit, verifies exact original GLB, critical named joints, parent topology, bilateral source-rest signed spatial lanes.
+- `src/game/character/native-flight-129.ts`: new native-only controller using the captured accepted CHAR-109/110 joint rotations. Zero foreign UAL flight joint deltas and zero frame-accumulation; stationary/directional hover retains the entire accepted resting skeleton, including its pelvis and all spine parents. Anatomical world-space wrist/ankle lanes are checked with actual linked transforms after the game imports the original character.
+- `src/game/world/mercer-static-character-103.ts`: reuses the exact original character.glb instance. A visual-only waist pivot plus equal and opposite offset (0.95 m each) preserves the exact unpitched standing model hierarchy; accelerated flight pitches the **visual rig only** progressively to approximately **67° forward**. All 22 mapped limb local rotations remain unchanged; arm/palm and left/right foot spacing move rigidly. Walking and jumping controllers reset before native-flight capture and regain ownership when flight is turned off.
+- `src/game/core/gtd-runtime.ts`: human flight toggle and existing Rapier motion path now update the visible native actor. Existing UAL flight remains available when Character is disabled. Speeds, gravity/collisions, 145 m ceiling, camera and mobile controls unchanged. No car interior, world-generation or CHAR-128 source files imported.
+- `src/test/char129-native-flight.test.ts`: **5/5 tests passed**, including native intent selection, turning while hovering, nonidentity arm and leg baseline, rigid accelerated pitch with no collider pitch, return-to-native pose after fast motion, a deliberately crossed-leg rejection, and real owner GLB source contract.
+
+### Build result / visual checkpoint
+
+Vercel **preview READY**: https://gtd-62ykqf6cd-interlinkglobaltech.vercel.app/game  
+Deployment `dpl_9w1pFDHatX5N7hvtEL8kmryBfoKS`. The full build completed successfully, including the existing GTD regression suite, the native GLB audit, Babylon/Vite output, and PWA/offline packaging (**0 mandatory assets missing**). The preview points to the explicit implementation commit above.
+
+**Visual acceptance pending.** A successful numeric/parented test is NOT evidence that the newly posed skinned mesh looks correct from front/side/rear angles. The next checkpoint is owner inspection on desktop/mobile of zero-input hovering, left/right leg separation, natural relaxed hands and arms, accelerated pitch, fast-to-hover return, landing, and walk/run/jump recovery. Any acceptance is to be explicitly recorded; no automatic merge.
+
+**Branch isolation verification required before merging:** diff contains only this native flight controller, its audit and tests, minimal actor/runtime/build wiring and CHAR-129 documentation. Vehicle seating and accepted gait/jump code must remain unchanged.
