@@ -241,3 +241,23 @@ Deployment: `dpl_3tqFx35EbVmWJLNPUkkKRzryvm7g`; built from implementation SHA ab
 **Rollback anchors:** accepted floating prior preview https://gtd-ke509tl32-interlinkglobaltech.vercel.app/game (FI-001) and initial accepted neutral-native baseline https://gtd-62ykqf6cd-interlinkglobaltech.vercel.app/game (V2). Remain untouched. No changes merged to `main`; production unchanged.
 
 **Owner visual gate:** Inspect right knee/ankle from side (clearest differentiation) and front (bilateral lane separation); observe oscillator relative to the former preview. Passing numerical tests is not a substitute for visual acceptance.
+
+
+### CHAR-129-FI-003 — Visible superhero hover refinement, 2026-10-24
+
+**Owner visual evaluation:** CHAR-129 FI-002 preview `gtd-5icda34m5-interlinkglobaltech.vercel.app/game` is nearly acceptable. Owner requests three targeted improvements **without replacing the current accepted native-flight architecture**: another 10% more subtle idle floating, a visibly forward-lifted **right knee** approaching a restrained forward knee-kick (reference: UAL airborne example), and moderately more space between the arms and torso.
+
+**Rollback:** Preserve FI-002 commit `7a15af554a6bb25fa245323b0999bc7c8fac2840` and its verified preview. Keep FI-001, V2 initial and CHAR-109 accepted posture references. Work only in the existing feature branch; do not merge/deploy production without acceptance.
+
+**Precise animation scaling:** Compound exactly +10% on **current** FI-002 float amplitudes:
+- Vertical: `0.013020 × 1.10 = 0.014322 m` (1.4322 cm).
+- Fore/aft: `0.007595 × 1.10 = 0.0083545 m` (0.83545 cm).
+- Two-second cycle, phase relationship, 0.24 s easing, visual-pivot-only displacement remain identical. No movement of Rapier actor/camera.
+
+**Visual anatomical targets:**
+- Widen both accepted upper arms a little farther, retaining neutral shoulder parents, unmodified elbow/forearm/wrist local rotations and natural palms. Target side offsets around 8.5% of measured shoulder span per elbow (previously 5.5%), hard cap ~0.19 rad per native upper-arm aim.
+- The right thigh advances **in front of the torso** toward a restrained knee-kick; its right knee should visibly lead the hip line forward rather than simply swinging the foot. Aim forward displacement at ~32% of native thigh length, with thigh joint rotation capped near 0.40 rad. *Recompute the ankle after thigh aim*; fold the right shank toward the body with ~52% shin-length posterior target and ~21% upward target, native shin joint cap ~0.65 rad.
+- Keep **left leg unchanged**; preserve right foot in its anatomical lateral lane, never crossing or allowing a collapsed pelvis. Add stronger admission thresholds: at least **20°** incremental right knee flexion, **14% thigh length** of right-knee forward advancement, and **9% shin length** of right-foot lift. All metrics are evaluated from real parented GLB world-space points and actual toe-derived forward direction, including variant yaw angles; fail closed to accepted neutral if not met.
+- Use absolute, baseline-relative rotations and 0.24 s blend; no cumulative bone drift. The larger knee must not become a full kick, tuck, or bicycling motion. Fast flight, physics, camera, walking, jumping and vehicle branches are out of scope.
+
+**Acceptance tests:** exact amplified sinusoidal constants and 2s periodicity; real original GLB anatomical measurement across three yaw directions; right-knee advancement and flexion plus ankle lift thresholds, wrists relaxed, bilateral foot clearance, repeatable entry and neutral restoration. Full GTD regression/PWA build; **one new preview** and owner visual inspection from side + front/rear. Passing numeric tests alone does not establish visual acceptance.
