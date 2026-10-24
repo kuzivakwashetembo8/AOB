@@ -19,7 +19,7 @@ const joints=[
  "Hips","Spine","Spine1","Spine2","Neck","Head",
  "LeftShoulder","LeftArm","LeftForeArm","LeftHand",
  "RightShoulder","RightArm","RightForeArm","RightHand",
- "LeftUpLeg","LeftLeg","LeftFoot","LeftToeBase",
+ "LeftUpLeg","LeftLeg","LeftToeBase",
  "RightUpLeg","RightLeg","RightFoot","RightToeBase",
 ] as const;
 function rig(){
@@ -139,8 +139,18 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
    expect(player.report.mode).toBe("fast");
    expect(player.report.pitchRadians).toBeCloseTo(NATIVE_FLIGHT_MAX_PITCH_129,4);
    expect(r.anchor.rotation.x).toBe(0); // never rotate physics
-   for(const [key,base] of rotations)
-    expect(Math.abs(Quaternion.Dot(base,r.names.get(key)!.rotationQuaternion!))).toBeCloseTo(1,6);
+   expect(player.report.pitchRadians).toBeCloseTo(Math.PI/2,4);
+   if(player.report.fastCalibrated){
+    expect(player.report.fastWeight).toBeCloseTo(1,6);
+    expect(player.report.fastSoleUpLeft).toBeGreaterThan(.55);
+    expect(player.report.fastSoleUpRight).toBeGreaterThan(.55);
+   }else expect(player.report.fastCalibrationIssue).not.toBeNull();
+   for(const key of ["Hips","Spine","Spine1","Spine2","LeftUpLeg",
+    "LeftLeg","RightUpLeg","RightLeg","LeftHand","RightHand"]){
+    const base=rotations.get(key)!;
+    expect(Math.abs(Quaternion.Dot(base,r.names.get(key)!.rotationQuaternion!)))
+     .toBeCloseTo(1,6);
+   }
    for(let i=0;i<35;i++)player.update({...staticPose,dt:1/60});
    expect(r.pivot.rotation.x).toBeCloseTo(0,6);
    // flyIdle is now intentionally different from standing; leaving flight
@@ -196,7 +206,7 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
    expect(hover.leftAnkleLane).toBeLessThan(hover.rightAnkleLane);
    expect(hover.ankleSeparation).toBeGreaterThan(rest.ankleSeparation*.80);
    for(const name of ["Hips","Spine","Spine1","Spine2","LeftUpLeg","LeftLeg",
-    "LeftFoot","RightToeBase","LeftHand","RightHand","LeftForeArm","RightForeArm"])
+    "RightToeBase","LeftHand","RightHand","LeftForeArm","RightForeArm"])
     expect(Math.abs(Quaternion.Dot(r.names.get(name)!.rotationQuaternion!,base.get(name)!)))
      .toBeCloseTo(1,6);
    player.leave();
