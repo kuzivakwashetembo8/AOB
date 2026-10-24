@@ -55,17 +55,19 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
   try{
    const rest=captureNativeFlightGeometry129(r.named,r.anchor);
    const wristLocal=new Map(["LeftHand","RightHand","LeftForeArm","RightForeArm",
-    "LeftLeg","LeftFoot","RightFoot","LeftUpLeg"].map(name=>[
+    "LeftLeg","LeftFoot","RightToeBase","LeftUpLeg"].map(name=>[
      name,r.named.get(name)!.rotationQuaternion!.clone()]));
+   const footRest=r.named.get("RightFoot")!.rotationQuaternion!.clone();
    const player=createNativeFlightPlayer129([r.skeleton],r.anchor,r.pivot);
    player.enter();
    expect(player.report.idleCalibrated,player.report.idleCalibrationIssue??"calibrated")
     .toBe(true);
    // FI-002: a nonidentity rotation is not sufficient. Verify anatomical
    // bend magnitude and positive lift on the REAL linked target GLB.
-   expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(20);
-   expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.09);
-   expect(player.report.idleRightKneeAdvanceFraction).toBeGreaterThanOrEqual(.14);
+   expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(25);
+   expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.10);
+   expect(player.report.idleRightKneeAdvanceFraction).toBeGreaterThanOrEqual(.18);
+   expect(player.report.idleRightToeDownDot).toBeGreaterThanOrEqual(.70);
    for(let i=0;i<30;i++)player.update({...idleInput,dt:1/60});
    const hover=captureNativeFlightGeometry129(r.named,r.anchor);
    expect(hover.leftWristLane).toBeLessThan(rest.leftWristLane);
@@ -81,11 +83,19 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
     Math.PI-Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(
      a.subtract(b).normalize(),c.subtract(b).normalize()))));
    expect(Number.isFinite(flexion(hip,knee,ankle))).toBe(true);
+   const toe=position("RightToeBase");
+   const shoeDirection=toe.subtract(ankle).normalize();
+   const worldDown=new Vector3(0,-1,0);
+   expect(Vector3.Dot(shoeDirection,worldDown)).toBeGreaterThanOrEqual(.70);
+   expect(Math.abs(Quaternion.Dot(r.named.get("RightFoot")!.rotationQuaternion!,
+     footRest))).toBeLessThan(.999999);
    for(const [name,rotation] of wristLocal)
     expect(Math.abs(Quaternion.Dot(r.named.get(name)!.rotationQuaternion!,rotation)))
      .toBeCloseTo(1,6);
    expect(player.report.idleWeight).toBeCloseTo(1,6);
    player.leave();
+   expect(Math.abs(Quaternion.Dot(r.named.get("RightFoot")!.rotationQuaternion!,
+     footRest))).toBeCloseTo(1,6);
    for(const [name,rotation] of wristLocal)
     expect(Math.abs(Quaternion.Dot(r.named.get(name)!.rotationQuaternion!,rotation)))
      .toBeCloseTo(1,6);
