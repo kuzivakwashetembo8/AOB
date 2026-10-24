@@ -25,7 +25,7 @@ type Layer = "asphalt" | "pavement" | "curb" | "crossing";
 type Builder = { p:number[];uv:number[];indices:number[] };
 type Point = Readonly<{x:number;y:number;z:number}>;
 const WIDTH=8, HALF=WIDTH/2, WALK=3.75, OUTER=HALF+WALK;
-const CURB_TOP=.205, WALK_TOP=.20, ASPHALT_TOP=.055, PAD_TOP=.078;
+const CURB_TOP=.205, WALK_TOP=.20, ASPHALT_TOP=.075;
 const STEP=6; // metres between grade samples
 
 function empty():Builder{return {p:[],uv:[],indices:[]};}
@@ -82,23 +82,6 @@ function pad(batch:Builder,x0:number,z0:number,x1:number,z1:number,elevation:num
   addQuad(batch,projected(x0,z0,at,elevation),projected(x1,z0,at,elevation),
     projected(x1,z1,at,elevation),projected(x0,z1,at,elevation));
 }
-function pathSegment(
-  batch:Record<Layer,Builder>,axis:"x"|"z",fixed:number,
-  start:number,end:number,at:(x:number,z:number)=>number,
-){
-  runStrip(batch.asphalt,axis,fixed,-HALF,HALF,start,end,ASPHALT_TOP,at);
-  // South Ward's raised 3.75m sidewalk + exposed 0.20m curb.
-  for(const side of [-1,1]){
-    const inner=side*(HALF+.02), outer=side*OUTER;
-    runStrip(batch.pavement,axis,fixed,Math.min(inner,outer),Math.max(inner,outer),
-      start,end,WALK_TOP,at);
-    runStrip(batch.curb,axis,fixed,
-      side<0?-HALF-.20:HALF,
-      side<0?-HALF:HALF+.20,
-      start,end,CURB_TOP,at);
-    curbFace(batch.curb,axis,fixed,side*HALF,start,end,at);
-  }
-}
 function materialMesh(scene:Scene,name:string,data:Builder,material:StandardMaterial){
   if(!data.indices.length)return false;
   const normal:number[]=[];
@@ -126,12 +109,15 @@ export function createNorthHeightsRoads003(
     asphalt:empty(),pavement:empty(),curb:empty(),crossing:empty(),
   };
   let sidewalkCount=0,curbCount=0,crossings=0;
-  const first=streets[0]!,last=streets[streets.length-1]!;
-  // Each long asphalt axis is continuous. Pedestrian pavement is instead
-  // clipped between junction exterior corners, preventing intersecting slabs.
+  // IMPORTANT: generate DISJOINT road spans. Previously both full-length axes
+  // covered every intersection; a raised cover pad only disguised the resulting
+  // coplanar z-fighting, producing intermittent grey/black junction bands.
+  // Now each 8m intersection owns ONE asphalt quad. Street spans begin and end
+  // precisely at its boundaries. Pavement and curb have independent footprints.
   for(const axis of ["x","z"] as const) for(const fixed of streets){
-    runStrip(batch.asphalt,axis,fixed,-HALF,HALF,first,last,ASPHALT_TOP,at);
     for(let i=0;i<streets.length-1;i++){
+      runStrip(batch.asphalt,axis,fixed,-HALF,HALF,streets[i]!+HALF,
+        streets[i+1]!-HALF,ASPHALT_TOP,at);
       const start=streets[i]!+OUTER, end=streets[i+1]!-OUTER;
       // Clip every footpath and face curb at next crossroads.
       for(const side of [-1,1]){
@@ -148,9 +134,9 @@ export function createNorthHeightsRoads003(
   }
   for(let iz=0;iz<streets.length;iz++)for(let ix=0;ix<streets.length;ix++){
     const x=streets[ix]!,z=streets[iz]!;
-    // Deliberately raised over intersecting road strips by 23mm; one asphalt
-    // pad covers both underlying ribbons. Identical material, unique depth.
-    pad(batch.asphalt,x-HALF,z-HALF,x+HALF,z+HALF,PAD_TOP,at);
+    // Exactly one quad per asphalt junction, at the same grade as joined roads.
+    // There is no grey pad or second coplanar asphalt surface beneath it.
+    pad(batch.asphalt,x-HALF,z-HALF,x+HALF,z+HALF,ASPHALT_TOP,at);
     for(const sx of [-1,1])for(const sz of [-1,1]){
       const x0=x+sx*HALF,x1=x+sx*OUTER;
       const z0=z+sz*HALF,z1=z+sz*OUTER;
