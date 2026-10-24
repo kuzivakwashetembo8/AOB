@@ -9,7 +9,24 @@ function harness(human=false) {
  const engine=new NullEngine(),scene=new Scene(engine);
  const root=new TransformNode("playable-ual",scene);
  const runtime=new GTDGameRuntime();
- const state=runtime as unknown as Record<string,any>;
+ type RuntimeProbe={
+  lifecycle:string;
+  physics:unknown;
+  voight:unknown;
+  camera:unknown;
+  sportsCars:Map<string,unknown>;
+  driveVehicleNames:Map<string,string>;
+  characterTrial:unknown;
+  humanCharacterEnabled:boolean;
+  world:unknown;
+  publishSnapshot:ReturnType<typeof vi.fn>;
+  emit:ReturnType<typeof vi.fn>;
+  context:string;
+  toggleVehicleDriving:()=>void;
+  fixedUpdate:(dt:number)=>void;
+  switchHumanCharacter:(enabled:boolean)=>void;
+ };
+ const state=runtime as unknown as RuntimeProbe;
  let carPos:Point={x:2,y:.90,z:0},carSpeed=0,carYaw=0;
  let legalExit=true;
  const car={
