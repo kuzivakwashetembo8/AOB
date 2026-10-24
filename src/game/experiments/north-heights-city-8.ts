@@ -10,11 +10,13 @@ import {
 import "@babylonjs/loaders/glTF";
 import { configureLocalGameDecoders } from "@/game/core/local-decoders";
 import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-heights-reconstruction-001";
+import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
   press: (control: Control, down: boolean) => void;
   reset: () => void;
+  setTime: (time: NorthHeightsTime) => void;
   dispose: () => void;
 }
 type Bounds = { min: Vector3; max: Vector3; size: Vector3; center: Vector3 };
@@ -70,6 +72,7 @@ export async function createNorthHeightsCity8(
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
   const scene = new Scene(engine);
+  const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
   scene.clearColor = new Color4(0.68, 0.78, 0.86, 1);
   scene.fogMode = Scene.FOGMODE_EXP2;
   scene.fogDensity = 0.00115;
@@ -81,8 +84,9 @@ export async function createNorthHeightsCity8(
   hemi.intensity = 1.15;
   const sun = new DirectionalLight("nh001-daylight", new Vector3(-0.6, -1, 0.4), scene);
   sun.intensity = 1.20;
+  const sky = createNorthHeightsSky(scene,sun,hemi,mobile);
   // Reduce cost on memory-constrained mobiles before any 3D assets are loaded.
-  engine.setHardwareScalingLevel(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 1.75 : 1.1);
+  engine.setHardwareScalingLevel(mobile ? 1.75 : 1.1);
   const camera = new FreeCamera("nh001-fly-camera", new Vector3(0, 10, -20), scene);
   camera.minZ = 0.1;
   camera.maxZ = 10000;
@@ -152,6 +156,7 @@ export async function createNorthHeightsCity8(
   const controller: NorthHeightsInspection = {
     press(control, down) { if (down) held.add(control); else held.delete(control); },
     reset() { camera.position.copyFrom(anchor); yaw = initialYaw; pitch = initialPitch; clearKeys(); },
+    setTime(time) { sky.setTime(time); },
     dispose() {
       if (closed) return;
       closed = true;
@@ -164,13 +169,12 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearKeys);
       window.removeEventListener("resize", resize);
-      scene.dispose(); engine.dispose();
+      sky.dispose(); scene.dispose(); engine.dispose();
     },
   };
   const started = performance.now();
   try {
     status("Generating North Heights · native roads, towers, terraces and facades");
-    const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
     const world = buildNorthHeightsReconstruction(scene,mobile);
     if (closed) return controller;
     // Fixed visual witnesses are placed at a public street-level observation area.
