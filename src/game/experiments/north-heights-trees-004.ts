@@ -95,6 +95,9 @@ export async function placeNorthHeightsTrees004(
       const s=new Vector3(),q=new Quaternion(),p=new Vector3();
       if(!full.decompose(s,q,p))continue;
       const instance=mesh.createInstance("nh004-tree-"+i+"-"+mesh.name);
+      // InstancedMesh may inherit the source GLB's transform parent; world
+      // transforms above are already fully resolved, so detach parent.
+      instance.parent=null;
       instance.position.copyFrom(p);
       instance.rotationQuaternion=q;
       instance.scaling.copyFrom(s);
