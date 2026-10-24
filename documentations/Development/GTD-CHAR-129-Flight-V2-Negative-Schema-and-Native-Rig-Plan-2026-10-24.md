@@ -340,3 +340,14 @@ Deployment: `dpl_3tqFx35EbVmWJLNPUkkKRzryvm7g`; built from implementation SHA ab
 **Transitions:** Upright flying uses existing persistent bent-leg hover targets; accelerated forward uses separate fast arms/feet, and reverts to upright hover on sprint release. Fast pose and pivot blend on the same short controlled transition. No bent-leg delay upon returning to upright. Landing returns the accepted standing/jumping pose with no residual ankle rotations or body pitch.
 
 **Verification:** Real `character.glb` parented hierarchy at three actor headings; unchanged left leg joints except LeftFoot during upright hovering; knee heights and right sole orientation untouched; at fast steady-state exact π/2 torso pitch, separate leg extensions, fast arm spread greater than hover, both soles' world-up projection positive and substantial, and no physics movement; transition fast→hover and landing repeated 80 times. Include synthetic fallback rig tests, full build and PWA/offline checks. Produce one substantial preview for owner visual review; no automatic merge.
+
+
+### CHAR-129-FI-006 — Final preview verification and integration boundary
+
+**Owner instruction (2026-10-24):** Merge the current completed CHAR-129 native flight branch into `main`.
+
+**Accepted/verified preview:** https://gtd-2org7ssoj-interlinkglobaltech.vercel.app/game — Vercel deployment `dpl_2uhbxHQsBGvFsQyUTwHykCbEypR2`, READY at implementation commit `eccc4d4367ba37e52651be7459220de6bfb70e2f`. Full application build and packaging completed; PWA inventory 443 resources and 0 missing mandatory assets.
+
+**Integration safety:** The base `main` has acquired independent browser game loading-persistence changes, including pause/resume animation-frame handling and input debouncing, along with infrastructure model uploads. The CHAR-129 feature modifies the same `src/game/core/gtd-runtime.ts` but only around the flight toggle and visible character animation routing. Merge must preserve both sets of changes; do **not** overwrite the pause/resume lifecycle controls or decommissioned seating documentation. No production deployment authorized by this merge instruction.
+
+**Preserved work:** CHAR-109 standing posture, CHAR-127 jumping, existing UAL flight path, and prior CHAR-129 hover, knee, arms and directional gaze. Sprint/accelerated flight adds visual-only 90° horizontal pose and independently calibrated arm/sole orientations; no physics collider pitch or imported UAL joint retargeting.
