@@ -8,7 +8,7 @@
  */
 import {Quaternion,TransformNode,Vector3,Matrix} from "@babylonjs/core";
 import type {Skeleton} from "@babylonjs/core";
-import {rotationOf,applyAimStep} from "./driver-joint-space";
+import {rotationOf,applyAimStep,parentSpaceAimDelta} from "./driver-joint-space";
 import {selectFlightPose,type FlightPoseInput,type FlightPoseClip} from "./locomotion/flight-pose";
 const ANATOMY=[
  "Hips","Spine","Spine1","Spine2","Neck","Head",
@@ -25,9 +25,9 @@ const FLY_IDLE_CYCLE_SECONDS_129=2;
 const FLY_IDLE_VERTICAL_AMPLITUDE_129=.014322; // FI-003: 0.013020 * 1.10
 const FLY_IDLE_FORWARD_AMPLITUDE_129=.0083545; // FI-003: 0.007595 * 1.10
 const FLY_IDLE_BLEND_SECONDS_129=.24;
-const FLY_IDLE_ARM_OPEN_FRACTION_129=.12; // FI-004: slightly wider, still natural
-const FLY_IDLE_KNEE_FORWARD_FRACTION_129=.39; // FI-004: visible relaxed forward knee
-const FLY_IDLE_FOOT_UP_FRACTION_129=.25;
+const FLY_IDLE_ARM_OPEN_FRACTION_129=.40; // FI-005: visible balance spread
+const FLY_IDLE_KNEE_FORWARD_FRACTION_129=.48; // FI-005: forward raised knee
+const FLY_IDLE_FOOT_UP_FRACTION_129=.60;
 export {FLY_IDLE_CYCLE_SECONDS_129,FLY_IDLE_VERTICAL_AMPLITUDE_129,FLY_IDLE_FORWARD_AMPLITUDE_129};
 const clamp=(x:number,low:number,high:number)=>Math.max(low,Math.min(high,x));
 export const NATIVE_FLIGHT_MAX_PITCH_129=MAX_FAST_PITCH_RAD;
@@ -50,6 +50,7 @@ export type NativeFlightReport129=Readonly<{
  idleKneeFlexionGainDegrees:number;idleRightFootLiftFraction:number;
  idleRightKneeAdvanceFraction:number;
  idleRightToeDownDot:number;
+ idleRightFootAboveLeftFraction:number;headPitchDirection:number;hoverWeight:number;
 }>;
 export type NativeFlightPlayer129={
  enter:()=>void;
@@ -117,11 +118,12 @@ export function createNativeFlightPlayer129(
  const nodes=readJoints(skeletons);
  let active=false,disposed=false,frames=0,pitch=0,baseline:NativeFlightGeometry129|null=null;
  let pose:Joint[]=[],reason:string|null=null,maxDeviation=0,clip:FlightPoseClip|null=null;
- let idleWeight=0,floatSeconds=0,calibrated=false,calibrationIssue:string|null=null;
+ let idleWeight=0,hoverWeight=0,floatSeconds=0,headPitchDirection=0,calibrated=false,calibrationIssue:string|null=null;
  let idleTargets=new Map<string,Quaternion>();
  let hoverGeometry:NativeFlightGeometry129|null=null;
  let kneeFlexionGainDegrees=0,rightFootLiftFraction=0,rightKneeAdvanceFraction=0;
- let rightToeDownDot=0;
+ let rightToeDownDot=0,rightFootAboveLeftFraction=0;
+ let upHead:Quaternion|null=null,downHead:Quaternion|null=null;
  const pivotRest=flightPivot.position.clone();
  let status:NativeFlightReport129["status"]="uninitialized";
  function restore(){
@@ -129,7 +131,7 @@ export function createNativeFlightPlayer129(
    item.node.rotationQuaternion=item.rest.clone();
  }
  function resetPivot(){
-  pitch=0;idleWeight=0;floatSeconds=0;
+  pitch=0;idleWeight=0;hoverWeight=0;headPitchDirection=0;floatSeconds=0;
   if(!flightPivot.isDisposed()){
    flightPivot.rotation.x=0;
    flightPivot.position.copyFrom(pivotRest);
@@ -147,6 +149,7 @@ export function createNativeFlightPlayer129(
   // Derive native poses from actual parented endpoint geometry, never UAL.
   calibrated=false;calibrationIssue=null;idleTargets.clear();hoverGeometry=null;
   kneeFlexionGainDegrees=0;rightFootLiftFraction=0;rightKneeAdvanceFraction=0;rightToeDownDot=0;
+  rightFootAboveLeftFraction=0;upHead=null;downHead=null;
   if(!baseline)return;
   const base=new Map(pose.map(j=>[j.name,j.rest]));
   const reference=(name:string)=>{
@@ -162,7 +165,7 @@ export function createNativeFlightPlayer129(
     const arm=nodes.get(side+"Arm")!,elbow=nodes.get(side+"ForeArm")!;
     const target=reference(side+"ForeArm").add(lateral.scale(
      (side==="Left"?-1:1)*separation));
-    if(!applyAimStep(arm,elbow,target,.26))
+    if(!applyAimStep(arm,elbow,target,.42))
      throw Error("native "+side+" elbow lateral aim failed");
    }
    const knee=nodes.get("RightLeg")!,thigh=nodes.get("RightUpLeg")!,
@@ -191,27 +194,31 @@ export function createNativeFlightPlayer129(
    // AFTER the upper-leg transform; the old code aimed at a stale ankle
    // and could cancel the tibia's visible flexion.
    if(!applyAimStep(thigh,knee,kneeStart.add(
-     forward.scale(thighLength*FLY_IDLE_KNEE_FORWARD_FRACTION_129)),.50))
+     forward.scale(thighLength*FLY_IDLE_KNEE_FORWARD_FRACTION_129)),.65))
     throw Error("native relaxed thigh aim failed");
    const kneeMoved=reference("RightLeg"),ankleMoved=reference("RightFoot");
    const footTarget=ankleMoved.add(Vector3.Up().scale(
      shinLength*FLY_IDLE_FOOT_UP_FRACTION_129)).subtract(
-     forward.scale(shinLength*.60));
-   if(!applyAimStep(knee,ankle,footTarget,.82))
+     forward.scale(shinLength*.85));
+   if(!applyAimStep(knee,ankle,footTarget,1.20))
     throw Error("native right shin flexion aim failed");
    const kneeFinal=reference("RightLeg"),ankleFinal=reference("RightFoot"),
     hipFinal=reference("RightUpLeg");
    const gain=kneeFlexion(hipFinal,kneeFinal,ankleFinal)-initialFlex;
    const footRise=(ankleFinal.y-ankleStart.y)/shinLength;
+   const footGap=(ankleFinal.y-reference("LeftFoot").y)/shinLength;
    const kneeAdvance=Vector3.Dot(kneeFinal.subtract(kneeStart),forward)/thighLength;
    if(!Number.isFinite(kneeAdvance)||kneeAdvance<.18)
     throw Error("native right knee insufficient forward lead: "+kneeAdvance.toFixed(3));
    if(!Number.isFinite(gain)||gain<25*Math.PI/180)
     throw Error("native right knee still visibly straight: insufficient flexion "+
       (gain*180/Math.PI).toFixed(2)+" degrees");
-   if(!Number.isFinite(footRise)||footRise<.10)
+   if(!Number.isFinite(footRise)||footRise<.28)
     throw Error("native right ankle lift too small: "+footRise.toFixed(3));
+   if(!Number.isFinite(footGap)||footGap<.24)
+    throw Error("native right foot not visibly higher than straight leg: "+footGap.toFixed(3));
    kneeFlexionGainDegrees=gain*180/Math.PI;
+   rightFootAboveLeftFraction=footGap;
    rightFootLiftFraction=footRise;
    rightKneeAdvanceFraction=kneeAdvance;
    // FI-004: A flexed KNEE alone leaves the shoe's sole pointing down like
@@ -242,6 +249,20 @@ export function createNativeFlightPlayer129(
    hoverGeometry=captureNativeFlightGeometry129(nodes,anchor);
    if(!laneSafe(hoverGeometry,baseline))
     throw Error("native flyIdle violates wrist or ankle anatomical lanes");
+   // Fork glTF/UAL uses separate head motion; compute native neck pitch
+   // in parent space from actual toe-derived facing, not copied UAL joints.
+   const neck=nodes.get("Neck")!,parent=neck.parent;
+   if(!parent)throw Error("native neck has no linked parent");
+   parent.computeWorldMatrix(true);
+   const baseNeck=rotationOf(neck);
+   const headAim=(direction:1|-1,pitchAmount:number,maxRadians:number)=>{
+    const to=forward.add(Vector3.Up().scale(direction*pitchAmount)).normalize();
+    const delta=parentSpaceAimDelta(forward,to,parent.getWorldMatrix(),maxRadians);
+    if(!delta)throw Error("native head flight tilt uncalibrated");
+    return delta.multiply(baseNeck).normalize();
+   };
+   upHead=headAim(1,.36,.35);
+   downHead=headAim(-1,.28,.29);
    for(const name of ["LeftArm","RightArm","RightUpLeg","RightLeg","RightFoot"]){
     const node=nodes.get(name)!;
     idleTargets.set(name,rotationOf(node));
@@ -268,6 +289,12 @@ export function createNativeFlightPlayer129(
    baseline=captureNativeFlightGeometry129(nodes,anchor);
    reason=null;status="ready";active=true;frames=0;maxDeviation=0;clip="flyIdle";
    captureIdleTargets();
+   // Calibrated hover begins bent on the FIRST airborne frame.
+   hoverWeight=calibrated?1:0;
+   if(calibrated)for(const joint of pose){
+    const desired=idleTargets.get(joint.name);
+    if(desired)joint.node.rotationQuaternion=desired.clone();
+   }
   }catch(e){
    reason=e instanceof Error?e.message:String(e);
    status="rejected";active=false;baseline=null;pose=[];clip=null;
@@ -278,13 +305,15 @@ export function createNativeFlightPlayer129(
   if(disposed||!active||status!=="ready"||!Number.isFinite(input.dt)||input.dt<=0)return;
   const step=clamp(input.dt,0,.05);
   clip=selectFlightPose(input);
-  // Only stationary flyIdle gets the subtle native balance posture.
-  // Floating is the accepted primary behavior; it must not disappear just
-  // because a malformed/sketch fixture cannot calibrate the optional knee.
-  // Anatomical pose targets are still only applied when calibration succeeds.
+  // Microfloat is exclusive to stationary idle; the upright anatomical
+  // pose persists across takeoff, ascent, descent and directional hovering.
   const targetIdle=clip==="flyIdle"?1:0;
   idleWeight+=clamp(targetIdle-idleWeight,-step/FLY_IDLE_BLEND_SECONDS_129,
    step/FLY_IDLE_BLEND_SECONDS_129);
+  const targetHover=clip==="fly"||!calibrated?0:1;
+  hoverWeight+=clamp(targetHover-hoverWeight,-step/.17,step/.17);
+  const headTarget=clip==="fly"?0:input.ascending?1:input.descending?-1:0;
+  headPitchDirection+=clamp(headTarget-headPitchDirection,-step/.20,step/.20);
   // Two-second continuous, phase-shifted sinusoid; visual-only and almost
   // imperceptible. No oscillation is injected into Rapier coordinates.
   floatSeconds=(floatSeconds+step)%FLY_IDLE_CYCLE_SECONDS_129;
@@ -307,8 +336,13 @@ export function createNativeFlightPlayer129(
    deviation=Math.max(deviation,2*Math.acos(clamp(dot,-1,1)));
    // Absolute target each frame, not additive drift.
    const idleTarget=idleTargets.get(j.name);
-   const desired=idleTarget&&idleWeight>0?
-    Quaternion.Slerp(j.rest,idleTarget,idleWeight).normalize():j.rest;
+   let desired=idleTarget&&hoverWeight>0?
+    Quaternion.Slerp(j.rest,idleTarget,hoverWeight).normalize():j.rest;
+   if(j.name==="Neck"&&calibrated){
+    const headTarget=headPitchDirection>0?upHead:downHead;
+    if(headTarget)desired=Quaternion.Slerp(j.rest,headTarget,
+      Math.abs(headPitchDirection)*hoverWeight).normalize();
+   }
    if(Math.abs(Quaternion.Dot(current,desired))<.999999)
     j.node.rotationQuaternion=desired.clone();
   }
@@ -317,12 +351,11 @@ export function createNativeFlightPlayer129(
   // intentionally different from baseline in actor coordinates.
   if(frames%30===0&&Math.abs(pitch)<.0001&&baseline){
    const current=captureNativeFlightGeometry129(nodes,anchor);
-   const matchBaseline=idleWeight<.0001&&equivalent(baseline,current);
-   const matchIdle=idleWeight>.9999&&(
+   const matchBaseline=hoverWeight<.0001&&equivalent(baseline,current);
+   const matchIdle=hoverWeight>.9999&&(
     calibrated&&hoverGeometry!==null?
-      equivalent(hoverGeometry,current):
-      equivalent(baseline,current));
-   const validTransition=idleWeight>.0001&&idleWeight<.9999&&
+      equivalent(hoverGeometry,current):equivalent(baseline,current));
+   const validTransition=hoverWeight>.0001&&hoverWeight<.9999&&
     laneSafe(current,baseline);
    if(!(matchBaseline||matchIdle||validTransition)){
     status="rejected";reason="CHAR129 actual GLB hover world-space lanes diverged from accepted standing";
@@ -350,7 +383,9 @@ export function createNativeFlightPlayer129(
     idleKneeFlexionGainDegrees:kneeFlexionGainDegrees,
     idleRightFootLiftFraction:rightFootLiftFraction,
     idleRightKneeAdvanceFraction:rightKneeAdvanceFraction,
-    idleRightToeDownDot:rightToeDownDot};
+    idleRightToeDownDot:rightToeDownDot,
+    idleRightFootAboveLeftFraction:rightFootAboveLeftFraction,
+    headPitchDirection,hoverWeight};
   },
   dispose(){leave();disposed=true;status="disposed";pose.length=0;}
  };
