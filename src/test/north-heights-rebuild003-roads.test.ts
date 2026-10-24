@@ -37,11 +37,23 @@ describe("NH-REBUILD-003 isolated South Ward-patterned road/curb checkpoint", ()
       expect(asphalt.getTotalIndices()).toBeGreaterThan(100);
       expect(walk.getTotalIndices()).toBeGreaterThan(100);
       expect(curbs.getTotalIndices()).toBeGreaterThan(100);
+      // NH-004: at the central four-way junction there must be precisely one
+      // asphalt surface quad; duplicate long road-axis strips previously
+      // created black/grey fighting and visible elevated cover bridges.
+      const asphaltPositions=asphalt.getVerticesData(VertexBuffer.PositionKind)!;
+      let coveringJunction=0;
+      for(let v=0;v<asphaltPositions.length;v+=12){
+        const xs=[asphaltPositions[v]!,asphaltPositions[v+3]!,asphaltPositions[v+6]!,asphaltPositions[v+9]!];
+        const zs=[asphaltPositions[v+2]!,asphaltPositions[v+5]!,asphaltPositions[v+8]!,asphaltPositions[v+11]!];
+        if(Math.min(...xs)<-.1 && Math.max(...xs)>.1 &&
+           Math.min(...zs)<-.1 && Math.max(...zs)>.1)coveringJunction++;
+      }
+      expect(coveringJunction).toBe(1);
       const positions=curbs.getVerticesData(VertexBuffer.PositionKind)!;
       const curbY:number[]=[];
       for(let i=1;i<positions.length;i+=3)curbY.push(positions[i]!);
       // Real curb faces run from road top to sidewalk top; not only painted lines.
-      expect(curbY.some(y=>Math.abs(y-.055)<.001)).toBe(true);
+      expect(curbY.some(y=>Math.abs(y-.075)<.001)).toBe(true);
       expect(curbY.some(y=>Math.abs(y-.205)<.001)).toBe(true);
     } finally { scene.dispose();engine.dispose(); }
   });
