@@ -61,12 +61,25 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
    player.enter();
    expect(player.report.idleCalibrated,player.report.idleCalibrationIssue??"calibrated")
     .toBe(true);
+   // FI-002: a nonidentity rotation is not sufficient. Verify anatomical
+   // bend magnitude and positive lift on the REAL linked target GLB.
+   expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(10);
+   expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.035);
    for(let i=0;i<30;i++)player.update({...idleInput,dt:1/60});
    const hover=captureNativeFlightGeometry129(r.named,r.anchor);
    expect(hover.leftWristLane).toBeLessThan(rest.leftWristLane);
    expect(hover.rightWristLane).toBeGreaterThan(rest.rightWristLane);
    expect(hover.leftAnkleLane).toBeLessThan(hover.rightAnkleLane);
    expect(hover.ankleSeparation).toBeGreaterThan(rest.ankleSeparation*.8);
+   const position=(name:string)=>{
+    const n=r.named.get(name)!;n.computeWorldMatrix(true);
+    return n.getAbsolutePosition().clone();
+   };
+   const hip=position("RightUpLeg"),knee=position("RightLeg"),ankle=position("RightFoot");
+   const flexion=(a:Vector3,b:Vector3,c:Vector3)=>
+    Math.PI-Math.acos(Math.max(-1,Math.min(1,Vector3.Dot(
+     a.subtract(b).normalize(),c.subtract(b).normalize()))));
+   expect(Number.isFinite(flexion(hip,knee,ankle))).toBe(true);
    for(const [name,rotation] of wristLocal)
     expect(Math.abs(Quaternion.Dot(r.named.get(name)!.rotationQuaternion!,rotation)))
      .toBeCloseTo(1,6);
