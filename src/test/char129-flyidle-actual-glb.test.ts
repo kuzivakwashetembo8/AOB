@@ -68,6 +68,8 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
    expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.10);
    expect(player.report.idleRightKneeAdvanceFraction).toBeGreaterThanOrEqual(.18);
    expect(player.report.idleRightToeDownDot).toBeGreaterThanOrEqual(.70);
+   expect(player.report.idleRightFootAboveLeftFraction).toBeGreaterThanOrEqual(.24);
+   expect(player.report.hoverWeight).toBe(1);
    for(let i=0;i<30;i++)player.update({...idleInput,dt:1/60});
    const hover=captureNativeFlightGeometry129(r.named,r.anchor);
    expect(hover.leftWristLane).toBeLessThan(rest.leftWristLane);
@@ -93,6 +95,37 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
     expect(Math.abs(Quaternion.Dot(r.named.get(name)!.rotationQuaternion!,rotation)))
      .toBeCloseTo(1,6);
    expect(player.report.idleWeight).toBeCloseTo(1,6);
+   const neckRest=r.named.get("Neck")!.rotationQuaternion!.clone();
+   const shoeBeforeFlight=r.named.get("RightFoot")!.rotationQuaternion!.clone();
+   // FI-005: vertical flight must maintain the elevated knee/foot posture
+   // and direct Head/Neck gaze up or down, *without* idle input.
+   for(let i=0;i<20;i++)
+    player.update({...idleInput,ascending:true,dt:1/60});
+   expect(player.report.activeClip).toBe("flyHoverUp");
+   expect(player.report.hoverWeight).toBeCloseTo(1,6);
+   expect(player.report.headPitchDirection).toBeGreaterThan(.95);
+   const neckUp=r.named.get("Neck")!.rotationQuaternion!.clone();
+   expect(Math.abs(Quaternion.Dot(neckRest,neckUp))).toBeLessThan(.999);
+   expect(Math.abs(Quaternion.Dot(shoeBeforeFlight,
+      r.named.get("RightFoot")!.rotationQuaternion!))).toBeCloseTo(1,5);
+   expect(position("RightFoot").y-position("LeftFoot").y).toBeGreaterThan(
+     Vector3.Distance(position("RightLeg"),position("RightFoot"))*.24);
+   for(let i=0;i<35;i++)
+    player.update({...idleInput,descending:true,dt:1/60});
+   expect(player.report.activeClip).toBe("flyHoverDown");
+   expect(player.report.hoverWeight).toBeCloseTo(1,6);
+   expect(player.report.headPitchDirection).toBeLessThan(-.95);
+   const neckDown=r.named.get("Neck")!.rotationQuaternion!.clone();
+   expect(Math.abs(Quaternion.Dot(neckUp,neckDown))).toBeLessThan(.98);
+   expect(position("RightFoot").y-position("LeftFoot").y).toBeGreaterThan(
+     Vector3.Distance(position("RightLeg"),position("RightFoot"))*.24);
+   for(let i=0;i<20;i++)
+    player.update({...idleInput,forward:true,dt:1/60});
+   expect(player.report.activeClip).toBe("flyHoverForward");
+   expect(player.report.hoverWeight).toBeCloseTo(1,6);
+   expect(player.report.headPitchDirection).toBeCloseTo(0,5);
+   expect(Math.abs(Quaternion.Dot(shoeBeforeFlight,
+     r.named.get("RightFoot")!.rotationQuaternion!))).toBeCloseTo(1,5);
    player.leave();
    expect(Math.abs(Quaternion.Dot(r.named.get("RightFoot")!.rotationQuaternion!,
      footRest))).toBeCloseTo(1,6);
