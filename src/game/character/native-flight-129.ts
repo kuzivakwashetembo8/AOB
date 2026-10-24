@@ -22,12 +22,12 @@ const SAMPLES=["LeftShoulder","RightShoulder","Hips","LeftHand","RightHand",
 const MAX_FAST_PITCH_RAD=Math.PI*0.37; // ~67°, torso-forward, not a collider tilt
 const PITCH_RADIANS_PER_SECOND=4.5;
 const FLY_IDLE_CYCLE_SECONDS_129=2;
-const FLY_IDLE_VERTICAL_AMPLITUDE_129=.012;
-const FLY_IDLE_FORWARD_AMPLITUDE_129=.007;
+const FLY_IDLE_VERTICAL_AMPLITUDE_129=.013020; // exactly +8.5%
+const FLY_IDLE_FORWARD_AMPLITUDE_129=.007595; // exactly +8.5%
 const FLY_IDLE_BLEND_SECONDS_129=.24;
 const FLY_IDLE_ARM_OPEN_FRACTION_129=.055;
-const FLY_IDLE_KNEE_FORWARD_FRACTION_129=.055;
-const FLY_IDLE_FOOT_UP_FRACTION_129=.08;
+const FLY_IDLE_KNEE_FORWARD_FRACTION_129=.18;
+const FLY_IDLE_FOOT_UP_FRACTION_129=.14;
 export {FLY_IDLE_CYCLE_SECONDS_129,FLY_IDLE_VERTICAL_AMPLITUDE_129,FLY_IDLE_FORWARD_AMPLITUDE_129};
 const clamp=(x:number,low:number,high:number)=>Math.max(low,Math.min(high,x));
 export const NATIVE_FLIGHT_MAX_PITCH_129=MAX_FAST_PITCH_RAD;
@@ -47,6 +47,7 @@ export type NativeFlightReport129=Readonly<{
  worstNeutralDeviationRadians:number;
  idleWeight:number;floatSeconds:number;microVertical:number;microForward:number;
  idleCalibrated:boolean;idleCalibrationIssue:string|null;
+ idleKneeFlexionGainDegrees:number;idleRightFootLiftFraction:number;
 }>;
 export type NativeFlightPlayer129={
  enter:()=>void;
@@ -117,6 +118,7 @@ export function createNativeFlightPlayer129(
  let idleWeight=0,floatSeconds=0,calibrated=false,calibrationIssue:string|null=null;
  let idleTargets=new Map<string,Quaternion>();
  let hoverGeometry:NativeFlightGeometry129|null=null;
+ let kneeFlexionGainDegrees=0,rightFootLiftFraction=0;
  const pivotRest=flightPivot.position.clone();
  let status:NativeFlightReport129["status"]="uninitialized";
  function restore(){
@@ -141,6 +143,7 @@ export function createNativeFlightPlayer129(
  function captureIdleTargets():void{
   // Derive native poses from actual parented endpoint geometry, never UAL.
   calibrated=false;calibrationIssue=null;idleTargets.clear();hoverGeometry=null;
+  kneeFlexionGainDegrees=0;rightFootLiftFraction=0;
   if(!baseline)return;
   const base=new Map(pose.map(j=>[j.name,j.rest]));
   const reference=(name:string)=>{
@@ -161,22 +164,49 @@ export function createNativeFlightPlayer129(
    }
    const knee=nodes.get("RightLeg")!,thigh=nodes.get("RightUpLeg")!,
     ankle=nodes.get("RightFoot")!;
-   const kneeStart=reference("RightLeg"),ankleStart=reference("RightFoot"),
-    hip=reference("RightUpLeg");
-   const thighLength=Vector3.Distance(hip,kneeStart);
-   if(!Number.isFinite(thighLength)||thighLength<.01)
-    throw Error("native thigh length invalid");
-   anchor.computeWorldMatrix(true);
-   const forward=Vector3.TransformNormal(Vector3.Forward(),
-    anchor.getWorldMatrix()).normalize();
+   const hipStart=reference("RightUpLeg"),kneeStart=reference("RightLeg"),
+    ankleStart=reference("RightFoot");
+   const thighLength=Vector3.Distance(hipStart,kneeStart),
+    shinLength=Vector3.Distance(kneeStart,ankleStart);
+   if(!Number.isFinite(thighLength)||thighLength<.01||
+      !Number.isFinite(shinLength)||shinLength<.01)
+    throw Error("native thigh/shin lengths invalid");
+   // Authoritative native facing comes from actual toes, not a guessed
+   // world-Z or a duplicated UAL humanoid heading convention.
+   const toeForward=reference("LeftToeBase").subtract(reference("LeftFoot"))
+     .add(reference("RightToeBase").subtract(ankleStart));
+   toeForward.y=0;
+   if(toeForward.lengthSquared()<1e-7)
+    throw Error("native toe-derived forward direction missing");
+   const forward=toeForward.normalize();
+   const kneeFlexion=(hip:Vector3,k:Vector3,foot:Vector3)=>{
+    const up=hip.subtract(k).normalize(),down=foot.subtract(k).normalize();
+    return Math.PI-Math.acos(clamp(Vector3.Dot(up,down),-1,1));
+   };
+   const initialFlex=kneeFlexion(hipStart,kneeStart,ankleStart);
+   // The first stage moves the KNEE forward. Then recompute the ankle
+   // AFTER the upper-leg transform; the old code aimed at a stale ankle
+   // and could cancel the tibia's visible flexion.
    if(!applyAimStep(thigh,knee,kneeStart.add(
-    forward.scale(thighLength*FLY_IDLE_KNEE_FORWARD_FRACTION_129)),.16))
+     forward.scale(thighLength*FLY_IDLE_KNEE_FORWARD_FRACTION_129)),.25))
     throw Error("native relaxed thigh aim failed");
-   const footTarget=ankleStart.add(Vector3.Up().scale(
-    thighLength*FLY_IDLE_FOOT_UP_FRACTION_129)).subtract(
-    forward.scale(thighLength*.025));
-   if(!applyAimStep(knee,ankle,footTarget,.23))
-    throw Error("native relaxed knee aim failed");
+   const kneeMoved=reference("RightLeg"),ankleMoved=reference("RightFoot");
+   const footTarget=ankleMoved.add(Vector3.Up().scale(
+     shinLength*FLY_IDLE_FOOT_UP_FRACTION_129)).subtract(
+     forward.scale(shinLength*.34));
+   if(!applyAimStep(knee,ankle,footTarget,.45))
+    throw Error("native right shin flexion aim failed");
+   const kneeFinal=reference("RightLeg"),ankleFinal=reference("RightFoot"),
+    hipFinal=reference("RightUpLeg");
+   const gain=kneeFlexion(hipFinal,kneeFinal,ankleFinal)-initialFlex;
+   const footRise=(ankleFinal.y-ankleStart.y)/shinLength;
+   if(!Number.isFinite(gain)||gain<Math.PI/18)
+    throw Error("native right knee still visibly straight: insufficient flexion "+
+      (gain*180/Math.PI).toFixed(2)+" degrees");
+   if(!Number.isFinite(footRise)||footRise<.035)
+    throw Error("native right ankle lift too small: "+footRise.toFixed(3));
+   kneeFlexionGainDegrees=gain*180/Math.PI;
+   rightFootLiftFraction=footRise;
    hoverGeometry=captureNativeFlightGeometry129(nodes,anchor);
    if(!laneSafe(hoverGeometry,baseline))
     throw Error("native flyIdle violates wrist or ankle anatomical lanes");
@@ -188,6 +218,7 @@ export function createNativeFlightPlayer129(
   }catch(error){
    calibrationIssue=error instanceof Error?error.message:String(error);
    idleTargets.clear();hoverGeometry=null;
+   kneeFlexionGainDegrees=0;rightFootLiftFraction=0;
   }finally{
    for(const item of pose)if(!item.node.isDisposed())
     item.node.rotationQuaternion=base.get(item.name)!.clone();
@@ -278,7 +309,9 @@ export function createNativeFlightPlayer129(
     worstNeutralDeviationRadians:maxDeviation,
     idleWeight,floatSeconds,microVertical:flightPivot.position.y-pivotRest.y,
     microForward:flightPivot.position.z-pivotRest.z,
-    idleCalibrated:calibrated,idleCalibrationIssue:calibrationIssue};
+    idleCalibrated:calibrated,idleCalibrationIssue:calibrationIssue,
+    idleKneeFlexionGainDegrees:kneeFlexionGainDegrees,
+    idleRightFootLiftFraction:rightFootLiftFraction};
   },
   dispose(){leave();disposed=true;status="disposed";pose.length=0;}
  };
