@@ -158,9 +158,10 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
    expect(player.report.activeClip).toBe("flyIdle");
    expect(player.report.idleWeight).toBeCloseTo(1,4);
    if(player.report.idleCalibrated){
-    expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(20);
-    expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.09);
-    expect(player.report.idleRightKneeAdvanceFraction).toBeGreaterThanOrEqual(.14);
+    expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(25);
+    expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.10);
+    expect(player.report.idleRightKneeAdvanceFraction).toBeGreaterThanOrEqual(.18);
+    expect(player.report.idleRightToeDownDot).toBeGreaterThanOrEqual(.70);
     expect(hover.leftWristLane).toBeLessThan(rest.leftWristLane);
     expect(hover.rightWristLane).toBeGreaterThan(rest.rightWristLane);
    }else{
@@ -175,7 +176,7 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
    expect(hover.leftAnkleLane).toBeLessThan(hover.rightAnkleLane);
    expect(hover.ankleSeparation).toBeGreaterThan(rest.ankleSeparation*.80);
    for(const name of ["Hips","Spine","Spine1","Spine2","LeftUpLeg","LeftLeg",
-    "LeftFoot","RightFoot","LeftHand","RightHand","LeftForeArm","RightForeArm"])
+    "LeftFoot","RightToeBase","LeftHand","RightHand","LeftForeArm","RightForeArm"])
     expect(Math.abs(Quaternion.Dot(r.names.get(name)!.rotationQuaternion!,base.get(name)!)))
      .toBeCloseTo(1,6);
    player.leave();
