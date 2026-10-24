@@ -5,7 +5,12 @@ describe("NH-REBUILD-004 owner tree asset placement", () => {
   it("plans deterministic planting sites away from all local roads and raised sidewalks", () => {
     const centres=Array.from({length:10},(_,i)=>-288+i*64);
     const axes=Array.from({length:11},(_,i)=>-320+i*64);
-    const occupied=new Set(["NH-01-01","NH-04-07","NH-05-05"]);
+    // Production plans lots in roughly 90 of 100 blocks; reserve scattered
+    // unoccupied park pockets rather than making 97 blocks tree parks.
+    const occupied=new Set<string>();
+    for(let j=0;j<10;j++)for(let i=0;i<10;i++)
+      if((i*5+j*7)%17!==0 && !(i===4&&j===7))
+        occupied.add("NH-"+String(j+1).padStart(2,"0")+"-"+String(i+1).padStart(2,"0"));
     const ground=(x:number,z:number)=>3+z*.02+x*.01;
     const desktop=planNorthHeightsTrees004(centres,occupied,ground,false);
     const again=planNorthHeightsTrees004(centres,occupied,ground,false);
