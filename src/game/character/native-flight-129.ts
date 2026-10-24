@@ -19,7 +19,7 @@ const ANATOMY=[
 ] as const;
 const SAMPLES=["LeftShoulder","RightShoulder","Hips","LeftHand","RightHand",
  "LeftLeg","RightLeg","LeftFoot","RightFoot","LeftToeBase","RightToeBase"] as const;
-const MAX_FAST_PITCH_RAD=Math.PI*0.37; // ~67°, torso-forward, not a collider tilt
+const MAX_FAST_PITCH_RAD=Math.PI/2; // FI-006: 90° body-horizontal, visual pivot only
 const PITCH_RADIANS_PER_SECOND=4.5;
 const FLY_IDLE_CYCLE_SECONDS_129=2;
 const FLY_IDLE_VERTICAL_AMPLITUDE_129=.014322; // FI-003: 0.013020 * 1.10
@@ -28,6 +28,8 @@ const FLY_IDLE_BLEND_SECONDS_129=.24;
 const FLY_IDLE_ARM_OPEN_FRACTION_129=.40; // FI-005: visible balance spread
 const FLY_IDLE_KNEE_FORWARD_FRACTION_129=.48; // FI-005: forward raised knee
 const FLY_IDLE_FOOT_UP_FRACTION_129=.60;
+const FAST_ARM_OPEN_FRACTION_129=.60;
+const FAST_POSE_BLEND_SECONDS_129=.19;
 export {FLY_IDLE_CYCLE_SECONDS_129,FLY_IDLE_VERTICAL_AMPLITUDE_129,FLY_IDLE_FORWARD_AMPLITUDE_129};
 const clamp=(x:number,low:number,high:number)=>Math.max(low,Math.min(high,x));
 export const NATIVE_FLIGHT_MAX_PITCH_129=MAX_FAST_PITCH_RAD;
@@ -51,6 +53,8 @@ export type NativeFlightReport129=Readonly<{
  idleRightKneeAdvanceFraction:number;
  idleRightToeDownDot:number;
  idleRightFootAboveLeftFraction:number;headPitchDirection:number;hoverWeight:number;
+ fastWeight:number;fastCalibrated:boolean;fastCalibrationIssue:string|null;
+ hoverLeftToeDownGain:number;fastSoleUpLeft:number;fastSoleUpRight:number;
 }>;
 export type NativeFlightPlayer129={
  enter:()=>void;
@@ -123,6 +127,9 @@ export function createNativeFlightPlayer129(
  let hoverGeometry:NativeFlightGeometry129|null=null;
  let kneeFlexionGainDegrees=0,rightFootLiftFraction=0,rightKneeAdvanceFraction=0;
  let rightToeDownDot=0,rightFootAboveLeftFraction=0;
+ let fastTargets=new Map<string,Quaternion>(),fastCalibrated=false;
+ let fastCalibrationIssue:string|null=null,fastWeight=0;
+ let hoverLeftToeDownGain=0,fastSoleUpLeft=0,fastSoleUpRight=0;
  let upHead:Quaternion|null=null,downHead:Quaternion|null=null;
  const pivotRest=flightPivot.position.clone();
  let status:NativeFlightReport129["status"]="uninitialized";
@@ -131,7 +138,8 @@ export function createNativeFlightPlayer129(
    item.node.rotationQuaternion=item.rest.clone();
  }
  function resetPivot(){
-  pitch=0;idleWeight=0;hoverWeight=0;headPitchDirection=0;floatSeconds=0;
+  pitch=0;idleWeight=0;hoverWeight=0;fastWeight=0;
+  headPitchDirection=0;floatSeconds=0;
   if(!flightPivot.isDisposed()){
    flightPivot.rotation.x=0;
    flightPivot.position.copyFrom(pivotRest);
@@ -150,6 +158,8 @@ export function createNativeFlightPlayer129(
   calibrated=false;calibrationIssue=null;idleTargets.clear();hoverGeometry=null;
   kneeFlexionGainDegrees=0;rightFootLiftFraction=0;rightKneeAdvanceFraction=0;rightToeDownDot=0;
   rightFootAboveLeftFraction=0;upHead=null;downHead=null;
+  hoverLeftToeDownGain=0;fastSoleUpLeft=0;fastSoleUpRight=0;
+  fastTargets.clear();fastCalibrated=false;fastCalibrationIssue=null;
   if(!baseline)return;
   const base=new Map(pose.map(j=>[j.name,j.rest]));
   const reference=(name:string)=>{
@@ -246,6 +256,24 @@ export function createNativeFlightPlayer129(
     throw Error("native raised-foot toes not pointing down: "+
       alignment.toFixed(3));
    rightToeDownDot=alignment;
+   // FI-006: only the EXTENDED LEFT ANKLE rotates slightly during hover.
+   // Left hip, thigh, shin and actual foot position stay unchanged.
+   const leftFoot=nodes.get("LeftFoot")!,leftToe=nodes.get("LeftToeBase")!;
+   const leftAnkle=reference("LeftFoot");
+   const leftToeInitial=reference("LeftToeBase").subtract(leftAnkle);
+   const leftToeLength=leftToeInitial.length();
+   if(!(leftToeLength>1e-5))throw Error("CHAR129 left foot tip collapsed");
+   const beforeDown=Vector3.Dot(leftToeInitial.scale(1/leftToeLength),Vector3.Down());
+   const leftToeTarget=leftAnkle.add(
+    leftToeInitial.add(Vector3.Down().scale(leftToeLength*.27))
+     .normalize().scale(leftToeLength));
+   if(!applyAimStep(leftFoot,leftToe,leftToeTarget,.32))
+    throw Error("CHAR129 straight left ankle slight flex failed");
+   const leftDirection=reference("LeftToeBase").subtract(reference("LeftFoot")).normalize();
+   hoverLeftToeDownGain=Vector3.Dot(leftDirection,Vector3.Down())-beforeDown;
+   if(!Number.isFinite(hoverLeftToeDownGain)||hoverLeftToeDownGain<.08 ||
+      Vector3.Dot(leftDirection,Vector3.Down())>=rightToeDownDot-.15)
+    throw Error("CHAR129 extended ankle not subtly flexed independently of bent foot");
    hoverGeometry=captureNativeFlightGeometry129(nodes,anchor);
    if(!laneSafe(hoverGeometry,baseline))
     throw Error("native flyIdle violates wrist or ankle anatomical lanes");
@@ -263,14 +291,78 @@ export function createNativeFlightPlayer129(
    };
    upHead=headAim(1,.36,.35);
    downHead=headAim(-1,.28,.29);
-   for(const name of ["LeftArm","RightArm","RightUpLeg","RightLeg","RightFoot"]){
+   for(const name of ["LeftArm","RightArm","RightUpLeg","RightLeg","RightFoot","LeftFoot"]){
     const node=nodes.get(name)!;
     idleTargets.set(name,rotationOf(node));
    }
    calibrated=true;
+
+   // Independently solve the speed-flight limb pose on the ORIGINAL
+   // accepted standing basis. Do not inherit the raised-knee hover pose.
+   // Aim down-facing toes BEFORE the 90° whole-body pitch; this makes
+   // the actual shoe soles face upward once Voight lies prone.
+   for(const j of pose)j.node.rotationQuaternion=base.get(j.name)!.clone();
+   const soleLocal=new Map<string,Vector3>();
+   for(const side of ["Left","Right"] as const){
+    const foot=nodes.get(side+"Foot")!;
+    foot.computeWorldMatrix(true);
+    soleLocal.set(side,Vector3.TransformNormal(Vector3.Down(),
+      Matrix.Invert(foot.getWorldMatrix())).normalize());
+   }
+   try{
+    for(const side of ["Left","Right"] as const){
+     const upper=nodes.get(side+"Arm")!,elbow=nodes.get(side+"ForeArm")!;
+     const target=reference(side+"ForeArm").add(lateral.scale(
+      (side==="Left"?-1:1)*baseline.shoulderSpan*FAST_ARM_OPEN_FRACTION_129));
+     if(!applyAimStep(upper,elbow,target,.72))
+      throw Error("CHAR129 fast "+side+" arm aim failed");
+    }
+    for(const side of ["Left","Right"] as const){
+     const ankle=nodes.get(side+"Foot")!,toe=nodes.get(side+"ToeBase")!;
+     const footOrigin=reference(side+"Foot");
+     const length=Vector3.Distance(footOrigin,reference(side+"ToeBase"));
+     if(!(length>1e-5))throw Error("CHAR129 fast "+side+" shoe collapsed");
+     // Under a 90° forward body pitch, toes-down becomes toes-back and
+     // plantar surface points to the sky (rather than at the pavement).
+     const goal=Vector3.Down().scale(.99).add(forward.scale(.10)).normalize();
+     if(!applyAimStep(ankle,toe,footOrigin.add(goal.scale(length)),1.70))
+      throw Error("CHAR129 fast "+side+" foot aim failed");
+    }
+    const geo=captureNativeFlightGeometry129(nodes,anchor);
+    if(!laneSafe(geo,baseline)||
+       geo.wristSeparation<hoverGeometry.wristSeparation*1.03)
+      throw Error("CHAR129 fast arm spread or bilateral lanes invalid");
+    // Measure actual linked sole-reference normals AFTER temporarily
+    // simulating full body pitch, rather than inferring sole direction from
+    // an unrotated toe. This never touches the Rapier root.
+    flightPivot.rotation.x=MAX_FAST_PITCH_RAD;
+    try{
+     const soleDot=(side:"Left"|"Right")=>{
+      const foot=nodes.get(side+"Foot")!;
+      foot.computeWorldMatrix(true);
+      return Vector3.Dot(Vector3.TransformNormal(soleLocal.get(side)!,
+       foot.getWorldMatrix()).normalize(),Vector3.Up());
+     };
+     fastSoleUpLeft=soleDot("Left");
+     fastSoleUpRight=soleDot("Right");
+    }finally{
+     flightPivot.rotation.x=0;
+    }
+    if(fastSoleUpLeft<.55||fastSoleUpRight<.55)
+     throw Error("CHAR129 fast shoes do not face sky: "+
+      fastSoleUpLeft.toFixed(2)+"/"+fastSoleUpRight.toFixed(2));
+    for(const name of ["LeftArm","RightArm","LeftFoot","RightFoot"])
+     fastTargets.set(name,rotationOf(nodes.get(name)!));
+    fastCalibrated=true;
+   }catch(fastError){
+    fastTargets.clear();fastCalibrated=false;
+    fastCalibrationIssue=fastError instanceof Error?fastError.message:String(fastError);
+    fastSoleUpLeft=0;fastSoleUpRight=0;
+   }
   }catch(error){
    calibrationIssue=error instanceof Error?error.message:String(error);
    idleTargets.clear();hoverGeometry=null;
+   fastTargets.clear();fastCalibrated=false;
    kneeFlexionGainDegrees=0;rightFootLiftFraction=0;rightKneeAdvanceFraction=0;
   }finally{
    for(const item of pose)if(!item.node.isDisposed())
@@ -312,6 +404,9 @@ export function createNativeFlightPlayer129(
    step/FLY_IDLE_BLEND_SECONDS_129);
   const targetHover=clip==="fly"||!calibrated?0:1;
   hoverWeight+=clamp(targetHover-hoverWeight,-step/.17,step/.17);
+  const targetFast=clip==="fly"&&fastCalibrated?1:0;
+  fastWeight+=clamp(targetFast-fastWeight,
+   -step/FAST_POSE_BLEND_SECONDS_129,step/FAST_POSE_BLEND_SECONDS_129);
   const headTarget=clip==="fly"?0:input.ascending?1:input.descending?-1:0;
   headPitchDirection+=clamp(headTarget-headPitchDirection,-step/.20,step/.20);
   // Two-second continuous, phase-shifted sinusoid; visual-only and almost
@@ -338,6 +433,9 @@ export function createNativeFlightPlayer129(
    const idleTarget=idleTargets.get(j.name);
    let desired=idleTarget&&hoverWeight>0?
     Quaternion.Slerp(j.rest,idleTarget,hoverWeight).normalize():j.rest;
+   const fastTarget=fastTargets.get(j.name);
+   if(fastTarget&&fastWeight>0)
+    desired=Quaternion.Slerp(desired,fastTarget,fastWeight).normalize();
    if(j.name==="Neck"&&calibrated){
     const headTarget=headPitchDirection>0?upHead:downHead;
     if(headTarget)desired=Quaternion.Slerp(j.rest,headTarget,
@@ -385,7 +483,8 @@ export function createNativeFlightPlayer129(
     idleRightKneeAdvanceFraction:rightKneeAdvanceFraction,
     idleRightToeDownDot:rightToeDownDot,
     idleRightFootAboveLeftFraction:rightFootAboveLeftFraction,
-    headPitchDirection,hoverWeight};
+    headPitchDirection,hoverWeight,fastWeight,fastCalibrated,
+    fastCalibrationIssue,hoverLeftToeDownGain,fastSoleUpLeft,fastSoleUpRight};
   },
   dispose(){leave();disposed=true;status="disposed";pose.length=0;}
  };
