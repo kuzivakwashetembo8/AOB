@@ -1,0 +1,81 @@
+// @vitest-environment jsdom
+/** CHAR-129-FI-001: verify actual original GLB's full linked hierarchy.
+ * A synthetic rig cannot certify the user's actual hands and knee posture.
+ */
+import {readFileSync} from "node:fs";
+import {describe,it,expect} from "vitest";
+import {Bone,Matrix,NullEngine,Quaternion,Scene,Skeleton,TransformNode,Vector3} from "@babylonjs/core";
+import {createNativePoseController109} from "../game/character/native-neutral-pose-109";
+import {createNativeFlightPlayer129,captureNativeFlightGeometry129} from "../game/character/native-flight-129";
+
+const bytes=readFileSync("public/GLBs/Characters/character.glb");
+const glb=JSON.parse(bytes.toString("utf8",20,20+bytes.readUInt32LE(12))) as {
+ nodes:{name:string;translation?:number[];rotation?:number[];scale?:number[];matrix?:number[];children?:number[]}[];
+ skins:{joints:number[]}[];
+};
+function actualRig(yaw:number){
+ const engine=new NullEngine(),scene=new Scene(engine);
+ const skeleton=new Skeleton("char129-actual-original","char129-actual-original",scene);
+ const hierarchy=glb.nodes.map(n=>{
+  const node=new TransformNode(n.name,scene);
+  node.position=Vector3.FromArray(n.translation??[0,0,0]);
+  node.scaling=Vector3.FromArray(n.scale??[1,1,1]);
+  node.rotationQuaternion=Quaternion.FromArray(n.rotation??[0,0,0,1]);
+  if(n.matrix)Matrix.FromArray(n.matrix).decompose(
+   node.scaling,node.rotationQuaternion,node.position);
+  return node;
+ });
+ glb.nodes.forEach((n,i)=>(n.children??[]).forEach(child=>hierarchy[child]!.parent=hierarchy[i]!));
+ for(const i of glb.skins[0]!.joints){
+  const bone=new Bone(glb.nodes[i]!.name,skeleton,null,Matrix.Identity());
+  bone.linkTransformNode(hierarchy[i]!);
+ }
+ const bones=new Map(skeleton.bones.map(b=>[b.name,b]));
+ for(const bone of skeleton.bones){
+  const parent=bone.getTransformNode()!.parent;
+  if(parent&&bones.has(parent.name))bone.setParent(bones.get(parent.name)!);
+ }
+ const neutral=createNativePoseController109([skeleton]);
+ expect(neutral.report.status).toBe("native-joints");
+ const anchor=new TransformNode("char129-physics-anchor",scene);
+ anchor.rotation.y=yaw;
+ const pivot=new TransformNode("char129-visual-pivot",scene);
+ pivot.parent=anchor;pivot.position.y=.95;
+ const offset=new TransformNode("char129-visual-counter-offset",scene);
+ offset.parent=pivot;offset.position.y=-.95;
+ for(const node of hierarchy)if(!node.parent)node.parent=offset;
+ const named=new Map(hierarchy.map(n=>[n.name,n]));
+ return {anchor,pivot,skeleton,named,neutral,dispose(){scene.dispose();engine.dispose();}};
+}
+const idleInput={forward:false,backward:false,left:false,right:false,
+ ascending:false,descending:false,accelerated:false};
+describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
+ it.each([0,.8,-1.2])("calibrates natural flyIdle on the real linked character at yaw %s",yaw=>{
+  const r=actualRig(yaw);
+  try{
+   const rest=captureNativeFlightGeometry129(r.named,r.anchor);
+   const wristLocal=new Map(["LeftHand","RightHand","LeftForeArm","RightForeArm",
+    "LeftLeg","LeftFoot","RightFoot","LeftUpLeg"].map(name=>[
+     name,r.named.get(name)!.rotationQuaternion!.clone()]));
+   const player=createNativeFlightPlayer129([r.skeleton],r.anchor,r.pivot);
+   player.enter();
+   expect(player.report.idleCalibrated,player.report.idleCalibrationIssue??"calibrated")
+    .toBe(true);
+   for(let i=0;i<30;i++)player.update({...idleInput,dt:1/60});
+   const hover=captureNativeFlightGeometry129(r.named,r.anchor);
+   expect(hover.leftWristLane).toBeLessThan(rest.leftWristLane);
+   expect(hover.rightWristLane).toBeGreaterThan(rest.rightWristLane);
+   expect(hover.leftAnkleLane).toBeLessThan(hover.rightAnkleLane);
+   expect(hover.ankleSeparation).toBeGreaterThan(rest.ankleSeparation*.8);
+   for(const [name,rotation] of wristLocal)
+    expect(Math.abs(Quaternion.Dot(r.named.get(name)!.rotationQuaternion!,rotation)))
+     .toBeCloseTo(1,6);
+   expect(player.report.idleWeight).toBeCloseTo(1,6);
+   player.leave();
+   for(const [name,rotation] of wristLocal)
+    expect(Math.abs(Quaternion.Dot(r.named.get(name)!.rotationQuaternion!,rotation)))
+     .toBeCloseTo(1,6);
+   expect(captureNativeFlightGeometry129(r.named,r.anchor)).toEqual(rest);
+  }finally{r.dispose();}
+ });
+});
