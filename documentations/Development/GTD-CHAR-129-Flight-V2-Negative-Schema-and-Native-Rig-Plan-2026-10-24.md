@@ -182,3 +182,19 @@ Deployment `dpl_9w1pFDHatX5N7hvtEL8kmryBfoKS`. The full build completed successf
 - Runtime fail-closed candidate; test geometric lane clearance at every substantive phase and verify no accumulated pose drift over hundreds of frames/repeated toggles.
 - Tests for upright idle hand widening, bent right knee/raised foot without crossing, left leg invariance, 2s periodicity, zero visual offsets outside flyIdle, and full accepted-pose restoration on landing.
 - Full build (including native GLB audit, CHAR-109/110/127 regressions and offline pack); **one preview** for human front/side/rear acceptance. No main merge or production.
+
+### CHAR-129-FI-001 implementation / build evidence
+
+**Implementation commit:** `2fcd5fa4de4ff1a8db92c0f0a91e5fffa3fe4bfd` (includes prior implementation/testing commits); only original `src/game/character/native-flight-129.ts`, focused tests, and this document differ from the already-accepted V2 branch state.
+
+**Native pose:** `captureIdleTargets()` begins with accepted CHAR-109/110 rest, samples actual linked `LeftArm`/`RightArm` and `RightUpLeg`/`RightLeg` joints via `applyAimStep`, rejects any failures, cross-lane geometry or unacceptable foot/wrist separation, then restores every source joint immediately after capturing proposed pose quaternions. During `flyIdle`, Slerp writes only those four target joints; forearms, hands, spine, left leg and Rapier root retain their accepted bases. Enter/exit and loop updates remain nonaccumulating. Other directional and accelerated flight states restore to V2 neutral as the new idle weight fades.
+
+**2-second bob:** continuous `sin(2π t/2)` with vertical amplitude 0.012m, 90-degree-shifted fore/aft amplitude 0.007m, blended by the flyIdle envelope and applied to the existing visual flight pivot alone. No camera/Rapier displacement.
+
+**Verifications:** 8/8 CHAR-129 native flight tests plus **3/3 tests involving the actual unmodified 73-joint `character.glb` hierarchy** at yaw 0, 0.8 and -1.2 radians passed. Old native pose, jumping and UAL flight regression suites also passed. Mandatory build-time original GLB audit passed and Vercel full build completed successfully. Offline packages complete; **missing mandatory assets = 0**.
+
+**Review preview:** https://gtd-ke509tl32-interlinkglobaltech.vercel.app/game, deployment `dpl_HhenYRt3MwkPPRHnrr9MDWSF2hsf`, state READY, pinned implementation SHA above.
+
+**Baseline:** https://gtd-62ykqf6cd-interlinkglobaltech.vercel.app/game, commit `17d8209142affe52d087fae78cf146b3a805d22c`. This previously owner-accepted visual posture remains the rollback point; V2 experiment not merged to main.
+
+**Next gate:** human acceptance of posture from front, side and rear, of the right foot/knee and subtlety of two-second motion. Tests cannot certify the perceptual result. No main merge or production deployment authorized.
