@@ -25,9 +25,9 @@ const FLY_IDLE_CYCLE_SECONDS_129=2;
 const FLY_IDLE_VERTICAL_AMPLITUDE_129=.014322; // FI-003: 0.013020 * 1.10
 const FLY_IDLE_FORWARD_AMPLITUDE_129=.0083545; // FI-003: 0.007595 * 1.10
 const FLY_IDLE_BLEND_SECONDS_129=.24;
-const FLY_IDLE_ARM_OPEN_FRACTION_129=.085; // 8.5% of measured shoulder span
-const FLY_IDLE_KNEE_FORWARD_FRACTION_129=.32; // forward knee lead, not shank-only flex
-const FLY_IDLE_FOOT_UP_FRACTION_129=.21;
+const FLY_IDLE_ARM_OPEN_FRACTION_129=.12; // FI-004: slightly wider, still natural
+const FLY_IDLE_KNEE_FORWARD_FRACTION_129=.39; // FI-004: visible relaxed forward knee
+const FLY_IDLE_FOOT_UP_FRACTION_129=.25;
 export {FLY_IDLE_CYCLE_SECONDS_129,FLY_IDLE_VERTICAL_AMPLITUDE_129,FLY_IDLE_FORWARD_AMPLITUDE_129};
 const clamp=(x:number,low:number,high:number)=>Math.max(low,Math.min(high,x));
 export const NATIVE_FLIGHT_MAX_PITCH_129=MAX_FAST_PITCH_RAD;
@@ -49,6 +49,7 @@ export type NativeFlightReport129=Readonly<{
  idleCalibrated:boolean;idleCalibrationIssue:string|null;
  idleKneeFlexionGainDegrees:number;idleRightFootLiftFraction:number;
  idleRightKneeAdvanceFraction:number;
+ idleRightToeDownDot:number;
 }>;
 export type NativeFlightPlayer129={
  enter:()=>void;
@@ -120,6 +121,7 @@ export function createNativeFlightPlayer129(
  let idleTargets=new Map<string,Quaternion>();
  let hoverGeometry:NativeFlightGeometry129|null=null;
  let kneeFlexionGainDegrees=0,rightFootLiftFraction=0,rightKneeAdvanceFraction=0;
+ let rightToeDownDot=0;
  const pivotRest=flightPivot.position.clone();
  let status:NativeFlightReport129["status"]="uninitialized";
  function restore(){
@@ -144,7 +146,7 @@ export function createNativeFlightPlayer129(
  function captureIdleTargets():void{
   // Derive native poses from actual parented endpoint geometry, never UAL.
   calibrated=false;calibrationIssue=null;idleTargets.clear();hoverGeometry=null;
-  kneeFlexionGainDegrees=0;rightFootLiftFraction=0;rightKneeAdvanceFraction=0;
+  kneeFlexionGainDegrees=0;rightFootLiftFraction=0;rightKneeAdvanceFraction=0;rightToeDownDot=0;
   if(!baseline)return;
   const base=new Map(pose.map(j=>[j.name,j.rest]));
   const reference=(name:string)=>{
@@ -160,7 +162,7 @@ export function createNativeFlightPlayer129(
     const arm=nodes.get(side+"Arm")!,elbow=nodes.get(side+"ForeArm")!;
     const target=reference(side+"ForeArm").add(lateral.scale(
      (side==="Left"?-1:1)*separation));
-    if(!applyAimStep(arm,elbow,target,.19))
+    if(!applyAimStep(arm,elbow,target,.26))
      throw Error("native "+side+" elbow lateral aim failed");
    }
    const knee=nodes.get("RightLeg")!,thigh=nodes.get("RightUpLeg")!,
@@ -189,33 +191,58 @@ export function createNativeFlightPlayer129(
    // AFTER the upper-leg transform; the old code aimed at a stale ankle
    // and could cancel the tibia's visible flexion.
    if(!applyAimStep(thigh,knee,kneeStart.add(
-     forward.scale(thighLength*FLY_IDLE_KNEE_FORWARD_FRACTION_129)),.40))
+     forward.scale(thighLength*FLY_IDLE_KNEE_FORWARD_FRACTION_129)),.50))
     throw Error("native relaxed thigh aim failed");
    const kneeMoved=reference("RightLeg"),ankleMoved=reference("RightFoot");
    const footTarget=ankleMoved.add(Vector3.Up().scale(
      shinLength*FLY_IDLE_FOOT_UP_FRACTION_129)).subtract(
-     forward.scale(shinLength*.52));
-   if(!applyAimStep(knee,ankle,footTarget,.65))
+     forward.scale(shinLength*.60));
+   if(!applyAimStep(knee,ankle,footTarget,.82))
     throw Error("native right shin flexion aim failed");
    const kneeFinal=reference("RightLeg"),ankleFinal=reference("RightFoot"),
     hipFinal=reference("RightUpLeg");
    const gain=kneeFlexion(hipFinal,kneeFinal,ankleFinal)-initialFlex;
    const footRise=(ankleFinal.y-ankleStart.y)/shinLength;
    const kneeAdvance=Vector3.Dot(kneeFinal.subtract(kneeStart),forward)/thighLength;
-   if(!Number.isFinite(kneeAdvance)||kneeAdvance<.14)
+   if(!Number.isFinite(kneeAdvance)||kneeAdvance<.18)
     throw Error("native right knee insufficient forward lead: "+kneeAdvance.toFixed(3));
-   if(!Number.isFinite(gain)||gain<Math.PI/9)
+   if(!Number.isFinite(gain)||gain<25*Math.PI/180)
     throw Error("native right knee still visibly straight: insufficient flexion "+
       (gain*180/Math.PI).toFixed(2)+" degrees");
-   if(!Number.isFinite(footRise)||footRise<.09)
+   if(!Number.isFinite(footRise)||footRise<.10)
     throw Error("native right ankle lift too small: "+footRise.toFixed(3));
    kneeFlexionGainDegrees=gain*180/Math.PI;
    rightFootLiftFraction=footRise;
    rightKneeAdvanceFraction=kneeAdvance;
+   // FI-004: A flexed KNEE alone leaves the shoe's sole pointing down like
+   // someone standing on an invisible platform. Aim the linked TOE landmark
+   // with the native FOOT joint (not toes) so the toe points towards earth.
+   // Shortest-arc parent-space aiming preserves natural ankle roll/palm parity.
+   const rightToe=nodes.get("RightToeBase")!;
+   const ankleAfterKnee=reference("RightFoot");
+   const toeBefore=reference("RightToeBase");
+   const shoeLength=Vector3.Distance(ankleAfterKnee,toeBefore);
+   if(!Number.isFinite(shoeLength)||shoeLength<1e-5)
+    throw Error("native shoe toe landmark invalid");
+   const worldDown=new Vector3(0,-1,0);
+   const shoeDirection=worldDown.scale(.96).add(forward.scale(.12)).normalize();
+   const toeTarget=ankleAfterKnee.add(shoeDirection.scale(shoeLength));
+   if(!applyAimStep(ankle,rightToe,toeTarget,1.55))
+    throw Error("native ankle toe-down aim failed");
+   const toeVector=reference("RightToeBase").subtract(reference("RightFoot"));
+   if(toeVector.lengthSquared()<1e-9)
+    throw Error("native toe-to-ankle vector collapsed");
+   const toeDir=toeVector.normalize();
+   const alignment=Vector3.Dot(toeDir,new Vector3(0,-1,0));
+   if(!Number.isFinite(alignment)||alignment<.70 ||
+      Vector3.Dot(toeDir,forward)>.35)
+    throw Error("native raised-foot toes not pointing down: "+
+      alignment.toFixed(3));
+   rightToeDownDot=alignment;
    hoverGeometry=captureNativeFlightGeometry129(nodes,anchor);
    if(!laneSafe(hoverGeometry,baseline))
     throw Error("native flyIdle violates wrist or ankle anatomical lanes");
-   for(const name of ["LeftArm","RightArm","RightUpLeg","RightLeg"]){
+   for(const name of ["LeftArm","RightArm","RightUpLeg","RightLeg","RightFoot"]){
     const node=nodes.get(name)!;
     idleTargets.set(name,rotationOf(node));
    }
@@ -322,7 +349,8 @@ export function createNativeFlightPlayer129(
     idleCalibrated:calibrated,idleCalibrationIssue:calibrationIssue,
     idleKneeFlexionGainDegrees:kneeFlexionGainDegrees,
     idleRightFootLiftFraction:rightFootLiftFraction,
-    idleRightKneeAdvanceFraction:rightKneeAdvanceFraction};
+    idleRightKneeAdvanceFraction:rightKneeAdvanceFraction,
+    idleRightToeDownDot:rightToeDownDot};
   },
   dispose(){leave();disposed=true;status="disposed";pose.length=0;}
  };
