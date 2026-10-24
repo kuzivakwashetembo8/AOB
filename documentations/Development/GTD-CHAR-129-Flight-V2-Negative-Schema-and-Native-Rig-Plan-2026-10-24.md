@@ -220,3 +220,24 @@ Deployment `dpl_9w1pFDHatX5N7hvtEL8kmryBfoKS`. The full build completed successf
 6. Maintain 0.24 s fade to/from native flyIdle; restore exact neutral on exit; no UAL quaternion retarget, no changes to fast flight or existing Rapier physics.
 
 **Additional automated acceptance:** compare actual hip/knee/ankle angle, right ankle height and front/back foot position on the original `character.glb` for yaw 0, +0.8, -1.2. Repeat for scene scaled and yaw-adjusted similar to the game. Prove left leg rotations unchanged and wrist separation remains accepted. Assert exact new oscillator amplitudes and prior 2 s periodicity. Produce one preview after full regression and PWA pack; do not merge to main before owner visual approval.
+
+### CHAR-129-FI-002 — Implementation and preview verification
+
+**Owner feedback:** Subtle 2-second hover motion accepted, increase motion by 8.5%; leg remained visually straight. Accepted arm posture unchanged. This is a targeted correction of FI-001, not a redesign of CHAR-129.
+
+**Final implementation commit:** `7a15af554a6bb25fa245323b0999bc7c8fac2840`.
+
+**Corrections:**
+- Exact +8.5%: vertical amplitude `0.012 → 0.013020 m`, fore/aft amplitude `0.007 → 0.007595 m`; cycle remains `2.000s`, same phase and visual-only pivot.
+- Native target hip → knee advance increased from 5.5% to 18% of the measured native thigh length; ankle target recomputed **after** applying the upper-leg rotation, and knee is aimed toward an ankle displaced 34% of its measured shin length posteriorly and 14% superiorly. The target is derived from the actual model's toe-forward heading and correct linked parent transforms.
+- Candidate admission now checks additional right-knee flexion **>=10°** versus native standing and ankle rise **>3.5%** of tibia length, plus strict no-crossing wrist and foot lanes. The source GLB, wrists, shoulders, left leg, camera, collider, Rapier, moving flight and accepted gait/jump components are untouched.
+- The 2-second microfloat is **independent of leg calibration**: an unsupported skeleton's inability to bend a knee must not suppress already accepted floating. An uncalibrated knee falls back to original accepted neutral with a surfaced diagnostic issue.
+
+**Test history (correctly distinguished):** First candidate build `dpl_GTEqwXxoT2nYEMNgVndDmryiy9Dt` FAILED two tests on a simplified synthetic leg fixture; the real owner-GLB tests did not fail. Corrected the tests to verify fail-closed behavior on synthetic fixtures, while retaining the mandatory anatomical flex/lift assertions on the **actual GLB**. The corrected build passed **8/8 native-flight regression tests** and **3/3 actual 73-joint GLB anatomical tests**, including three actor headings. Full GTD suite, TypeScript, Vite build and offline packaging passed.
+
+**Final READY preview:** https://gtd-5icda34m5-interlinkglobaltech.vercel.app/game  
+Deployment: `dpl_3tqFx35EbVmWJLNPUkkKRzryvm7g`; built from implementation SHA above. PWA offline inventory packaged **443 resources**; **0 missing mandatory assets**.
+
+**Rollback anchors:** accepted floating prior preview https://gtd-ke509tl32-interlinkglobaltech.vercel.app/game (FI-001) and initial accepted neutral-native baseline https://gtd-62ykqf6cd-interlinkglobaltech.vercel.app/game (V2). Remain untouched. No changes merged to `main`; production unchanged.
+
+**Owner visual gate:** Inspect right knee/ankle from side (clearest differentiation) and front (bilateral lane separation); observe oscillator relative to the former preview. Passing numerical tests is not a substitute for visual acceptance.
