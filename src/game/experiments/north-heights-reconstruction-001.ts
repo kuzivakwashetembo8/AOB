@@ -12,12 +12,13 @@ import type { BuildingArchetype, BuildingSpec } from "@/game/world-generation/sc
 import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generation/representation-materials";
 import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
-import { createNorthHeightsGreenery003 } from "./north-heights-greenery-003";
+import { attachNorthHeightsGrass004, planNorthHeightsTrees004, type TreeLocation } from "./north-heights-trees-004";
 
 export interface NorthHeightsGenerated {
   readonly count: number;
   readonly blocks: number;
   readonly instanceCount: number;
+  readonly treeLocations: readonly TreeLocation[];
   readonly streetCount: number;
   readonly lotSpecs: readonly BuildingSpec[];
   readonly focus: Vector3;
@@ -335,6 +336,7 @@ function addStreetFurniture(city: InstancedCity) {
 }
 export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):NorthHeightsGenerated {
   const city=new InstancedCity(scene);
+  attachNorthHeightsGrass004(scene,city.mat("grass"));
   terrain(scene,city.mat("grass"));
   const roads=createNorthHeightsRoads003(scene,STREETS,northHeightsGround,{
     asphalt:city.mat("road"),pavement:city.mat("pavement"),
@@ -361,16 +363,12 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
   }
   const lamps=addStreetFurniture(city);
   const instances=city.commit();
-  const greens=createNorthHeightsGreenery003(scene,{
-    middle:MIDPOINTS,
-    occupied:new Set(lots.map(l=>l.block)),
-    ground:northHeightsGround,
-    grass:city.mat("grass"),
-    mobile,
-  });
-  const trees=greens.trees;
-  console.info("[NH-REBUILD-003] organic landscape",{
-    trees,leafCards:greens.foliageCards,loadedLeavesGLB:false,
+  const treeLocations=planNorthHeightsTrees004(
+    MIDPOINTS,new Set(lots.map(l=>l.block)),northHeightsGround,mobile,
+  );
+  const trees=treeLocations.length;
+  console.info("[NH-REBUILD-004] owner tree positions planned",{
+    trees,asset:"tree_low_poly_lowpoly.glb",generatedCanopyCards:0,
   });
   console.info("[NH-REBUILD-001] procedural world",{
     buildings:lots.length,trees,lamps,instances,modelsFromRejectedPack:0,
@@ -378,6 +376,7 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
   });
   return {
     count:lots.length,blocks:100,streetCount:STREETS.length*2,instanceCount:instances,
+    treeLocations,
     lotSpecs,dimensions:{width:EXTENT*2,height:tall},
     focus:new Vector3(-30,northHeightsGround(-30,-35)+1.5,-35),
     overview:new Vector3(142,103,-251),
