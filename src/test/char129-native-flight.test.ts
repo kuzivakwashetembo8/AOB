@@ -19,7 +19,7 @@ const joints=[
  "Hips","Spine","Spine1","Spine2","Neck","Head",
  "LeftShoulder","LeftArm","LeftForeArm","LeftHand",
  "RightShoulder","RightArm","RightForeArm","RightHand",
- "LeftUpLeg","LeftLeg","LeftToeBase",
+ "LeftUpLeg","LeftLeg","LeftFoot","LeftToeBase",
  "RightUpLeg","RightLeg","RightFoot","RightToeBase",
 ] as const;
 function rig(){
