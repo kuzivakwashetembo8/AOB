@@ -60,7 +60,10 @@ describe("CHAR-129 FI-005 persistent native flight posture",()=>{
   const r=original(yaw);
   try{
    const neutralGeo=captureNativeFlightGeometry129(r.linked,r.anchor);
-   const leftLegNames=["LeftUpLeg","LeftLeg","LeftFoot","LeftToeBase"];
+   // FI-006 permits a mild LEFT FOOT pitch, never a change to left
+   // hip, thigh, shin or toe joint local rotations.
+   const leftLegNames=["LeftUpLeg","LeftLeg","LeftToeBase"];
+   const leftFootRest=r.linked.get("LeftFoot")!.rotationQuaternion!.clone();
    const leftLegBaseline=new Map(leftLegNames.map(n=>[n,r.linked.get(n)!.rotationQuaternion!.clone()]));
    const neckRest=r.linked.get("Neck")!.rotationQuaternion!.clone();
    const worldForward=actualGaze(r);
@@ -76,6 +79,9 @@ describe("CHAR-129 FI-005 persistent native flight posture",()=>{
    expect(player.report.idleCalibrated,player.report.idleCalibrationIssue??"calibrated")
     .toBe(true);
    expect(player.report.idleRightFootAboveLeftFraction).toBeGreaterThan(.24);
+   expect(player.report.hoverLeftToeDownGain).toBeGreaterThan(.08);
+   expect(Math.abs(Quaternion.Dot(leftFootRest,
+    r.linked.get("LeftFoot")!.rotationQuaternion!))).toBeLessThan(.9999);
    expect(player.report.hoverWeight).toBe(1);
    const gap=()=>r.p("RightFoot").y-r.p("LeftFoot").y;
    const shin=Vector3.Distance(r.p("RightLeg"),r.p("RightFoot"));
@@ -110,6 +116,8 @@ describe("CHAR-129 FI-005 persistent native flight posture",()=>{
      .toBeCloseTo(1,6);
    expect(Vector3.Distance(r.anchor.position,Vector3.Zero())).toBe(0);
    player.leave();
+   expect(Math.abs(Quaternion.Dot(leftFootRest,
+    r.linked.get("LeftFoot")!.rotationQuaternion!))).toBeCloseTo(1,6);
    expect(captureNativeFlightGeometry129(r.linked,r.anchor)).toEqual(neutralGeo);
    expect(gap()/shin).toBeLessThan(.24);
   }finally{r.dispose();}
