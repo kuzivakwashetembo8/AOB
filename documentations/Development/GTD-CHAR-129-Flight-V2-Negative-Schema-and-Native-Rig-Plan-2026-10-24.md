@@ -198,3 +198,25 @@ Deployment `dpl_9w1pFDHatX5N7hvtEL8kmryBfoKS`. The full build completed successf
 **Baseline:** https://gtd-62ykqf6cd-interlinkglobaltech.vercel.app/game, commit `17d8209142affe52d087fae78cf146b3a805d22c`. This previously owner-accepted visual posture remains the rollback point; V2 experiment not merged to main.
 
 **Next gate:** human acceptance of posture from front, side and rear, of the right foot/knee and subtlety of two-second motion. Tests cannot certify the perceptual result. No main merge or production deployment authorized.
+
+### CHAR-129-FI-002 — Increase floating motion +8.5% and make right knee visibly flex (2026-10-24)
+
+**Owner's visual review:** Two-second hover oscillation **accepted** but requires **exactly 8.5% more visibility**. Leg relaxation **not accepted**: right knee and ankle still visually resemble the standing, straight-leg baseline. Retain the accepted flyIdle arms, posture controls, existing CHAR-129 preview and initial `17d8209` rollback baseline.
+
+**Motion:**
+- Keep the **2.000 s** oscillator, phase relationship, easing and visual-pivot-only motion unchanged.
+- Vertical sinusoidal amplitude: **0.012 × 1.085 = 0.013020 m**.
+- Fore–aft sinusoidal amplitude: **0.007 × 1.085 = 0.007595 m**.
+- Neither Rapier actor/capsule nor camera moves due to oscillator.
+
+**Knee failure analysis:** FI-001's thigh advance of 5.5% of thigh length and ankle raise of 8% of thigh length yielded small joint-quaternion deltas. Tests checked only that both right leg joint quaternions changed, **not** actual hip–knee–ankle flexion or ankle height relative to standing; invisible movement could pass. The ankle target was also calculated from the pre-hip-rotation ankle position, making the second target susceptible to cancelling knee flexion after the first transform.
+
+**FI-002 correction:**
+1. Preserve accepted calibrated left/right arm target quaternions and palms.
+2. Derive the character's facing from its **actual foot→toe vectors**, projected into the ground plane rather than guessing from world axes. The `humanVisualYaw105(true)=0` playable model faces +Z; toe-derived forward must work under arbitrary actor yaw.
+3. Calibrate a visible but restrained right-leg swing by aiming the knee forward ~18% of native thigh length (capped ~0.25 rad), then recompute **both knee and ankle world positions** after upper-leg rotation.
+4. Aim the lower leg (tibia) toward a target moving the now-current ankle ~34% of native shin length **backward** and ~14% **upward**, with an independent knee local cap ~0.45 rad. The resulting knee must visibly flex; the raised shoe stays under its original side of the pelvis.
+5. Reject a candidate unless **right knee flexion increases measurably by >= 10° from accepted standing**, right ankle lifts measurably relative to accepted standing, and left/right ankle lanes remain ordered with >=80% of baseline separation. If a candidate fails, don't falsely claim leg improvement; keep baseline and capture failure reason in the flight diagnostic report.
+6. Maintain 0.24 s fade to/from native flyIdle; restore exact neutral on exit; no UAL quaternion retarget, no changes to fast flight or existing Rapier physics.
+
+**Additional automated acceptance:** compare actual hip/knee/ankle angle, right ankle height and front/back foot position on the original `character.glb` for yaw 0, +0.8, -1.2. Repeat for scene scaled and yaw-adjusted similar to the game. Prove left leg rotations unchanged and wrist separation remains accepted. Assert exact new oscillator amplitudes and prior 2 s periodicity. Produce one preview after full regression and PWA pack; do not merge to main before owner visual approval.
