@@ -14,6 +14,7 @@ import { Route as GameRouteImport } from './routes/game'
 import { Route as FirstLightComparisonRouteImport } from './routes/first-light-comparison'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as WorldRouteImport } from './routes/world'
+import { Route as NorthHeightsPreviewRouteImport } from './routes/north-heights-preview'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const WorldRoute = WorldRouteImport.update({
   path: '/world',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NorthHeightsPreviewRoute = NorthHeightsPreviewRouteImport.update({
+  id: '/north-heights-preview',
+  path: '/north-heights-preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/first-light-comparison': typeof FirstLightComparisonRoute
   '/settings': typeof SettingsRoute
   '/world': typeof WorldRoute
+  '/north-heights-preview': typeof NorthHeightsPreviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/first-light-comparison': typeof FirstLightComparisonRoute
   '/settings': typeof SettingsRoute
   '/world': typeof WorldRoute
+  '/north-heights-preview': typeof NorthHeightsPreviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,14 @@ export interface FileRoutesById {
   '/first-light-comparison': typeof FirstLightComparisonRoute
   '/settings': typeof SettingsRoute
   '/world': typeof WorldRoute
+  '/north-heights-preview': typeof NorthHeightsPreviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/game' | '/first-light-comparison' | '/settings' | '/world'
+  fullPaths: '/' | '/game' | '/first-light-comparison' | '/settings' | '/world' | '/north-heights-preview'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/game' | '/first-light-comparison' | '/settings' | '/world'
-  id: '__root__' | '/' | '/game' | '/first-light-comparison' | '/settings' | '/world'
+  to: '/' | '/game' | '/first-light-comparison' | '/settings' | '/world' | '/north-heights-preview'
+  id: '__root__' | '/' | '/game' | '/first-light-comparison' | '/settings' | '/world' | '/north-heights-preview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +86,7 @@ export interface RootRouteChildren {
   FirstLightComparisonRoute: typeof FirstLightComparisonRoute
   SettingsRoute: typeof SettingsRoute
   WorldRoute: typeof WorldRoute
+  NorthHeightsPreviewRoute: typeof NorthHeightsPreviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +126,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorldRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/north-heights-preview': {
+      id: '/north-heights-preview'
+      path: '/north-heights-preview'
+      fullPath: '/north-heights-preview'
+      preLoaderRoute: typeof NorthHeightsPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +142,7 @@ const rootRouteChildren: RootRouteChildren = {
   FirstLightComparisonRoute: FirstLightComparisonRoute,
   SettingsRoute: SettingsRoute,
   WorldRoute: WorldRoute,
+  NorthHeightsPreviewRoute: NorthHeightsPreviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

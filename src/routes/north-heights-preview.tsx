@@ -77,7 +77,7 @@ function NorthHeightsPreview() {
         </div>
       </div>
       <div className="pointer-events-none absolute bottom-28 right-3 max-w-56 text-right text-[10px] text-white/55">
-        City pack 8 by Pasha · CC BY 4.0 · sketchfab.com/3d-models/city-pack-8
+        City pack 8 by Pasha · CC BY 4.0 · https://skfb.ly/pFEVL
       </div>
     </main>
   );
