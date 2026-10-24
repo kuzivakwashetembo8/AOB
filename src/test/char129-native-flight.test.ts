@@ -6,6 +6,8 @@ import {resolve} from "node:path";
 import {
  captureNativeFlightGeometry129,createNativeFlightPlayer129,
  nativeFlightPitch129,NATIVE_FLIGHT_MAX_PITCH_129,
+ FLY_IDLE_CYCLE_SECONDS_129,FLY_IDLE_VERTICAL_AMPLITUDE_129,
+ FLY_IDLE_FORWARD_AMPLITUDE_129,
 } from "../game/character/native-flight-129";
 import type {FlightPoseInput} from "../game/character/locomotion/flight-pose";
 
@@ -128,14 +130,95 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
     expect(Math.abs(Quaternion.Dot(base,r.names.get(key)!.rotationQuaternion!))).toBeCloseTo(1,6);
    for(let i=0;i<35;i++)player.update({...staticPose,dt:1/60});
    expect(r.pivot.rotation.x).toBeCloseTo(0,6);
+   // flyIdle is now intentionally different from standing; leaving flight
+   // must still reconstruct the saved neutral pose without drift.
+   player.leave();
    const after=captureNativeFlightGeometry129(r.names,r.anchor);
    expect(after.leftAnkleLane).toBeCloseTo(baseline.leftAnkleLane,5);
    expect(after.rightAnkleLane).toBeCloseTo(baseline.rightAnkleLane,5);
    expect(after.leftWristLane).toBeCloseTo(baseline.leftWristLane,5);
    expect(after.rightWristLane).toBeCloseTo(baseline.rightWristLane,5);
    for(let i=0;i<30;i++){player.leave();player.enter();player.update({...staticPose,dt:1/60});}
-   expect(player.report.worstNeutralDeviationRadians).toBeLessThan(1e-4);
+   expect(player.report.worstNeutralDeviationRadians).toBeLessThan(.5);
    player.dispose();
+  }finally{r.dispose();}
+ });
+ it("flyIdle subtly opens both native arms and relaxes one leg without crossing",()=>{
+  const r=rig();
+  try{
+   const rest=captureNativeFlightGeometry129(r.names,r.anchor);
+   const base=new Map([...r.names].map(([k,v])=>[k,v.rotationQuaternion!.clone()]));
+   const player=createNativeFlightPlayer129([r.boneSkel],r.anchor,r.pivot);
+   player.enter();
+   expect(player.report.idleCalibrated).toBe(true);
+   expect(player.report.idleCalibrationIssue).toBe(null);
+   for(let i=0;i<18;i++)player.update({...staticPose,dt:1/60});
+   const hover=captureNativeFlightGeometry129(r.names,r.anchor);
+   expect(player.report.activeClip).toBe("flyIdle");
+   expect(player.report.idleWeight).toBeCloseTo(1,4);
+   expect(hover.leftWristLane).toBeLessThan(rest.leftWristLane);
+   expect(hover.rightWristLane).toBeGreaterThan(rest.rightWristLane);
+   expect(hover.leftAnkleLane).toBeLessThan(hover.rightAnkleLane);
+   expect(hover.ankleSeparation).toBeGreaterThan(rest.ankleSeparation*.80);
+   expect(Math.abs(Quaternion.Dot(r.names.get("RightUpLeg")!.rotationQuaternion!,
+    base.get("RightUpLeg")!))).toBeLessThan(.999999);
+   expect(Math.abs(Quaternion.Dot(r.names.get("RightLeg")!.rotationQuaternion!,
+    base.get("RightLeg")!))).toBeLessThan(.999999);
+   for(const name of ["Hips","Spine","Spine1","Spine2","LeftUpLeg","LeftLeg","LeftFoot",
+    "RightFoot","LeftHand","RightHand","LeftForeArm","RightForeArm"])
+    expect(Math.abs(Quaternion.Dot(r.names.get(name)!.rotationQuaternion!,base.get(name)!)))
+     .toBeCloseTo(1,6);
+   player.leave();
+   expect(captureNativeFlightGeometry129(r.names,r.anchor)).toEqual(rest);
+   expect(r.pivot.position.y).toBeCloseTo(.95,6);
+   expect(r.pivot.position.z).toBeCloseTo(0,6);
+  }finally{r.dispose();}
+ });
+ it("flyIdle repeats a subcentimetric two-second float, without moving the physics anchor",()=>{
+  const r=rig();
+  try{
+   const player=createNativeFlightPlayer129([r.boneSkel],r.anchor,r.pivot);
+   const physicsStart=r.anchor.position.clone();
+   expect(FLY_IDLE_CYCLE_SECONDS_129).toBe(2);
+   player.enter();
+   const samples:number[]=[];
+   const forward:number[]=[];
+   for(let i=0;i<360;i++){
+    player.update({...staticPose,dt:1/60});
+    samples.push(player.report.microVertical);
+    forward.push(player.report.microForward);
+    expect(Math.abs(player.report.microVertical)).toBeLessThanOrEqual(
+     FLY_IDLE_VERTICAL_AMPLITUDE_129+1e-8);
+    expect(Math.abs(player.report.microForward)).toBeLessThanOrEqual(
+     FLY_IDLE_FORWARD_AMPLITUDE_129+1e-8);
+   }
+   expect(Vector3.Distance(r.anchor.position,physicsStart)).toBe(0);
+   expect(samples[90]).toBeCloseTo(samples[210]!,5);
+   expect(samples[210]).toBeCloseTo(samples[330]!,5);
+   expect(Math.max(...samples)-Math.min(...samples)).toBeGreaterThan(.015);
+   expect(forward[90]).toBeCloseTo(forward[210]!,5);
+   for(let i=0;i<16;i++)player.update({...staticPose,left:true,dt:1/60});
+   expect(player.report.idleWeight).toBeCloseTo(0,5);
+   expect(player.report.microVertical).toBeCloseTo(0,6);
+   expect(player.report.microForward).toBeCloseTo(0,6);
+   player.leave();player.dispose();
+  }finally{r.dispose();}
+ });
+ it("repeated native hover exit does not accumulate wrist twist or hip rotation",()=>{
+  const r=rig();
+  try{
+   const start=captureNativeFlightGeometry129(r.names,r.anchor);
+   const q=new Map([...r.names].map(([k,v])=>[k,v.rotationQuaternion!.clone()]));
+   const player=createNativeFlightPlayer129([r.boneSkel],r.anchor,r.pivot);
+   for(let cycle=0;cycle<80;cycle++){
+    player.enter();
+    for(let i=0;i<18;i++)player.update({...staticPose,dt:1/60});
+    player.leave();
+   }
+   expect(captureNativeFlightGeometry129(r.names,r.anchor)).toEqual(start);
+   for(const [key,base] of q)
+    expect(Math.abs(Quaternion.Dot(base,r.names.get(key)!.rotationQuaternion!)))
+     .toBeCloseTo(1,6);
   }finally{r.dispose();}
  });
  it("fails closed on crossed linked-native legs instead of trusting fake local quaternion tests",()=>{
