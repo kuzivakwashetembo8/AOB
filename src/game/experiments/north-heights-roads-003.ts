@@ -84,8 +84,26 @@ function pad(batch:Builder,x0:number,z0:number,x1:number,z1:number,elevation:num
   addQuad(batch,projected(x0,z0,at,elevation),projected(x1,z0,at,elevation),
     projected(x1,z1,at,elevation),projected(x0,z1,at,elevation),true);
 }
+function ensureWalkableFacesPointUp(data:Builder){
+  // Generated surfaces have mixed X/Z parametrization. Resolve orientation
+  // from the real vertex coordinates, never from the road direction or
+  // material label. A negative signed XZ area means downward triangle.
+  for(let i=0;i<data.indices.length;i+=3){
+    const ia=data.indices[i]!*3,ib=data.indices[i+1]!*3,ic=data.indices[i+2]!*3;
+    const ax=data.p[ia]!,az=data.p[ia+2]!;
+    const bx=data.p[ib]!,bz=data.p[ib+2]!;
+    const cx=data.p[ic]!,cz=data.p[ic+2]!;
+    const crossY=(bz-az)*(cx-ax)-(bx-ax)*(cz-az);
+    if(crossY<0){
+      const tmp=data.indices[i+1]!;
+      data.indices[i+1]=data.indices[i+2]!;
+      data.indices[i+2]=tmp;
+    }
+  }
+}
 function materialMesh(scene:Scene,name:string,data:Builder,material:StandardMaterial){
   if(!data.indices.length)return false;
+  if(name!=="curb")ensureWalkableFacesPointUp(data);
   const normal:number[]=[];
   VertexData.ComputeNormals(data.p,data.indices,normal);
   const v=new VertexData();
