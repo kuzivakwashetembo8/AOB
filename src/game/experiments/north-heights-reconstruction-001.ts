@@ -6,7 +6,7 @@
  * canonical CitySpec + BuildingGenerator after owner layout review.
  */
 import {
-  Color3, Matrix, Mesh, MeshBuilder, Quaternion, Scene, StandardMaterial, Vector3,
+  Color3, Matrix, Mesh, MeshBuilder, Quaternion, Scene, StandardMaterial, Vector3, VertexData,
 } from "@babylonjs/core";
 import type { BuildingArchetype, BuildingSpec } from "@/game/world-generation/schema";
 
@@ -137,16 +137,13 @@ function terrain(scene: Scene, mat: StandardMaterial) {
     indices.push(a,c,b,b,c,d);
   }
   const mesh = new Mesh("nh-ridge-terrain", scene);
-  Mesh.ComputeNormals(positions,indices,normals);
-  const data = new (awaitNeverUsedVertexData())();
+  VertexData.ComputeNormals(positions,indices,normals);
+  const data = new VertexData();
   data.positions = positions; data.indices = indices; data.normals = normals;
   data.applyToMesh(mesh);
   mesh.material = mat;
   mesh.isPickable = false;
 }
-// Synchronous constructor access avoids dynamic imports in the render path.
-import { VertexData } from "@babylonjs/core";
-function awaitNeverUsedVertexData() { return VertexData; }
 function strip(scene: Scene, material: StandardMaterial, name: string, axis: "x"|"z",
   center: number, offset: number, start: number, end: number, width: number, elevation: number) {
   const first: Vector3[] = [], second: Vector3[] = [];
