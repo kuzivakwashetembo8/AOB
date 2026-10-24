@@ -6,7 +6,7 @@
  * canonical CitySpec + BuildingGenerator after owner layout review.
  */
 import {
-  Color3, Material, Matrix, Mesh, MeshBuilder, Quaternion, Scene, StandardMaterial, Vector3, VertexData,
+  Color3, DynamicTexture, FresnelParameters, Material, Matrix, Mesh, MeshBuilder, Quaternion, Scene, StandardMaterial, Texture, Vector3, VertexData,
 } from "@babylonjs/core";
 import type { BuildingArchetype, BuildingSpec } from "@/game/world-generation/schema";
 import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generation/representation-materials";
@@ -156,11 +156,57 @@ function terrain(scene: Scene, mat: StandardMaterial) {
   mesh.material = mat;
   mesh.isPickable = false;
 }
+/**
+ * Cheap static, skyline/sky reflection panorama. Babylon's SPHERICAL mapping
+ * keeps the accepted semi-transparent square apertures, adding sky/sun glints
+ * without a costly real-time reflection probe per building.
+ */
+function createGlassReflection005(scene:Scene):DynamicTexture{
+  const tex=new DynamicTexture("nh005-glass-urban-sky-reflection",{
+    width:256,height:128,
+  },scene,false);
+  const ctx=tex.getContext() as CanvasRenderingContext2D;
+  const gradient=ctx.createLinearGradient(0,0,0,128);
+  gradient.addColorStop(0,"#b8d5e5");
+  gradient.addColorStop(.32,"#84a8c3");
+  gradient.addColorStop(.53,"#d8dbd0");
+  gradient.addColorStop(.56,"#566f80");
+  gradient.addColorStop(1,"#2f4855");
+  ctx.fillStyle=gradient;ctx.fillRect(0,0,256,128);
+  const random=randomReflection005(4598);
+  for(let i=0;i<48;i++){
+    const x=random()*256,w=2+random()*10,h=6+random()*34;
+    ctx.fillStyle=i%3===0?"rgba(27,47,63,.29)":"rgba(48,70,79,.18)";
+    ctx.fillRect(x,72-h,w,h);
+  }
+  ctx.fillStyle="rgba(252,247,225,.45)";
+  ctx.fillRect(174,8,3,100);
+  ctx.fillRect(180,15,1,88);
+  tex.update(false);
+  tex.coordinatesMode=Texture.SPHERICAL_MODE;
+  tex.level=.24;
+  return tex;
+}
+function randomReflection005(seed:number){
+  let v=seed>>>0;return()=>{v=(Math.imul(v,1664525)+1013904223)>>>0;return v/4294967296;};
+}
 type Bucket = { material: StandardMaterial; boxes: BoxSpec[] };
 class InstancedCity {
   private buckets = new Map<string,Bucket>();
   constructor(private readonly scene: Scene) {
     for (const [name,hex] of Object.entries(palette)) this.buckets.set(name,{material:paint(scene,name,hex),boxes:[]});
+    const environment=createGlassReflection005(scene);
+    for(const name of ["glass","glass-mid","glass-warm","glass-dark"]){
+      const material=this.mat(name);
+      material.reflectionTexture=environment;
+      material.specularColor=new Color3(.63,.70,.76);
+      material.specularPower=125;
+      const fresnel=new FresnelParameters();
+      fresnel.bias=.08;fresnel.power=2.7;
+      fresnel.leftColor=Color3.White();
+      fresnel.rightColor=Color3.Black();
+      material.reflectionFresnelParameters=fresnel;
+    }
     for(const [key,familyId] of [["road","asphalt"],["pavement","sidewalk-paving"]] as const) {
       const family=MATERIAL_FAMILIES[familyId as MaterialFamilyId];
       const mat=this.mat(key);
