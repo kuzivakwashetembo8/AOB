@@ -276,3 +276,19 @@ Deployment: `dpl_3tqFx35EbVmWJLNPUkkKRzryvm7g`; built from implementation SHA ab
 **Review-only URL:** https://gtd-6z4x3rvwm-interlinkglobaltech.vercel.app/game
 
 **Decision gate:** user visually inspects side profile (forward knee and foot fold) plus rear/front bilateral clearance and balance-arm spread; inspect 2-second floating subtlety and smooth state transitions. Numerical tests and READY state alone do not constitute visual acceptance. No merge to main or production deployment without owner's separate authorization.
+
+
+### CHAR-129-FI-004 — Owner-requested hand spread, knee flex and foot pitch (2026-10-24)
+
+**Owner directive:** Approves implementation of the previously discussed reference posture. Front/rear reference shows a relaxed float with both arms more open, a more folded right knee, and the bent right shoe pointing **toes down**, so its sole faces **behind** the character instead of flat toward the ground. The motion oscillator is accepted and **must not change**. Scope is `flyIdle` only. After implementation issue a new preview.
+
+**Preserved baseline:** FI-003 implementation at `33411e1243fea535f55aee25b69f2175a030b6d3` and preview `https://gtd-6z4x3rvwm-interlinkglobaltech.vercel.app/game`; prior accepted neutral-native V2 baseline also remains accessible. No main/prod merge and no changes to Rapier, controls, jump, walk, fast flight, vehicles or world assets.
+
+**Implementation targets:**
+- Upper arms only: widen accepted native shoulder-to-elbow lateral aim from 8.5% to **12% of real measured shoulder width** per arm; cap parent-space angle to **0.26 rad**. Original clavicles, elbows, hands, fingers and palms receive no independent rotations. Preserve natural small bend rather than a T-pose.
+- Increase right thigh knee-forward target from 32% to **39% of its measured length**, cap 0.50 rad; increase right tibia relaxation by aiming the already-moved ankle **60% shin-length backward and 25% upward**, cap 0.82 rad. The left leg remains unchanged. Minimum independently measured knee flexion gain **25°**, forward knee travel **18% thigh length**, ankle lift **10% shin length**; retain baseline separation.
+- **New and essential: shoe orientation.** After the thigh and knee candidate succeeds, rotate native **`RightFoot`** at the ankle, aiming its actual child `RightToeBase` along a mostly **world-down** vector with at most a small component in Voight's measured forward direction (cap 1.55 radians). This produces toes facing down and the sole pointing behind the character. Do **not** bend toes individually or twist the foot around its long axis. Validate actual ankle→toe vector downward alignment (target `dot(toeVector, worldDown) >= 0.70`) on Voight's **actual skinned GLB linked hierarchy** at multiple actor headings, and compare to the accepted standing orientation.
+- All desired joint rotations are captured transactionally on the real parented skeleton, then returned to the accepted neutral basis. Enter `flyIdle` blends absolute native targets using the existing 0.24s envelope, and leaving hover restores the original locally calibrated posture. If any anatomical aim, foot orientation or lane check fails, reject the candidate and retain the last accepted standing fallback **without disabling the existing 2-second float**.
+- No fresh UAL retargeting, no model/GLB edits, and no deployment before real-GLB shoulder, knee, toe and foot-lane tests pass.
+
+**Release gate:** 3 yaw headings on original `character.glb` demonstrate arms opening, knee flexion, foot pointing down and baseline restore; synthetic fallback remains fail-closed. Full TypeScript/regression build and offline packaging; one preview for owner visual inspection, not auto-merge.
