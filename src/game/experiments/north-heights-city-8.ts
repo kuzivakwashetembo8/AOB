@@ -14,10 +14,16 @@ import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
 import { createMercerStaticCharacter } from "@/game/world/mercer-static-character-103";
 import { createNorthHeightsWalk005, type NorthHeightsWalk005 } from "./north-heights-physics-005";
+import {northHeightsHardwareScale006,northHeightsFrameLimit006} from "./north-heights-presentation-006";
+import {touchCameraRadiansPerPixel} from "@/game/input/touch-camera-sensitivity";
+import {defaults,type Settings} from "@/ui/menus/settings-state";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
   press: (control: Control, down: boolean) => void;
+  move: (x:number,y:number) => void;
+  applySettings: (settings:Settings) => void;
+  setPaused: (paused:boolean) => void;
   reset: () => void;
   setTime: (time: NorthHeightsTime) => void;
   setMode: (mode: "walk" | "fly") => boolean;
@@ -89,7 +95,8 @@ export async function createNorthHeightsCity8(
   const sun = new DirectionalLight("nh001-daylight", new Vector3(-0.6, -1, 0.4), scene);
   sun.intensity = 1.20;
   const sky = createNorthHeightsSky(scene,sun,hemi,mobile);
-  // Reduce cost on memory-constrained mobiles before any 3D assets are loaded.
+  // Start conservatively; shared GTD graphics settings are applied immediately
+  // after the route hydrates localStorage (not via a new preferences system).
   engine.setHardwareScalingLevel(mobile ? 1.75 : 1.1);
   const camera = new FreeCamera("nh001-fly-camera", new Vector3(0, 10, -20), scene);
   camera.minZ = 0.1;
@@ -98,6 +105,9 @@ export async function createNorthHeightsCity8(
   scene.activeCamera = camera;
   const held = new Set<Control>();
   const keys = new Set<string>();
+  let settings:Settings=defaults;
+  let paused=false,analog={x:0,y:0},keyboardUsed=false;
+  let renderLast=0;
   let yaw = 0, pitch = 0, closed = false, anchor = new Vector3(0, 4, -15);
   let treeHandle: {dispose:()=>void} | null = null;
   let walk:NorthHeightsWalk005|null=null;
@@ -113,27 +123,46 @@ export async function createNorthHeightsCity8(
   let frames = 0;
   const keyDown = (event: KeyboardEvent) => {
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
+    if(paused)return;
+    keyboardUsed=true;
     keys.add(event.code);
   };
   const keyUp = (event: KeyboardEvent) => { keys.delete(event.code); };
-  const clearKeys = () => { keys.clear(); held.clear(); dragPointer = null; };
+  const clearKeys = () => { keys.clear();held.clear();analog={x:0,y:0};dragPointer=null; };
   const pointerDown = (event: PointerEvent) => {
-    if (dragPointer !== null) return;
+    if(paused||dragPointer !== null) return;
     dragPointer = event.pointerId; lastX = event.clientX; lastY = event.clientY;
     canvas.setPointerCapture(event.pointerId);
   };
   const pointerMove = (event: PointerEvent) => {
-    if (dragPointer !== event.pointerId) return;
+    if(paused||dragPointer !== event.pointerId) return;
     const dx = event.clientX - lastX, dy = event.clientY - lastY;
     lastX = event.clientX; lastY = event.clientY;
-    yaw += dx * 0.004;
-    pitch = Math.max(-1.48, Math.min(1.48, pitch + dy * 0.004));
+    const touch=event.pointerType==="touch"||event.pointerType==="pen";
+    const gain=touch ? touchCameraRadiansPerPixel(settings.touchSensitivity) :
+      .004*Math.max(.15,settings.sensitivity/50);
+    yaw += dx*gain;
+    pitch=Math.max(-1.48,Math.min(1.48,
+      pitch + dy*gain*(settings.invertY?-1:1)));
   };
   const pointerUp = (event: PointerEvent) => {
     if (dragPointer === event.pointerId) dragPointer = null;
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   };
-  const resize = () => { engine.resize(); };
+  const applyGraphics=()=>{
+    if(closed)return;
+    const rect=canvas.getBoundingClientRect();
+    const dpr=window.devicePixelRatio||1;
+    engine.setHardwareScalingLevel(northHeightsHardwareScale006(settings,{
+      dpr,coarse:mobile,width:rect.width||innerWidth,height:rect.height||innerHeight,
+    }));
+    engine.resize();
+    // North Heights has no shadow generators yet; preserve South Ward's
+    // saved preference for when shadow-casting is implemented.
+    scene.shadowsEnabled=settings.shadows;
+    scene.fogDensity=settings.quality==="Low"?.0018:.00115;
+  };
+  const resize=()=>{applyGraphics();};
   canvas.addEventListener("pointerdown", pointerDown);
   canvas.addEventListener("pointermove", pointerMove);
   canvas.addEventListener("pointerup", pointerUp);
@@ -144,11 +173,17 @@ export async function createNorthHeightsCity8(
   window.addEventListener("resize", resize);
   scene.onBeforeRenderObservable.add(() => {
     const dt=Math.min(.05,engine.getDeltaTime()/1000);
+    if(paused)return;
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
-    const x=Number(active("right")||key("ArrowRight")||key("KeyD"))-
-      Number(active("left")||key("ArrowLeft")||key("KeyA"));
-    const z=Number(active("forward")||key("ArrowUp")||key("KeyW"))-
-      Number(active("back")||key("ArrowDown")||key("KeyS"));
+    const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
+    const stickX=pad&&Math.abs(pad.axes[0]??0)>.18?(pad.axes[0]??0):0;
+    const stickY=pad&&Math.abs(pad.axes[1]??0)?-(pad.axes[1]??0):0;
+    const x=Math.max(-1,Math.min(1,
+      Number(active("right")||key("ArrowRight")||key("KeyD"))-
+      Number(active("left")||key("ArrowLeft")||key("KeyA"))+analog.x+stickX));
+    const z=Math.max(-1,Math.min(1,
+      Number(active("forward")||key("ArrowUp")||key("KeyW"))-
+      Number(active("back")||key("ArrowDown")||key("KeyS"))-analog.y+stickY));
     const ascend=active("up")||key("Space")||key("KeyE");
     const fast=active("fast")||key("ShiftLeft")||key("ShiftRight");
     const heading=new Vector3(Math.sin(yaw),0,Math.cos(yaw));
@@ -195,9 +230,22 @@ export async function createNorthHeightsCity8(
       (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
       "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
   });
-  engine.runRenderLoop(() => { if (!closed) scene.render(); });
+  engine.runRenderLoop(() => {
+    if(closed||paused)return;
+    const now=performance.now(),fps=northHeightsFrameLimit006(settings.fps);
+    if(Number.isFinite(fps)&&now-renderLast<1000/fps-.5)return;
+    renderLast=now;
+    scene.render();
+  });
   const controller: NorthHeightsInspection = {
-    press(control, down) { if (down) held.add(control); else held.delete(control); },
+    press(control,down){if(paused)return;if(down)held.add(control);else held.delete(control);},
+    move(x,y){if(paused)return;analog={x:Math.max(-1,Math.min(1,x)),y:Math.max(-1,Math.min(1,y))};},
+    applySettings(next){settings=next;applyGraphics();},
+    setPaused(value){
+      paused=value;
+      if(value)clearKeys();
+      else {renderLast=0;engine.resize();}
+    },
     reset() {
       if(mode==="walk"&&walk)walk.reset(footSpawn.x,footSpawn.z);
       else {camera.position.copyFrom(anchor);yaw=initialYaw;pitch=initialPitch;}
@@ -273,6 +321,7 @@ export async function createNorthHeightsCity8(
     if(closed)return controller;
     mode="walk";
     physicsAccumulator=0;
+    applyGraphics();
     anchor=world.overview.clone();
     camera.position.copyFrom(anchor);
     camera.setTarget(new Vector3(0,48,0));
