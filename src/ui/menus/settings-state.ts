@@ -80,9 +80,10 @@ export const defaults: Settings = {
   autoHide: true,
   desktopControls: true,
 };
-export function useSettings() {
+export function useSettings(active = true) {
   const [settings, setSettings] = useState<Settings>(defaults);
   useEffect(() => {
+    if (!active) return;
     try {
       const value = localStorage.getItem("gtd-interface-settings");
       if (value) {
@@ -109,7 +110,7 @@ export function useSettings() {
     } catch {
       /* Use defaults when settings storage is unavailable. */
     }
-  }, []);
+  }, [active]);
   const save = (value: Settings) => {
     setSettings(value);
     try {
