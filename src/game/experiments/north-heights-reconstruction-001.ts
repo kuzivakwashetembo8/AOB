@@ -9,6 +9,8 @@ import {
   Color3, Matrix, Mesh, MeshBuilder, Quaternion, Scene, StandardMaterial, Vector3, VertexData,
 } from "@babylonjs/core";
 import type { BuildingArchetype, BuildingSpec } from "@/game/world-generation/schema";
+import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generation/representation-materials";
+import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 
 export interface NorthHeightsGenerated {
   readonly count: number;
@@ -160,6 +162,12 @@ function strip(scene: Scene, material: StandardMaterial, name: string, axis: "x"
     second.push(new Vector3(x2, northHeightsGround(x2,z2)+elevation,z2));
   }
   const mesh = MeshBuilder.CreateRibbon(name, {pathArray:[first,second], sideOrientation:Mesh.DOUBLESIDE}, scene);
+  // Use repeatable world-metre UVs, not stretched 0..1 UVs over 640m of road.
+  // This shares the exact South Ward procedural asphalt/paving texture grammar.
+  const points=mesh.getVerticesData("position")??[];
+  const uvs:number[]=[];
+  for(let i=0;i<points.length;i+=3) uvs.push(points[i]!/8,points[i+2]!/8);
+  mesh.setVerticesData("uv",uvs);
   mesh.material = material;
   mesh.isPickable = false;
 }
@@ -168,6 +176,25 @@ class InstancedCity {
   private buckets = new Map<string,Bucket>();
   constructor(private readonly scene: Scene) {
     for (const [name,hex] of Object.entries(palette)) this.buckets.set(name,{material:paint(scene,name,hex),boxes:[]});
+    for(const [key,familyId] of [["road","asphalt"],["pavement","sidewalk-paving"]] as const) {
+      const family=MATERIAL_FAMILIES[familyId as MaterialFamilyId];
+      const mat=this.mat(key);
+      mat.diffuseTexture=createSurfaceTexture(scene,{
+        key:"nh-rebuild-002:"+key,
+        familyId,
+        role:"trim",
+        color:family.color,
+        roughness:family.roughness,
+        metalness:family.metalness,
+        alpha:family.alpha,
+        textureKind:family.textureKind,
+        textureScale:{u:1,v:1},
+        variation:{tintBucket:0,weathering:.64,grime:.58,patching:.48,uvOffset:{u:.17,v:.39}},
+      });
+      mat.diffuseColor=Color3.White();
+      mat.specularColor=new Color3(.025,.025,.025);
+      mat.specularPower=8;
+    }
   }
   mat(name: string) { return this.buckets.get(name)!.material; }
   box(name: string, x: number,y:number,z:number, w:number,h:number,d:number, rot=0) {
