@@ -6,11 +6,12 @@
  * canonical CitySpec + BuildingGenerator after owner layout review.
  */
 import {
-  Color3, Matrix, Mesh, MeshBuilder, Quaternion, Scene, StandardMaterial, Vector3, VertexData,
+  Color3, Material, Matrix, Mesh, MeshBuilder, Quaternion, Scene, StandardMaterial, Vector3, VertexData,
 } from "@babylonjs/core";
 import type { BuildingArchetype, BuildingSpec } from "@/game/world-generation/schema";
 import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generation/representation-materials";
 import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
+import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
 
 export interface NorthHeightsGenerated {
   readonly count: number;
@@ -46,7 +47,7 @@ const palette: Record<string, string> = {
   "lane": "#b9a069", "concrete": "#9fa4a0",
   "grass": "#36573e", "grass-light": "#587858",
   "trunk": "#675346", "leaf-a": "#3c684f", "leaf-b": "#568462", "leaf-c": "#78946a",
-  "door": "#243139", "lamp": "#e7ddb8",
+  "door": "#243139", "lamp": "#e7ddb8", "interior": "#151b22", "crosswalk": "#deded8",
 };
 const random = (seed: number) => {
   let value = seed >>> 0;
@@ -125,6 +126,11 @@ function paint(scene: Scene, name: string, hex: string) {
   mat.specularColor = name.includes("glass") ? new Color3(0.33,0.37,0.39) : new Color3(0.07,0.08,0.08);
   mat.specularPower = name.includes("glass") ? 85 : 22;
   if (name === "glass-lit" || name === "lamp") mat.emissiveColor = mat.diffuseColor.scale(0.2);
+  if (name === "glass" || name === "glass-mid" || name === "glass-dark" || name === "glass-warm") {
+    mat.alpha = 0.74;
+    mat.transparencyMode = Material.MATERIAL_ALPHABLEND;
+    mat.disableDepthWrite = true;
+  }
   mat.backFaceCulling = false;
   return mat;
 }
@@ -145,29 +151,6 @@ function terrain(scene: Scene, mat: StandardMaterial) {
   data.positions = positions; data.indices = indices; data.normals = normals;
   data.applyToMesh(mesh);
   mesh.material = mat;
-  mesh.isPickable = false;
-}
-function strip(scene: Scene, material: StandardMaterial, name: string, axis: "x"|"z",
-  center: number, offset: number, start: number, end: number, width: number, elevation: number) {
-  const first: Vector3[] = [], second: Vector3[] = [];
-  const count = 56;
-  for (let i=0;i<=count;i++) {
-    const along = start + (end-start) * i / count;
-    const x = axis === "x" ? along : center + offset;
-    const z = axis === "x" ? center + offset : along;
-    const x2 = axis === "x" ? along : x + width;
-    const z2 = axis === "x" ? z + width : along;
-    first.push(new Vector3(x, northHeightsGround(x,z)+elevation, z));
-    second.push(new Vector3(x2, northHeightsGround(x2,z2)+elevation,z2));
-  }
-  const mesh = MeshBuilder.CreateRibbon(name, {pathArray:[first,second], sideOrientation:Mesh.DOUBLESIDE}, scene);
-  // Use repeatable world-metre UVs, not stretched 0..1 UVs over 640m of road.
-  // This shares the exact South Ward procedural asphalt/paving texture grammar.
-  const points=mesh.getVerticesData("position")??[];
-  const uvs:number[]=[];
-  for(let i=0;i<points.length;i+=3) uvs.push(points[i]!/8,points[i+2]!/8);
-  mesh.setVerticesData("uv",uvs);
-  mesh.material = material;
   mesh.isPickable = false;
 }
 type Bucket = { material: StandardMaterial; boxes: BoxSpec[] };
@@ -226,84 +209,59 @@ class InstancedCity {
     return instances;
   }
 }
-// South Ward WORLD-018 road section, adapted to North Heights slope:
-// 8m local asphalt, 3.75m raised sidewalks, .2m curb, .14m dashed centre lines.
-// Curbs and sidewalks use surface ribbons rather than per-metre meshes.
-function buildRoads(scene: Scene, city: InstancedCity) {
-  for(const x of STREETS) {
-    strip(scene,city.mat("road"),"nh-road-north-south-"+x,"z",x,-ROAD/2,-EXTENT,EXTENT,ROAD,.055);
-    strip(scene,city.mat("pavement"),"nh-walk-west-"+x,"z",x,-ROAD/2-WALK,-EXTENT,EXTENT,WALK,.11);
-    strip(scene,city.mat("pavement"),"nh-walk-east-"+x,"z",x,ROAD/2+.02,-EXTENT,EXTENT,WALK,.11);
-    strip(scene,city.mat("curb"),"nh-curb-west-"+x,"z",x,-ROAD/2-CURB/2,-EXTENT,EXTENT,CURB,.21);
-    strip(scene,city.mat("curb"),"nh-curb-east-"+x,"z",x,ROAD/2-CURB/2,-EXTENT,EXTENT,CURB,.21);
-    for(let z=-EXTENT+5;z<EXTENT-5;z+=9) {
-      if(STREETS.some(v=>Math.abs(z-v)<9))continue;
-      city.box("lane",x,northHeightsGround(x,z)+.08,z,.14,.012,3.2);
-    }
-  }
-  for(const z of STREETS) {
-    strip(scene,city.mat("road"),"nh-road-east-west-"+z,"x",z,-ROAD/2,-EXTENT,EXTENT,ROAD,.062);
-    strip(scene,city.mat("pavement"),"nh-walk-north-"+z,"x",z,-ROAD/2-WALK,-EXTENT,EXTENT,WALK,.11);
-    strip(scene,city.mat("pavement"),"nh-walk-south-"+z,"x",z,ROAD/2+.02,-EXTENT,EXTENT,WALK,.11);
-    strip(scene,city.mat("curb"),"nh-curb-north-"+z,"x",z,-ROAD/2-CURB/2,-EXTENT,EXTENT,CURB,.21);
-    strip(scene,city.mat("curb"),"nh-curb-south-"+z,"x",z,ROAD/2-CURB/2,-EXTENT,EXTENT,CURB,.21);
-    for(let x=-EXTENT+5;x<EXTENT-5;x+=9) {
-      if(STREETS.some(v=>Math.abs(x-v)<9))continue;
-      city.box("lane",x,northHeightsGround(x,z)+.085,z,3.2,.012,.14);
-    }
-  }
-}
 /**
- * Window ribbons, not pale per-pane cubes. SOUTH WARD has accepted actual
- * framed glass planes; the nearest hero pass can later add those detailed
- * meshes. For visual skyline inspection a building-scale ribbon yields far
- * fewer draws/instances than the rejected repeated tile grid.
+ * REBUILD-003 square 3.0m module. The original solid exterior box has been
+ * removed. Instead these are actual wall piers and spandrel strips bordering
+ * square clear openings. A continuous *transparent* glazing plane is placed
+ * behind the openings, with a dark inset interior core further behind.
+ *
+ * One tint per building; no randomly lit white windows. Glass towers use
+ * narrow dark mullions; residential/brick uses wider solid spandrels.
  */
-function addFacade(city: InstancedCity, lot:Lot, x:number,z:number, base:number,
-  height:number,w:number,d:number,mode:Family,accent:number,mobile:boolean) {
-  const levels=Math.max(2,lot.floors);
+function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
+  height:number,w:number,d:number,mode:Family,accent:number,mobile:boolean,wall:string){
   const isHigh=mode==="glass"||mode==="office";
-  const isHome=mode==="estate"||mode==="residential";
-  const pane=isHigh ? ["glass","glass-mid","glass-dark"][accent]! :
-    ["glass-warm","glass-dark","glass-mid"][accent]!;
-  const step=isHigh?(mobile?3:2):(mobile?4:3);
-  const facade=(side:"z"|"x", sign:number)=>{
+  const pane=(isHigh?["glass","glass-mid","glass-dark"]:["glass-warm","glass-dark","glass-mid"])[accent]!;
+  const frame=isHigh?"mullion":wall;
+  const floors=Math.max(2,lot.floors);
+  const sill=isHigh?.38:.62;
+  const bayTarget=3.15;
+  const facade=(side:"x"|"z",sign:number)=>{
     const length=side==="z"?w:d;
-    const wx=(offset:number)=>side==="z"?x+offset:x+sign*(w/2+.07);
-    const wz=(offset:number)=>side==="z"?z+sign*(d/2+.07):z+offset;
-    // One slightly inset pane ribbon per two/three storeys reduces optical
-    // tiling noise. The wall material remains visible between ribbons.
-    for(let floor=1;floor<levels;floor+=step) {
-      const remaining=Math.min(step,levels-floor);
-      const y=base+(floor+.46*remaining)*lot.floorHeight;
-      if(y>base+height-.7)continue;
-      const glassHeight=Math.max(1.20,remaining*lot.floorHeight*.61);
-      const chosen=(!mobile && ((floor*13+accent*7+sign*3)%37===0))?"glass-lit":pane;
-      city.box(chosen,wx(0),y,wz(0),
-        side==="z"?length*.80:.085,glassHeight,side==="z"?.085:length*.80);
-      // Grouping into a single ribbon retains a distinct window-to-wall rhythm,
-      // while sparse dark mullions avoid the bright white checkerboard defect.
+    const bays=Math.max(2,Math.round(length/bayTarget));
+    const bay=length/bays;
+    // The glazed sheet is an actual transmissive surface; no opaque exterior
+    // geometry is generated over or behind individual square apertures.
+    const xg=side==="z"?x:x+sign*(w/2-.20);
+    const zg=side==="z"?z+sign*(d/2-.20):z;
+    city.box(pane,xg,base+height/2,zg,
+      side==="z"?length-.5:.055,height-.50,side==="z"?.055:length-.5);
+    const xf=(at:number)=>side==="z"?x+at:x+sign*(w/2+.06);
+    const zf=(at:number)=>side==="z"?z+sign*(d/2+.06):z+at;
+    // Vertical piers (true facade solids) terminate at each window edge.
+    for(let col=0;col<=bays;col++){
+      const at=-length/2+col*bay;
+      city.box(frame,xf(at),base+height/2,zf(at),
+        side==="z"?isHigh?.16:.44:.16,height,side==="z"?.16:isHigh?.16:.44);
     }
-    const mullionCount=isHigh?Math.min(6,Math.floor(length/7.5)):Math.min(3,Math.floor(length/9.5));
-    for(let i=1;i<mullionCount;i++) {
-      const pos=-length/2+length*i/mullionCount;
-      city.box("mullion",wx(pos),base+height/2,wz(pos),
-        side==="z"?.10:.11,height,side==="z"?.11:.10);
+    // Continuous physical sills/spandrels with apertures between; horizontal
+    // grid level remains 1:1-ish with 3.35/3.10m storey heights.
+    const stride=mobile&&floors>20?2:1;
+    for(let floor=0;floor<=floors;floor+=stride){
+      const y=base+Math.min(floor,floors)*lot.floorHeight+.13;
+      if(y>base+height+.2)break;
+      city.box(frame,xf(0),y,zf(0),
+        side==="z"?length:.20,sill,side==="z"?.20:length);
     }
-    if(isHigh && !mobile) {
-      for(let f=5;f<levels;f+=8) {
-        const y=base+f*lot.floorHeight;
-        city.box("mullion",wx(0),y,wz(0),
-          side==="z"?length+.1:.12,.10,side==="z"?.12:length+.1);
-      }
-    }
+    if(floors%stride!==0)
+      city.box(frame,xf(0),base+height-.02,zf(0),side==="z"?length:.20,sill,side==="z"?.20:length);
   };
   facade("z",1);facade("z",-1);facade("x",1);facade("x",-1);
-  const entrances=isHome?1:2;
-  for(let i=0;i<entrances;i++) {
+  const entrances=(mode==="estate"||mode==="residential")?1:2;
+  for(let i=0;i<entrances;i++){
     const offset=(i-(entrances-1)/2)*Math.min(6,w*.23);
-    city.box("door",x+offset,base+1.45,z+d/2+.10,2.25,2.85,.11);
-    city.box("metal",x+offset,base+2.94,z+d/2+.15,2.7,.13,.16);
+    city.box("door",x+offset,base+1.45,z+d/2+.35,2.3,2.8,.13);
+    city.box("metal",x+offset,base+2.93,z+d/2+.39,2.75,.12,.17);
   }
 }
 function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
@@ -317,15 +275,25 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   const podium = style==="glass" || style==="office";
   const podiumH = podium ? 6.4 : 0;
   city.box("concrete",x,y+.45,z,w+1.8,.9,d+1.8);
-  city.box(wall,x,y+height/2+.8,z,w,height,d);
+  // No exterior solid wall behind the windows. Inset service core reads as
+  // dark interior depth through 0.74-alpha glass rather than a painted cube.
+  const interiorMargin=Math.min(4,Math.min(w,d)*.13);
+  city.box("interior",x,y+height/2+.8,z,w-2*interiorMargin,height-.15,d-2*interiorMargin);
+  // Interior floor slabs at selected levels create parallax behind glazing,
+  // without loading dozens of fully modeled rooms in a distant tower.
+  for(let f=3;f<lot.floors;f+=Math.max(3,mobile?7:5))
+    city.box("roof",x,y+f*lot.floorHeight+.8,z,w-1.4,.16,d-1.4);
   if(podium) {
-    city.box("stone-c",x,y+podiumH/2+.9,z,w+2.6,podiumH,d+2.3);
+    // Open-sided podium: structural corner piers, not an opaque box hiding glass.
+    for(const sx of [-1,1])for(const sz of [-1,1])
+      city.box("stone-c",x+sx*(w/2+.7),y+podiumH/2+.9,z+sz*(d/2+.7),1.1,podiumH,1.1);
+    city.box("stone-c",x,y+podiumH+.9,z,w+2.4,.55,d+2.4);
     for(let c=0;c<Math.floor(w/4);c++) {
       const px=x-w/2+(c+.5)*w/Math.floor(w/4);
       city.box("glass-mid",px,y+3.1,z+d/2+1.27,2.7,3.9,.08);
     }
   }
-  addFacade(city,lot,x,z,y+.8,height,w,d,style,lot.accent,mobile);
+  addFacade(city,lot,x,z,y+.8,height,w,d,style,lot.accent,mobile,wall);
   // Distinct roof silhouettes: parapets, crowns, elevator headhouses and
   // rooftop mechanics; not a flat repeated UV texture across whole skyline.
   const top = y+height+.8;
@@ -391,7 +359,11 @@ function addStreetFurniture(city: InstancedCity) {
 export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):NorthHeightsGenerated {
   const city=new InstancedCity(scene);
   terrain(scene,city.mat("grass"));
-  buildRoads(scene,city);
+  const roads=createNorthHeightsRoads003(scene,STREETS,northHeightsGround,{
+    asphalt:city.mat("road"),pavement:city.mat("pavement"),
+    curb:city.mat("curb"),crossing:city.mat("crosswalk"),
+  });
+  console.info("[NH-REBUILD-003] South Ward road batch",roads);
   const rnd=random(503021);
   const lots=planLots(rnd);
   const lotSpecs: BuildingSpec[]=[];
