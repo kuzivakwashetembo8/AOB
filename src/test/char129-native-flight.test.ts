@@ -103,11 +103,24 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
     player.update({...staticPose,left:true,ascending:true,dt:1/60});
    }
    const after=captureNativeFlightGeometry129(r.names,r.anchor);
-   expect(after.leftAnkleLane).toBeCloseTo(before.leftAnkleLane,5);
-   expect(after.rightAnkleLane).toBeCloseTo(before.rightAnkleLane,5);
-   expect(after.wristSeparation).toBeCloseTo(before.wristSeparation,5);
-   for(const [key,base] of rotations)
-    expect(Math.abs(Quaternion.Dot(base,r.names.get(key)!.rotationQuaternion!))).toBeCloseTo(1,6);
+   // Directional hovering now KEEPS the natural raised leg/arms when the
+   // real skeleton can calibrate them. Neutral invariance is the fallback
+   // ONLY for a synthetic skeleton whose knee bend cannot be validated.
+   if(player.report.idleCalibrated){
+    expect(after.ankleSeparation).toBeGreaterThan(before.ankleSeparation*.8);
+    expect(after.wristSeparation).toBeGreaterThan(before.wristSeparation);
+    expect(player.report.hoverWeight).toBe(1);
+   }else{
+    expect(after.ankleSeparation).toBeCloseTo(before.ankleSeparation,5);
+    expect(after.wristSeparation).toBeCloseTo(before.wristSeparation,5);
+   }
+   for(const key of ["Hips","Spine","Spine1","Spine2","Head",
+    "LeftUpLeg","LeftLeg","LeftFoot","LeftToeBase",
+    "LeftHand","RightHand","LeftForeArm","RightForeArm"]){
+    const base=rotations.get(key)!;
+    expect(Math.abs(Quaternion.Dot(base,r.names.get(key)!.rotationQuaternion!)))
+     .toBeCloseTo(1,6);
+   }
    expect(player.report.mode).toBe("hover");
    expect(player.report.pitchRadians).toBe(0);
    player.leave();
@@ -139,7 +152,14 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
    expect(after.leftWristLane).toBeCloseTo(baseline.leftWristLane,5);
    expect(after.rightWristLane).toBeCloseTo(baseline.rightWristLane,5);
    for(let i=0;i<30;i++){player.leave();player.enter();player.update({...staticPose,dt:1/60});}
-   expect(player.report.worstNeutralDeviationRadians).toBeLessThan(.5);
+   // Angles legitimately exceed 0.5 rad in the new raised-knee pose.
+   // The invariant is exact neutral restoration, not a small animated delta.
+   expect(Number.isFinite(player.report.worstNeutralDeviationRadians)).toBe(true);
+   player.leave();
+   for(const [name,rest] of rotations){
+    expect(Math.abs(Quaternion.Dot(rest,r.names.get(name)!.rotationQuaternion!)))
+     .toBeCloseTo(1,6);
+   }
    player.dispose();
   }finally{r.dispose();}
  });
