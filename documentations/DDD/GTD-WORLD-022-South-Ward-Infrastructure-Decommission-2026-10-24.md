@@ -77,9 +77,9 @@ None is approved for cherry-pick, merge or production release. Historical PR, ol
 - [x] Owner rejected branch, authorized removal and invoked Procedure DDD.
 - [x] All twelve specified original source files deleted from **main**, commit `4b6ffdb8e77dd95930a9bb08aa26ff7ffeb290ba`; the older villa files retained.
 - [x] Failure cause, attempted mechanisms, previews, uncertainty, rejected paths and protection boundaries documented.
-- [ ] PR #51 closed without merge (operational step).
-- [ ] Experimental branch reset to documentation-only latest main with a force-with-lease ref update; verify zero diff before declaring feature isolated (operational step).
-- [ ] Experimental branch name deleted permanently; connector currently lacks a delete-ref action. If still unavailable, delete using GitHub's repository Branches UI and verify. A reset branch is **not** deletion.
-- [ ] Old READY preview removed/disabled. Vercel may retain immutable deployment URLs; refrain from opening or sharing them as accepted GTD.
+- [x] PR #51 closed without merge on 2026-10-24. GitHub returned `state=closed`, `merged=false`.
+- [x] Experimental branch reset with `force=true` and `expected_sha=b04e4e7aa22f6e44b108bfcd99bf35dfabd37295` to documentation-only `main` at `6ab830b1ad5a275fbd79f40496e3a5849570c537`. GitHub compare verified `identical`, `ahead=0`, `behind=0`, **zero changed files**. The branch is functionally inert at this snapshot.
+- [ ] Experimental branch name permanently deleted. The GitHub connector exposes ref updates but no delete-ref action, and no authenticated GitHub CLI/token is present in the available shell. **Manual action required:** open https://github.com/interlinkglobal/GTD/branches and delete `feature/world022-infrastructure-import` (which currently points at the accepted mainline). A reset is not deletion.
+- [ ] Historical Vercel READY preview disabled/deleted. The available Vercel tools can cancel only in-progress deployments, not delete a READY deployment. Treat these URL(s) as abandoned and never promote them to production.
 
 **Verdict:** WORLD-022 rejected; no runtime salvage, no feature merge, no continuation on the decommissioned branch. This report records history only.
