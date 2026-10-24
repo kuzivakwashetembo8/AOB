@@ -63,8 +63,9 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
     .toBe(true);
    // FI-002: a nonidentity rotation is not sufficient. Verify anatomical
    // bend magnitude and positive lift on the REAL linked target GLB.
-   expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(10);
-   expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.035);
+   expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(20);
+   expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.09);
+   expect(player.report.idleRightKneeAdvanceFraction).toBeGreaterThanOrEqual(.14);
    for(let i=0;i<30;i++)player.update({...idleInput,dt:1/60});
    const hover=captureNativeFlightGeometry129(r.named,r.anchor);
    expect(hover.leftWristLane).toBeLessThan(rest.leftWristLane);
