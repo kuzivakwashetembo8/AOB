@@ -247,7 +247,10 @@ export function createNativeFlightPlayer129(
   const step=clamp(input.dt,0,.05);
   clip=selectFlightPose(input);
   // Only stationary flyIdle gets the subtle native balance posture.
-  const targetIdle=clip==="flyIdle"&&calibrated?1:0;
+  // Floating is the accepted primary behavior; it must not disappear just
+  // because a malformed/sketch fixture cannot calibrate the optional knee.
+  // Anatomical pose targets are still only applied when calibration succeeds.
+  const targetIdle=clip==="flyIdle"?1:0;
   idleWeight+=clamp(targetIdle-idleWeight,-step/FLY_IDLE_BLEND_SECONDS_129,
    step/FLY_IDLE_BLEND_SECONDS_129);
   // Two-second continuous, phase-shifted sinusoid; visual-only and almost
@@ -283,8 +286,10 @@ export function createNativeFlightPlayer129(
   if(frames%30===0&&Math.abs(pitch)<.0001&&baseline){
    const current=captureNativeFlightGeometry129(nodes,anchor);
    const matchBaseline=idleWeight<.0001&&equivalent(baseline,current);
-   const matchIdle=idleWeight>.9999&&hoverGeometry!==null&&
-    equivalent(hoverGeometry,current);
+   const matchIdle=idleWeight>.9999&&(
+    calibrated&&hoverGeometry!==null?
+      equivalent(hoverGeometry,current):
+      equivalent(baseline,current));
    const validTransition=idleWeight>.0001&&idleWeight<.9999&&
     laneSafe(current,baseline);
    if(!(matchBaseline||matchIdle||validTransition)){
