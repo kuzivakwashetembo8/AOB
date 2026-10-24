@@ -14,6 +14,7 @@ function NorthHeightsPreview() {
   const controller = useRef<NorthHeightsInspection | null>(null);
   const [status, setStatus] = useState("Preparing North Heights reconstruction");
   const [stats, setStats] = useState("");
+  const [skyTime, setSkyTime] = useState<"day" | "dusk" | "night">("dusk");
   useEffect(() => {
     let closed = false;
     const start = async () => {
@@ -51,12 +52,20 @@ function NorthHeightsPreview() {
       <canvas ref={canvas} aria-label="North Heights fly-through" className="absolute inset-0 h-full w-full"
         style={{ touchAction: "none", display: "block" }} />
       <div className="pointer-events-none absolute left-3 top-3 max-w-[75vw] rounded bg-black/65 p-3 text-xs md:text-sm">
-        <div className="font-bold tracking-wide text-amber-400">MERIDIAN CITY // 05 NORTH HEIGHTS · REBUILD 001</div>
+        <div className="font-bold tracking-wide text-amber-400">MERIDIAN CITY // 05 NORTH HEIGHTS · REBUILD 002</div>
         <div className="mt-1" aria-live="polite">{status}</div>
         <div className="mt-1 text-white/65">{stats}</div>
         <div className="mt-1 text-white/65">Drag: look · Arrows/WASD: fly · Space/E: up · Q/Ctrl: down · Shift: boost</div>
       </div>
       <div className="absolute right-3 top-3 flex gap-2">
+        <button type="button" onClick={() => {
+          setSkyTime(current => {
+            const next = current === "dusk" ? "night" : current === "night" ? "day" : "dusk";
+            controller.current?.setTime(next);
+            return next;
+          });
+        }} className="rounded border border-white/25 bg-black/70 px-3 py-2 text-xs"
+          aria-label="Cycle North Heights sky between dusk, night and day">SKY: {skyTime.toUpperCase()}</button>
         <button type="button" onClick={() => controller.current?.reset()}
           className="rounded border border-white/25 bg-black/70 px-3 py-2 text-xs">RESET VIEW</button>
         <Link to="/world" className="rounded border border-white/25 bg-black/70 px-3 py-2 text-xs">WORLD DIRECTORY</Link>
@@ -77,7 +86,7 @@ function NorthHeightsPreview() {
         </div>
       </div>
       <div className="pointer-events-none absolute bottom-28 right-3 max-w-56 text-right text-[10px] text-white/55">
-        Entirely new game geometry · City Pack 8 by Pasha used as visual planning reference (CC BY 4.0)
+        Procedural skyline and South Ward-style streets/sky · City Pack 8 by Pasha (design reference, CC BY 4.0)
       </div>
     </main>
   );
