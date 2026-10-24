@@ -115,7 +115,9 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
     expect(after.wristSeparation).toBeCloseTo(before.wristSeparation,5);
    }
    for(const key of ["Hips","Spine","Spine1","Spine2","Head",
-    "LeftUpLeg","LeftLeg","LeftFoot","LeftToeBase",
+    // Only the straight ankle is permitted to flex in hover;
+    // its upstream leg joints and toe joint remain at native neutral.
+    "LeftUpLeg","LeftLeg","LeftToeBase",
     "LeftHand","RightHand","LeftForeArm","RightForeArm"]){
     const base=rotations.get(key)!;
     expect(Math.abs(Quaternion.Dot(base,r.names.get(key)!.rotationQuaternion!)))
