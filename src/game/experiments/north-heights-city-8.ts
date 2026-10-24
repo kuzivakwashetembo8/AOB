@@ -10,6 +10,7 @@ import {
 import "@babylonjs/loaders/glTF";
 import { configureLocalGameDecoders } from "@/game/core/local-decoders";
 import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-heights-reconstruction-001";
+import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
@@ -95,6 +96,7 @@ export async function createNorthHeightsCity8(
   const held = new Set<Control>();
   const keys = new Set<string>();
   let yaw = 0, pitch = 0, closed = false, anchor = new Vector3(0, 4, -15);
+  let treeHandle: {dispose:()=>void} | null = null;
   let initialYaw = 0, initialPitch = 0;
   let dragPointer: number | null = null, lastX = 0, lastY = 0;
   let frames = 0;
@@ -169,7 +171,7 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearKeys);
       window.removeEventListener("resize", resize);
-      sky.dispose(); scene.dispose(); engine.dispose();
+      treeHandle?.dispose(); sky.dispose(); scene.dispose(); engine.dispose();
     },
   };
   const started = performance.now();
@@ -177,6 +179,22 @@ export async function createNorthHeightsCity8(
     status("Generating North Heights · native roads, towers, terraces and facades");
     const world = buildNorthHeightsReconstruction(scene,mobile);
     if (closed) return controller;
+    status("North Heights roads joined · loading original owner-committed tree GLB");
+    let treeCount=0, treeInstances=0, treeError="";
+    try {
+      const realized=await placeNorthHeightsTrees004(scene,world.treeLocations);
+      if(closed){ realized.dispose(); return controller; }
+      treeHandle=realized;
+      treeCount=realized.trees;
+      treeInstances=realized.meshInstances;
+      console.info("[NH-REBUILD-004] user tree GLB instancing",{
+        trees:treeCount,meshesPerTree:realized.sourceMeshes,
+        meshInstances:treeInstances,generatedCanopyMeshes:0,
+      });
+    } catch(cause){
+      treeError=cause instanceof Error?cause.message:String(cause);
+      console.error("[NH-REBUILD-004] Tree GLB failed to load",cause);
+    }
     // Fixed visual witnesses are placed at a public street-level observation area.
     // Their shared source assets remain in GTD; they are not copied from city pack 8.
     const spawn = new Vector3(world.focus.x,northHeightsGround(world.focus.x,world.focus.z)+0.03,world.focus.z);
@@ -202,8 +220,8 @@ export async function createNorthHeightsCity8(
     initialYaw=yaw; initialPitch=pitch;
     status("North Heights reconstruction ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
-      world.instanceCount.toLocaleString()+" geometry instances · "+
-      actorCount+" character meshes"+(failed?" · "+failed+" character imports failed":"")+
+      (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
+      treeCount+" GLB trees · "+actorCount+" character meshes"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+(failed?" · "+failed+" character imports failed":"")+
       " · "+Math.round(performance.now()-started)+" ms");
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
