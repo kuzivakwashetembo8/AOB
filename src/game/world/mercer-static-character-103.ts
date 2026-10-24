@@ -47,6 +47,7 @@ export function createMercerStaticCharacter(
   let footGroundQuery:GroundQuery110|null=null;
   let meshCount=0;
   let controlled=false;
+  let drivingHidden=false;
   let fittedRoot:TransformNode|null=null;
   let fittedCenterX=0,fittedCenterZ=0;
   let neutralPose:NativePose109Controller|null=null;
@@ -195,6 +196,8 @@ export function createMercerStaticCharacter(
     /** Walk mode takes control of this exact imported actor; no second GLB. */
     setControlled(enabled:boolean){
       controlled=enabled;
+      drivingHidden=false;
+      anchor.setEnabled(true);
       if(!enabled){
         flight?.leave();flightActive=false;
         walk?.reset();jump?.reset();footInspector?.hide();
@@ -210,6 +213,18 @@ export function createMercerStaticCharacter(
           MERCER_STATIC_CHARACTER_POSE.z);
         anchor.rotation.y=0;
       }
+    },
+    /** VEH-BASIC-001: native Voight stays instantiated and controlled but
+     * invisible while driving. No cabin IK or character mesh cloning. */
+    setDrivingHidden(hidden:boolean){
+      if(closed||!controlled)return;
+      drivingHidden=hidden;
+      anchor.setEnabled(!hidden);
+    },
+    syncHiddenDrivingPose(position:{x:number;y:number;z:number},headingYaw:number){
+      if(closed||!controlled||!drivingHidden)return;
+      anchor.position.set(position.x,position.y-.92,position.z);
+      anchor.rotation.y=headingYaw;
     },
     updateControlled(position:{x:number;y:number;z:number},
       headingYaw:number,walkSpeed:number,dt:number,sprintHeld=false,

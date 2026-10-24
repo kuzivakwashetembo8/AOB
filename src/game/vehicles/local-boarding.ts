@@ -14,3 +14,15 @@ export function stationaryDisembark(
  return Math.hypot(atBoarding.x-atExit.x,atBoarding.z-atExit.z)<0.12
  ? {...player}:null;
 }
+
+/**
+ * VEH-BASIC-001: a hidden driver exits beside the CURRENT stopped vehicle.
+ * The live vehicle's Rapier-backed method already checks ground, clearance,
+ * body footprint and collisions. Do not fall back to the boarding coordinates.
+ */
+export function currentVehicleDisembark(
+ car:{findSafeExitPosition:()=>Point3|null},
+):Point3|null{
+ const exit=car.findSafeExitPosition();
+ return exit&&[exit.x,exit.y,exit.z].every(Number.isFinite)?{...exit}:null;
+}
