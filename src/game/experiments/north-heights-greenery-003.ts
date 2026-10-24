@@ -4,8 +4,8 @@
  * not imported leaves.glb and not placeholder foliage cubes.
  */
 import {
-  Color3, DynamicTexture, Material, Matrix, MeshBuilder, Quaternion, Scene,
-  StandardMaterial, Texture, Vector3,
+  Color3, DynamicTexture, Material, Matrix, MeshBuilder, Quaternion, RawTexture,
+  Scene, StandardMaterial, Texture, Vector3,
 } from "@babylonjs/core";
 
 type Placement={x:number;y:number;z:number;size:number};
@@ -70,9 +70,7 @@ export function createNorthHeightsGreenery003(
     px[i+2]=42+Math.round(n*16);
     px[i+3]=255;
   }
-  const grassTexture=Texture.CreateFromBase64String;
   // RawTexture avoids data URLs and canvas allocations for patch/terrain grass.
-  const { RawTexture } = requireNever();
   const gt=RawTexture.CreateRGBATexture(px,64,64,scene,true,false,Texture.TRILINEAR_SAMPLINGMODE);
   gt.name="nh003-south-ward-grass";
   gt.wrapU=Texture.WRAP_ADDRESSMODE;
@@ -157,6 +155,3 @@ export function createNorthHeightsGreenery003(
     leaves.dispose();branch.dispose();tree.dispose();foliage.dispose();bark.dispose();leaf.dispose();gt.dispose();
   }};
 }
-// Imported directly here to retain native Babylon APIs without async module load.
-import { RawTexture } from "@babylonjs/core";
-function requireNever(){ return {RawTexture}; }
