@@ -152,6 +152,8 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
    player.enter();
    expect(player.report.idleCalibrated).toBe(true);
    expect(player.report.idleCalibrationIssue).toBe(null);
+   expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(10);
+   expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.035);
    for(let i=0;i<18;i++)player.update({...staticPose,dt:1/60});
    const hover=captureNativeFlightGeometry129(r.names,r.anchor);
    expect(player.report.activeClip).toBe("flyIdle");
@@ -180,6 +182,8 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
    const player=createNativeFlightPlayer129([r.boneSkel],r.anchor,r.pivot);
    const physicsStart=r.anchor.position.clone();
    expect(FLY_IDLE_CYCLE_SECONDS_129).toBe(2);
+   expect(FLY_IDLE_VERTICAL_AMPLITUDE_129).toBeCloseTo(.012*1.085,8);
+   expect(FLY_IDLE_FORWARD_AMPLITUDE_129).toBeCloseTo(.007*1.085,8);
    player.enter();
    const samples:number[]=[];
    const forward:number[]=[];
