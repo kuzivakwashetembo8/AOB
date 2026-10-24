@@ -159,3 +159,26 @@ Deployment `dpl_9w1pFDHatX5N7hvtEL8kmryBfoKS`. The full build completed successf
 **Visual acceptance pending.** A successful numeric/parented test is NOT evidence that the newly posed skinned mesh looks correct from front/side/rear angles. The next checkpoint is owner inspection on desktop/mobile of zero-input hovering, left/right leg separation, natural relaxed hands and arms, accelerated pitch, fast-to-hover return, landing, and walk/run/jump recovery. Any acceptance is to be explicitly recorded; no automatic merge.
 
 **Branch isolation verification required before merging:** diff contains only this native flight controller, its audit and tests, minimal actor/runtime/build wiring and CHAR-129 documentation. Vehicle seating and accepted gait/jump code must remain unchanged.
+
+## 10. CHAR-129-FI-001 — FlyIdle balance and gravitational cues (owner accepted V2 baseline, 2026-10-24)
+
+**Acceptance / rollback anchor.** Owner visually approved the initial native-flight V2 preview as a **perfect starting baseline** (https://gtd-62ykqf6cd-interlinkglobaltech.vercel.app/game ; implementation SHA `17d8209142affe52d087fae78cf146b3a805d22c`). Treat that commit and deployment as the immutable return point. No merge to main until subsequent flyIdle acceptance.
+
+**Owner reference:** uploaded mobile screenshot depicting a superhero afloat above a road. It demonstrates three subtle departures from standing: slightly open but relaxed arms, one flexed leg in its own anatomical lane, and a nearly imperceptible ~2-second rise/fall and fore/aft float. The requested appearance is **not** a broad T-pose, twisted wrists, a crossed-leg pose, or rigid invisible-pavement standing. The existing source `ual.glb` has a 2s flyIdle clip, but its foreign joint rotations remain rejected; duration and intent only may be studied.
+
+**Scope:** adjust **flyIdle only** on original `character.glb`; directional hover retains V2 original anatomy, accelerated forward flight retains visual-body pitch and Rapier/controller remains unchanged. Build-time GLB, renderer load budget, acceptably seated/grounded/running/jumping assets unchanged.
+
+**Target-pose construction in actual linked skeleton coordinates:**
+1. On enter, snapshot the accepted CHAR-109/110 neutral pose and global left/right shoulders, elbows, wrists, pelvis, knees, ankles. Calibration is **transactional**: joint rotations are rolled back after sampling targets, and invalid/worsening/overlarge transforms fail closed to accepted standing.
+2. Slight outward **upper-arm abduction**: aim each actual shoulder→elbow vector outward from the measured midline by approximately 5.5% of the measured bilateral shoulder span, maximum 0.15 rad. Forearms, hands, clavicles and spine have **no independent twists**; palms continue to follow the accepted arm posture naturally.
+3. One (right) leg relaxed: gently advance the knee (~5.5% of thigh length) through the native upper-leg joint, then raise/retract that side's ankle (~8% of thigh length up, ~2.5% back) by flexing only its native lower-leg joint, each with a capped local rotation. Left leg remains exactly straight/accepted. No source UAL retarget or arbitrary world Euler on linked joints.
+4. Verify that ankle and wrist lanes remain left/right ordered; feet remain separated at least 80% of the accepted baseline. Reject candidate if spatial checks fail; restore baseline and report reason.
+5. Hover accent ramps in/out over ~0.24s via target-local Quaternion.Slerp. All base local rotations are reset before each write, preventing accumulated arm/leg drift. On leaving flight, restore exact baseline and zero all visual offsets.
+
+**2-second continuous float:** add to the existing visual-only torso pivot, never the physics capsule or camera, a smooth 2.00s sinusoidal cycle: vertical amplitude **<= 0.012 m** and fore/aft amplitude **<= 0.007 m**, phased to create an understated non-mechanical float. Fade in with flyIdle weight and fade out when directional/fast flight starts. Subtlety is deliberate: no high bobbing or jerky movement.
+
+**Gates:** 
+- Parent-space aim on the actual linked target, not imported source pose.
+- Runtime fail-closed candidate; test geometric lane clearance at every substantive phase and verify no accumulated pose drift over hundreds of frames/repeated toggles.
+- Tests for upright idle hand widening, bent right knee/raised foot without crossing, left leg invariance, 2s periodicity, zero visual offsets outside flyIdle, and full accepted-pose restoration on landing.
+- Full build (including native GLB audit, CHAR-109/110/127 regressions and offline pack); **one preview** for human front/side/rear acceptance. No main merge or production.
