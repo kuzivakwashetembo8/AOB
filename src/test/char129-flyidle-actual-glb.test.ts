@@ -55,9 +55,10 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
   try{
    const rest=captureNativeFlightGeometry129(r.named,r.anchor);
    const wristLocal=new Map(["LeftHand","RightHand","LeftForeArm","RightForeArm",
-    "LeftLeg","LeftFoot","RightToeBase","LeftUpLeg"].map(name=>[
+    "LeftLeg","RightToeBase","LeftUpLeg"].map(name=>[
      name,r.named.get(name)!.rotationQuaternion!.clone()]));
    const footRest=r.named.get("RightFoot")!.rotationQuaternion!.clone();
+   const leftFootRest=r.named.get("LeftFoot")!.rotationQuaternion!.clone();
    const player=createNativeFlightPlayer129([r.skeleton],r.anchor,r.pivot);
    player.enter();
    expect(player.report.idleCalibrated,player.report.idleCalibrationIssue??"calibrated")
@@ -69,6 +70,7 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
    expect(player.report.idleRightKneeAdvanceFraction).toBeGreaterThanOrEqual(.18);
    expect(player.report.idleRightToeDownDot).toBeGreaterThanOrEqual(.70);
    expect(player.report.idleRightFootAboveLeftFraction).toBeGreaterThanOrEqual(.24);
+   expect(player.report.hoverLeftToeDownGain).toBeGreaterThan(.08);
    expect(player.report.hoverWeight).toBe(1);
    for(let i=0;i<30;i++)player.update({...idleInput,dt:1/60});
    const hover=captureNativeFlightGeometry129(r.named,r.anchor);
@@ -91,6 +93,8 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
    expect(Vector3.Dot(shoeDirection,worldDown)).toBeGreaterThanOrEqual(.70);
    expect(Math.abs(Quaternion.Dot(r.named.get("RightFoot")!.rotationQuaternion!,
      footRest))).toBeLessThan(.999999);
+   expect(Math.abs(Quaternion.Dot(r.named.get("LeftFoot")!.rotationQuaternion!,
+     leftFootRest))).toBeLessThan(.999999);
    for(const [name,rotation] of wristLocal)
     expect(Math.abs(Quaternion.Dot(r.named.get(name)!.rotationQuaternion!,rotation)))
      .toBeCloseTo(1,6);
@@ -129,6 +133,8 @@ describe("CHAR-129 FI-001 actual owner GLB pose",()=>{
    player.leave();
    expect(Math.abs(Quaternion.Dot(r.named.get("RightFoot")!.rotationQuaternion!,
      footRest))).toBeCloseTo(1,6);
+   expect(Math.abs(Quaternion.Dot(r.named.get("LeftFoot")!.rotationQuaternion!,
+     leftFootRest))).toBeCloseTo(1,6);
    for(const [name,rotation] of wristLocal)
     expect(Math.abs(Quaternion.Dot(r.named.get(name)!.rotationQuaternion!,rotation)))
      .toBeCloseTo(1,6);
