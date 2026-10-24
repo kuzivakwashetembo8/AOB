@@ -122,4 +122,58 @@ describe("CHAR-129 FI-005 persistent native flight posture",()=>{
    expect(gap()/shin).toBeLessThan(.24);
   }finally{r.dispose();}
  });
+ it.each([0,.8,-1.2])("FI-006 forward sprint goes fully prone with wider arms and both soles up at yaw %s",yaw=>{
+  const r=original(yaw);
+  try{
+   const before=captureNativeFlightGeometry129(r.linked,r.anchor);
+   const neutral=new Map([...r.linked].map(([name,node])=>[
+    name,node.rotationQuaternion?.clone()??Quaternion.Identity()]));
+   const initialPosition=r.anchor.position.clone(),initialYaw=r.anchor.rotation.y;
+   const player=createNativeFlightPlayer129([r.sk],r.anchor,r.pivot);
+   player.enter();
+   expect(player.report.idleCalibrated,player.report.idleCalibrationIssue??"hover").toBe(true);
+   expect(player.report.fastCalibrated,player.report.fastCalibrationIssue??"fast").toBe(true);
+   expect(player.report.hoverLeftToeDownGain).toBeGreaterThan(.08);
+   const hoverGeo=captureNativeFlightGeometry129(r.linked,r.anchor);
+   expect(hoverGeo.wristSeparation).toBeGreaterThan(before.wristSeparation*1.08);
+   const hoverRightGap=r.p("RightFoot").y-r.p("LeftFoot").y;
+   for(let i=0;i<45;i++)
+    player.update({...idle,forward:true,accelerated:true,dt:1/60});
+   expect(player.report.activeClip).toBe("fly");
+   expect(player.report.mode).toBe("fast");
+   expect(player.report.pitchRadians).toBeCloseTo(Math.PI/2,5);
+   expect(player.report.fastWeight).toBeCloseTo(1,5);
+   expect(player.report.fastSoleUpLeft).toBeGreaterThan(.55);
+   expect(player.report.fastSoleUpRight).toBeGreaterThan(.55);
+   const fastGeo=captureNativeFlightGeometry129(r.linked,r.anchor);
+   expect(fastGeo.wristSeparation).toBeGreaterThan(hoverGeo.wristSeparation*1.03);
+   const torso=r.p("Head").subtract(r.p("Hips"));
+   expect(Math.abs(Vector3.Dot(torso.normalize(),Vector3.Up()))).toBeLessThan(.25);
+   for(const n of ["LeftUpLeg","LeftLeg","RightUpLeg","RightLeg",
+     "LeftHand","RightHand","LeftForeArm","RightForeArm"]){
+    const current=r.linked.get(n)!.rotationQuaternion!;
+    expect(Math.abs(Quaternion.Dot(current,neutral.get(n)!))).toBeCloseTo(1,5);
+   }
+   expect(Math.abs(Quaternion.Dot(r.linked.get("LeftFoot")!.rotationQuaternion!,
+     neutral.get("LeftFoot")!))).toBeLessThan(.9999);
+   expect(Math.abs(Quaternion.Dot(r.linked.get("RightFoot")!.rotationQuaternion!,
+     neutral.get("RightFoot")!))).toBeLessThan(.9999);
+   expect(r.anchor.position).toEqual(initialPosition);
+   expect(r.anchor.rotation.y).toBe(initialYaw);
+   for(let i=0;i<45;i++)
+    player.update({...idle,forward:true,dt:1/60});
+   expect(player.report.pitchRadians).toBeCloseTo(0,5);
+   expect(player.report.hoverWeight).toBeCloseTo(1,5);
+   expect(player.report.fastWeight).toBeCloseTo(0,5);
+   expect(r.p("RightFoot").y-r.p("LeftFoot").y).toBeCloseTo(hoverRightGap,5);
+   player.leave();
+   expect(r.pivot.rotation.x).toBeCloseTo(0,7);
+   expect(captureNativeFlightGeometry129(r.linked,r.anchor)).toEqual(before);
+   for(const [n,rest] of neutral){
+    const now=r.linked.get(n)!.rotationQuaternion!;
+    expect(Math.abs(Quaternion.Dot(rest,now))).toBeCloseTo(1,6);
+   }
+  }finally{r.dispose();}
+ });
+
 });
