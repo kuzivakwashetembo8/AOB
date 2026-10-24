@@ -261,3 +261,18 @@ Deployment: `dpl_3tqFx35EbVmWJLNPUkkKRzryvm7g`; built from implementation SHA ab
 - Use absolute, baseline-relative rotations and 0.24 s blend; no cumulative bone drift. The larger knee must not become a full kick, tuck, or bicycling motion. Fast flight, physics, camera, walking, jumping and vehicle branches are out of scope.
 
 **Acceptance tests:** exact amplified sinusoidal constants and 2s periodicity; real original GLB anatomical measurement across three yaw directions; right-knee advancement and flexion plus ankle lift thresholds, wrists relaxed, bilateral foot clearance, repeatable entry and neutral restoration. Full GTD regression/PWA build; **one new preview** and owner visual inspection from side + front/rear. Passing numeric tests alone does not establish visual acceptance.
+
+
+### CHAR-129-FI-003 — Execution and review evidence
+
+**Source code preview commit:** `33411e1243fea535f55aee25b69f2175a030b6d3` (exact deployment checkout). The earlier FI-002 preview `https://gtd-5icda34m5-interlinkglobaltech.vercel.app/game` is preserved as the rollback checkpoint. No application code was copied from rejected CHAR-128.
+
+**Implementation:** native 2-second float compound increment of exactly +10% over FI-002 (`0.014322m` vertical, `0.0083545m` fore/aft); `LeftArm` and `RightArm` aim targets widened from 5.5% to 8.5% of measured shoulder width with a 0.19-rad cap, leaving wrists and forearms in accepted original local orientation. `RightUpLeg` knee-forward target increased to 32% of measured thigh length with 0.40-rad cap; `RightLeg` toe-derived native knee fold retargets the post-thigh ankle 52% backward and 21% up with 0.65-rad cap. Left leg unmodified, no UAL quaternion imports, no changes to flight control/collider.
+
+**Acceptance guards:** measured actual right knee forward travel >=14% of thigh length, incremental hip–knee–ankle flexion >=20 degrees, right ankle rise >9% of shin length, bilateral lane separation >=80% native baseline; reject candidate calibration without corrupting accepted neutral pose. Report now exposes `idleRightKneeAdvanceFraction`, `idleKneeFlexionGainDegrees`, `idleRightFootLiftFraction`.
+
+**Build evidence:** 8/8 CHAR-129 native flight unit tests and 3/3 actual `character.glb` parented rig tests passed at yaw 0, +0.8, -1.2. Full GTD test suite, TypeScript build, Vite/Nitro compilation and PWA inventory passed. [OFFLINE-001] 443 resources, 0 missing mandatory files. Vercel deployment `dpl_srMdY58ZNUrdZyMuFKtqtJNeAnAX` state **READY**.
+
+**Review-only URL:** https://gtd-6z4x3rvwm-interlinkglobaltech.vercel.app/game
+
+**Decision gate:** user visually inspects side profile (forward knee and foot fold) plus rear/front bilateral clearance and balance-arm spread; inspect 2-second floating subtlety and smooth state transitions. Numerical tests and READY state alone do not constitute visual acceptance. No merge to main or production deployment without owner's separate authorization.
