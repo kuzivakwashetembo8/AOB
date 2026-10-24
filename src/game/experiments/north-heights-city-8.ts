@@ -12,12 +12,15 @@ import { configureLocalGameDecoders } from "@/game/core/local-decoders";
 import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-heights-reconstruction-001";
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
+import { createMercerStaticCharacter } from "@/game/world/mercer-static-character-103";
+import { createNorthHeightsWalk005, type NorthHeightsWalk005 } from "./north-heights-physics-005";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
   press: (control: Control, down: boolean) => void;
   reset: () => void;
   setTime: (time: NorthHeightsTime) => void;
+  setMode: (mode: "walk" | "fly") => boolean;
   dispose: () => void;
 }
 type Bounds = { min: Vector3; max: Vector3; size: Vector3; center: Vector3 };
@@ -97,6 +100,14 @@ export async function createNorthHeightsCity8(
   const keys = new Set<string>();
   let yaw = 0, pitch = 0, closed = false, anchor = new Vector3(0, 4, -15);
   let treeHandle: {dispose:()=>void} | null = null;
+  let walk:NorthHeightsWalk005|null=null;
+  let actor:ReturnType<typeof createMercerStaticCharacter>|null=null;
+  let mode:"walk"|"fly"="fly";
+  let headingYaw=0;
+  let physicsAccumulator=0;
+  const footSpawn={x:0,z:-31};
+  let lastGrounded=false;
+  let lastTravelSpeed=0;
   let initialYaw = 0, initialPitch = 0;
   let dragPointer: number | null = null, lastX = 0, lastY = 0;
   let frames = 0;
@@ -132,33 +143,73 @@ export async function createNorthHeightsCity8(
   window.addEventListener("blur", clearKeys);
   window.addEventListener("resize", resize);
   scene.onBeforeRenderObservable.add(() => {
-    const dt = Math.min(0.05, engine.getDeltaTime() / 1000);
-    const key = (code: string) => keys.has(code);
-    const active = (button: Control) => held.has(button);
-    const x = Number(active("right") || key("ArrowRight") || key("KeyD"))
-      - Number(active("left") || key("ArrowLeft") || key("KeyA"));
-    const z = Number(active("forward") || key("ArrowUp") || key("KeyW"))
-      - Number(active("back") || key("ArrowDown") || key("KeyS"));
-    const y = Number(active("up") || key("Space") || key("KeyE"))
-      - Number(active("down") || key("ControlLeft") || key("ControlRight") || key("KeyQ"));
-    const heading = new Vector3(Math.sin(yaw), 0, Math.cos(yaw));
-    const side = new Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-    const move = heading.scale(z).add(side.scale(x)).add(new Vector3(0, y, 0));
-    if (move.lengthSquared() > 0) {
-      const speed = (active("fast") || key("ShiftLeft") || key("ShiftRight")) ? 87 : 24;
-      camera.position.addInPlace(move.normalize().scale(speed * dt));
+    const dt=Math.min(.05,engine.getDeltaTime()/1000);
+    const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
+    const x=Number(active("right")||key("ArrowRight")||key("KeyD"))-
+      Number(active("left")||key("ArrowLeft")||key("KeyA"));
+    const z=Number(active("forward")||key("ArrowUp")||key("KeyW"))-
+      Number(active("back")||key("ArrowDown")||key("KeyS"));
+    const ascend=active("up")||key("Space")||key("KeyE");
+    const fast=active("fast")||key("ShiftLeft")||key("ShiftRight");
+    const heading=new Vector3(Math.sin(yaw),0,Math.cos(yaw));
+    const side=new Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+    if(mode==="walk"&&walk&&actor){
+      // A fixed-step Rapier simulation, not naive camera clipping.
+      physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
+      let last=walk.physics.playerPosition();
+      while(physicsAccumulator>=1/60){
+        const forward=heading.scale(z).add(side.scale(x));
+        const result=walk.step({
+          x:forward.x,z:forward.z,
+          speed:fast?7.5:3.4,dt:1/60,jump:ascend,
+        });
+        last=result.position;
+        lastGrounded=result.grounded;
+        lastTravelSpeed=result.speed;
+        if(result.speed>.07)headingYaw=Math.atan2(forward.x,forward.z);
+        actor.updateControlled(last,headingYaw,result.speed,1/60,
+          fast,result.grounded,result.verticalVelocity);
+        physicsAccumulator-=1/60;
+      }
+      // Third-person chase camera, retaining pointer look. Head clearance
+      // follows the real kinematic capsule, not a fake zero-Y floor.
+      const target=new Vector3(last.x,last.y+.40,last.z);
+      const orbit=Math.max(-.7,Math.min(.65,pitch));
+      const follow=new Vector3(
+        last.x-Math.sin(yaw)*Math.cos(orbit)*6.8,
+        last.y+2.4-Math.sin(orbit)*5.2,
+        last.z-Math.cos(yaw)*Math.cos(orbit)*6.8,
+      );
+      camera.position.copyFrom(follow);
+      camera.setTarget(target);
+    } else {
+      const y=Number(active("up")||key("Space")||key("KeyE"))-
+        Number(active("down")||key("ControlLeft")||key("ControlRight")||key("KeyQ"));
+      const move=heading.scale(z).add(side.scale(x)).add(new Vector3(0,y,0));
+      if(move.lengthSquared()>0)camera.position.addInPlace(move.normalize().scale((fast?87:24)*dt));
+      camera.rotation.set(pitch,yaw,0);
     }
-    camera.rotation.set(pitch, yaw, 0);
-    if (++frames % 40 === 0) statistics(
-      "FPS " + Math.round(engine.getFps()) + " · " +
-      "CAM " + camera.position.x.toFixed(1) + ", " +
-      camera.position.y.toFixed(1) + ", " + camera.position.z.toFixed(1));
+    if(++frames%40===0)statistics(
+      "FPS "+Math.round(engine.getFps())+" · "+
+      "MODE "+mode.toUpperCase()+" · "+
+      (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
+      "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
   });
   engine.runRenderLoop(() => { if (!closed) scene.render(); });
   const controller: NorthHeightsInspection = {
     press(control, down) { if (down) held.add(control); else held.delete(control); },
-    reset() { camera.position.copyFrom(anchor); yaw = initialYaw; pitch = initialPitch; clearKeys(); },
+    reset() {
+      if(mode==="walk"&&walk)walk.reset(footSpawn.x,footSpawn.z);
+      else {camera.position.copyFrom(anchor);yaw=initialYaw;pitch=initialPitch;}
+      physicsAccumulator=0;clearKeys();
+    },
     setTime(time) { sky.setTime(time); },
+    setMode(next){
+      if(next==="walk"&&(!walk||!actor))return false;
+      mode=next;clearKeys();physicsAccumulator=0;
+      if(next==="fly"){camera.position.copyFrom(anchor);yaw=initialYaw;pitch=initialPitch;}
+      return true;
+    },
     dispose() {
       if (closed) return;
       closed = true;
@@ -171,7 +222,10 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearKeys);
       window.removeEventListener("resize", resize);
-      treeHandle?.dispose(); sky.dispose(); scene.dispose(); engine.dispose();
+      treeHandle?.dispose();
+      actor?.dispose();
+      walk?.dispose();
+      sky.dispose(); scene.dispose(); engine.dispose();
     },
   };
   const started = performance.now();
@@ -195,33 +249,39 @@ export async function createNorthHeightsCity8(
       treeError=cause instanceof Error?cause.message:String(cause);
       console.error("[NH-REBUILD-004] Tree GLB failed to load",cause);
     }
-    // Fixed visual witnesses are placed at a public street-level observation area.
-    // Their shared source assets remain in GTD; they are not copied from city pack 8.
-    const spawn = new Vector3(world.focus.x,northHeightsGround(world.focus.x,world.focus.z)+0.03,world.focus.z);
-    const witnesses = [
-      ["character.glb", "voight", spawn.x - 2.4, spawn.y, spawn.z],
-      ["ual.glb", "ual", spawn.x + 2.4, spawn.y, spawn.z],
-    ] as const;
-    let actorCount = 0, failed = 0;
-    status("Native district ready · positioning character.glb and UAL");
-    for (const [file,name,x,y,z] of witnesses) {
-      try {
-        actorCount += await loadWitness(scene,file,name,x,y,z);
-      } catch (error) {
-        failed++;
-        console.error("[NH-REBUILD-001] character witness failed",name,error);
-      }
-      if (closed) return controller;
+    status("Building Rapier terrain, pavement and "+world.count+" blocking building colliders");
+    walk=await createNorthHeightsWalk005(scene,world.lotSpecs,footSpawn);
+    if(closed){walk.dispose();walk=null;return controller;}
+    status("Loading Voight's accepted walking animation and physics capsule");
+    actor=createMercerStaticCharacter(scene);
+    await actor.ready;
+    if(closed)return controller;
+    actor.setControlled(true);
+    const initial=walk.physics.playerPosition();
+    actor.updateControlled(initial,0,0,1/60,false,false,0);
+    // Retain the UAL model as a passive point of comparison, never as a
+    // second playable actor or a second physics controller.
+    let actorCount=actor.poseReport.meshCount,failed=0;
+    try {
+      const px=footSpawn.x+8,pz=footSpawn.z;
+      actorCount+=await loadWitness(scene,"ual.glb","ual",px,
+        northHeightsGround(px,pz)+.24,pz);
+    } catch(error){
+      failed++;
+      console.warn("[NH-005] optional UAL witness unavailable",error);
     }
+    if(closed)return controller;
+    mode="walk";
+    physicsAccumulator=0;
     anchor=world.overview.clone();
     camera.position.copyFrom(anchor);
     camera.setTarget(new Vector3(0,48,0));
-    yaw=camera.rotation.y; pitch=camera.rotation.x;
+    yaw=0; pitch=.05;
     initialYaw=yaw; initialPitch=pitch;
-    status("North Heights reconstruction ready · "+world.count+
+    status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+actorCount+" character meshes"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+(failed?" · "+failed+" character imports failed":"")+
+      treeCount+" GLB trees · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+(failed?" · "+failed+" character imports failed":"")+
       " · "+Math.round(performance.now()-started)+" ms");
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
