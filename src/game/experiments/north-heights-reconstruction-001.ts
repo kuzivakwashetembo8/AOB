@@ -369,6 +369,24 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   }
   return height;
 }
+/** South Ward's two-lane centre dash: one mark per road span, never over junctions. */
+function addTwoLaneMarkings005(city:InstancedCity){
+  let count=0;
+  for(const axis of ["x","z"] as const)for(const fixed of STREETS){
+    for(let s=0;s<STREETS.length-1;s++){
+      const from=STREETS[s]!+7,to=STREETS[s+1]!-7;
+      for(let at=from+3;at+3<to;at+=9){
+        if(axis==="z"){
+          city.box("lane",fixed,northHeightsGround(fixed,at)+.108,at,.13,.013,3.4);
+        } else {
+          city.box("lane",at,northHeightsGround(at,fixed)+.108,fixed,3.4,.013,.13);
+        }
+        count++;
+      }
+    }
+  }
+  return count;
+}
 function addStreetFurniture(city: InstancedCity) {
   let lights=0;
   for(const x of STREETS) for(let i=0;i<STREETS.length;i+=2) {
@@ -407,6 +425,7 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
         lodProfile:lot.family==="glass"?"skyline":"standard"},
     });
   }
+  const laneDashes=addTwoLaneMarkings005(city);
   const lamps=addStreetFurniture(city);
   const instances=city.commit();
   const treeLocations=planNorthHeightsTrees004(
@@ -417,7 +436,7 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
     trees,asset:"tree_low_poly_lowpoly.glb",generatedCanopyCards:0,
   });
   console.info("[NH-REBUILD-001] procedural world",{
-    buildings:lots.length,trees,lamps,instances,modelsFromRejectedPack:0,
+    buildings:lots.length,trees,lamps,laneDashes,instances,modelsFromRejectedPack:0,
     mobile,layout:"10x10 city blocks with terrain ridge; deterministic NH-001",
   });
   return {
