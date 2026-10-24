@@ -37,3 +37,18 @@ The failed six-car interior experiment (VEH-INTERIOR-001–005 / VEH-SEAT-CAL-00
 - No merge to main until visually accepted.
 
 **Permanent fix deferred:** calibrated anatomical driver seating may be researched on a separately approved branch later; this workaround makes no assumptions about vehicle interiors.
+
+
+## Implementation and build verification
+
+**Preview implementation commit:** `fc0692aa58e144c08005657073c8ffb558b6b6b0`.
+
+**Changed runtime:** `gtd-runtime.ts` removes the Character-mode boarding rejection, disables seating/cabin pose invocation for every active drivable vehicle, hides the playable UAL and native Voight representations on boarding, keeps the hidden visual root synchronized with the moving car, and exits only at a collision-checked live vehicle position (never the saved entry point). The native `character.glb` control wrapper adds `setDrivingHidden` and `syncHiddenDrivingPose` without GLB duplication. Existing wheel/driving/physics modules are untouched.
+
+**Full build:** Vercel deployment `dpl_2ePV14XL3T5SUKpT44N7j6zRRgca` reached **READY** at `https://gtd-psdvwwi1r-interlinkglobaltech.vercel.app/game`. The first preview attempt failed strict TypeScript test-probe index typing only; corrected in the implementation commit above without changing runtime driving logic. TypeScript compilation, **five new actual-runtime VEH-BASIC-001 tests**, existing GTD regression suite, Vite/Nitro build, prerender and PWA pack subsequently passed.
+
+**Offline inventory:** `456` resources / `185,717,660` bytes, **0 mandatory resources missing**; `451` files in complete game pack.
+
+**Owner acceptance pending:** Check the original humanoid and `Enable Character` = on; F to board nearest active vehicle, verify empty car and steering/wheel/camera parity; drive away from entry point, stop, F to exit and visually locate Voight beside *new* vehicle location; verify movement and blocked-exit cases. A READY deployment validates packaging and automated behavior but not the owner's actual device.
+
+**Integration boundary:** Branch only. Main and production not merged or redeployed by this experiment.
