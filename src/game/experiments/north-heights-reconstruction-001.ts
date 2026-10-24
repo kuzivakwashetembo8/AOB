@@ -12,6 +12,7 @@ import type { BuildingArchetype, BuildingSpec } from "@/game/world-generation/sc
 import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generation/representation-materials";
 import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
+import { createNorthHeightsGreenery003 } from "./north-heights-greenery-003";
 
 export interface NorthHeightsGenerated {
   readonly count: number;
@@ -135,11 +136,12 @@ function paint(scene: Scene, name: string, hex: string) {
   return mat;
 }
 function terrain(scene: Scene, mat: StandardMaterial) {
-  const n = 46, positions: number[] = [], indices: number[] = [], normals: number[] = [];
+  const n = 46, positions: number[] = [], indices: number[] = [], normals: number[] = [], uvs: number[] = [];
   const span = EXTENT * 2 + 25;
   for (let row = 0; row <= n; row++) for (let col = 0; col <= n; col++) {
     const x = -span/2 + col * span/n, z = -span/2 + row * span/n;
     positions.push(x, northHeightsGround(x,z) - 0.04, z);
+    uvs.push(x/5,z/5);
   }
   for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) {
     const a = row * (n+1)+col, b = a+1, c = a+n+1, d = c+1;
@@ -148,7 +150,7 @@ function terrain(scene: Scene, mat: StandardMaterial) {
   const mesh = new Mesh("nh-ridge-terrain", scene);
   VertexData.ComputeNormals(positions,indices,normals);
   const data = new VertexData();
-  data.positions = positions; data.indices = indices; data.normals = normals;
+  data.positions = positions; data.indices = indices; data.normals = normals; data.uvs = uvs;
   data.applyToMesh(mesh);
   mesh.material = mat;
   mesh.isPickable = false;
@@ -320,31 +322,6 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   }
   return height;
 }
-function buildGreens(city: InstancedCity, lots:readonly Lot[], rnd: () => number) {
-  const occupied = new Set(lots.map(l=>l.block));
-  let trees=0;
-  for (let iz=0;iz<MIDPOINTS.length;iz++) for(let ix=0;ix<MIDPOINTS.length;ix++) {
-    const block="NH-"+String(iz+1).padStart(2,"0")+"-"+String(ix+1).padStart(2,"0");
-    if(occupied.has(block))continue;
-    const x=MIDPOINTS[ix]!, z=MIDPOINTS[iz]!, y=northHeightsGround(x,z);
-    city.box("grass",x,y+.17,z,49,.27,49);
-    for(let t=0;t<7;t++){
-      const tx=x+(rnd()-.5)*37,tz=z+(rnd()-.5)*37,ty=northHeightsGround(tx,tz);
-      city.box("trunk",tx,ty+3.1,tz,.65,6.2,.65);
-      city.box(["leaf-a","leaf-b","leaf-c"][t%3]!,tx,ty+7.0,tz,4.8,5.0,4.8);
-      city.box(["leaf-b","leaf-a","leaf-c"][(t+1)%3]!,tx+1.3,ty+7.9,tz-.7,3.8,3.3,3.8);
-      trees++;
-    }
-  }
-  // Dispersed streetside foliage at the northern residential ridge.
-  for(let ix=0;ix<MIDPOINTS.length;ix++) for(let iz=7;iz<MIDPOINTS.length;iz++) {
-    const x=MIDPOINTS[ix]!+23, z=MIDPOINTS[iz]!, y=northHeightsGround(x,z);
-    city.box("trunk",x,y+2.8,z,.55,5.6,.55);
-    city.box("leaf-c",x,y+6.5,z,4.5,4.9,4.5);
-    trees++;
-  }
-  return trees;
-}
 function addStreetFurniture(city: InstancedCity) {
   let lights=0;
   for(const x of STREETS) for(let i=0;i<STREETS.length;i+=2) {
@@ -382,9 +359,19 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
         lodProfile:lot.family==="glass"?"skyline":"standard"},
     });
   }
-  const trees=buildGreens(city,lots,rnd);
   const lamps=addStreetFurniture(city);
   const instances=city.commit();
+  const greens=createNorthHeightsGreenery003(scene,{
+    middle:MIDPOINTS,
+    occupied:new Set(lots.map(l=>l.block)),
+    ground:northHeightsGround,
+    grass:city.mat("grass"),
+    mobile,
+  });
+  const trees=greens.trees;
+  console.info("[NH-REBUILD-003] organic landscape",{
+    trees,leafCards:greens.foliageCards,loadedLeavesGLB:false,
+  });
   console.info("[NH-REBUILD-001] procedural world",{
     buildings:lots.length,trees,lamps,instances,modelsFromRejectedPack:0,
     mobile,layout:"10x10 city blocks with terrain ridge; deterministic NH-001",
