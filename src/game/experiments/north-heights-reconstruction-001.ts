@@ -26,21 +26,23 @@ type Lot = { id: string; x: number; z: number; width: number; depth: number;
   floors: number; floorHeight: number; family: Family; accent: number; block: string; };
 type BoxSpec = { x: number; y: number; z: number; w: number; h: number; d: number; rot?: number };
 const EXTENT = 320;
-const ROAD = 12;
+const ROAD = 8;
+const WALK = 3.75;
+const CURB = 0.20;
 const STEP = 64;
 const STREETS = Array.from({length: 11}, (_, i) => -320 + i * 64);
 const MIDPOINTS = Array.from({length: 10}, (_, i) => -288 + i * 64);
 const palette: Record<string, string> = {
-  "stone-a": "#99968c", "stone-b": "#b6b2a5", "stone-c": "#676b6e",
-  "office-a": "#76858c", "office-b": "#596b73", "office-c": "#8c9ca0",
+  "stone-a": "#858681", "stone-b": "#a5a597", "stone-c": "#4e595d",
+  "office-a": "#697983", "office-b": "#40565f", "office-c": "#7d8e92",
   "brick-a": "#87695b", "brick-b": "#a47d69", "brick-c": "#c4a58b",
   "res-a": "#d1c4b0", "res-b": "#aba28f", "res-c": "#c3b7a9",
-  "roof": "#333d43", "roof-light": "#6e797e", "metal": "#c4cbd0",
-  "glass": "#416e80", "glass-mid": "#668ea1", "glass-warm": "#4d686c",
-  "glass-lit": "#b0b7a1", "glass-dark": "#213b4a",
-  "road": "#323c42", "pavement": "#959d9a",
-  "lane": "#d7d1b1", "concrete": "#c7c5ba",
-  "grass": "#4e7359", "grass-light": "#70916b",
+  "roof": "#303c43", "roof-light": "#5c6971", "metal": "#74848b", "mullion": "#344a55",
+  "glass": "#31566c", "glass-mid": "#537587", "glass-warm": "#445961",
+  "glass-lit": "#9a9071", "glass-dark": "#1d3948",
+  "road": "#303536", "pavement": "#696964", "curb": "#85837b",
+  "lane": "#b9a069", "concrete": "#9fa4a0",
+  "grass": "#36573e", "grass-light": "#587858",
   "trunk": "#675346", "leaf-a": "#3c684f", "leaf-b": "#568462", "leaf-c": "#78946a",
   "door": "#243139", "lamp": "#e7ddb8",
 };
@@ -198,70 +200,84 @@ class InstancedCity {
     return instances;
   }
 }
+// South Ward WORLD-018 road section, adapted to North Heights slope:
+// 8m local asphalt, 3.75m raised sidewalks, .2m curb, .14m dashed centre lines.
+// Curbs and sidewalks use surface ribbons rather than per-metre meshes.
 function buildRoads(scene: Scene, city: InstancedCity) {
-  for (const x of STREETS) {
-    strip(scene,city.mat("road"),"nh-avenue-ns-"+x,"z",x,-ROAD/2,-EXTENT,EXTENT,ROAD,.09);
-    strip(scene,city.mat("pavement"),"nh-sidewalk-w-"+x,"z",x,-ROAD/2-2.8,-EXTENT,EXTENT,2.7,.22);
-    strip(scene,city.mat("pavement"),"nh-sidewalk-e-"+x,"z",x,ROAD/2+.12,-EXTENT,EXTENT,2.7,.22);
-    for (let z=-EXTENT+4;z<EXTENT;z+=12)
-      city.box("lane",x,northHeightsGround(x,z)+.11,z,.16,.016,4.9);
+  for(const x of STREETS) {
+    strip(scene,city.mat("road"),"nh-road-north-south-"+x,"z",x,-ROAD/2,-EXTENT,EXTENT,ROAD,.055);
+    strip(scene,city.mat("pavement"),"nh-walk-west-"+x,"z",x,-ROAD/2-WALK,-EXTENT,EXTENT,WALK,.11);
+    strip(scene,city.mat("pavement"),"nh-walk-east-"+x,"z",x,ROAD/2+.02,-EXTENT,EXTENT,WALK,.11);
+    strip(scene,city.mat("curb"),"nh-curb-west-"+x,"z",x,-ROAD/2-CURB/2,-EXTENT,EXTENT,CURB,.21);
+    strip(scene,city.mat("curb"),"nh-curb-east-"+x,"z",x,ROAD/2-CURB/2,-EXTENT,EXTENT,CURB,.21);
+    for(let z=-EXTENT+5;z<EXTENT-5;z+=9) {
+      if(STREETS.some(v=>Math.abs(z-v)<9))continue;
+      city.box("lane",x,northHeightsGround(x,z)+.08,z,.14,.012,3.2);
+    }
   }
-  for (const z of STREETS) {
-    strip(scene,city.mat("road"),"nh-avenue-ew-"+z,"x",z,-ROAD/2,-EXTENT,EXTENT,ROAD,.105);
-    strip(scene,city.mat("pavement"),"nh-sidewalk-n-"+z,"x",z,-ROAD/2-2.8,-EXTENT,EXTENT,2.7,.24);
-    strip(scene,city.mat("pavement"),"nh-sidewalk-s-"+z,"x",z,ROAD/2+.12,-EXTENT,EXTENT,2.7,.24);
-    for (let x=-EXTENT+4;x<EXTENT;x+=12)
-      city.box("lane",x,northHeightsGround(x,z)+.12,z,4.9,.018,.16);
+  for(const z of STREETS) {
+    strip(scene,city.mat("road"),"nh-road-east-west-"+z,"x",z,-ROAD/2,-EXTENT,EXTENT,ROAD,.062);
+    strip(scene,city.mat("pavement"),"nh-walk-north-"+z,"x",z,-ROAD/2-WALK,-EXTENT,EXTENT,WALK,.11);
+    strip(scene,city.mat("pavement"),"nh-walk-south-"+z,"x",z,ROAD/2+.02,-EXTENT,EXTENT,WALK,.11);
+    strip(scene,city.mat("curb"),"nh-curb-north-"+z,"x",z,-ROAD/2-CURB/2,-EXTENT,EXTENT,CURB,.21);
+    strip(scene,city.mat("curb"),"nh-curb-south-"+z,"x",z,ROAD/2-CURB/2,-EXTENT,EXTENT,CURB,.21);
+    for(let x=-EXTENT+5;x<EXTENT-5;x+=9) {
+      if(STREETS.some(v=>Math.abs(x-v)<9))continue;
+      city.box("lane",x,northHeightsGround(x,z)+.085,z,3.2,.012,.14);
+    }
   }
 }
-function addFacade(city: InstancedCity, lot: Lot, x:number,z:number, base:number,
-  height:number,w:number,d:number,mode:Family, accent:number, mobile:boolean) {
-  const floor = lot.floorHeight, levels = Math.min(lot.floors, Math.floor(height/floor));
-  const visibleHeight = mode==="estate" ? .62 : mode==="glass" ? .80 : .64;
-  const pane = mode==="glass" ? ["glass","glass-mid","glass-dark"][accent]! :
-    mode==="office" ? ["glass-mid","glass-warm","glass"][accent]! :
+/**
+ * Window ribbons, not pale per-pane cubes. SOUTH WARD has accepted actual
+ * framed glass planes; the nearest hero pass can later add those detailed
+ * meshes. For visual skyline inspection a building-scale ribbon yields far
+ * fewer draws/instances than the rejected repeated tile grid.
+ */
+function addFacade(city: InstancedCity, lot:Lot, x:number,z:number, base:number,
+  height:number,w:number,d:number,mode:Family,accent:number,mobile:boolean) {
+  const levels=Math.max(2,lot.floors);
+  const isHigh=mode==="glass"||mode==="office";
+  const isHome=mode==="estate"||mode==="residential";
+  const pane=isHigh ? ["glass","glass-mid","glass-dark"][accent]! :
     ["glass-warm","glass-dark","glass-mid"][accent]!;
-  const lit = mode==="estate" ? 0.045 : 0.10;
-  const step = mobile ? 2 : 1;
-  const widthCols = low(2,Math.floor(w/3.7),11);
-  const depthCols = low(2,Math.floor(d/3.9),10);
-  const doors = mode === "estate" ? 1 : 2;
-  const facade = (side:"z"|"x", sign:number) => {
-    const cols=side==="z"?widthCols:depthCols;
+  const step=isHigh?(mobile?3:2):(mobile?4:3);
+  const facade=(side:"z"|"x", sign:number)=>{
     const length=side==="z"?w:d;
-    const bay=length/cols;
-    for(let f=1; f<levels; f+=step) {
-      const y=base+(f+.43*step)*floor;
-      if(y > base+height-1.2) continue;
-      for(let c=0;c<cols;c++) {
-        const displacement = -length/2+(c+.5)*bay;
-        const wx=side==="z"?x+displacement:x+sign*(w/2+.055);
-        const wz=side==="z"?z+sign*(d/2+.055):z+displacement;
-        const type=((f*17+c*23+accent*13)%31===0 && !mobile) ? "glass-lit" : pane;
-        city.box(type,wx,y,wz,side==="z"?bay*.72:.11,floor*visibleHeight*step,side==="z"?.11:bay*.72);
-      }
+    const wx=(offset:number)=>side==="z"?x+offset:x+sign*(w/2+.07);
+    const wz=(offset:number)=>side==="z"?z+sign*(d/2+.07):z+offset;
+    // One slightly inset pane ribbon per two/three storeys reduces optical
+    // tiling noise. The wall material remains visible between ribbons.
+    for(let floor=1;floor<levels;floor+=step) {
+      const remaining=Math.min(step,levels-floor);
+      const y=base+(floor+.46*remaining)*lot.floorHeight;
+      if(y>base+height-.7)continue;
+      const glassHeight=Math.max(1.20,remaining*lot.floorHeight*.61);
+      const chosen=(!mobile && ((floor*13+accent*7+sign*3)%37===0))?"glass-lit":pane;
+      city.box(chosen,wx(0),y,wz(0),
+        side==="z"?length*.80:.085,glassHeight,side==="z"?.085:length*.80);
+      // Grouping into a single ribbon retains a distinct window-to-wall rhythm,
+      // while sparse dark mullions avoid the bright white checkerboard defect.
     }
-    if(mode==="glass" || mode==="office") {
-      const rib = mode==="glass"?"metal":"stone-c";
-      for(let c=1;c<cols;c+=mobile?2:1) {
-        const o=-length/2+c*bay;
-        city.box(rib,side==="z"?x+o:x+sign*(w/2+.105),base+height/2,
-          side==="z"?z+sign*(d/2+.11):z+o,
-          side==="z"?.085:.10,height,side==="z"?.10:.085);
+    const mullionCount=isHigh?Math.min(6,Math.floor(length/7.5)):Math.min(3,Math.floor(length/9.5));
+    for(let i=1;i<mullionCount;i++) {
+      const pos=-length/2+length*i/mullionCount;
+      city.box("mullion",wx(pos),base+height/2,wz(pos),
+        side==="z"?.10:.11,height,side==="z"?.11:.10);
+    }
+    if(isHigh && !mobile) {
+      for(let f=5;f<levels;f+=8) {
+        const y=base+f*lot.floorHeight;
+        city.box("mullion",wx(0),y,wz(0),
+          side==="z"?length+.1:.12,.10,side==="z"?.12:length+.1);
       }
     }
   };
-  facade("z",1); facade("z",-1); facade("x",1); facade("x",-1);
-  const doorY=base+1.45;
-  for(let i=0;i<doors;i++) {
-    const offset = (i-(doors-1)/2)*Math.min(6,w*.23);
-    city.box("door",x+offset,doorY,z+d/2+.08,2.25,2.85,.11);
-    city.box("metal",x+offset,base+2.9,z+d/2+.12,2.7,.12,.16);
-  }
-  if(lit > 0.08) {
-    for(let f=5;f<levels;f+=mobile?8:5) {
-      city.box("metal",x,base+f*floor+.15,z+d/2+.14,w+.13,.10,.16);
-    }
+  facade("z",1);facade("z",-1);facade("x",1);facade("x",-1);
+  const entrances=isHome?1:2;
+  for(let i=0;i<entrances;i++) {
+    const offset=(i-(entrances-1)/2)*Math.min(6,w*.23);
+    city.box("door",x+offset,base+1.45,z+d/2+.10,2.25,2.85,.11);
+    city.box("metal",x+offset,base+2.94,z+d/2+.15,2.7,.13,.16);
   }
 }
 function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
@@ -328,7 +344,7 @@ function buildGreens(city: InstancedCity, lots:readonly Lot[]) {
   }
   // Dispersed streetside foliage at the northern residential ridge.
   for(let ix=0;ix<MIDPOINTS.length;ix++) for(let iz=7;iz<MIDPOINTS.length;iz++) {
-    const x=MIDPOINTS[ix]!+26, z=MIDPOINTS[iz]!, y=northHeightsGround(x,z);
+    const x=MIDPOINTS[ix]!+23, z=MIDPOINTS[iz]!, y=northHeightsGround(x,z);
     city.box("trunk",x,y+2.8,z,.55,5.6,.55);
     city.box("leaf-c",x,y+6.5,z,4.5,4.9,4.5);
     trees++;
@@ -338,7 +354,7 @@ function buildGreens(city: InstancedCity, lots:readonly Lot[]) {
 function addStreetFurniture(city: InstancedCity) {
   let lights=0;
   for(const x of STREETS) for(let i=0;i<STREETS.length;i+=2) {
-    const z=STREETS[i]!+28, poleX=x+8.2, y=northHeightsGround(poleX,z);
+    const z=STREETS[i]!+28, poleX=x+7.25, y=northHeightsGround(poleX,z);
     city.box("metal",poleX,y+4.2,z,.20,8.4,.20);
     city.box("metal",poleX-1.2,y+8.35,z,2.4,.14,.18);
     city.box("lamp",poleX-2.36,y+8.2,z,.65,.14,.45);
