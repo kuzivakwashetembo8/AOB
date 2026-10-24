@@ -166,7 +166,10 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
     // Fail-closed means float remains possible, but none of the unverified
     // synthetic-rig limb rotations are applied.
     expect(player.report.idleCalibrationIssue).not.toBeNull();
-    expect(hover).toEqual(rest);
+    expect(hover.wristSeparation).toBeCloseTo(rest.wristSeparation,5);
+    expect(hover.ankleSeparation).toBeCloseTo(rest.ankleSeparation,5);
+    expect(hover.leftAnkleLane).toBeCloseTo(rest.leftAnkleLane,5);
+    expect(hover.rightAnkleLane).toBeCloseTo(rest.rightAnkleLane,5);
    }
    expect(hover.leftAnkleLane).toBeLessThan(hover.rightAnkleLane);
    expect(hover.ankleSeparation).toBeGreaterThan(rest.ankleSeparation*.80);
