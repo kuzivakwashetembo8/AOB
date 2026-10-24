@@ -158,8 +158,9 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
    expect(player.report.activeClip).toBe("flyIdle");
    expect(player.report.idleWeight).toBeCloseTo(1,4);
    if(player.report.idleCalibrated){
-    expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(10);
-    expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.035);
+    expect(player.report.idleKneeFlexionGainDegrees).toBeGreaterThanOrEqual(20);
+    expect(player.report.idleRightFootLiftFraction).toBeGreaterThan(.09);
+    expect(player.report.idleRightKneeAdvanceFraction).toBeGreaterThanOrEqual(.14);
     expect(hover.leftWristLane).toBeLessThan(rest.leftWristLane);
     expect(hover.rightWristLane).toBeGreaterThan(rest.rightWristLane);
    }else{
@@ -189,8 +190,8 @@ describe("CHAR-129 native flight, negative-schema protection",()=>{
    const player=createNativeFlightPlayer129([r.boneSkel],r.anchor,r.pivot);
    const physicsStart=r.anchor.position.clone();
    expect(FLY_IDLE_CYCLE_SECONDS_129).toBe(2);
-   expect(FLY_IDLE_VERTICAL_AMPLITUDE_129).toBeCloseTo(.012*1.085,8);
-   expect(FLY_IDLE_FORWARD_AMPLITUDE_129).toBeCloseTo(.007*1.085,8);
+   expect(FLY_IDLE_VERTICAL_AMPLITUDE_129).toBeCloseTo(.012*1.085*1.10,8);
+   expect(FLY_IDLE_FORWARD_AMPLITUDE_129).toBeCloseTo(.007*1.085*1.10,8);
    player.enter();
    const samples:number[]=[];
    const forward:number[]=[];
