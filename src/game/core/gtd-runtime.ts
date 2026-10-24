@@ -900,11 +900,6 @@ export class GTDGameRuntime implements GameRuntime {
       return;
     }
     if (command.type === "action") {
-      if (command.action === "fly" && this.humanCharacterEnabled) {
-        if(command.pressed)this.emit({type:"interaction",
-          label:"CHAR-105 is walking-only; switch back for flight"});
-        return;
-      }
       if (command.action === "vehicle" && this.humanCharacterEnabled) {
         if(command.pressed)this.emit({type:"interaction",
           label:"CHAR-105 vehicle interaction awaits a later verification gate"});
@@ -1258,7 +1253,7 @@ export class GTDGameRuntime implements GameRuntime {
       const facing=flightFacingPolicy({
         forward:flyingForward,backward:flyingBackward,accelerated,
       },remainingYawError);
-      this.characterTrial?.updateFlightAnimation({
+      const flightVisual={
         dt,
         forward:flyingForward,
         backward:flyingBackward,
@@ -1266,10 +1261,14 @@ export class GTDGameRuntime implements GameRuntime {
         right:this.move.x > 0.05,
         ascending:movement.movement.y > 0.001,
         descending:movement.movement.y < -0.001,
-        // A reversing pilot must face travel BEFORE the horizontal/prone
-        // animation activates; do not "sleep" facing backward.
         accelerated:accelerated&&(!flyingBackward||facing.playFastReverse),
-      });
+      };
+      // CHAR-129: keep Rapier travel and flight policy unchanged. Route
+      // visual animation to precisely ONE visible actor. Voight's original
+      // GLB uses its accepted native skeleton, never UAL retargeted poses.
+      if(this.humanCharacterEnabled)
+        this.humanAsset()?.updateControlledFlight(position,voight.root.rotation.y,flightVisual);
+      else this.characterTrial?.updateFlightAnimation(flightVisual);
       camera.target.set(position.x,position.y+0.55,position.z);
       this.preferredCameraRadius = 8;
       this.resolveCameraObstruction(camera,position,dt);

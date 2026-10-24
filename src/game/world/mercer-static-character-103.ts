@@ -4,6 +4,8 @@
  * not an NPC controller: no animation playback, physics or update loop.
  */
 import {AbstractMesh,TransformNode,loadAssetContainerAsync} from "@babylonjs/core";
+import {createNativeFlightPlayer129,type NativeFlightPlayer129} from "../character/native-flight-129";
+import type {FlightPoseInput} from "../character/locomotion/flight-pose";
 import type {AssetContainer,Scene} from "@babylonjs/core";
 import {gtdLoadingLedger as audit} from "../../lib/real-loading-ledger";
 import {humanVisualYaw105} from "../character/human-walking-105";
@@ -36,6 +38,10 @@ export function createMercerStaticCharacter(
   let closed=false;
   let walk:WalkPlayer110|null=null;
   let jump:JumpPlayer127|null=null;
+  let flight:NativeFlightPlayer129|null=null;
+  let flightActive=false;
+  let flightPivot:TransformNode|null=null;
+  let flightOffset:TransformNode|null=null;
   let footInspector:ReturnType<typeof createFootPhysicsInspector110>|null=null;
   let footDebugOptions:FootPhysicsDebugOptions|null=null;
   let footGroundQuery:GroundQuery110|null=null;
@@ -70,9 +76,18 @@ export function createMercerStaticCharacter(
     if(neutralPose.report.status!=="native-joints")
       throw Error("CHAR-109 native neutral pose was not established: "+
         (neutralPose.report.reason??"unknown"));
+    // CHAR-129: pivot in the RENDER hierarchy only, near the torso centre.
+    // At zero rotation the +.95/- .95 offsets cancel, preserving the exact
+    // original CHAR-109/110 bounding box, foot level, and accepted pose.
+    flightPivot=new TransformNode("char129-native-flight-torso-pivot",scene);
+    flightPivot.parent=anchor;
+    flightPivot.position.y=.95;
+    flightOffset=new TransformNode("char129-native-flight-pivot-offset",scene);
+    flightOffset.parent=flightPivot;
+    flightOffset.position.y=-.95;
     const modelRoot=new TransformNode("obs103-mercer-static-fit",scene);
     fittedRoot=modelRoot;
-    modelRoot.parent=anchor;
+    modelRoot.parent=flightOffset;
     for(const root of entries.rootNodes)root.parent=modelRoot;
 
     const meshes=new Set<AbstractMesh>();
@@ -150,6 +165,7 @@ export function createMercerStaticCharacter(
     const [walkClip,sprintClip,jumpClip]=await Promise.all([fetchWalkClip110(),fetchSprintClip120(),fetchJumpClip127()]);
     walk=createWalkPlayer110(entries.skeletons,walkClip,blinkTargets,sprintClip);
     jump=createJumpPlayer127(entries.skeletons,jumpClip);
+    flight=createNativeFlightPlayer129(entries.skeletons,anchor,flightPivot);
     footInspector=createFootPhysicsInspector110(scene,entries.skeletons);
     if(footDebugOptions&&footGroundQuery)footInspector.configure(footDebugOptions,footGroundQuery);
     audit.finish(instantiateId,count+" meshes; "+
@@ -179,7 +195,10 @@ export function createMercerStaticCharacter(
     /** Walk mode takes control of this exact imported actor; no second GLB. */
     setControlled(enabled:boolean){
       controlled=enabled;
-      if(!enabled){walk?.reset();jump?.reset();footInspector?.hide();}
+      if(!enabled){
+        flight?.leave();flightActive=false;
+        walk?.reset();jump?.reset();footInspector?.hide();
+      }
       neutralPose?.ensure();
       if(fittedRoot){
         fittedRoot.rotation.y=humanVisualYaw105(enabled);
@@ -196,6 +215,10 @@ export function createMercerStaticCharacter(
       headingYaw:number,walkSpeed:number,dt:number,sprintHeld=false,
       grounded=true,verticalVelocity=0){
       if(!controlled||closed)return;
+      if(flightActive){
+        flight?.leave();flightActive=false;
+        walk?.reset();jump?.reset();neutralPose?.ensure();
+      }
       // Shared Rapier capsule centre is 0.92 m above pavement. The fitted
       // human has a grounded foot origin, so do not transfer the capsule offset.
       anchor.position.set(position.x,position.y-.92,position.z);
@@ -206,15 +229,35 @@ export function createMercerStaticCharacter(
       jump?.update({grounded,verticalVelocity,dt});
       footInspector?.update(position,dt);
     },
+    /** CHAR-129: the SAME native actor follows Rapier flight, with no UAL
+     * joints or meshes and no concurrent walk/jump animation writers. */
+    updateControlledFlight(position:{x:number;y:number;z:number},
+      headingYaw:number,input:FlightPoseInput&{dt:number}){
+      if(!controlled||closed)return;
+      anchor.position.set(position.x,position.y-.92,position.z);
+      anchor.rotation.y=headingYaw;
+      if(!flightActive){
+        // These accepted controllers own ground pose only. Exit on their
+        // neutral basis, snapshot actual world-space arm and foot corridors.
+        walk?.reset();jump?.reset();neutralPose?.ensure();
+        flight?.enter();flightActive=true;
+      }
+      flight?.update(input);
+      footInspector?.hide();
+    },
     get poseReport(){return {meshCount,
       vertices:0,controlled,
       pose:neutralPose?.report??null,walk:walk?.report??null,jump:jump?.report??null,
+      flight:flight?.report??null,
       footGeometry:footInspector?.report??null};},
     dispose(){
       if(closed)return;
       closed=true;
       walk?.dispose();walk=null;
       jump?.dispose();jump=null;
+      flight?.dispose();flight=null;
+      flightOffset?.dispose();flightOffset=null;
+      flightPivot?.dispose();flightPivot=null;
       footInspector?.dispose();footInspector=null;
       neutralPose?.dispose();neutralPose=null;
       entries?.dispose();
