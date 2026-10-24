@@ -8,7 +8,8 @@
  * CC BY 4.0, as specified by source commit 56c55dfd4d4f1a1ccd4798ad1e5e0caaeb2574af.
  */
 import {
-  AbstractMesh, Matrix, Quaternion, Scene, SceneLoader, Vector3,
+  AbstractMesh, Color3, Matrix, Mesh, Quaternion, RawTexture, Scene,
+  SceneLoader, StandardMaterial, Texture, Vector3,
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 
@@ -51,13 +52,13 @@ export async function placeNorthHeightsTrees004(
   scene:Scene, placements:readonly TreeLocation[],
 ):Promise<{trees:number;meshInstances:number;sourceMeshes:number;dispose:()=>void}>{
   const imported=await SceneLoader.ImportMeshAsync("","/GLBs/Infrastructure/","tree_low_poly_lowpoly.glb",scene);
-  const meshes=imported.meshes.filter(m=>m.getTotalVertices()>0 && m.isEnabled());
+  const meshes=imported.meshes.filter((m):m is Mesh=>m instanceof Mesh && m.getTotalVertices()>0 && m.isEnabled());
   if(!meshes.length)throw new Error("Owner tree GLB has no renderable mesh geometry");
   const min=new Vector3(Infinity,Infinity,Infinity),max=new Vector3(-Infinity,-Infinity,-Infinity);
   // Snapshot BEFORE hiding source. We keep Babylon's glTF hierarchy matrices
   // intact when spawning each individual imported mesh, unlike flattening
   // skeleton/pivot relationships into origin-aligned boxes.
-  const originals: {mesh:AbstractMesh; world:Matrix}[]=[];
+  const originals: {mesh:Mesh; world:Matrix}[]=[];
   for(const mesh of meshes){
     const world=mesh.computeWorldMatrix(true).clone();
     const bounds=mesh.getBoundingInfo().boundingBox;
@@ -109,8 +110,26 @@ export async function placeNorthHeightsTrees004(
       for(const item of instances)item.dispose();
       for(const mesh of imported.meshes)mesh.dispose();
       for(const transform of imported.transformNodes)transform.dispose();
-      for(const material of imported.materials)material.dispose();
-      for(const texture of imported.textures)texture.dispose();
     },
   };
+}
+
+/** SOUTH WARD's deterministic organic 64x64 grass distribution; no cube lawns. */
+export function attachNorthHeightsGrass004(scene:Scene,material:StandardMaterial){
+  const pixels=new Uint8Array(64*64*4),rand=rng(71421);
+  for(let y=0;y<64;y++)for(let x=0;x<64;x++){
+    const i=(y*64+x)*4,n=rand(),b=rand();
+    pixels[i]=45+Math.round(n*18+b*10);
+    pixels[i+1]=78+Math.round(n*28+b*18);
+    pixels[i+2]=42+Math.round(n*16);
+    pixels[i+3]=255;
+  }
+  const tex=RawTexture.CreateRGBATexture(pixels,64,64,scene,true,false,Texture.TRILINEAR_SAMPLINGMODE);
+  tex.name="nh004-south-ward-grass";
+  tex.wrapU=Texture.WRAP_ADDRESSMODE;
+  tex.wrapV=Texture.WRAP_ADDRESSMODE;
+  tex.uScale=3.2;tex.vScale=2.4;
+  material.diffuseTexture=tex;
+  material.diffuseColor=Color3.White();
+  return tex;
 }
