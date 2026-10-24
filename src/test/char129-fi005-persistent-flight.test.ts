@@ -158,7 +158,8 @@ describe("CHAR-129 FI-005 persistent native flight posture",()=>{
      neutral.get("LeftFoot")!))).toBeLessThan(.9999);
    expect(Math.abs(Quaternion.Dot(r.linked.get("RightFoot")!.rotationQuaternion!,
      neutral.get("RightFoot")!))).toBeLessThan(.9999);
-   expect(r.anchor.position).toEqual(initialPosition);
+   // Babylon vectors track dirty flags; compare actual coordinates instead.
+   expect(Vector3.Distance(r.anchor.position,initialPosition)).toBeLessThan(1e-8);
    expect(r.anchor.rotation.y).toBe(initialYaw);
    for(let i=0;i<45;i++)
     player.update({...idle,forward:true,dt:1/60});
