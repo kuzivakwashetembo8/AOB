@@ -23,14 +23,12 @@ import type {
 import { MeridianPhysics } from "../physics/rapier-world";
 import { configureLocalGameDecoders } from "./local-decoders";
 import { FirstDriveTrial } from "../vehicles/first-drive-trial";
-import { ferrariSeatWorldPose } from "../vehicles/driver-seat-placement";
 import { measureVehicleFit002 } from "../vehicles/vehicle-fit-diagnostics";
 import {
   RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig,
   rangeRoverDriveEnabled,
   rangeRoverDriverSeatWorldPose,rangeRoverRearCameraAlpha,
 } from "../vehicles/range-rover-drive-007";
-import {coupeDriverSeatWorldPose} from "../vehicles/coupe-driver-fit-016";
 import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig,
   type FiveModelName} from "../vehicles/ambient-fleet-driving-011";
 import {splitOriginalMergedWheelGeometry}
@@ -40,7 +38,7 @@ function productionHostnameForFit002(name: string) {
   return name === "grand-theft-division.vercel.app";
 }
 import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha, FERRARI_REAR_CAMERA_BETA, FERRARI_REAR_CAMERA_RADIUS } from "../vehicles/ferrari-camera";
-import { nearestSportsCar, stationaryDisembark, type Point3 } from "../vehicles/local-boarding";
+import { nearestSportsCar, currentVehicleDisembark } from "../vehicles/local-boarding";
 import { flightFacingPolicy } from "../character/locomotion/flight-pose";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
@@ -116,8 +114,6 @@ export class GTDGameRuntime implements GameRuntime {
   private groundFit002Enabled = false;
   private wheelSupport002Enabled = false;
   private seatedDriverActive = false;
-  private enteredAt: Point3 | null = null;
-  private carEnteredAt: Point3 | null = null;
   private worldRenderWarmup: WorldRenderWarmup | null = null;
   private scene: Scene | null = null;
   private camera: ArcRotateCamera | null = null;
@@ -791,8 +787,6 @@ export class GTDGameRuntime implements GameRuntime {
     this.sportsCars.clear();
     this.driveVehicleNames.clear();
     this.drivingTrial=null;
-    this.enteredAt=null;
-    this.carEnteredAt=null;
     delete (window as Window & { __GTD_DRIVE_TRIAL_REPORT__?: unknown }).__GTD_DRIVE_TRIAL_REPORT__;
     delete (window as Window & { __GTD_VEH_SEAT_001_REPORT__?: unknown }).__GTD_VEH_SEAT_001_REPORT__;
     delete (window as Window & { __GTD_VEH_FIT_002_REPORT__?: unknown }).__GTD_VEH_FIT_002_REPORT__;
@@ -900,11 +894,6 @@ export class GTDGameRuntime implements GameRuntime {
       return;
     }
     if (command.type === "action") {
-      if (command.action === "vehicle" && this.humanCharacterEnabled) {
-        if(command.pressed)this.emit({type:"interaction",
-          label:"CHAR-105 vehicle interaction awaits a later verification gate"});
-        return;
-      }
       if (command.action === "fly") {
         if (command.pressed && this.lifecycle === "running") {
           const next = toggleInspectionFlight(
@@ -980,38 +969,45 @@ export class GTDGameRuntime implements GameRuntime {
     return () => this.eventListeners.delete(listener);
   }
 
-  /** VEH-003/007: local boarding for whichever real vehicle is closest. */
+  /** VEH-BASIC-001: car-only driving. No character seats or cabin poses.
+   * Always exit beside the LIVE car, never where F was pressed to board. */
   private toggleVehicleDriving() {
-    const physics=this.physics, voight=this.voight;
+    const physics=this.physics,voight=this.voight;
     if(!physics||!voight)return;
-    if(this.context==="driving") {
+    if(this.context==="driving"){
       const car=this.drivingTrial;
       if(!car)return;
       if(Math.abs(car.speedMps)>0.25){
         this.emit({type:"interaction",label:"Stop the "+this.activeDriveName()+" before exiting"});
         return;
       }
-      const position=stationaryDisembark(this.enteredAt,this.carEnteredAt,car.pose)
-        ??car.findSafeExitPosition();
+      // Existing Rapier clearance/ground checks on the CURRENT car are
+      // authoritative. A blocked exit keeps the hidden driver inside.
+      const position=currentVehicleDisembark(car);
       if(!position){
         this.emit({type:"interaction",label:"No clear exit beside stopped vehicle"});
         return;
       }
       const leavingName=this.activeDriveName();
+      const yaw=car.headingYaw;
       physics.setPlayerPosition(position);
-      if(this.seatedDriverActive)this.characterTrial?.exitDrivingPose();
-      this.seatedDriverActive=false;
       voight.root.position.set(position.x,position.y,position.z);
-      this.camera?.target.set(position.x,position.y+0.55,position.z);
+      voight.root.rotation.y=yaw;
+      // Teleport the accepted native actor BEFORE enabling its meshes.
+      const native=this.humanCharacterEnabled?this.humanAsset():null;
+      native?.updateControlled(position,yaw,0,0);
+      native?.setDrivingHidden(false);
+      voight.root.setEnabled(!this.humanCharacterEnabled);
+      this.seatedDriverActive=false;
       this.context="walking";
       this.drivingTrial=null;
-      this.enteredAt=null;this.carEnteredAt=null;
-      voight.root.setEnabled(true);
       this.move={x:0,y:0};
       this.movementArbiter.clear();
+      this.verticalVelocity=0;
+      this.camera?.target.set(position.x,position.y+.55,position.z);
       this.preferredCameraRadius=6.2;
       this.publishSnapshot(0);
-      this.emit({type:"interaction",label:"Exited "+leavingName+" at its actual world position"});
+      this.emit({type:"interaction",label:"Exited "+leavingName+" beside its current location"});
       return;
     }
     const actor=physics.playerPosition();
@@ -1023,38 +1019,32 @@ export class GTDGameRuntime implements GameRuntime {
     }
     const car=this.sportsCars.get(nearest.id);
     if(!car)return;
+    const native=this.humanCharacterEnabled?this.humanAsset():null;
+    if(this.humanCharacterEnabled&&!native){
+      this.emit({type:"interaction",label:"Native character is not ready for boarding"});
+      return;
+    }
     this.movementArbiter.clear();
     this.move={x:0,y:0};
-    this.enteredAt={...actor};this.carEnteredAt={...car.pose};
-    this.drivingTrial=car;this.context="driving";
-    // Only this isolated experiment attempts a visible seated driver.
-    // A missing binary animation falls back to the EXACT L0 hidden-driver
-    // presentation; it never applies an improvised pose to the live character.
-    this.seatedDriverActive=this.seatTrialEnabled &&
-      (this.characterTrial?.enterDrivingPose() ?? false);
-    voight.root.setEnabled(this.seatedDriverActive);
-    if(this.seatedDriverActive){
-      this.syncDriverSeat(car);
-      this.characterTrial?.setDrivingCabin(
-        car.anchor,this.activeDriveName()!=="Ferrari"
-          ? true:this.driverPose002Enabled,
-        this.activeDriveName()!=="Ferrari"?"feet":this.driverPose002Mode,
-        this.activeDriveName()!=="Ferrari"
-          ? false:this.cabinFit003Enabled&&!this.cabinFit004Enabled,
-        this.activeDriveName()!=="Ferrari"?"range-rover":"ferrari",
-        this.activeDriveName()!=="Ferrari"?false:this.cabinFit004Enabled,
-        this.activeDriveName()!=="Ferrari"?car.dimensions:undefined);
-    }
-    this.move={x:0,y:0};
+    this.drivingTrial=car;
+    this.context="driving";
+    // Explicitly bypass every UAL Driving_Loop and cabin-fit procedure.
+    // Vehicle controls, physics and heading continue as they were.
+    this.seatedDriverActive=false;
+    voight.root.setEnabled(false);
+    native?.setDrivingHidden(true);
+    const position=car.pose;
+    voight.root.position.set(position.x,position.y,position.z);
+    voight.root.rotation.y=car.headingYaw;
+    native?.syncHiddenDrivingPose(position,car.headingYaw);
     this.preferredCameraRadius=FERRARI_REAR_CAMERA_RADIUS;
-    const p=car.pose;
     if(this.camera){
       this.camera.alpha=this.activeDriveName()!=="Ferrari"
-        ? rangeRoverRearCameraAlpha(car.headingYaw)
-        : ferrariRearCameraAlpha(car.headingYaw);
+        ?rangeRoverRearCameraAlpha(car.headingYaw)
+        :ferrariRearCameraAlpha(car.headingYaw);
       this.camera.beta=FERRARI_REAR_CAMERA_BETA;
       this.camera.radius=FERRARI_REAR_CAMERA_RADIUS;
-      this.camera.target.set(p.x,p.y+0.7,p.z);
+      this.camera.target.set(position.x,position.y+.7,position.z);
     }
     this.publishSnapshot(0);
     this.emit({type:"interaction",label:this.activeDriveName()+" driving · WASD / arrows · F exit when stopped"});
@@ -1064,21 +1054,6 @@ export class GTDGameRuntime implements GameRuntime {
   private activeDriveName():FiveModelName{
     const id=[...this.sportsCars.entries()].find(([,v])=>v===this.drivingTrial)?.[0];
     return id?this.driveVehicleNames.get(id)??"Ferrari":"Ferrari";
-  }
-  /** Pure driver presentation; both cars share the existing Rapier actor. */
-  private syncDriverSeat(car:FirstDriveTrial) {
-    const voight=this.voight;
-    if(!voight)return;
-    const vehicle={x:car.anchor.position.x,y:car.anchor.position.y,
-      z:car.anchor.position.z,yaw:car.headingYaw};
-    const model=this.activeDriveName();
-    const seat=model==="BMW M4"||model==="Lamborghini Temerario"
-      ?coupeDriverSeatWorldPose(model,vehicle,car.dimensions)
-      :model==="Ferrari"
-        ?ferrariSeatWorldPose(vehicle,car.dimensions)
-        :rangeRoverDriverSeatWorldPose(vehicle,car.dimensions);
-    voight.root.position.set(seat.x,seat.y,seat.z);
-    voight.root.rotation.y=seat.yaw;
   }
 
   /** CHAR-105 — one Rapier player and one camera, reversible visual actor. */
@@ -1094,7 +1069,7 @@ export class GTDGameRuntime implements GameRuntime {
       this.emit({type:"interaction",label:"Human character asset not ready"});
       return;
     }
-    if(enabled&&(this.context!=="walking"||this.flightEnabled)){
+    if(this.context!=="walking"||this.flightEnabled){
       this.emit({type:"interaction",label:"Exit vehicle / flight before enabling Character"});
       return;
     }
@@ -1184,11 +1159,12 @@ export class GTDGameRuntime implements GameRuntime {
       // controller owns the step until world physics is centrally refactored.
       physics.movePlayer({ x: 0, y: 0, z: 0 });
       trial.finish(dt);
-      if(this.seatedDriverActive){
-        this.syncDriverSeat(trial);
-        this.characterTrial?.updateDrivingPose(dt);
-      }
       const position = trial.pose;
+      // Keep hidden actor's logical world position aligned with the car.
+      voight.root.position.set(position.x,position.y,position.z);
+      voight.root.rotation.y=trial.headingYaw;
+      if(this.humanCharacterEnabled)
+        this.humanAsset()?.syncHiddenDrivingPose(position,trial.headingYaw);
       this.world?.update(dt, position);
       camera.target.set(position.x, position.y + 0.7, position.z);
       // Follow the CAR'S heading delta, not a hard-coded target bearing.
