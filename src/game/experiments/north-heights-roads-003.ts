@@ -106,6 +106,16 @@ function materialMesh(scene:Scene,name:string,data:Builder,material:StandardMate
   if(name!=="curb")ensureWalkableFacesPointUp(data);
   const normal:number[]=[];
   VertexData.ComputeNormals(data.p,data.indices,normal);
+  if(name!=="curb"){
+    // Both Babylon left/right-handed imported winding and the batch's
+    // internal ribbon direction can invert computed lighting normals.
+    // Carriageway, paving, and painted marks are walkable top surfaces,
+    // so their shading normal must always point to the sky. Rapier still
+    // receives the original triangulated collision geometry separately.
+    for(let i=0;i<normal.length;i+=3){
+      normal[i]=0;normal[i+1]=1;normal[i+2]=0;
+    }
+  }
   const v=new VertexData();
   v.positions=data.p;v.indices=data.indices;v.uvs=data.uv;v.normals=normal;
   const mesh=new Mesh("nh003-road:"+name,scene);
