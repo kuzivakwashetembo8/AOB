@@ -52,7 +52,7 @@ function NorthHeightsPreview() {
       <canvas ref={canvas} aria-label="North Heights fly-through" className="absolute inset-0 h-full w-full"
         style={{ touchAction: "none", display: "block" }} />
       <div className="pointer-events-none absolute left-3 top-3 max-w-[75vw] rounded bg-black/65 p-3 text-xs md:text-sm">
-        <div className="font-bold tracking-wide text-amber-400">MERIDIAN CITY // 05 NORTH HEIGHTS · REBUILD 002</div>
+        <div className="font-bold tracking-wide text-amber-400">MERIDIAN CITY // 05 NORTH HEIGHTS · REBUILD 003</div>
         <div className="mt-1" aria-live="polite">{status}</div>
         <div className="mt-1 text-white/65">{stats}</div>
         <div className="mt-1 text-white/65">Drag: look · Arrows/WASD: fly · Space/E: up · Q/Ctrl: down · Shift: boost</div>
@@ -86,7 +86,7 @@ function NorthHeightsPreview() {
         </div>
       </div>
       <div className="pointer-events-none absolute bottom-28 right-3 max-w-56 text-right text-[10px] text-white/55">
-        Procedural skyline and South Ward-style streets/sky · City Pack 8 by Pasha (design reference, CC BY 4.0)
+        Experimental geometry · NH-003 approved visual target not yet achieved · City Pack 8 by Pasha (design reference, CC BY 4.0)
       </div>
     </main>
   );
