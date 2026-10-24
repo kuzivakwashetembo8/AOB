@@ -49,6 +49,16 @@ describe("NH-REBUILD-003 isolated South Ward-patterned road/curb checkpoint", ()
            Math.min(...zs)<-.1 && Math.max(...zs)>.1)coveringJunction++;
       }
       expect(coveringJunction).toBe(1);
+      // NH-005: both perpendicular carriageways and crossing paint must
+      // have upward-facing normals. NH-004's +X road strips faced DOWN,
+      // making half the road grid render black with identical asphalt.
+      for(const part of ["asphalt","pavement","crossing"]){
+        const target=scene.getMeshByName("nh003-road:"+part)!;
+        const normals=target.getVerticesData(VertexBuffer.NormalKind)!;
+        let minNormalY=Infinity;
+        for(let i=1;i<normals.length;i+=3)minNormalY=Math.min(minNormalY,normals[i]!);
+        expect(minNormalY).toBeGreaterThan(.80);
+      }
       const positions=curbs.getVerticesData(VertexBuffer.PositionKind)!;
       const curbY:number[]=[];
       for(let i=1;i<positions.length;i+=3)curbY.push(positions[i]!);
