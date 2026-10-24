@@ -112,10 +112,11 @@ These are image-observed defects, **not** claims of exact source-GLB measurement
 
 - [x] Audit PR #49 and all 68 experimental commits relative to CHAR-130 parent.
 - [x] Document original goal, all six approaches, objective failure reasons, owner observations, complete 68-commit ledger and safeguarding instructions on `main`.
-- [ ] Close PR #49 without merge and confirm final state.
-- [ ] Delete `feat/veh-interior-001-cabin-mapper-20261023` **only after** archival and PR closure. If the GitHub connection lacks branch-ref deletion permission/action, explicitly report this blocking step; do **not** claim deletion.
-- [ ] Verify post-decommission repository main and parent PR #48 remain unaffected.
-- [ ] Prevent any further development, deployment or merging from the retired branch.
+- [x] Closed PR #49 **without merge** (verified GitHub state `closed`, `merged=false`).
+- [x] Because the connected GitHub action set lacks `DELETE /git/refs`, safely **neutralized** the retired branch with a force-with-lease ref reset from `d4cf306d015a21e508c78a8e1ffe38f8e4d9cdc6` to accepted parent `d48b735aa3f2c5fab733f0de6d354c9beaf0eda5`. Verified resulting comparison with parent: `identical`, 0 ahead / 0 behind, 0 changed files. No failed VEH code remains at the branch tip.
+- [ ] **Delete the now-empty retired branch name** `feat/veh-interior-001-cabin-mapper-20261023` from GitHub using the branch list's Delete branch control or the GitHub REST `DELETE /repos/interlinkglobal/GTD/git/refs/heads/feat/veh-interior-001-cabin-mapper-20261023` through an authorized client. **Not completed**: current connected GitHub tools have no branch-ref delete action.
+- [x] Verified PR #48 remains open, unmerged, with parent head `d48b735aa3f2c5fab733f0de6d354c9beaf0eda5`; only the DDD document was committed onto `main`. No experimental vehicle seating code was merged.
+- [x] Block further development and promotion of the retired experiment: PR #49 closed without merge, retired branch ref reset to accepted parent, and explicit do-not-reuse notice preserved in the DDD report.
 
 ## VIII. Complete 68-commit branch-specific evidence ledger
 
@@ -191,5 +192,9 @@ Chronological ascending; only commits that are **ahead of** `feat/char-126-human
 | 66 | 2026-10-24 07:43 UTC | [`8adb0d0d2`](https://github.com/interlinkglobal/GTD/commit/8adb0d0d2e808e17e763125aaf18ae76eb29cf60) | test(VEH-SEAT-CAL-001): assert intentionally pending visual acceptance instead of contradicting fit warnings |
 | 67 | 2026-10-24 08:16 UTC | [`ea08b4e8b`](https://github.com/interlinkglobal/GTD/commit/ea08b4e8b3ea215d47fe95256a17534fb90c220a) | test(VEH-SEAT-CAL-001): validate all six calibrated lanes at four headings and reject bad parameters |
 | 68 | 2026-10-24 08:29 UTC | [`d4cf306d0`](https://github.com/interlinkglobal/GTD/commit/d4cf306d015a21e508c78a8e1ffe38f8e4d9cdc6) | test(VEH-SEAT-CAL-001): all six curated driver profiles, yaw invariance and isolation |
+
+### Final DDD execution outcome (2026-10-24)
+
+**Documentation: COMPLETE on main.** **PR #49: CLOSED, NOT MERGED.** **Failed experimental code: REMOVED FROM ACTIVE BRANCH HEAD via lease-protected reset.** **Parent PR #48: UNCHANGED.** **Actual deletion of the retired GitHub branch name: BLOCKED by missing GitHub connector action; branch name remains and is identical to the safe parent.** No production or accepted animation runtime changes have been performed.
 
 **Final engineering conclusion:** This is a failed **vehicle-specific integration** effort, not a failure of the standalone seated animation. A new workstream may be authorized later with real per-car interior/witness geometry and live visual calibration. No unaccepted VEH-INTERIOR-001..005 / VEH-SEAT-CAL-001 code is entitled to promotion.
