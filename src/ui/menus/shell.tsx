@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { RotateCw, ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import city from "@/assets/meridian-city.jpg";
@@ -65,10 +65,9 @@ export function ShellHeader() {
   );
 }
 export function LandscapeBoundary({ children }: { children: ReactNode }) {
-  const path = useRouterState({ select: (state) => state.location.pathname });
   return (
     <>
-      <div className="landscape-app" key={path}>
+      <div className="landscape-app">
         {children}
       </div>
       <div className="portrait-gate">

@@ -745,6 +745,12 @@ export class GTDGameRuntime implements GameRuntime {
   start(): void {
     if (this.lifecycle !== "ready" && this.lifecycle !== "paused") return;
     this.lifecycle = "running";
+    if (this.scene) {
+      // Babylon also keeps a wall-clock baseline independently of Rapier.
+      // Reset it so an hour in the background cannot skip animation frames.
+      this.scene._animationTimeLast = 0;
+      this.scene.animationsEnabled = true;
+    }
     this.accumulator = 0;
     this.previousTime = performance.now();
     this.publishSnapshot();
@@ -752,13 +758,18 @@ export class GTDGameRuntime implements GameRuntime {
   }
 
   pause(): void {
-    if (this.lifecycle !== "running") return;
+    if (this.lifecycle !== "running" && this.lifecycle !== "ready") return;
     this.lifecycle = "paused";
     this.accumulator = 0;
+    this.actions.clear();
+    this.movementArbiter.clear();
+    this.move = { x: 0, y: 0 };
+    this.look = { x: 0, y: 0 };
     this.pendingTouchLook = { x: 0, y: 0 };
     if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
     this.frameHandle = null;
-    this.scene?.render();
+    // Keep the last rendered pose; do not advance animation on pause.
+    if (this.scene) this.scene.animationsEnabled = false;
     this.publishSnapshot();
   }
 
@@ -827,6 +838,10 @@ export class GTDGameRuntime implements GameRuntime {
   }
 
   command(command: GameCommand): void {
+    // Late pointer/keyboard events must not re-arm input after a pause.
+    if (this.lifecycle !== "running" && (command.type === "move" ||
+        command.type === "look" || command.type === "look-delta" ||
+        (command.type === "action" && command.pressed))) return;
     if(command.type==="enable-character"){
       this.switchHumanCharacter(command.enabled);
       return;
