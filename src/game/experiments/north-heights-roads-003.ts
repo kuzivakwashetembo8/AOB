@@ -29,14 +29,16 @@ const CURB_TOP=.205, WALK_TOP=.20, ASPHALT_TOP=.075;
 const STEP=6; // metres between grade samples
 
 function empty():Builder{return {p:[],uv:[],indices:[]};}
-function addQuad(b:Builder,a:Point,c:Point,d:Point,e:Point) {
+function addQuad(b:Builder,a:Point,c:Point,d:Point,e:Point,flip=false) {
   const n=b.p.length/3;
   for(const v of [a,c,d,e]) {
     b.p.push(v.x,v.y,v.z);
     b.uv.push(v.x/8,v.z/8);
   }
-  // All batch materials are double sided; winding consistent with XZ top-down.
-  b.indices.push(n,n+1,n+2,n,n+2,n+3);
+  // X-axis strips and rectangular pads require reversed winding to face UP.
+  // This was the cause of one road axis appearing black at identical material.
+  if(flip)b.indices.push(n,n+2,n+1,n,n+3,n+2);
+  else b.indices.push(n,n+1,n+2,n,n+2,n+3);
 }
 function projected(x:number,z:number,at:(x:number,z:number)=>number,elevation:number):Point{
   return {x,y:at(x,z)+elevation,z};
@@ -65,7 +67,7 @@ function runStrip(
     const x1=v(t1,left,elevation+offsetStart);
     const y1=v(t1,right,elevation+offsetEnd);
     const y0=v(t0,right,elevation+offsetEnd);
-    addQuad(batch,x0,x1,y1,y0);
+    addQuad(batch,x0,x1,y1,y0,axis==="x");
   }
 }
 function curbFace(batch:Builder,axis:"x"|"z",fixed:number,edge:number,start:number,end:number,at:(x:number,z:number)=>number){
@@ -80,7 +82,7 @@ function curbFace(batch:Builder,axis:"x"|"z",fixed:number,edge:number,start:numb
 }
 function pad(batch:Builder,x0:number,z0:number,x1:number,z1:number,elevation:number,at:(x:number,z:number)=>number){
   addQuad(batch,projected(x0,z0,at,elevation),projected(x1,z0,at,elevation),
-    projected(x1,z1,at,elevation),projected(x0,z1,at,elevation));
+    projected(x1,z1,at,elevation),projected(x0,z1,at,elevation),true);
 }
 function materialMesh(scene:Scene,name:string,data:Builder,material:StandardMaterial){
   if(!data.indices.length)return false;
