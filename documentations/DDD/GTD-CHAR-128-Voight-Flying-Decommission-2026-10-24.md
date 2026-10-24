@@ -76,7 +76,8 @@ These changes must not be merged, selectively copied, deployed to production, or
 - [x] Original objective, investigated data, corrections, test evidence, and final rejection documented.
 - [x] Branch change inventory and safe boundaries established against `main`.
 - [x] Report saved to **main** (documentation only).
-- [ ] Branch ref permanently deleted — verify deletion separately; do not claim deletion without GitHub confirmation.
-- [ ] Live preview URLs may remain historical artifacts; no production alias should point to them.
+- [x] Experimental branch ref **force-reset with expected SHA** from `53cb926f813840b102e3aa4730efd525c8cc13fe` to the documentation-only current `main` commit `f2f67339102cc4923a3e9da217cb0c006d6d1a59`. GitHub compare verified `identical`, zero ahead/behind and **zero changed files**. The branch cannot accidentally deliver the rejected feature code in its current state.
+- [ ] Branch ref **permanently deleted**. The connected GitHub actions expose ref updates but not deletion; **the branch name still exists**, pointing to `main`. Complete deletion in the repository's Branches page: `feat/voight-flying-20261024` → delete. Do not claim full deletion until it is confirmed.
+- [x] Previously created preview URLs are historical artifacts only; no CHAR-128 production deployment was initiated. Production alias was not reassigned as part of DDD.
 
 **Final verdict:** **CHAR-128 is decommissioned and unsuitable for merge.** Any future Voight-flight work requires a newly scoped, approved proposal, independent branch and revised anatomical test plan; do not resume this branch.
