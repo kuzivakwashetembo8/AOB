@@ -58,7 +58,6 @@ const random = (seed: number) => {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 };
-const rnd = random(503021);
 const snap = (n: number) => Math.round(n * 1000) / 1000;
 const low = (a: number, b: number, c: number) => Math.max(a, Math.min(b, c));
 export function northHeightsGround(x: number, z: number) {
@@ -84,7 +83,7 @@ function floorsFor(family: Family, x: number, z: number, r: number) {
   if (family === "residential") return Math.round(4 + r * 7);
   return 2 + Math.floor(r * 3);
 }
-function planLots(): Lot[] {
+function planLots(rnd: () => number): Lot[] {
   const planned: Lot[] = [];
   for (let iz = 0; iz < MIDPOINTS.length; iz++) {
     for (let ix = 0; ix < MIDPOINTS.length; ix++) {
@@ -353,7 +352,7 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   }
   return height;
 }
-function buildGreens(city: InstancedCity, lots:readonly Lot[]) {
+function buildGreens(city: InstancedCity, lots:readonly Lot[], rnd: () => number) {
   const occupied = new Set(lots.map(l=>l.block));
   let trees=0;
   for (let iz=0;iz<MIDPOINTS.length;iz++) for(let ix=0;ix<MIDPOINTS.length;ix++) {
@@ -393,7 +392,8 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
   const city=new InstancedCity(scene);
   terrain(scene,city.mat("grass"));
   buildRoads(scene,city);
-  const lots=planLots();
+  const rnd=random(503021);
+  const lots=planLots(rnd);
   const lotSpecs: BuildingSpec[]=[];
   let tall=0;
   for (const lot of lots) {
@@ -410,7 +410,7 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
         lodProfile:lot.family==="glass"?"skyline":"standard"},
     });
   }
-  const trees=buildGreens(city,lots);
+  const trees=buildGreens(city,lots,rnd);
   const lamps=addStreetFurniture(city);
   const instances=city.commit();
   console.info("[NH-REBUILD-001] procedural world",{
