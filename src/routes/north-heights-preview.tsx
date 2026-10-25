@@ -1,20 +1,20 @@
 import {createFileRoute,Link} from "@tanstack/react-router";
-import {useEffect,useRef,useState,type CSSProperties,type PointerEvent} from "react";
-import {ArrowUp,ArrowDown,ArrowLeft,ArrowRight,ChevronDown,Info,Map,RotateCcw,Settings2,X} from "lucide-react";
+import {useEffect,useRef,useState} from "react";
+import {ChevronDown,Info,Map,RotateCcw,Settings2,X} from "lucide-react";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
+import type {GameCommand} from "@/game/core/types";
 import {pageHead} from "@/lib/page-head";
 import {useSettings} from "@/ui/menus/settings-state";
 import {SettingsEditor} from "@/ui/menus/settings-editor";
-import {Joystick} from "@/ui/hud/touch-controls";
+import {TouchControls} from "@/ui/hud/touch-controls";
+import {DesktopControls} from "@/ui/hud/desktop-controls";
 import {useInputMode} from "@/game/input/use-input-mode";
-import {northHeightsTouchStyle006} from "@/game/experiments/north-heights-presentation-006";
 
 export const Route=createFileRoute("/north-heights-preview")({
   head:()=>pageHead("North Heights · Procedural Reconstruction",
     "Isolated North Heights walking and flying, with shared GTD controls."),
   component:NorthHeightsPreview,
 });
-type Control=Parameters<NorthHeightsInspection["press"]>[0];
 function NorthHeightsPreview(){
   const canvas=useRef<HTMLCanvasElement>(null),controller=useRef<NorthHeightsInspection|null>(null);
   const {settings,save}=useSettings();
@@ -25,13 +25,17 @@ function NorthHeightsPreview(){
   const [mode,setMode]=useState<"walk"|"fly">("walk");
   const [infoOpen,setInfoOpen]=useState(false);
   const [settingsOpen,setSettingsOpen]=useState(false);
+  const [feedback,setFeedback]=useState("");
   const [coarse,setCoarse]=useState(false);
   const inputMode=useInputMode();
   const ready=status.includes("physics ready");
   const failed=/failed|failure|error/i.test(status);
   const touchVisible=coarse&&!(settings.autoHide&&inputMode==="keyboard");
   const desktopVisible=!coarse&&settings.desktopControls;
-  const touchStyle=northHeightsTouchStyle006(settings) as CSSProperties;
+  const send=(command:GameCommand)=>{
+    if(command.type==="move")controller.current?.move(command.x,command.y);
+    if(command.type==="action")controller.current?.action(command.action,command.pressed);
+  };
 
   useEffect(()=>{
     const m=window.matchMedia("(pointer: coarse)");
@@ -50,7 +54,9 @@ function NorthHeightsPreview(){
         if(closed||!canvas.current)return;
         const instance=await createNorthHeightsCity8(canvas.current,
           message=>{if(!closed)setStatus(message);},
-          message=>{if(!closed)setStats(message);});
+          message=>{if(!closed)setStats(message);},
+          next=>{if(!closed)setMode(next);},
+          note=>{if(!closed)setFeedback(note);});
         if(closed)instance.dispose();
         else{controller.current=instance;instance.applySettings(currentSettings.current);}
       }catch(error){
@@ -67,21 +73,6 @@ function NorthHeightsPreview(){
     window.addEventListener("keydown",key);
     return()=>window.removeEventListener("keydown",key);
   },[settingsOpen]);
-  const hold=(c:Control,v:boolean)=>controller.current?.press(c,v);
-  const button=(c:Control,label:string,Icon?:typeof ArrowUp)=>(
-    <button type="button" key={c} aria-label={label}
-      className="control-button select-none rounded-lg border border-white/30 bg-black/65 text-xs font-semibold text-white active:bg-amber-400 active:text-black"
-      style={{width:48,height:48,touchAction:"none"}}
-      onPointerDown={(e:PointerEvent<HTMLButtonElement>)=>{
-        e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);hold(c,true);
-        if(settings.haptics)navigator.vibrate?.(12);
-      }}
-      onPointerUp={()=>hold(c,false)}
-      onPointerCancel={()=>hold(c,false)}
-      onLostPointerCapture={()=>hold(c,false)}>
-      {Icon?<Icon size={19} className="mx-auto"/>:label}
-    </button>
-  );
   const toggleMode=()=>{
     const next=mode==="walk"?"fly":"walk";
     if(controller.current?.setMode(next))setMode(next);
@@ -90,9 +81,16 @@ function NorthHeightsPreview(){
     const next=skyTime==="day"?"dusk":skyTime==="dusk"?"night":"day";
     controller.current?.setTime(next);setSkyTime(next);
   };
+  useEffect(()=>{
+    if(!feedback)return;
+    const timer=window.setTimeout(()=>setFeedback(""),3500);
+    return()=>window.clearTimeout(timer);
+  },[feedback]);
   const topButton="nh-top-button flex items-center justify-center rounded-md border border-white/25 bg-[#111923]/90 px-2 text-[11px] font-semibold";
   return(
-    <main className="relative h-[100dvh] w-full overflow-hidden bg-[#07111c] text-white">
+    <main className={"game-shell game-viewport relative h-[100dvh] w-full overflow-hidden bg-[#07111c] text-white"+
+      (settings.reducedMotion?" motion-reduced":"")+(settings.contrast?" high-contrast":"")+
+      (settings.textSize==="Large"?" large-interface":"")}>
       <canvas ref={canvas} aria-label="North Heights interactive city"
         className="absolute inset-0 h-full w-full" style={{touchAction:"none"}}/>
       <div className="pointer-events-none absolute left-2 top-2 z-20 flex max-w-[43vw] flex-col items-start gap-1">
@@ -125,34 +123,12 @@ function NorthHeightsPreview(){
           aria-label="Open shared GTD settings"><Settings2 size={17}/></button>
         <Link className={topButton} to="/world" aria-label="World directory"><Map size={16}/></Link>
       </nav>
+      {feedback&&!settingsOpen&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
       {!ready&&!infoOpen&&<div role="status" className={"pointer-events-none absolute left-1/2 top-14 z-10 w-[min(460px,73vw)] -translate-x-1/2 rounded border border-white/15 px-2 py-1 text-center text-xs "+(failed?"bg-red-950/90":"bg-black/70")}>
         {failed?status:"Loading North Heights..."}
       </div>}
-      {touchVisible&&!settingsOpen&&<div
-        className={"touch-controls positions-"+settings.position.toLowerCase()+(settings.handedness==="Left-handed"?" left-handed":"")}
-        style={touchStyle}>
-        <Joystick send={command=>{if(command.type==="move")controller.current?.move(command.x,command.y);}}/>
-        <div className="touch-actions"
-          style={{gridTemplateColumns:mode==="fly"?"repeat(3,48px)":"repeat(2,48px)"}}>
-          {button("up",mode==="walk"?"JUMP":"UP")}
-          {mode==="fly"&&button("down","DOWN")}
-          {button("fast",mode==="walk"?"RUN":"BOOST")}
-        </div>
-      </div>}
-      {desktopVisible&&!settingsOpen&&<div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-between"
-        style={{opacity:settings.opacity/100}}>
-        <div className="pointer-events-auto grid grid-cols-3 gap-1">
-          <div/>{button("forward","Forward",ArrowUp)}<div/>
-          {button("left","Left",ArrowLeft)}
-          {button("back","Back",ArrowDown)}
-          {button("right","Right",ArrowRight)}
-        </div>
-        <div className="pointer-events-auto flex items-end gap-1">
-          {button("up",mode==="walk"?"JUMP":"UP")}
-          {mode==="fly"&&button("down","DOWN")}
-          {button("fast",mode==="walk"?"RUN":"BOOST")}
-        </div>
-      </div>}
+      {touchVisible&&!settingsOpen&&<TouchControls settings={settings} send={send} onAction={()=>undefined}/>}
+      {desktopVisible&&!settingsOpen&&<DesktopControls send={send} onAction={()=>undefined}/>}
       {settingsOpen&&<div className="absolute inset-0 z-50 flex items-center justify-center bg-black/85 px-3 py-2">
         <section role="dialog" aria-modal="true" aria-label="GTD North Heights settings"
           className="game-settings-dialog w-[min(960px,100%)] rounded-xl border border-white/25 bg-[#111820] p-3 shadow-2xl">

@@ -4,8 +4,8 @@
  * No generated South Ward, Rapier colliders, traffic, or game-session runtime.
  */
 import {
-  AbstractMesh, Color3, Color4, DirectionalLight, Engine, FreeCamera,
-  HemisphericLight, Ray, Scene, SceneLoader, TransformNode, Vector3,
+  Color3, Color4, DirectionalLight, Engine, FreeCamera,
+  HemisphericLight, Scene, Vector3,
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import { configureLocalGameDecoders } from "@/game/core/local-decoders";
@@ -13,6 +13,9 @@ import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-hei
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
 import { createMercerStaticCharacter } from "@/game/world/mercer-static-character-103";
+import {loadMeridiaCharacterTrial,type LoadedMeridiaCharacter} from "@/game/character/voight-humanoid-trial";
+import type {GameAction} from "@/game/core/types";
+import {northHeightsActionControl007,northHeightsUnavailableAction007} from "./north-heights-controls-007";
 import { createNorthHeightsWalk005, type NorthHeightsWalk005 } from "./north-heights-physics-005";
 import {northHeightsHardwareScale006,northHeightsFrameLimit006} from "./north-heights-presentation-006";
 import {touchCameraRadiansPerPixel} from "@/game/input/touch-camera-sensitivity";
@@ -22,6 +25,7 @@ type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
   press: (control: Control, down: boolean) => void;
   move: (x:number,y:number) => void;
+  action: (action:GameAction,pressed:boolean) => void;
   applySettings: (settings:Settings) => void;
   setPaused: (paused:boolean) => void;
   reset: () => void;
@@ -29,55 +33,12 @@ export interface NorthHeightsInspection {
   setMode: (mode: "walk" | "fly") => boolean;
   dispose: () => void;
 }
-type Bounds = { min: Vector3; max: Vector3; size: Vector3; center: Vector3 };
-
-function boundsOf(meshes: readonly AbstractMesh[]): Bounds {
-  const min = new Vector3(Infinity, Infinity, Infinity);
-  const max = new Vector3(-Infinity, -Infinity, -Infinity);
-  let found = 0;
-  for (const mesh of meshes) {
-    if (mesh.getTotalVertices() < 1) continue;
-    mesh.computeWorldMatrix(true);
-    const box = mesh.getBoundingInfo().boundingBox;
-    if (![box.minimumWorld.x, box.minimumWorld.y, box.minimumWorld.z,
-      box.maximumWorld.x, box.maximumWorld.y, box.maximumWorld.z].every(Number.isFinite)) continue;
-    min.minimizeInPlace(box.minimumWorld);
-    max.maximizeInPlace(box.maximumWorld);
-    found += 1;
-  }
-  if (!found) throw new Error("Asset contains no measurable renderable geometry.");
-  const size = max.subtract(min);
-  return { min, max, size, center: min.add(max).scale(0.5) };
-}
-function topLevelNodes(imported: Awaited<ReturnType<typeof SceneLoader.ImportMeshAsync>>) {
-  return [...new Set([...imported.transformNodes, ...imported.meshes])]
-    .filter(node => !node.parent);
-}
-async function loadWitness(scene: Scene, file: string, name: string, x: number, y: number, z: number) {
-  const imported = await SceneLoader.ImportMeshAsync("", "/GLBs/Characters/", file, scene);
-  for (const group of imported.animationGroups) group.stop();
-  const meshes = imported.meshes.filter(mesh => mesh.getTotalVertices() > 0);
-  const b = boundsOf(meshes);
-  const height = Math.max(0.001, b.size.y);
-  // Babylon glTF authors use different coordinate systems and root scales.
-  // Preserve original hierarchy and fit each model to 1.78m for this visual trial.
-  const scale = 1.78 / height;
-  const root = new TransformNode("nh001-" + name, scene);
-  for (const node of topLevelNodes(imported)) node.parent = root;
-  root.scaling.setAll(scale);
-  root.position.set(x - b.center.x * scale, y - b.min.y * scale, z - b.center.z * scale);
-  for (const mesh of meshes) mesh.isPickable = false;
-  if (file === "ual.glb") {
-    const idle = imported.animationGroups.find(group => group.name.toLowerCase() === "idle_loop")
-      ?? imported.animationGroups.find(group => group.name.toLowerCase().includes("idle"));
-    idle?.start(true);
-  }
-  return meshes.length;
-}
 export async function createNorthHeightsCity8(
   canvas: HTMLCanvasElement,
   status: (message: string) => void,
   statistics: (message: string) => void,
+  onModeChange?: (mode:"walk"|"fly")=>void,
+  onFeedback?: (message:string)=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -112,6 +73,7 @@ export async function createNorthHeightsCity8(
   let treeHandle: {dispose:()=>void} | null = null;
   let walk:NorthHeightsWalk005|null=null;
   let actor:ReturnType<typeof createMercerStaticCharacter>|null=null;
+  let humanoid:LoadedMeridiaCharacter|null=null;
   let mode:"walk"|"fly"="fly";
   let headingYaw=0;
   let physicsAccumulator=0;
@@ -125,6 +87,10 @@ export async function createNorthHeightsCity8(
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
     if(paused)return;
     keyboardUsed=true;
+    if(event.code==="KeyG"){
+      if(!event.repeat)controller.setMode(mode==="walk"?"fly":"walk");
+      return;
+    }
     keys.add(event.code);
   };
   const keyUp = (event: KeyboardEvent) => { keys.delete(event.code); };
@@ -184,11 +150,11 @@ export async function createNorthHeightsCity8(
     const z=Math.max(-1,Math.min(1,
       Number(active("forward")||key("ArrowUp")||key("KeyW"))-
       Number(active("back")||key("ArrowDown")||key("KeyS"))-analog.y+stickY));
-    const ascend=active("up")||key("Space")||key("KeyE");
+    const ascend=active("up")||key("Space");
     const fast=active("fast")||key("ShiftLeft")||key("ShiftRight");
     const heading=new Vector3(Math.sin(yaw),0,Math.cos(yaw));
     const side=new Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-    if(mode==="walk"&&walk&&actor){
+    if(mode==="walk"&&walk&&actor&&humanoid){
       // A fixed-step Rapier simulation, not naive camera clipping.
       physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
       let last=walk.physics.playerPosition();
@@ -202,8 +168,21 @@ export async function createNorthHeightsCity8(
         lastGrounded=result.grounded;
         lastTravelSpeed=result.speed;
         if(result.speed>.07)headingYaw=Math.atan2(forward.x,forward.z);
-        actor.updateControlled(last,headingYaw,result.speed,1/60,
-          fast,result.grounded,result.verticalVelocity);
+        if(settings.enableCharacter){
+          actor.updateControlled(last,headingYaw,result.speed,1/60,
+            fast,result.grounded,result.verticalVelocity);
+        }else{
+          humanoid.root.position.set(last.x,last.y,last.z);
+          humanoid.root.rotation.y=headingYaw;
+          humanoid.updateAnimation({
+            correctedPlanarSpeed:result.speed,
+            rawGrounded:result.grounded,
+            intentMagnitude:Math.hypot(x,z),
+            sprintRequested:fast,
+            jumpAscending:!result.grounded&&result.verticalVelocity>.2,
+            dt:1/60,
+          });
+        }
         physicsAccumulator-=1/60;
       }
       // Third-person chase camera, retaining pointer look. Head clearance
@@ -218,8 +197,8 @@ export async function createNorthHeightsCity8(
       camera.position.copyFrom(follow);
       camera.setTarget(target);
     } else {
-      const y=Number(active("up")||key("Space")||key("KeyE"))-
-        Number(active("down")||key("ControlLeft")||key("ControlRight")||key("KeyQ"));
+      const y=Number(active("up")||key("Space"))-
+        Number(active("down")||key("ControlLeft")||key("ControlRight"));
       const move=heading.scale(z).add(side.scale(x)).add(new Vector3(0,y,0));
       if(move.lengthSquared()>0)camera.position.addInPlace(move.normalize().scale((fast?87:24)*dt));
       camera.rotation.set(pitch,yaw,0);
@@ -237,10 +216,40 @@ export async function createNorthHeightsCity8(
     renderLast=now;
     scene.render();
   });
+  const setActiveCharacter=(enabled:boolean)=>{
+    if(!actor||!humanoid||!walk)return;
+    // The physics capsule, ground contact, heading and camera never change.
+    actor.setControlled(enabled);
+    actor.anchor.setEnabled(enabled);
+    humanoid.root.setEnabled(!enabled);
+    const position=walk.physics.playerPosition();
+    if(enabled)actor.updateControlled(position,headingYaw,0,1/60,false,lastGrounded,0);
+    else{
+      humanoid.root.position.set(position.x,position.y,position.z);
+      humanoid.root.rotation.y=headingYaw;
+      humanoid.updateAnimation({correctedPlanarSpeed:0,rawGrounded:true,
+        intentMagnitude:0,sprintRequested:false,jumpAscending:false,dt:1/60});
+    }
+  };
   const controller: NorthHeightsInspection = {
     press(control,down){if(paused)return;if(down)held.add(control);else held.delete(control);},
     move(x,y){if(paused)return;analog={x:Math.max(-1,Math.min(1,x)),y:Math.max(-1,Math.min(1,y))};},
-    applySettings(next){settings=next;applyGraphics();},
+    action(action,pressed){
+      if(paused)return;
+      const control=northHeightsActionControl007(action);
+      if(control){controller.press(control,pressed);return;}
+      if(action==="fly"){
+        if(pressed)controller.setMode(mode==="walk"?"fly":"walk");
+        return;
+      }
+      if(pressed)onFeedback?.(northHeightsUnavailableAction007(action));
+    },
+    applySettings(next){
+      const characterChanged=settings.enableCharacter!==next.enableCharacter;
+      settings=next;
+      if(characterChanged)setActiveCharacter(next.enableCharacter);
+      applyGraphics();
+    },
     setPaused(value){
       paused=value;
       if(value)clearKeys();
@@ -253,9 +262,10 @@ export async function createNorthHeightsCity8(
     },
     setTime(time) { sky.setTime(time); },
     setMode(next){
-      if(next==="walk"&&(!walk||!actor))return false;
+      if(next==="walk"&&(!walk||!actor||!humanoid))return false;
       mode=next;clearKeys();physicsAccumulator=0;
       if(next==="fly"){camera.position.copyFrom(anchor);yaw=initialYaw;pitch=initialPitch;}
+      onModeChange?.(next);
       return true;
     },
     dispose() {
@@ -272,6 +282,8 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("resize", resize);
       treeHandle?.dispose();
       actor?.dispose();
+      humanoid?.disposeDriverContact();
+      humanoid?.root.dispose(false,true);
       walk?.dispose();
       sky.dispose(); scene.dispose(); engine.dispose();
     },
@@ -307,19 +319,16 @@ export async function createNorthHeightsCity8(
     actor.setControlled(true);
     const initial=walk.physics.playerPosition();
     actor.updateControlled(initial,0,0,1/60,false,false,0);
-    // Retain the UAL model as a passive point of comparison, never as a
-    // second playable actor or a second physics controller.
-    let actorCount=actor.poseReport.meshCount,failed=0;
-    try {
-      const px=footSpawn.x+8,pz=footSpawn.z;
-      actorCount+=await loadWitness(scene,"ual.glb","ual",px,
-        northHeightsGround(px,pz)+.24,pz);
-    } catch(error){
-      failed++;
-      console.warn("[NH-005] optional UAL witness unavailable",error);
-    }
+    // The existing GTD humanoid is an actual playable alternative, not a
+    // spectator. The same physical capsule and world coordinates drive either model.
+    status("Loading the accepted GTD UAL humanoid and locomotion clips");
+    humanoid=await loadMeridiaCharacterTrial(scene);
+    if(closed)return controller;
+    const actorCount=actor.poseReport.meshCount+humanoid.report().meshCount;
+    setActiveCharacter(settings.enableCharacter);
     if(closed)return controller;
     mode="walk";
+    onModeChange?.("walk");
     physicsAccumulator=0;
     applyGraphics();
     anchor=world.overview.clone();
@@ -330,7 +339,7 @@ export async function createNorthHeightsCity8(
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+(failed?" · "+failed+" character imports failed":"")+
+      treeCount+" GLB trees · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
