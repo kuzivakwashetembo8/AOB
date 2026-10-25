@@ -80,3 +80,27 @@ First significant G1 preview: Voight flies near the NH-012 moving traffic. Eight
 - Four imported tire, rim and tread assemblies rotate when advancing; both front wheels toe toward the turn while rear only roll. No detached source geometry, spinning brake housings, wheel/tyre misalignment, ground clipping or synthetic wheel substitutes.
 - Wheel behavior works after LOD transitions and pause/resume; paint variation, NH-012 dots, 125 simulation agents and six original parked driving cars remain unchanged.
 - Successful TypeScript/build/tests and Vercel READY are prerequisites but **not visual acceptance**. No merge to main or production deploy unless separately authorized.
+
+
+## G2 — Grade-contact, turn-steering, high-flight view and hatchback intake (2026-10-25)
+
+**Directive:** Preserve the successful sedan body colour variants and accepted autonomous NH-012 dot traffic while correcting sedan wheel contact on North Heights hills, full front-wheel steering, improving car discovery from the flight camera, and assigning the second imported everyday passenger model to existing agents.
+
+**Screenshots/evidence:** With Voight inspecting a red sedan on Eastbank Road, tyres visibly intersect the upward terrain/road grade; front wheels turn insufficiently around junction curves. Colours and sedan forward direction are accepted. NH-012's positions/speeds/routes are not defective and must remain untouched.
+
+**Root issue:**
+- Previous renderer sampled `northHeightsGround()` once at the chassis centre and set only a flat yaw. North Heights rises by ~44m and has sinusoidal road grade; the front/uphill tyres could be under the asphalt.
+- Prior visual steering inferred turn yaw from discrete 20Hz traffic pose updates but smoothed it every 60Hz render frame, decaying the toe toward zero even while traffic followed a curve.
+- Previous visibility gating within ~180m horizontal travel made few cars discoverable during higher-altitude flight.
+
+**Changes and technical contracts:**
+1. `nh013-road-grade-contact.ts` uses the same North Heights terrain function as the rendered asphalt, sampling four tyre support positions at ±half wheelbase and ±half track. It computes a graded body translation and yaw/pitch/roll transform with road-contact clearance; the real traffic lane position remains unchanged. This is a source-derived **visual terrain-support model**, NOT independently approved dynamic suspension or actual near-player Rapier chassis collision.
+2. `nh013-traffic-turn-steering.ts` samples real NH-012 cubic junction turn connectors, extracts upcoming road curvature, applies a physically bounded front-wheel toe command (up to ~0.72rad) and updates toe only on traffic simulation ticks. Authentic source wheel rims, tyres and treads continue to roll together through GTD's shared VEH-008 world-yaw steering system.
+3. Rendering horizon expanded from 180m to 425m horizontal around the camera so high-flying players can locate cars across districts; automatic LOD near ≤24m, mid ≤70m, far beyond uses original source-derived GLB, not arbitrary boxes or billboards. Actual frame-time budgets must be verified before rollout.
+4. New second vehicle: `Fourd Confusion Hatchback.glb`, using 12 **existing** logical agents from the same 125 NH-012 identities. It has five model-specific real paint options in its separable `M_Body_ColorMain` material; original non-paint materials are retained.
+5. Source `Wheel_Tires` is a single Draco-compressed four-tyre mesh; the four fancier `Ford_Rim` nodes already have authored transform pivots. Offline script `nh013-rig-hatchback-tyres.mjs` uses the project-installed `draco3dgltf` decoder to split **existing source triangles** into four wheel groups and creates four validated hub-centered transform pivots. It does **not fabricate tyres** or run decoder/mesh-splitting in the game browser. Both original fancy rims and extracted original tyre/rim/tread surfaces are animated from exactly the same NH-012 agent motion using the shared GTD `StreetVehicleWheelRig`.
+6. Hatchback LOD1/LOD2 GLB derivatives are generated during build, preserving source materials and fundamental appearance. These first-pass LODs are not a claim of completed performance optimization: initial measurements ~194,926 and ~185,152 triangles per instance; next performance pass must consolidate/decimate before attempting full-city ambient traffic.
+
+**G2 acceptance checkpoint:** In preview, Voight flies above the district and sees a mixture of source-authentic sedan and hatchback cars on actual NH-012 traffic routes while 105 other agents remain moving dots. Both models' colours stay isolated to the body. Sedans must no longer bury uphill wheels; all front wheels steer visibly throughout turning while back wheels simply roll. Tire/rim geometry must remain attached and clean. NH-010 six parked/drivable original cars, character, minimap, buildings, and existing physics must not regress.
+
+**G2 SEC-CHECK:** No external API, no new traffic AI, no 125 full-GLB duplication, no new online source asset conversion, and no change to main. Build/test + desktop/mobile owner visual inspection are gates. No assertion of production collision physics, accepted wheel-road dynamics or acceptable mobile FPS until actual preview review. The G1 plan to scale after acceptance remains pending. Preserve original source GLBs unchanged. Do not merge/deploy to main without separate authorization.
