@@ -33,7 +33,7 @@ export function SettingsEditor({
     setSettings((previous) => ({ ...previous, [key]: value }));
     setSaved(false);
   };
-  const range = (key: keyof Settings, label: string, max = 100, min = 0, unit = "%") => (
+  const range = (key: keyof Settings, label: string, max = 100, min = 0, unit = "%", step = 1) => (
     <label className="setting-row" key={key}>
       <span>{label}</span>
       <span className="range-control">
@@ -42,6 +42,7 @@ export function SettingsEditor({
           type="range"
           min={min}
           max={max}
+          step={step}
           value={Number(settings[key])}
           onChange={(event) => update(key, Number(event.target.value))}
         />
@@ -172,6 +173,7 @@ export function SettingsEditor({
                   capabilities depend on available world interactions.
                 </p>
                 {range("sensitivity", "Mouse look sensitivity", 100, 10)}
+                {range("thirdPersonCameraDistanceMeters", "Camera Distance", 8, 3, " m", .25)}
                 {toggle("invertY", "Invert look Y axis")}
                 {toggle("vibration", "Controller vibration")}
                 {toggle("desktopControls", "Show desktop on-screen controls")}

@@ -35,7 +35,7 @@ export type GameAction =
 export type GameCommand =
   | { type: "move" | "look"; x: number; y: number; source?: "keyboard" | "keyboard-reset" | "desktop-pointer-down" | "desktop-pointer-up" | "desktop-pointer-cancel" | "desktop-pointer-lost" | "touch-joystick" | "touch-arrows" }
   | { type: "look-delta"; x: number; y: number }
-  | { type: "camera-settings"; touchSensitivity: number; invertY: boolean }
+  | { type: "camera-settings"; touchSensitivity: number; invertY: boolean; distanceMeters?: number }
   | { type: "enable-character"; enabled: boolean }
   | { type: "physics-foot-debug"; settings: import("../character/foot-ik-inspector-110").FootPhysicsDebugOptions }
   | { type: "render-clarity"; mode: import("../renderer/render-clarity").RenderClarityMode; scalePercent: number }
