@@ -29,6 +29,8 @@ import {validateNorthHeightsParking010} from "./north-heights-spatial-plan-010";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
 import {createNorthHeightsTrafficDots012,type NH012Dots} from "./north-heights-traffic-dots-012";
+import {assignNH013SedanPilot} from "@/game/traffic/nh013-sedan-pilot";
+import {createNorthHeightsSedanVisuals013,type NH013SedanVisuals} from "./north-heights-sedan-visuals-013";
 import {normalizeThirdPersonCameraDistance} from "@/ui/menus/settings-state";
 import {northHeightsHardwareScale006,northHeightsFrameLimit006} from "./north-heights-presentation-006";
 import {touchCameraRadiansPerPixel} from "@/game/input/touch-camera-sensitivity";
@@ -93,6 +95,7 @@ export async function createNorthHeightsCity8(
   let fleet:ReturnType<typeof createMercerExtraParkedGLBs>|null=null;
   let traffic:NH012TrafficSimulator|null=null;
   let trafficDots:NH012Dots|null=null;
+  let sedanVisuals:NH013SedanVisuals|null=null;
   let trafficAccumulator=0,visibleTrafficDots=0;
   const cars=new Map<string,FirstDriveTrial>();
   const carNames=new Map<string,string>();
@@ -220,7 +223,11 @@ export async function createNorthHeightsCity8(
         trafficAccumulator-=NH012_SIMULATION_DT;
         steps++;
       }
-      visibleTrafficDots=trafficDots.update(traffic.snapshot(),camera.position);
+      const snapshot=traffic.snapshot();
+      // Same 125 NH-012 traffic agents drive both the dots and the original-
+      // asset sedan LOD representations. Renderers never modify route state.
+      const sedanCars=sedanVisuals?.update(snapshot,camera.position);
+      visibleTrafficDots=trafficDots.update(snapshot,camera.position,sedanCars);
     }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
@@ -452,6 +459,7 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("resize", resize);
       for(const car of cars.values())car.dispose();
       cars.clear();
+      sedanVisuals?.dispose();sedanVisuals=null;
       trafficDots?.dispose();trafficDots=null;traffic=null;
       fleet?.dispose();
       treeHandle?.dispose();
@@ -493,7 +501,10 @@ export async function createNorthHeightsCity8(
     // NH-012: traffic intelligence and four dot meshes only; no 125 car GLBs,
     // per-agent Rapier bodies or simulation ownership in the Babylon renderer.
     traffic=new NH012TrafficSimulator(125,120125);
+    const pilotIds=assignNH013SedanPilot(traffic,8);
+    sedanVisuals=createNorthHeightsSedanVisuals013(scene);
     trafficDots=createNorthHeightsTrafficDots012(scene,traffic.population);
+    console.info("[NH-013] Pilot sedans use existing NH-012 traffic agents",{pilot:pilotIds.size});
     trafficDots.update(traffic.snapshot(),camera.position);
     console.info("[NH-012] directed lane traffic initialized",{
       nodes:traffic.graph.nodes.size,directedLanes:traffic.graph.edges.size,
@@ -584,7 +595,7 @@ export async function createNorthHeightsCity8(
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+(traffic?.population??0)+" moving-dot traffic agents · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
+      treeCount+" GLB trees · "+(traffic?.population??0)+" logical traffic agents / 8 NH-013 sedans · dots + source LOD views · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
