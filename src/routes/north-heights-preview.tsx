@@ -7,6 +7,7 @@ import {pageHead} from "@/lib/page-head";
 import {useSettings} from "@/ui/menus/settings-state";
 import {GTDSettingsOverlay,GTDSessionPauseActions} from "@/ui/menus/session-overlays";
 import {GameHud} from "@/ui/hud/game-hud";
+import {NorthHeightsMiniMap,NorthHeightsExpandedMap} from "@/ui/hud/north-heights-map-010";
 import type {GameSnapshot} from "@/game/core/types";
 import {TouchControls} from "@/ui/hud/touch-controls";
 import {DesktopControls} from "@/ui/hud/desktop-controls";
@@ -27,6 +28,11 @@ function NorthHeightsPreview(){
   const [meridianSpeed,setMeridianSpeed]=useState(2);
   const [mode,setMode]=useState<"walk"|"fly">("walk");
   const [location,setLocation]=useState("NORTH HEIGHTS // MERIDIAN CITY");
+  const [position,setPosition]=useState({x:0,z:-31});
+  const [vehicle,setVehicle]=useState<string|null>(null);
+  const [vehicleSpeed,setVehicleSpeed]=useState(0);
+  const [inside,setInside]=useState(false);
+  const [mapOpen,setMapOpen]=useState(false);
   const [paused,setPaused]=useState(false);
   const [panel,setPanel]=useState<"pause"|"settings"|"objectives"|"save">("pause");
   const [feedback,setFeedback]=useState("");
@@ -48,12 +54,12 @@ function NorthHeightsPreview(){
     return()=>m.removeEventListener("change",onChange);
   },[]);
   useEffect(()=>{controller.current?.applySettings(settings);},[settings]);
-  useEffect(()=>{controller.current?.setPaused(paused);},[paused]);
+  useEffect(()=>{controller.current?.setPaused(paused||mapOpen);},[paused,mapOpen]);
   useEffect(()=>{
-    if(paused||!meridianSpeed)return;
+    if(paused||mapOpen||!meridianSpeed)return;
     const tick=window.setInterval(()=>setMeridianMinute(v=>(v+meridianSpeed/2)%1440),1000);
     return()=>window.clearInterval(tick);
-  },[paused,meridianSpeed]);
+  },[paused,mapOpen,meridianSpeed]);
   useEffect(()=>{
     const hour=Math.floor(meridianMinute/60);
     controller.current?.setTime(hour>=6&&hour<17?"day":hour>=17&&hour<20?"dusk":"night");
@@ -70,14 +76,20 @@ function NorthHeightsPreview(){
           message=>{if(!closed)setStats(message);},
           next=>{if(!closed)setMode(next);},
           note=>{if(!closed)setFeedback(note);},
-          nextLocation=>{if(!closed)setLocation(nextLocation);});
+          nextLocation=>{if(!closed)setLocation(nextLocation);},
+          point=>{if(!closed)setPosition(point);},
+          (nextVehicle,speed)=>{if(!closed){
+            setVehicle(nextVehicle);
+            setVehicleSpeed(speed);
+          }},
+          nextInside=>{if(!closed)setInside(nextInside);});
         if(closed)instance.dispose();
         else{
           controller.current=instance;
           instance.applySettings(currentSettings.current);
           const hour=Math.floor(meridianMinute/60);
           instance.setTime(hour>=6&&hour<17?"day":hour>=17&&hour<20?"dusk":"night");
-          instance.setPaused(paused);
+          instance.setPaused(paused||mapOpen);
         }
       }catch(error){
         if(!closed)setStatus("Viewport failure: "+(error instanceof Error?error.message:String(error)));
@@ -86,7 +98,7 @@ function NorthHeightsPreview(){
     void start();
     return()=>{closed=true;controller.current?.dispose();controller.current=null;};
   },[]);
-  const close=()=>{setPanel("pause");setPaused(false);};
+  const close=()=>{setPanel("pause");setPaused(false);setMapOpen(false);};
   useEffect(()=>{
     if(!paused)return;
     const key=(e:KeyboardEvent)=>{if(e.key==="Escape")close();};
@@ -102,11 +114,12 @@ function NorthHeightsPreview(){
     Math.floor(meridianMinute%60).toString().padStart(2,"0");
   const snapshot:GameSnapshot={
     lifecycle:ready?(paused?"paused":"running"):"bootstrapping",
-    context:"walking",location,
+    context:vehicle?"driving":"walking",location,
     objective:"Explore North Heights on foot or in flight",
-    health:100,reputation:0,heat:0,speed:0,vehicle:null,
+    health:100,reputation:0,heat:0,speed:vehicleSpeed,vehicle,
     meridianTime:clock,meridianMinuteOfDay:Math.floor(meridianMinute),
-    meridianTimeScale:meridianSpeed,interiorState:"outside",flying:mode==="fly",
+    meridianTimeScale:meridianSpeed,interiorState:inside?"inside":"outside",
+    flying:mode==="fly"&&!vehicle,
   };
   return(
     <main className={"game-shell game-viewport relative h-[100dvh] w-full overflow-hidden bg-[#07111c] text-white"+
@@ -114,7 +127,9 @@ function NorthHeightsPreview(){
       (settings.textSize==="Large"?" large-interface":"")}>
       <canvas ref={canvas} aria-label="North Heights interactive city"
         className="absolute inset-0 h-full w-full" style={{touchAction:"none"}}/>
-      {ready&&settings.hud&&<GameHud snapshot={snapshot} context="walking"
+      {ready&&settings.hud&&<GameHud snapshot={snapshot}
+        context={vehicle?"driving":"walking"}
+        mapSlot={<NorthHeightsMiniMap position={position} onExpand={()=>setMapOpen(true)}/>}
         mode={inputMode} interaction={feedback} pause={()=>{setPanel("pause");setPaused(true);}}
         showObjective={settings.objective} setMeridianTime={setMeridianMinute}
         setMeridianTimeScale={setMeridianSpeed}/>}
@@ -124,8 +139,10 @@ function NorthHeightsPreview(){
       {!ready&&<div role="status" className={"pointer-events-none absolute left-1/2 top-14 z-10 w-[min(460px,73vw)] -translate-x-1/2 rounded border border-white/15 px-2 py-1 text-center text-xs "+(failed?"bg-red-950/90":"bg-black/70")}>
         {failed?status:"Loading North Heights..."}
       </div>}
-      {touchVisible&&!paused&&<TouchControls settings={settings} send={send} onAction={()=>undefined}/>}
-      {desktopVisible&&!paused&&<DesktopControls send={send} onAction={()=>undefined}/>}
+      {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
+        driving={vehicle!==null} onAction={()=>undefined}/>}
+      {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}/>}
+      {mapOpen&&<NorthHeightsExpandedMap position={position} onClose={()=>setMapOpen(false)}/>}
       {paused&&panel==="settings"&&<GTDSettingsOverlay
         location="NORTH HEIGHTS" settings={settings} onClose={close}
         onBack={()=>setPanel("pause")}

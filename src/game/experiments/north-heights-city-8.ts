@@ -231,7 +231,6 @@ export async function createNorthHeightsCity8(
       }
       const pose=driving.pose;
       setCameraAt({x:pose.x,y:pose.y,z:pose.z});
-      onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
     }else if(mode==="walk"&&walk&&actor&&humanoid){
       // A fixed-step Rapier simulation, not naive camera clipping.
       physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
@@ -301,7 +300,10 @@ export async function createNorthHeightsCity8(
       setCameraAt(position);
     }
     locationTick+=dt;
-    if(locationTick>=.33){locationTick=0;updateLocation();}
+    if(locationTick>=.33){
+      locationTick=0;updateLocation();
+      if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
+    }
     if(++frames%40===0)statistics(
       "FPS "+Math.round(engine.getFps())+" · "+
       "MODE "+mode.toUpperCase()+" · "+

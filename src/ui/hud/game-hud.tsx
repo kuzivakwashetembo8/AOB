@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Crosshair, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameSnapshot, HudContext, InputMode } from "@/game/core/types";
@@ -20,6 +20,7 @@ export function GameHud({
   interaction,
   pause,
   showObjective,
+  mapSlot,
   setMeridianTime,
   setMeridianTimeScale,
 }: {
@@ -29,6 +30,7 @@ export function GameHud({
   interaction: string;
   pause: () => void;
   showObjective: boolean;
+  mapSlot?: ReactNode;
   setMeridianTime: (minuteOfDay: number) => void;
   setMeridianTimeScale: (scale: number) => void;
 }) {
@@ -40,7 +42,13 @@ export function GameHud({
   return (
     <div className={`hud ${mode === "touch" ? "touch" : ""}`}>
       <div className="hud-top">
-        {showObjective ? (
+        {mapSlot ? <div className="flex min-w-0 items-start gap-2">
+          {mapSlot}
+          {showObjective&&<div className="objective">
+            <span className="system-label text-primary">OBJECTIVE</span>
+            <p>{snapshot.objective}</p>
+          </div>}
+        </div> : showObjective ? (
           <div className="objective">
             <span className="system-label text-primary">OBJECTIVE</span>
             <p>{snapshot.objective}</p>
