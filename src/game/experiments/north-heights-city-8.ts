@@ -20,6 +20,12 @@ import { createNorthHeightsWalk005,northHeightsBuildingCollision005, type NorthH
 import {resolveNorthHeightsThirdPersonCamera,clampNorthHeightsPitch,clampNorthHeightsActorXZ,type CameraBox} from "@/game/camera/third-person-camera-constraints";
 import {northHeightsLocationAt} from "@/game/world-generation/north-heights-location-009";
 import {MERCER_EXTRA_GLB_SPECS,createMercerExtraParkedGLBs} from "@/game/vehicles/mercer-additional-parked-glbs-006";
+import {FirstDriveTrial} from "@/game/vehicles/first-drive-trial";
+import {FERRARI_WHEEL_MAPPING} from "@/game/vehicles/street-vehicle-wheels";
+import {nearestSportsCar,currentVehicleDisembark} from "@/game/vehicles/local-boarding";
+import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig} from "@/game/vehicles/ambient-fleet-driving-011";
+import {RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig} from "@/game/vehicles/range-rover-drive-007";
+import {validateNorthHeightsParking010} from "./north-heights-spatial-plan-010";
 import {normalizeThirdPersonCameraDistance} from "@/ui/menus/settings-state";
 import {northHeightsHardwareScale006,northHeightsFrameLimit006} from "./north-heights-presentation-006";
 import {touchCameraRadiansPerPixel} from "@/game/input/touch-camera-sensitivity";
@@ -44,6 +50,9 @@ export async function createNorthHeightsCity8(
   onModeChange?: (mode:"walk"|"fly")=>void,
   onFeedback?: (message:string)=>void,
   onLocationChange?: (location:string)=>void,
+  onPoseChange?: (pose:{x:number;z:number})=>void,
+  onVehicleChange?: (vehicle:string|null,speed:number)=>void,
+  onInteriorChange?: (inside:boolean)=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -79,6 +88,13 @@ export async function createNorthHeightsCity8(
   let walk:NorthHeightsWalk005|null=null;
   let cameraBlockers:CameraBox[]=[];
   let fleet:ReturnType<typeof createMercerExtraParkedGLBs>|null=null;
+  const cars=new Map<string,FirstDriveTrial>();
+  const carNames=new Map<string,string>();
+  let driving:FirstDriveTrial|null=null;
+  let activeCarName:string|null=null;
+  let interiorId:string|null=null;
+  let buildingInteriors:readonly {id:string;position:{x:number;z:number};
+    overrides?:{width?:number;depth?:number;floors?:number;floorHeight?:number}}[]=[];
   let lastLocationStreet:string|undefined;
   let lastLocationText="";
   let locationTick=0;
@@ -97,6 +113,10 @@ export async function createNorthHeightsCity8(
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
     if(paused)return;
     keyboardUsed=true;
+    if(event.code==="KeyF"||event.code==="KeyE"){
+      if(!event.repeat)toggleVehicle();
+      return;
+    }
     if(event.code==="KeyG"){
       if(!event.repeat)controller.setMode(mode==="walk"?"fly":"walk");
       return;
@@ -140,7 +160,15 @@ export async function createNorthHeightsCity8(
   const resize=()=>{applyGraphics();};
   const updateLocation=(force=false)=>{
     if(!walk)return;
-    const player=walk.physics.playerPosition();
+    const player=driving?.pose??walk.physics.playerPosition();
+    onPoseChange?.({x:player.x,z:player.z});
+    const inside= !driving&&mode==="walk"
+      ?buildingInteriors.find(lot=>{
+        const w=lot.overrides?.width??12,d=lot.overrides?.depth??12;
+        return Math.abs(player.x-lot.position.x)<w/2-.35&&
+          Math.abs(player.z-lot.position.z)<d/2-.35;
+      })?.id??null:null;
+    if(inside!==interiorId){interiorId=inside;onInteriorChange?.(inside!==null);}
     const location=northHeightsLocationAt(player,lastLocationStreet);
     lastLocationStreet=location.streetId;
     if(force||lastLocationText!==location.text){
@@ -192,7 +220,23 @@ export async function createNorthHeightsCity8(
     const fast=active("fast")||key("ShiftLeft")||key("ShiftRight");
     const heading=new Vector3(Math.sin(yaw),0,Math.cos(yaw));
     const side=new Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-    if(mode==="walk"&&walk&&actor&&humanoid){
+    if(driving&&walk){
+      physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
+      while(physicsAccumulator>=1/60){
+        const previousYaw=driving.headingYaw;
+        driving.prepare(1/60,x,-z);
+        walk.physics.movePlayer({x:0,y:0,z:0});
+        driving.finish(1/60);
+        // Keep camera behind the actual car using the existing third-person
+        // terrain-clamp helper; dragging the view is still possible.
+        if(!dragPointer)yaw+=Math.atan2(
+          Math.sin(driving.headingYaw-previousYaw),
+          Math.cos(driving.headingYaw-previousYaw));
+        physicsAccumulator-=1/60;
+      }
+      const pose=driving.pose;
+      setCameraAt({x:pose.x,y:pose.y,z:pose.z});
+    }else if(mode==="walk"&&walk&&actor&&humanoid){
       // A fixed-step Rapier simulation, not naive camera clipping.
       physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
       let last=walk.physics.playerPosition();
@@ -261,7 +305,10 @@ export async function createNorthHeightsCity8(
       setCameraAt(position);
     }
     locationTick+=dt;
-    if(locationTick>=.33){locationTick=0;updateLocation();}
+    if(locationTick>=.33){
+      locationTick=0;updateLocation();
+      if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
+    }
     if(++frames%40===0)statistics(
       "FPS "+Math.round(engine.getFps())+" · "+
       "MODE "+mode.toUpperCase()+" · "+
@@ -277,6 +324,11 @@ export async function createNorthHeightsCity8(
   });
   const setActiveCharacter=(enabled:boolean)=>{
     if(!actor||!humanoid||!walk)return;
+    if(driving){
+      actor.anchor.setEnabled(false);
+      humanoid.root.setEnabled(false);
+      return;
+    }
     // The physics capsule, ground contact, heading and camera never change.
     actor.setControlled(enabled);
     actor.anchor.setEnabled(enabled);
@@ -290,15 +342,54 @@ export async function createNorthHeightsCity8(
         intentMagnitude:0,sprintRequested:false,jumpAscending:false,dt:1/60});
     }
   };
+  const toggleVehicle=()=>{
+    if(!walk||!actor||!humanoid)return;
+    if(driving){
+      if(Math.abs(driving.speedMps)>.25){
+        onFeedback?.("Stop the "+activeCarName+" before exiting");return;
+      }
+      const exit=currentVehicleDisembark(driving);
+      if(!exit){onFeedback?.("No safe exit beside this vehicle");return;}
+      walk.physics.setPlayerPosition(exit);
+      driving=null;
+      activeCarName=null;
+      mode="walk";
+      setActiveCharacter(settings.enableCharacter);
+      onModeChange?.("walk");
+      onVehicleChange?.(null,0);
+      clearKeys();physicsAccumulator=0;
+      updateLocation(true);
+      onFeedback?.("Exited vehicle");
+      return;
+    }
+    const player=walk.physics.playerPosition();
+    const near=nearestSportsCar(player,[...cars].map(([id,car])=>({id,pose:car.pose})));
+    if(!near){onFeedback?.("Approach a parked vehicle to drive");return;}
+    const car=cars.get(near.id);
+    if(!car)return;
+    driving=car;
+    activeCarName=carNames.get(near.id)??"Vehicle";
+    actor.anchor.setEnabled(false);
+    humanoid.root.setEnabled(false);
+    mode="walk";
+    yaw=car.headingYaw;
+    physicsAccumulator=0;clearKeys();
+    onVehicleChange?.(activeCarName,0);
+    updateLocation(true);
+    onFeedback?.("Driving "+activeCarName+" · arrows to steer · F to exit");
+  };
   const controller: NorthHeightsInspection = {
     press(control,down){if(paused)return;if(down)held.add(control);else held.delete(control);},
     move(x,y){if(paused)return;analog={x:Math.max(-1,Math.min(1,x)),y:Math.max(-1,Math.min(1,y))};},
     action(action,pressed){
       if(paused)return;
+      if(pressed&&(action==="vehicle"||action==="interact")){
+        toggleVehicle();return;
+      }
       const control=northHeightsActionControl007(action);
       if(control){controller.press(control,pressed);return;}
       if(action==="fly"){
-        if(pressed)controller.setMode(mode==="walk"?"fly":"walk");
+        if(pressed&&!driving)controller.setMode(mode==="walk"?"fly":"walk");
         return;
       }
       if(pressed)onFeedback?.(northHeightsUnavailableAction007(action));
@@ -315,6 +406,7 @@ export async function createNorthHeightsCity8(
       else {renderLast=0;engine.resize();}
     },
     reset() {
+      if(driving)toggleVehicle();
       walk?.reset(footSpawn.x,footSpawn.z);
       yaw=initialYaw;pitch=initialPitch;headingYaw=0;
       updateLocation(true);
@@ -322,6 +414,7 @@ export async function createNorthHeightsCity8(
     },
     setTime(time) { sky.setTime(time); },
     setMode(next){
+      if(driving)return false;
       if(next==="walk"&&(!walk||!actor||!humanoid))return false;
       mode=next;clearKeys();physicsAccumulator=0;
       // Preserve the capsule position and third-person orbit on mode changes.
@@ -340,6 +433,8 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearKeys);
       window.removeEventListener("resize", resize);
+      for(const car of cars.values())car.dispose();
+      cars.clear();
       fleet?.dispose();
       treeHandle?.dispose();
       actor?.dispose();
@@ -377,12 +472,16 @@ export async function createNorthHeightsCity8(
     status("Building Rapier terrain, pavement and "+world.count+" blocking building colliders");
     walk=await createNorthHeightsWalk005(scene,world.lotSpecs,footSpawn);
     if(closed){walk.dispose();walk=null;return controller;}
-    // One North Heights street: existing six accepted South Ward GLBs.
-    // The inset parking strip is OUTSIDE the 8m two-lane road and 3.75m sidewalk.
-    const spaces=[-119,-110,-101,-92,-83,-74];
+    // NH-010: reserve NH-03-05 before buildings/trees. Genuine six GLBs
+    // are inside a dedicated empty 48m square with collision-checked bays.
+    validateNorthHeightsParking010(world.lotSpecs,
+      MERCER_EXTRA_GLB_SPECS.map(spec=>({width:spec.width,length:spec.length})));
+    const parking=world.parkingLots[0]!;
     const nhParking=MERCER_EXTRA_GLB_SPECS.map((spec,index)=>({
-      ...spec,x:9.65,z:spaces[index]!,yaw:0,
+      ...spec,x:parking.stalls[index]!.x,z:parking.stalls[index]!.z,
+      yaw:parking.stalls[index]!.yaw,
     }));
+    buildingInteriors=world.lotSpecs;
     fleet=createMercerExtraParkedGLBs(scene,walk.physics,[],undefined,{
       placements:nhParking,
       heightAt:(x,z)=>northHeightsGround(x,z)+.075,
@@ -421,11 +520,44 @@ export async function createNorthHeightsCity8(
     const vehicleError=await fleetReady;
     if(closed)return controller;
     if(vehicleError)onFeedback?.("Vehicle import issue: "+vehicleError);
-    const fleetCount=fleet?.instances.filter(instance=>instance.loadTelemetry.instantiateMs!==null).length??0;
+    // Reuse exactly South Ward's vehicle class + wheel mapping. A vehicle
+    // remains drivable even if its source has no four independent wheel
+    // meshes; the physical car still moves, missing wheel animation is
+    // correctly reported by the existing StreetVehicleWheelRig.
+    for(const parked of fleet?.instances??[]){
+      if(!parked.drivingDimensions||parked.spec.visualOnly)continue;
+      const rover=parked.spec.id==="gtd-veh006-mercer-range-rover";
+      const extra=rover?null:extraDriveName(parked.spec.id);
+      if(!rover&&!extra)continue;
+      try{
+        // Native wheel discovery may fail on a combined author GLB. It must
+        // not disable legitimate Rapier driving: physical steering/translation
+        // work without isolated wheel pivots (no fake tires are generated).
+        let wheelMapping=FERRARI_WHEEL_MAPPING;
+        try{
+          const wheel=rover?prepareRangeRoverWheelRig(parked.anchor):
+            prepareNativeFleetWheelRig(parked.anchor,extra!);
+          wheelMapping=wheel.mapping;
+        }catch(wheelIssue){
+          console.warn("[NH-010] Wheel mesh unavailable; driving without rig",
+            parked.spec.id,wheelIssue);
+        }
+        const car=new FirstDriveTrial(walk.physics,parked.anchor,
+          parked.drivingDimensions,
+          rover?RANGE_ROVER_STREET_PROFILE:extraDriveProfile(extra!),
+          wheelMapping,false,false);
+        parked.releaseStaticCollider();
+        cars.set(parked.spec.id,car);
+        carNames.set(parked.spec.id,rover?"Range Rover":extra!);
+      }catch(error){
+        console.error("[NH-010] Driving initialization failed",parked.spec.id,error);
+      }
+    }
+    const fleetCount=cars.size;
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+fleetCount+"/6 parked South Ward GLBs · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
+      treeCount+" GLB trees · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));

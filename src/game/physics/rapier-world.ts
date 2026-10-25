@@ -13,6 +13,12 @@ export class MeridianPhysics {
   private readonly controller: RAPIER.KinematicCharacterController;
   /** Physical portal thresholds that a vehicle must not climb via autostep. */
   private readonly vehicleNoStepColliders = new Map<number, RAPIER.Collider>();
+  // NH-010 vehicle-only swept barriers: DO NOT register Rapier colliders,
+  // because people must be able to enter actual pedestrian doorways.
+  private readonly vehicleOnlyFootprints = new Map<number,{
+    x:number;z:number;halfX:number;halfZ:number;yaw:number;
+  }>();
+  private nextVehicleOnlyHandle=1;
   private readonly vehicleNoStepFootprints = new Map<number, {
     x: number; z: number; halfX: number; halfZ: number; yaw: number;
   }>();
@@ -108,16 +114,27 @@ export class MeridianPhysics {
     return false;
   }
 
-  /** Exact XZ bounds of real tagged Rapier obstacles, not tall ghost walls. */
+  /** Vehicle-only building footprints; no new physical collider or invisible
+   * pedestrian obstruction. The shared drive solver samples these as swept
+   * plan-view SAT obstacles. */
+  addVehiclePlanarBarrier(footprint:{
+    x:number;z:number;halfX:number;halfZ:number;yaw?:number;
+  }):StaticCollisionHandle{
+    const id=this.nextVehicleOnlyHandle++;
+    this.vehicleOnlyFootprints.set(id,{...footprint,yaw:footprint.yaw??0});
+    return {dispose:()=>{this.vehicleOnlyFootprints.delete(id);}};
+  }
+  /** Exact XZ bounds of tagged obstacles and district building envelopes. */
   vehicleNoStepFootprintsNear(position: Vec3, radius: number): ReadonlyArray<{
     readonly x: number; readonly z: number;
     readonly halfX: number; readonly halfZ: number; readonly yaw: number;
   }> {
     const results = [];
-    for (const footprint of this.vehicleNoStepFootprints.values()) {
-      if (Math.abs(footprint.x - position.x) <= radius + footprint.halfX &&
-          Math.abs(footprint.z - position.z) <= radius + footprint.halfZ) {
-        results.push(footprint);
+    for (const pool of [this.vehicleNoStepFootprints,this.vehicleOnlyFootprints]){
+      for(const footprint of pool.values()){
+        if(Math.abs(footprint.x-position.x)<=radius+footprint.halfX&&
+           Math.abs(footprint.z-position.z)<=radius+footprint.halfZ)
+          results.push(footprint);
       }
     }
     return results;
