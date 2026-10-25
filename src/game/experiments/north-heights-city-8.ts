@@ -112,6 +112,10 @@ export async function createNorthHeightsCity8(
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
     if(paused)return;
     keyboardUsed=true;
+    if(event.code==="KeyF"||event.code==="KeyE"){
+      if(!event.repeat)toggleVehicle();
+      return;
+    }
     if(event.code==="KeyG"){
       if(!event.repeat)controller.setMode(mode==="walk"?"fly":"walk");
       return;
