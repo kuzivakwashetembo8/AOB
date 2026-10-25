@@ -55,3 +55,28 @@ A reproducible Node build-time script, scripts/nh013-audit-passenger-glbs.mjs, e
 First significant G1 preview: Voight flies near the NH-012 moving traffic. Eight of the already-moving traffic agents render as genuine source-derived sedans in five paint colours. Other logical agents remain coloured diagnostic dots. Users inspect source fidelity, paint, model scale, movement, turns, LOD transitions and mobile performance.
 
 **G2/G3 are not implemented in this checkpoint.** The Hatchback, Taxi and Renault variants are audited but will only join live traffic after G1 approval and their own material/LOD acceptance.
+
+
+## G1 wheel-and-orientation correction — 2026-10-25
+
+**Owner observation:** sedan body moves rear-first against NH-012 traffic direction; authentic imported wheels are visually static and do not steer. **Accepted existing system:** VEH-007 original hub-centering, VEH-008 world-up steering, and WHEEL-001 universal source-qualification. Traffic agent movement and five-color body-paint behavior remain correct and are not to be rewritten.
+
+### Actual committed Sedan GLB evidence
+- Authored glTF source has exactly four physical rim nodes, four `Sculpted_tyre` nodes, and four matching `Siped tread blocks` meshes. Every part uses original source geometry/material, not procedural cylinders.
+- Real hub centers at source X approximately -1.4015 (front pair) and +1.4017 (rear pair), Y 0.334, Z ±0.81; headlamp lenses at X approximately -2.37 and rear lamps +2.31. The source-longitudinal axis is X, lateral axle/roll axis Z.
+- Source nodes embed hub offsets in geometry rather than independent hub transforms: the renderer must install four measured hub-centered pivots, preserving mesh world transforms.
+- Actual NH-013 preview evidence: car body visual orientation reversed against authoritative agent motion, hence apply only a 180-degree sedan visual-root rotation correction; keep agent position, yaw, network and right-hand traffic rules unchanged.
+
+### Patch contract
+1. `src/game/vehicles/nh013-sedan-wheel-rig.ts` builds exactly four unique, real assembled hub pivots; each holds the actual source alloy rim, sculpted tire and original tread mesh. Fail closed on missing/ambiguous parts, invalid dimensions, parent mismatch or hub-spacing.
+2. Reuse existing `StreetVehicleWheelRig` with source spin axis Z and VEH-008 world-yaw steering. Only front wheels steer; all four roll.
+3. `north-heights-sedan-visuals-013.ts` computes actual positive distance moved by each NH-012 agent since its previous rendered pose, and heading-change-derived steering, with bounded smoothed toe. Neither wheel motion nor LOD switching modifies NH-012 simulation truth or introduces Rapier driving actors.
+4. Apply `NH013_SEDAN_HEADING_CORRECTION = Math.PI` to the fitted visual normalization node in all three LODs, not to traffic route coordinates.
+5. Preserve the five approved body paints and diagnostic dot fallback when an LOD/wheel asset cannot qualify.
+6. Unit test real GLB mesh names, front/headlight negative-X axis, four corner topology, straight/left/right heading-to-wheel motion, and missing-wheel fail-closed behavior.
+
+### Acceptance requirements
+- Desktop and mobile preview: sedan bonnet consistently faces travel direction on straight roads and while turning; no reverse-slide, and no camera/player traffic-direction regression.
+- Four imported tire, rim and tread assemblies rotate when advancing; both front wheels toe toward the turn while rear only roll. No detached source geometry, spinning brake housings, wheel/tyre misalignment, ground clipping or synthetic wheel substitutes.
+- Wheel behavior works after LOD transitions and pause/resume; paint variation, NH-012 dots, 125 simulation agents and six original parked driving cars remain unchanged.
+- Successful TypeScript/build/tests and Vercel READY are prerequisites but **not visual acceptance**. No merge to main or production deploy unless separately authorized.
