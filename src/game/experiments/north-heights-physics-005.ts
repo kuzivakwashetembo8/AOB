@@ -85,6 +85,10 @@ export async function createNorthHeightsWalk005(
       const h=Math.max(2,floors*fh);
       const x=lot.position.x,z=lot.position.z,y=northHeightsGround(x,z)+.8;
       const portal=northHeightsDoorway010(lot),gap=portal.width,openingH=Math.min(h-.2,NORTH_HEIGHTS_PORTAL_HEIGHT_010);
+      // Visual facades start 0.8m above terrain, but the walkable ground
+      // floor is only 0.27m above terrain. Extend physical shell down so a
+      // person cannot walk beneath windows, keeping the doorway unblocked.
+      const shellBase=y-.62,shellH=h+.62;
       const t=.22;
       const wall=(px:number,py:number,pz:number,hw:number,hh:number,hd:number)=>{
         if(hw<=0||hh<=0||hd<=0)return;
@@ -92,16 +96,18 @@ export async function createNorthHeightsWalk005(
           {x:hw,y:hh,z:hd},lot.yawRadians??0));
       };
       // Four walls, +Z face split to leave a real door-width gap.
-      wall(x,y+h/2,z-d/2,w/2,h/2,t/2);
-      wall(x-w/2,y+h/2,z,t/2,h/2,d/2);
-      wall(x+w/2,y+h/2,z,t/2,h/2,d/2);
+      wall(x,shellBase+shellH/2,z-d/2,w/2,shellH/2,t/2);
+      wall(x-w/2,shellBase+shellH/2,z,t/2,shellH/2,d/2);
+      wall(x+w/2,shellBase+shellH/2,z,t/2,shellH/2,d/2);
       const flank=(w-gap)/2;
-      wall(x-(gap+flank)/2,y+h/2,z+d/2,flank/2,h/2,t/2);
-      wall(x+(gap+flank)/2,y+h/2,z+d/2,flank/2,h/2,t/2);
-      if(h>openingH)
-        wall(x,y+openingH+(h-openingH)/2,z+d/2,gap/2,(h-openingH)/2,t/2);
-      // White, empty level surfaces match visual slabs; no black core.
-      wall(x,y+.07,z,(w-.6)/2,.07,(d-.6)/2);
+      wall(x-(gap+flank)/2,shellBase+shellH/2,z+d/2,flank/2,shellH/2,t/2);
+      wall(x+(gap+flank)/2,shellBase+shellH/2,z+d/2,flank/2,shellH/2,t/2);
+      const openingTop=y+openingH;
+      const shellTop=shellBase+shellH;
+      if(shellTop>openingTop)
+        wall(x,(openingTop+shellTop)/2,z+d/2,gap/2,(shellTop-openingTop)/2,t/2);
+      // The 0.27m-high white floor can be reached via Rapier 0.28m step.
+      wall(x,y-.58,z,(w-.6)/2,.05,(d-.6)/2);
       for(let f=1;f<floors;f++)
         wall(x,y+f*fh,z,(w-.6)/2,.07,(d-.6)/2);
       wall(x,y+h-.12,z,(w-.6)/2,.12,(d-.6)/2);

@@ -347,17 +347,31 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
     style==="estate" ? ["res-c","stone-b","res-a"][lot.accent]! : "stone-b";
   const podium = style==="glass" || style==="office";
   const podiumH = podium ? 6.4 : 0;
-  city.box("concrete",x,y+.45,z,w+1.8,.9,d+1.8);
+  // NH-010: original podium's ~0.9m-high solid plinth made even an open
+  // portal impossible to step through. Keep a shallow 0.19m foundation:
+  // accessible from normal terrain/sidewalk by the existing Rapier autostep.
+  city.box("concrete",x,y+.095,z,w+1.8,.19,d+1.8);
   // Physically empty rooms, no dark central cuboid, no furniture. One shared
   // PURE WHITE slab family for floor surfaces and interior roof undersides.
-  city.box("interior-white",x,y+.88,z,w-.6,.10,d-.6);
+  city.box("interior-white",x,y+.22,z,w-.6,.10,d-.6);
   for(let f=1;f<lot.floors;f++)
     city.box("interior-white",x,y+.80+f*lot.floorHeight,z,w-.6,.14,d-.6);
   city.box("interior-white",x,y+height+.63,z,w-.6,.14,d-.6);
+  // A low structural skirting makes solid walls meet the shallow foundation
+  // without filling the one real open entry slot. Window pattern stays intact.
+  const skirt=.62,skirtY=y+.18+skirt/2;
+  const opening=Math.min(NORTH_HEIGHTS_PORTAL_WIDTH_010,w*.45);
+  const side=(w-opening)/2;
+  city.box("concrete",x,skirtY,z-d/2,w,skirt,.22);
+  for(const direction of [-1,1]){
+    city.box("concrete",x+direction*w/2,skirtY,z,.22,skirt,d);
+    city.box("concrete",x+direction*(opening+side)/2,skirtY,z+d/2,
+      side,skirt,.22);
+  }
   if(podium) {
     // Open-sided podium: structural corner piers, not an opaque box hiding glass.
     for(const sx of [-1,1])for(const sz of [-1,1])
-      city.box("stone-c",x+sx*(w/2+.7),y+podiumH/2+.9,z+sz*(d/2+.7),1.1,podiumH,1.1);
+      city.box("stone-c",x+sx*(w/2+.7),y+podiumH/2+.18,z+sz*(d/2+.7),1.1,podiumH,1.1);
     city.box("stone-c",x,y+podiumH+.9,z,w+2.4,.55,d+2.4);
     for(let c=0;c<Math.floor(w/4);c++) {
       const px=x-w/2+(c+.5)*w/Math.floor(w/4);
