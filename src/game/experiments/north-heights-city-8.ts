@@ -31,6 +31,8 @@ import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
 import {createNorthHeightsTrafficDots012,type NH012Dots} from "./north-heights-traffic-dots-012";
 import {assignNH013SedanPilot} from "@/game/traffic/nh013-sedan-pilot";
 import {createNorthHeightsSedanVisuals013,type NH013SedanVisuals} from "./north-heights-sedan-visuals-013";
+import {assignNH013HatchbackPilot} from "@/game/traffic/nh013-hatchback-pilot";
+import {createNorthHeightsHatchbackVisuals013,type NH013HatchbackVisuals} from "./north-heights-hatchback-visuals-013";
 import {normalizeThirdPersonCameraDistance} from "@/ui/menus/settings-state";
 import {northHeightsHardwareScale006,northHeightsFrameLimit006} from "./north-heights-presentation-006";
 import {touchCameraRadiansPerPixel} from "@/game/input/touch-camera-sensitivity";
@@ -96,6 +98,7 @@ export async function createNorthHeightsCity8(
   let traffic:NH012TrafficSimulator|null=null;
   let trafficDots:NH012Dots|null=null;
   let sedanVisuals:NH013SedanVisuals|null=null;
+  let hatchbackVisuals:NH013HatchbackVisuals|null=null;
   let trafficAccumulator=0,visibleTrafficDots=0;
   const cars=new Map<string,FirstDriveTrial>();
   const carNames=new Map<string,string>();
@@ -227,7 +230,9 @@ export async function createNorthHeightsCity8(
       // Same 125 NH-012 traffic agents drive both the dots and the original-
       // asset sedan LOD representations. Renderers never modify route state.
       const sedanCars=sedanVisuals?.update(snapshot,camera.position);
-      visibleTrafficDots=trafficDots.update(snapshot,camera.position,sedanCars);
+      const hatchCars=hatchbackVisuals?.update(snapshot,camera.position);
+      const carsShowing=new Set([...(sedanCars??[]),...(hatchCars??[])]);
+      visibleTrafficDots=trafficDots.update(snapshot,camera.position,carsShowing);
     }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
@@ -347,11 +352,15 @@ export async function createNorthHeightsCity8(
          " LOD "+sedanReport.loaded+"/3"+
          (sedanReport.failed.length?" ERROR "+sedanReport.failed[0]:"")
         :"SEDAN PILOT INITIALIZING";
+      const hatchReport=hatchbackVisuals?.report;
+      const hatchInfo=hatchReport
+        ?" HATCH "+hatchReport.active+"/12 LOD "+hatchReport.loaded+"/3"+
+        (hatchReport.failed.length?" ERROR "+hatchReport.failed[0]:""):"";
       statistics(
         "FPS "+Math.round(engine.getFps())+" · "+
         "MODE "+mode.toUpperCase()+" · "+
         (traffic?"TRAFFIC "+traffic.population+" DOTS "+visibleTrafficDots+" SIM "+traffic.tick+" · ":"")+
-        sedanInfo+" · "+
+        sedanInfo+hatchInfo+" · "+
         (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
         "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
     }
@@ -476,6 +485,7 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("resize", resize);
       for(const car of cars.values())car.dispose();
       cars.clear();
+      hatchbackVisuals?.dispose();hatchbackVisuals=null;
       sedanVisuals?.dispose();sedanVisuals=null;
       trafficDots?.dispose();trafficDots=null;traffic=null;
       fleet?.dispose();
@@ -519,9 +529,13 @@ export async function createNorthHeightsCity8(
     // per-agent Rapier bodies or simulation ownership in the Babylon renderer.
     traffic=new NH012TrafficSimulator(125,120125);
     const pilotIds=assignNH013SedanPilot(traffic,8);
-    sedanVisuals=createNorthHeightsSedanVisuals013(scene);
+    const hatchIds=assignNH013HatchbackPilot(traffic,12);
+    sedanVisuals=createNorthHeightsSedanVisuals013(scene,traffic.graph);
+    hatchbackVisuals=createNorthHeightsHatchbackVisuals013(scene,traffic.graph);
     trafficDots=createNorthHeightsTrafficDots012(scene,traffic.population);
-    console.info("[NH-013] Pilot sedans use existing NH-012 traffic agents",{pilot:pilotIds.size});
+    console.info("[NH-013] Existing NH-012 moving agents represented as cars",{
+       sedans:pilotIds.size,hatchbacks:hatchIds.size,remainingDots:traffic.population-pilotIds.size-hatchIds.size
+    });
     trafficDots.update(traffic.snapshot(),camera.position);
     console.info("[NH-012] directed lane traffic initialized",{
       nodes:traffic.graph.nodes.size,directedLanes:traffic.graph.edges.size,
