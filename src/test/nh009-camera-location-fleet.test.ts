@@ -70,7 +70,7 @@ describe("NH-009 approval / pure geometry and integration contracts",()=>{
       expect(z.streetId).toBe("nh-road-z-"+i);
     }
   });
-  it("loads exactly the six authentic South Ward assets on a single North Heights corridor",()=>{
+  it("loads six authentic South Ward cars into a validated North Heights parking parcel",()=>{
     expect(MERCER_EXTRA_GLB_SPECS).toHaveLength(6);
     expect(new Set(MERCER_EXTRA_GLB_SPECS.map(spec=>spec.id)).size).toBe(6);
     const city=source("src/game/experiments/north-heights-city-8.ts");
@@ -78,11 +78,18 @@ describe("NH-009 approval / pure geometry and integration contracts",()=>{
     expect(city).toContain("createMercerExtraParkedGLBs(scene,walk.physics");
     expect(city).toContain("heightAt:(x,z)=>northHeightsGround(x,z)+.075");
     expect(city).toContain("maxConcurrent:mobile?2:3");
-    const z=[-119,-110,-101,-92,-83,-74];
-    for(let i=1;i<z.length;i++)expect(z[i]! - z[i-1]!).toBeGreaterThan(6);
-    const edge=9.65-Math.max(...MERCER_EXTRA_GLB_SPECS.map(s=>s.width))/2;
-    expect(edge).toBeGreaterThan(7.75);
+    // The NH-009 hard-coded roadside strip was rejected by owner evidence.
+    // NH-010 replaces it with an actually reserved vacant square and blocks
+    // vegetation across the entire parcel, rather than one narrow tree strip.
     const renderer=source("src/game/experiments/north-heights-reconstruction-001.ts");
-    expect(renderer).toContain(".filter(tree=>!(tree.x>7.5");
+    expect(renderer).toContain("NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010");
+    expect(renderer).toContain(".filter(tree=>!NORTH_HEIGHTS_PARKING_LOTS_010.some");
+    expect(renderer).toContain("Math.abs(tree.x-lot.x)<=lot.width/2+1.5");
+    const spatial=source("src/game/experiments/north-heights-spatial-plan-010.ts");
+    expect(spatial).toContain('blockId:"NH-03-05"');
+    expect(spatial).toContain('blockId:"NH-04-07"');
+    expect(city).toContain("validateNorthHeightsParking010(world.lotSpecs");
+    expect(city).toContain("yaw:parking.stalls[index]!.yaw,");
+
   });
 });
