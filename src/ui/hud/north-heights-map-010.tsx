@@ -1,0 +1,116 @@
+import {useEffect,useRef,useState} from "react";
+import {X,Plus,Minus,MapPinned} from "lucide-react";
+import {
+ NORTH_HEIGHTS_MAP_ROADS_010,NORTH_HEIGHTS_MAP_BLOCKS_010,
+ NORTH_HEIGHTS_MAP_PARKING_010,northHeightsMapPoint010,
+} from "@/game/experiments/north-heights-map-data-010";
+
+const regionColor:Record<string,string>={
+ "South Gateway":"#405365","West Terrace":"#475562",
+ "Glass Exchange":"#516574","Eastview Quarter":"#485d6a",
+ "Ridge Gardens":"#3c5854","Summit Crest":"#4a5c6b",
+};
+function DistrictVector({x,z,labels=false}:{
+ x:number;z:number;labels?:boolean
+}){
+ const point=northHeightsMapPoint010({x,z});
+ return <g>
+  <rect width="640" height="640" fill="#172533"/>
+  {NORTH_HEIGHTS_MAP_BLOCKS_010.map(block=><rect key={block.id}
+    x={block.x+3} y={block.y+3} width="58" height="58" rx="2"
+    fill={block.kind==="park"?"#346553":
+      block.kind==="parking"?"#4d555d":regionColor[block.area]??"#43536a"}
+    opacity={block.kind==="building"?.72:1}/>)}
+  {NORTH_HEIGHTS_MAP_ROADS_010.map((road,i)=><g key={i}>
+    <line x1={road.x} x2={road.x} y1="0" y2="640"
+      stroke="#aeb8bf" strokeWidth="7" strokeOpacity=".65"/>
+    <line x1="0" x2="640" y1={road.z} y2={road.z}
+      stroke="#aeb8bf" strokeWidth="7" strokeOpacity=".65"/>
+  </g>)}
+  {NORTH_HEIGHTS_MAP_PARKING_010.map(lot=><g key={lot.id}>
+    <rect x={lot.x-18} y={lot.y-18} width="36" height="36"
+      fill="#7b8a91" stroke="#f3cd78" strokeWidth="2"/>
+    {labels&&<text x={lot.x+20} y={lot.y+5} fontSize="12"
+      fill="#ffda94">PARKING</text>}
+  </g>)}
+  {labels&&NORTH_HEIGHTS_MAP_ROADS_010.map((road,i)=><g key={i}>
+    <text x={road.x+4} y="13" fontSize="9" fill="#e4edf1"
+      transform={`rotate(90 ${road.x+4} 13)`}>{road.northSouth}</text>
+    <text x="8" y={road.z-5} fontSize="9" fill="#e4edf1">{road.eastWest}</text>
+  </g>)}
+  <circle cx={point.x} cy={point.y} r={labels?10:17}
+    fill="#41ed69" stroke="#061908" strokeWidth={labels?3:6}/>
+  <circle cx={point.x} cy={point.y} r={labels?18:29}
+    fill="none" stroke="#b9ffc8" strokeOpacity=".6" strokeWidth="3"/>
+ </g>;
+}
+export function NorthHeightsMiniMap({position,onExpand}:{
+ position:{x:number;z:number};onExpand:()=>void
+}){
+ return <button type="button" aria-label="Expand North Heights map"
+  title="Open North Heights map"
+  onClick={onExpand}
+  className="relative z-10 shrink-0 overflow-hidden rounded-md border border-white/45 bg-[#071522] shadow-xl"
+  style={{width:"clamp(85px,10vw,120px)",height:"clamp(85px,10vw,120px)"}}>
+  <svg viewBox="0 0 640 640" aria-hidden="true" className="h-full w-full">
+    <DistrictVector x={position.x} z={position.z}/>
+  </svg>
+  <span className="absolute bottom-0 left-0 right-0 bg-black/65 py-0.5 text-center text-[9px] uppercase tracking-wider text-white">
+    North Heights
+  </span>
+ </button>;
+}
+export function NorthHeightsExpandedMap({position,onClose}:{
+ position:{x:number;z:number};onClose:()=>void
+}){
+ const [zoom,setZoom]=useState(1);
+ const [pan,setPan]=useState({x:0,y:0});
+ const drag=useRef<{id:number;x:number;y:number}|null>(null);
+ useEffect(()=>{
+   const escape=(e:KeyboardEvent)=>{if(e.key==="Escape")onClose();};
+   window.addEventListener("keydown",escape);
+   return()=>window.removeEventListener("keydown",escape);
+ },[onClose]);
+ return <div role="dialog" aria-modal="true" aria-label="North Heights 2D map"
+   className="fixed inset-0 z-[100] flex flex-col items-center gap-2 overflow-auto bg-[#07111d]/95 p-3 text-white">
+   <header className="flex w-full max-w-[780px] items-center justify-between gap-2">
+     <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
+       <MapPinned size={17}/> NORTH HEIGHTS — MERIDIAN CITY
+     </div>
+     <div className="flex items-center gap-2">
+       <button aria-label="Zoom out" className="rounded border border-white/40 p-2"
+         onClick={()=>setZoom(v=>Math.max(1,v-.25))}><Minus size={17}/></button>
+       <button aria-label="Zoom in" className="rounded border border-white/40 p-2"
+         onClick={()=>setZoom(v=>Math.min(3,v+.25))}><Plus size={17}/></button>
+       <button aria-label="Reset map view" className="rounded border border-white/40 px-2 py-2 text-xs"
+         onClick={()=>{setZoom(1);setPan({x:0,y:0});}}>RESET</button>
+       <button aria-label="Close map" className="rounded border border-white/40 p-2"
+         onClick={onClose}><X size={18}/></button>
+     </div>
+   </header>
+   <div className="min-h-0 w-full max-w-[min(78vh,760px)] flex-1 overflow-hidden rounded-lg border border-white/25 bg-[#142334]">
+     <svg viewBox="0 0 640 640" className="h-full w-full" role="img"
+       aria-label="Top-down street map of North Heights, green dot marks the player"
+       style={{touchAction:"none"}}
+       onPointerDown={e=>{drag.current={id:e.pointerId,x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}}
+       onPointerMove={e=>{
+         const prev=drag.current;
+         if(!prev||prev.id!==e.pointerId)return;
+         const width=e.currentTarget.getBoundingClientRect().width||640;
+         const ratio=640/width;
+         setPan(p=>({x:p.x+(e.clientX-prev.x)*ratio,y:p.y+(e.clientY-prev.y)*ratio}));
+         drag.current={id:e.pointerId,x:e.clientX,y:e.clientY};
+       }}
+       onPointerUp={()=>{drag.current=null;}}
+       onPointerCancel={()=>{drag.current=null;}}>
+       <g transform={`translate(${pan.x} ${pan.y}) translate(320 320) scale(${zoom}) translate(-320 -320)`}>
+         <DistrictVector x={position.x} z={position.z} labels/>
+       </g>
+     </svg>
+   </div>
+   <footer className="flex w-full max-w-[780px] flex-wrap items-center justify-between gap-2 text-xs text-slate-200">
+     <span><span className="inline-block h-2 w-2 rounded-full bg-[#41ed69]"/> YOU ARE HERE</span>
+     <span>22 named streets · 6 areas · Parking P01 · Drag to pan</span>
+   </footer>
+ </div>;
+}
