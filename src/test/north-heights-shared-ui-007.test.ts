@@ -8,7 +8,7 @@ describe("NH-007 shared settings and controls",()=>{
   it("renders the exact GTD touch and desktop control components, rather than local buttons",()=>{
     expect(route).toContain("<TouchControls settings={settings} send={send}");
     expect(route).toContain("<DesktopControls send={send}");
-    expect(route).toContain("<SettingsEditor inGame initialSettings={settings}");
+    expect(route).toContain("<GTDSettingsOverlay");
     expect(route).not.toContain("const button=(c:Control");
   });
   it("maps jump, sprint and descend to the existing world commands",()=>{
