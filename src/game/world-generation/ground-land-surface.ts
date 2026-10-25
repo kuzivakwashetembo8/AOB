@@ -9,6 +9,17 @@ function grain(x:number,z:number,seed:number) {
   return ((h^(h>>>16))>>>0)/4294967296;
 }
 
+/** Source-of-truth South Ward grass palette and stochastic tuft distribution.
+ * Districts use this sampler instead of hand-authoring a second grass formula. */
+export function sampleSouthWardGrassPixel(worldX:number,worldZ:number,x:number,z:number):
+  readonly [number,number,number,number] {
+  const cluster=grain(Math.floor(worldX*3),Math.floor(worldZ*3),32001)-.5;
+  const tuft=grain(Math.floor(worldX*9),Math.floor(worldZ*9),8711);
+  const fine=grain(x,z,7341)-.5;
+  const light=cluster*22+fine*17+(tuft>.8?11:tuft<.2?-10:0);
+  return [byte(77+light),byte(118+light),byte(67+light*.75),255];
+}
+
 /** GROUND-004: one continuous grass finish. No stalls, slab seams,
  * paved masks, water, earthen patches or other land-use patterns.
  */
@@ -21,15 +32,9 @@ export function buildGroundLandPixels(plan:GroundLandPlan,pixelsPerMetre=8) {
   for(let z=0;z<height;z++)for(let x=0;x<width;x++){
     const worldX=plan.bounds.left+(x+.5)/pixelsPerMetre;
     const worldZ=plan.bounds.north+(z+.5)/pixelsPerMetre;
-    const cluster=grain(Math.floor(worldX*3),Math.floor(worldZ*3),32001)-.5;
-    const tuft=grain(Math.floor(worldX*9),Math.floor(worldZ*9),8711);
-    const fine=grain(x,z,7341)-.5;
-    const light=cluster*22+fine*17+(tuft>.8?11:tuft<.2?-10:0);
     const i=(z*width+x)*4;
-    pixels[i]=byte(77+light);
-    pixels[i+1]=byte(118+light);
-    pixels[i+2]=byte(67+light*.75);
-    pixels[i+3]=255;
+    const rgba=sampleSouthWardGrassPixel(worldX,worldZ,x,z);
+    pixels.set(rgba,i);
   }
   return {pixels,width,height};
 }

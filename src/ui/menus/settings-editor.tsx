@@ -166,11 +166,10 @@ export function SettingsEditor({
               <>
                 {toggle("enableCharacter", "Enable Character")}
                 <p className="overlay-note">
-                  Switch from the development humanoid to the imported human on
-                  Mercer Street. Walking only in CHAR-105: arrows / WASD or touch
-                  movement work; vehicle and flight abilities remain on the
-                  humanoid until separately verified. Disabling restores your
-                  previous humanoid position.
+                  Switch between the existing UAL development humanoid and
+                  Voight (character.glb). This preference is shared by all
+                  districts. Both use the current district's physics controller;
+                  capabilities depend on available world interactions.
                 </p>
                 {range("sensitivity", "Mouse look sensitivity", 100, 10)}
                 {toggle("invertY", "Invert look Y axis")}

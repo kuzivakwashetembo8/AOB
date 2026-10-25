@@ -12,7 +12,7 @@ import { useGameSnapshot } from "@/game/bridge/use-game-bridge";
 import { useInputMode } from "@/game/input/use-input-mode";
 import { attachCanvasTouchCameraLook } from "@/game/input/touch-camera-drag";
 import { useSettings } from "@/ui/menus/settings-state";
-import { SettingsEditor } from "@/ui/menus/settings-editor";
+import {GTDSettingsOverlay,GTDSessionPauseActions} from "@/ui/menus/session-overlays";
 import { GameHud } from "@/ui/hud/game-hud";
 import { TouchControls } from "@/ui/hud/touch-controls";
 import { checkGameStartupVersion, retryGameUpdate, continueWithInstalledBuild } from "@/lib/game-version-check";
@@ -488,7 +488,12 @@ export default function GameSession({ active }: { active: boolean }) {
             : `WITHIN TARGET ${formatStartupDuration(describeStartupBudget(loadCompletedSeconds).remainingSeconds)} SPARE`}</span>
         </div>
       )}
-      {paused && (
+      {paused && panel==="settings" && <GTDSettingsOverlay
+        location="SOUTH WARD // FIRST LIGHT" settings={settings}
+        onClose={()=>setPaused(false)} onBack={()=>setPanel("pause")}
+        onApply={next=>{save(next);setPanel("pause");setPaused(false);}}
+      />}
+      {paused && panel!=="settings" && (
         <div
           className="overlay"
           role="dialog"
@@ -498,14 +503,12 @@ export default function GameSession({ active }: { active: boolean }) {
               ? "Pause menu"
               : panel === "objectives"
                 ? "Objectives"
-                : panel === "settings"
-                  ? "Settings"
-                  : panel === "locomotion"
+                : panel === "locomotion"
                     ? "Character locomotion trial"
                     : "Save and load"
           }
         >
-          <div className={panel === "settings" || panel === "locomotion"
+          <div className={panel === "locomotion"
               ? "overlay-content game-settings-dialog max-h-[90vh] overflow-y-auto" : "overlay-content"}>
             <div className="flex justify-between items-center">
               <span className="system-label text-primary">SOUTH WARD // FIRST LIGHT // SESSION PAUSED</span>
@@ -522,60 +525,18 @@ export default function GameSession({ active }: { active: boolean }) {
                 ? "PAUSED."
                 : panel === "objectives"
                   ? "OBJECTIVES."
-                  : panel === "settings"
-                    ? "SETTINGS."
-                    : panel === "locomotion"
+                  : panel === "locomotion"
                       ? "LOCOMOTION TRIAL."
                       : "SAVE / LOAD."}
             </h1>
             {panel === "pause" ? (
-              <nav className="pause-list" aria-label="Pause actions">
-                <Button autoFocus variant="menu" onClick={() => setPaused(false)}>
-                  Resume <ArrowRight />
-                </Button>
-                <Button variant="menu" asChild>
-                  <Link to="/world">
-                    Map <ArrowRight />
-                  </Link>
-                </Button>
-                <Button variant="menu" onClick={() => setPanel("objectives")}>
-                  Objectives <ArrowRight />
-                </Button>
-                <Button variant="menu" onClick={() => setPanel("settings")}>
-                  Settings <ArrowRight />
-                </Button>
-                {trialEnabled && (
-                  <Button variant="menu" onClick={() => setPanel("locomotion")}>
-                    Character locomotion (L1) <ArrowRight />
-                  </Button>
-                )}
-                <Button variant="menu" onClick={() => setPanel("save")}>
-                  Save / Load <ArrowRight />
-                </Button>
-                <Button variant="menu" asChild>
-                  <Link to="/">
-                    Return to Main Menu <ArrowRight />
-                  </Link>
-                </Button>
-              </nav>
-            ) : panel === "settings" ? (
-              <>
-                <SettingsEditor
-                  initialSettings={settings}
-                  inGame
-                  onApply={(next) => {
-                    save(next);
-                    // The existing Babylon scene remains mounted. The settings
-                    // effect updates its hardware scale; resume uses the same
-                    // runtime, camera, imports, physics and active position.
-                    setPanel("pause");
-                    setPaused(false);
-                  }}
-                />
-                <Button variant="menu" className="mt-3" onClick={() => setPanel("pause")}>
-                  Back to pause menu <ArrowRight />
-                </Button>
-              </>
+              <GTDSessionPauseActions
+                onResume={()=>setPaused(false)}
+                onObjectives={()=>setPanel("objectives")}
+                onSettings={()=>setPanel("settings")}
+                onSave={()=>setPanel("save")}
+                onLocomotion={trialEnabled?()=>setPanel("locomotion"):undefined}
+              />
             ) : panel === "locomotion" && trialEnabled ? (
               <div className="space-y-4" data-testid="gtd-l1-tuning">
                 <p className="text-sm text-muted-foreground">

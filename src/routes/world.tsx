@@ -66,7 +66,7 @@ function World() {
               </div>
             </div>
             <Button variant="game" asChild className="mt-8 w-64">
-              <Link to="/game">
+              <Link to={district.code === "05" ? "/north-heights-preview" : "/game"}>
                 ENTER MERIDIAN <ArrowRight />
               </Link>
             </Button>

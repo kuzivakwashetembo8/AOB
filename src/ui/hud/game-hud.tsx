@@ -59,7 +59,7 @@ export function GameHud({
               onClick={() => setTimeControlsOpen((value) => !value)}
             >
               <span className="system-label text-white block font-semibold tracking-wide"
-                aria-label="Current South Ward location">
+                aria-label="Current Meridian location">
                 {snapshot.location}
               </span>
               <span className="system-label text-primary block mt-1">
