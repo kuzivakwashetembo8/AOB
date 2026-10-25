@@ -135,6 +135,13 @@ function NorthHeightsPreview(){
         setMeridianTimeScale={setMeridianSpeed}/>}
       {ready&&!settings.hud&&<button type="button" className="absolute top-5 right-5 z-20"
         aria-label="Pause menu" onClick={()=>{setPanel("pause");setPaused(true);}}>II</button>}
+      {ready&&!paused&&stats.includes("SEDAN ")&&
+        <div data-testid="nh013-sedan-telemetry" aria-label="NH-013 sedan pilot diagnostic"
+          className="pointer-events-none absolute bottom-2 left-1/2 z-10 w-max max-w-[55vw] -translate-x-1/2 rounded border border-white/20 bg-black/80 px-2 py-1 text-center text-[10px] text-white/90">
+          {stats.split("SEDAN ")[1]?.split(" · ")[0]
+            ? "SEDAN "+stats.split("SEDAN ")[1]?.split(" · ")[0]
+            : "SEDAN PILOT INITIALIZING"}
+        </div>}
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
       {!ready&&<div role="status" className={"pointer-events-none absolute left-1/2 top-14 z-10 w-[min(460px,73vw)] -translate-x-1/2 rounded border border-white/15 px-2 py-1 text-center text-xs "+(failed?"bg-red-950/90":"bg-black/70")}>
         {failed?status:"Loading North Heights..."}

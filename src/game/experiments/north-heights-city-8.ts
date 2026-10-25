@@ -26,6 +26,13 @@ import {nearestSportsCar,currentVehicleDisembark} from "@/game/vehicles/local-bo
 import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig} from "@/game/vehicles/ambient-fleet-driving-011";
 import {RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig} from "@/game/vehicles/range-rover-drive-007";
 import {validateNorthHeightsParking010} from "./north-heights-spatial-plan-010";
+import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
+import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
+import {createNorthHeightsTrafficDots012,type NH012Dots} from "./north-heights-traffic-dots-012";
+import {assignNH013SedanPilot} from "@/game/traffic/nh013-sedan-pilot";
+import {createNorthHeightsSedanVisuals013,type NH013SedanVisuals} from "./north-heights-sedan-visuals-013";
+import {assignNH013HatchbackPilot} from "@/game/traffic/nh013-hatchback-pilot";
+import {createNorthHeightsHatchbackVisuals013,type NH013HatchbackVisuals} from "./north-heights-hatchback-visuals-013";
 import {normalizeThirdPersonCameraDistance} from "@/ui/menus/settings-state";
 import {northHeightsHardwareScale006,northHeightsFrameLimit006} from "./north-heights-presentation-006";
 import {touchCameraRadiansPerPixel} from "@/game/input/touch-camera-sensitivity";
@@ -88,6 +95,11 @@ export async function createNorthHeightsCity8(
   let walk:NorthHeightsWalk005|null=null;
   let cameraBlockers:CameraBox[]=[];
   let fleet:ReturnType<typeof createMercerExtraParkedGLBs>|null=null;
+  let traffic:NH012TrafficSimulator|null=null;
+  let trafficDots:NH012Dots|null=null;
+  let sedanVisuals:NH013SedanVisuals|null=null;
+  let hatchbackVisuals:NH013HatchbackVisuals|null=null;
+  let trafficAccumulator=0,visibleTrafficDots=0;
   const cars=new Map<string,FirstDriveTrial>();
   const carNames=new Map<string,string>();
   let driving:FirstDriveTrial|null=null;
@@ -206,6 +218,22 @@ export async function createNorthHeightsCity8(
   scene.onBeforeRenderObservable.add(() => {
     const dt=Math.min(.05,engine.getDeltaTime()/1000);
     if(paused)return;
+    if(traffic&&trafficDots){
+      trafficAccumulator=Math.min(.15,trafficAccumulator+dt);
+      let steps=0;
+      while(trafficAccumulator>=NH012_SIMULATION_DT-1e-7&&steps<3){
+        traffic.step();
+        trafficAccumulator-=NH012_SIMULATION_DT;
+        steps++;
+      }
+      const snapshot=traffic.snapshot();
+      // Same 125 NH-012 traffic agents drive both the dots and the original-
+      // asset sedan LOD representations. Renderers never modify route state.
+      const sedanCars=sedanVisuals?.update(snapshot,camera.position);
+      const hatchCars=hatchbackVisuals?.update(snapshot,camera.position);
+      const carsShowing=new Set([...(sedanCars??[]),...(hatchCars??[])]);
+      visibleTrafficDots=trafficDots.update(snapshot,camera.position,carsShowing);
+    }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
     const stickX=pad&&Math.abs(pad.axes[0]??0)>.18?(pad.axes[0]??0):0;
@@ -309,11 +337,33 @@ export async function createNorthHeightsCity8(
       locationTick=0;updateLocation();
       if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
     }
-    if(++frames%40===0)statistics(
-      "FPS "+Math.round(engine.getFps())+" · "+
-      "MODE "+mode.toUpperCase()+" · "+
-      (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
-      "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
+    if(++frames%40===0){
+      const sedanReport=sedanVisuals?.report;
+      const pilots=traffic?.agents.filter(a=>a.modelId==="gtd-traffic-sedan-013")??[];
+      const closest=pilots.map(a=>({
+        distance:Math.hypot(a.x-camera.position.x,a.z-camera.position.z),
+        dx:a.x-camera.position.x,dz:a.z-camera.position.z,
+      })).sort((a,b)=>a.distance-b.distance)[0];
+      const sedanInfo=sedanReport
+        ?"SEDAN "+sedanReport.active+"/"+pilots.length+
+         " NEAREST "+(closest?closest.distance.toFixed(0)+"m":"NONE")+
+         " (E "+(closest?closest.dx.toFixed(0):"?")+
+         " / N "+(closest?closest.dz.toFixed(0):"?")+")"+
+         " LOD "+sedanReport.loaded+"/3"+
+         (sedanReport.failed.length?" ERROR "+sedanReport.failed[0]:"")
+        :"SEDAN PILOT INITIALIZING";
+      const hatchReport=hatchbackVisuals?.report;
+      const hatchInfo=hatchReport
+        ?" HATCH "+hatchReport.active+"/12 LOD "+hatchReport.loaded+"/3"+
+        (hatchReport.failed.length?" ERROR "+hatchReport.failed[0]:""):"";
+      statistics(
+        "FPS "+Math.round(engine.getFps())+" · "+
+        "MODE "+mode.toUpperCase()+" · "+
+        (traffic?"TRAFFIC "+traffic.population+" DOTS "+visibleTrafficDots+" SIM "+traffic.tick+" · ":"")+
+        sedanInfo+hatchInfo+" · "+
+        (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
+        "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
+    }
   });
   engine.runRenderLoop(() => {
     if(closed||paused)return;
@@ -402,8 +452,8 @@ export async function createNorthHeightsCity8(
     },
     setPaused(value){
       paused=value;
-      if(value)clearKeys();
-      else {renderLast=0;engine.resize();}
+      if(value){clearKeys();trafficAccumulator=0;}
+      else {renderLast=0;trafficAccumulator=0;engine.resize();}
     },
     reset() {
       if(driving)toggleVehicle();
@@ -435,6 +485,9 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("resize", resize);
       for(const car of cars.values())car.dispose();
       cars.clear();
+      hatchbackVisuals?.dispose();hatchbackVisuals=null;
+      sedanVisuals?.dispose();sedanVisuals=null;
+      trafficDots?.dispose();trafficDots=null;traffic=null;
       fleet?.dispose();
       treeHandle?.dispose();
       actor?.dispose();
@@ -472,6 +525,22 @@ export async function createNorthHeightsCity8(
     status("Building Rapier terrain, pavement and "+world.count+" blocking building colliders");
     walk=await createNorthHeightsWalk005(scene,world.lotSpecs,footSpawn);
     if(closed){walk.dispose();walk=null;return controller;}
+    // NH-012: traffic intelligence and four dot meshes only; no 125 car GLBs,
+    // per-agent Rapier bodies or simulation ownership in the Babylon renderer.
+    traffic=new NH012TrafficSimulator(125,120125);
+    const pilotIds=assignNH013SedanPilot(traffic,8);
+    const hatchIds=assignNH013HatchbackPilot(traffic,12);
+    sedanVisuals=createNorthHeightsSedanVisuals013(scene,traffic.graph);
+    hatchbackVisuals=createNorthHeightsHatchbackVisuals013(scene,traffic.graph);
+    trafficDots=createNorthHeightsTrafficDots012(scene,traffic.population);
+    console.info("[NH-013] Existing NH-012 moving agents represented as cars",{
+       sedans:pilotIds.size,hatchbacks:hatchIds.size,remainingDots:traffic.population-pilotIds.size-hatchIds.size
+    });
+    trafficDots.update(traffic.snapshot(),camera.position);
+    console.info("[NH-012] directed lane traffic initialized",{
+      nodes:traffic.graph.nodes.size,directedLanes:traffic.graph.edges.size,
+      turns:traffic.graph.connectors.size,agents:traffic.population,
+    });
     // NH-010: reserve NH-03-05 before buildings/trees. Genuine six GLBs
     // are inside a dedicated empty 48m square with collision-checked bays.
     validateNorthHeightsParking010(world.lotSpecs,
@@ -557,7 +626,7 @@ export async function createNorthHeightsCity8(
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
+      treeCount+" GLB trees · "+(traffic?.population??0)+" logical traffic agents / 8 NH-013 sedans · dots + source LOD views · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
