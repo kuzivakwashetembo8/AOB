@@ -224,8 +224,9 @@ export default function GameSession({ active }: { active: boolean }) {
       type: "camera-settings",
       touchSensitivity: settings.touchSensitivity,
       invertY: settings.invertY,
+      distanceMeters: settings.thirdPersonCameraDistanceMeters,
     });
-  }, [bridge, loaded, settings.touchSensitivity, settings.invertY]);
+  }, [bridge, loaded, settings.touchSensitivity, settings.invertY, settings.thirdPersonCameraDistanceMeters]);
 
   useEffect(() => {
     if (!loaded) return;

@@ -26,6 +26,7 @@ function NorthHeightsPreview(){
   const [meridianMinute,setMeridianMinute]=useState(14*60+53);
   const [meridianSpeed,setMeridianSpeed]=useState(2);
   const [mode,setMode]=useState<"walk"|"fly">("walk");
+  const [location,setLocation]=useState("NORTH HEIGHTS // MERIDIAN CITY");
   const [paused,setPaused]=useState(false);
   const [panel,setPanel]=useState<"pause"|"settings"|"objectives"|"save">("pause");
   const [feedback,setFeedback]=useState("");
@@ -68,7 +69,8 @@ function NorthHeightsPreview(){
           message=>{if(!closed)setStatus(message);},
           message=>{if(!closed)setStats(message);},
           next=>{if(!closed)setMode(next);},
-          note=>{if(!closed)setFeedback(note);});
+          note=>{if(!closed)setFeedback(note);},
+          nextLocation=>{if(!closed)setLocation(nextLocation);});
         if(closed)instance.dispose();
         else{
           controller.current=instance;
@@ -100,7 +102,7 @@ function NorthHeightsPreview(){
     Math.floor(meridianMinute%60).toString().padStart(2,"0");
   const snapshot:GameSnapshot={
     lifecycle:ready?(paused?"paused":"running"):"bootstrapping",
-    context:"walking",location:"NORTH HEIGHTS // MERIDIAN CITY",
+    context:"walking",location,
     objective:"Explore North Heights on foot or in flight",
     health:100,reputation:0,heat:0,speed:0,vehicle:null,
     meridianTime:clock,meridianMinuteOfDay:Math.floor(meridianMinute),

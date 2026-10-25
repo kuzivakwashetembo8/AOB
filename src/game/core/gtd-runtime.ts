@@ -1,3 +1,4 @@
+import {normalizeThirdPersonCameraDistance,CAMERA_DISTANCE_DEFAULT} from "@/ui/menus/settings-state";
 import {HUMAN_WALK_SPEED_119} from "../character/retargeted-walk-110";
 import {stepHumanTravelSpeed120} from "../character/retargeted-sprint-120";
 import {
@@ -166,7 +167,8 @@ export class GTDGameRuntime implements GameRuntime {
   private accumulator = 0;
   private snapshotAccumulator = 0;
   private previousTime = 0;
-  private preferredCameraRadius = 6.2;
+  private preferredCameraRadius = CAMERA_DISTANCE_DEFAULT;
+  private onFootCameraRadius = CAMERA_DISTANCE_DEFAULT;
   private frameHandle: number | null = null;
   private snapshotListeners = new Set<(snapshot: GameSnapshot) => void>();
   private eventListeners = new Set<(event: GameEvent) => void>();
@@ -435,7 +437,7 @@ export class GTDGameRuntime implements GameRuntime {
       "gtd-third-person-camera",
       -Math.PI / 2,
       1.16,
-      6.2,
+      CAMERA_DISTANCE_DEFAULT,
       firstLight.focus,
       scene,
     );
@@ -882,6 +884,10 @@ export class GTDGameRuntime implements GameRuntime {
     if (command.type === "camera-settings") {
       this.touchCameraSensitivity = normalizeTouchCameraSensitivity(command.touchSensitivity);
       this.invertLookY = command.invertY;
+      if(command.distanceMeters!==undefined){
+        this.onFootCameraRadius=normalizeThirdPersonCameraDistance(command.distanceMeters);
+        if(this.context!=="driving")this.preferredCameraRadius=this.onFootCameraRadius;
+      }
       return;
     }
     if (command.type === "look-delta") {
@@ -1005,7 +1011,7 @@ export class GTDGameRuntime implements GameRuntime {
       this.movementArbiter.clear();
       this.verticalVelocity=0;
       this.camera?.target.set(position.x,position.y+.55,position.z);
-      this.preferredCameraRadius=6.2;
+      this.preferredCameraRadius=this.onFootCameraRadius;
       this.publishSnapshot(0);
       this.emit({type:"interaction",label:"Exited "+leavingName+" beside its current location"});
       return;
@@ -1246,7 +1252,7 @@ export class GTDGameRuntime implements GameRuntime {
         this.humanAsset()?.updateControlledFlight(position,voight.root.rotation.y,flightVisual);
       else this.characterTrial?.updateFlightAnimation(flightVisual);
       camera.target.set(position.x,position.y+0.55,position.z);
-      this.preferredCameraRadius = 8;
+      this.preferredCameraRadius = this.onFootCameraRadius;
       this.resolveCameraObstruction(camera,position,dt);
       this.snapshotAccumulator+=dt;
       if (this.snapshotAccumulator>=SNAPSHOT_INTERVAL) {

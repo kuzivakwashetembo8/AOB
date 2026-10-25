@@ -20,7 +20,9 @@ describe("NH-008 district UI parity and third-person flight",()=>{
     expect(flight).toContain("walk.physics.movePlayer({x:desired.x,y:desired.y,z:desired.z})");
     expect(flight).toContain("actor.updateControlledFlight(position,headingYaw,animation)");
     expect(flight).toContain("humanoid.updateFlightAnimation(animation)");
-    expect(flight).toContain("camera.setTarget(target)");
+    // NH-009 applies one terrain-aware chase camera to walking and flight.
+    expect(flight).toContain("setCameraAt(position)");
+    expect(flight).toContain("resolveNorthHeightsThirdPersonCamera(");
     expect(flight).not.toContain("camera.position.addInPlace(move.normalize()");
     expect(flight).not.toContain("camera.position.copyFrom(anchor)");
   });

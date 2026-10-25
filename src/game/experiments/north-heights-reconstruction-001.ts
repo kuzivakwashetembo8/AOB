@@ -427,7 +427,10 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
     });
   }
   const occupied=new Set(lots.map(l=>l.block));
-  const parkPlan=planNorthHeightsTrees004(MIDPOINTS,occupied,northHeightsGround,mobile);
+  // NH-009: reserve the compact curbside forecourt beside Meridian Boulevard
+  // for the genuine six-car fleet. No road, window or main glass material edits.
+  const parkPlan=planNorthHeightsTrees004(MIDPOINTS,occupied,northHeightsGround,mobile)
+    .filter(tree=>!(tree.x>7.5&&tree.x<13.5&&tree.z>=-126&&tree.z<=-67));
   createNorthHeightsBlockSurfaces008(scene,{
     middle:MIDPOINTS,occupied,ground:northHeightsGround,trees:parkPlan,
     grass:city.mat("grass"),concrete:city.mat("concrete"),

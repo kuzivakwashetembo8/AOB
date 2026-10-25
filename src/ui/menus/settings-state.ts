@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import { normalizeRenderClarity, normalizeRenderScalePercent, type RenderClarityMode } from "@/game/renderer/render-clarity";
+/** One third-person on-foot/flight camera radius shared by all GTD districts. */
+export const CAMERA_DISTANCE_DEFAULT=4.5;
+export function normalizeThirdPersonCameraDistance(value:unknown):number{
+  return typeof value==="number"&&Number.isFinite(value)
+    ?Math.max(3,Math.min(8,value)):CAMERA_DISTANCE_DEFAULT;
+}
 export type DrivingTouchLayout = "drag" | "arrows";
 export function normalizeDrivingTouchLayout(value: unknown): DrivingTouchLayout {
   return value === "arrows" ? "arrows" : "drag";
@@ -25,6 +31,7 @@ export type Settings = {
   muted: boolean;
   sensitivity: number;
   touchSensitivity: number;
+  thirdPersonCameraDistanceMeters: number;
   invertY: boolean;
   vibration: boolean;
   reducedMotion: boolean;
@@ -63,6 +70,7 @@ export const defaults: Settings = {
   muted: false,
   sensitivity: 50,
   touchSensitivity: 60,
+  thirdPersonCameraDistanceMeters: CAMERA_DISTANCE_DEFAULT,
   invertY: false,
   vibration: true,
   reducedMotion: false,
@@ -103,6 +111,7 @@ export function useSettings(active = true) {
           footIKReachCm: Number.isFinite(stored.footIKReachCm) ? Math.max(15,Math.min(100,Number(stored.footIKReachCm))) : 50,
           footIKPredictionMs: Number.isFinite(stored.footIKPredictionMs) ? Math.max(100,Math.min(500,Number(stored.footIKPredictionMs))) : 220,
           drivingTouchLayout: normalizeDrivingTouchLayout(stored.drivingTouchLayout),
+          thirdPersonCameraDistanceMeters: normalizeThirdPersonCameraDistance(stored.thirdPersonCameraDistanceMeters),
           renderClarity: normalizeRenderClarity(stored.renderClarity),
           renderScalePercent: normalizeRenderScalePercent(stored.renderScalePercent),
         });
