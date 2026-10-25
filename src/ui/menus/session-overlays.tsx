@@ -7,7 +7,7 @@ import type {Settings} from "@/ui/menus/settings-state";
 
 export function GTDSessionPauseActions({onResume,onObjectives,onSettings,onSave,onLocomotion}:{
   onResume:()=>void;onObjectives:()=>void;onSettings:()=>void;
-  onSave:()=>void;onLocomotion?:()=>void;
+  onSave:()=>void;onLocomotion?:(()=>void)|undefined;
 }){
   return <nav className="pause-list" aria-label="Pause actions">
     <Button autoFocus variant="menu" onClick={onResume}>Resume <ArrowRight/></Button>

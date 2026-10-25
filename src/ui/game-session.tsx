@@ -503,14 +503,12 @@ export default function GameSession({ active }: { active: boolean }) {
               ? "Pause menu"
               : panel === "objectives"
                 ? "Objectives"
-                : panel === "settings"
-                  ? "Settings"
-                  : panel === "locomotion"
+                : panel === "locomotion"
                     ? "Character locomotion trial"
                     : "Save and load"
           }
         >
-          <div className={panel === "settings" || panel === "locomotion"
+          <div className={panel === "locomotion"
               ? "overlay-content game-settings-dialog max-h-[90vh] overflow-y-auto" : "overlay-content"}>
             <div className="flex justify-between items-center">
               <span className="system-label text-primary">SOUTH WARD // FIRST LIGHT // SESSION PAUSED</span>
@@ -527,9 +525,7 @@ export default function GameSession({ active }: { active: boolean }) {
                 ? "PAUSED."
                 : panel === "objectives"
                   ? "OBJECTIVES."
-                  : panel === "settings"
-                    ? "SETTINGS."
-                    : panel === "locomotion"
+                  : panel === "locomotion"
                       ? "LOCOMOTION TRIAL."
                       : "SAVE / LOAD."}
             </h1>
