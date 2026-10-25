@@ -136,8 +136,19 @@ export function createMercerExtraParkedGLBs(
   scene:Scene,physics:Pick<MeridianPhysics,"addStaticBox">,
   items:readonly StreetContextItem[],
   load?:(url:string,scene:Scene)=>Promise<AssetContainer>,
+  options?:{placements?:readonly MercerExtra006Spec[];heightAt?:(x:number,z:number)=>number;maxConcurrent?:number},
 ){
-  const specs=validateMercerExtraPlacements(items);
+  const specs=options?.placements??validateMercerExtraPlacements(items);
+  // Preserve South Ward's existing parallel policy. North Heights limits
+  // simultaneous decoding/instantiation for mobile browser memory.
+  const maxConcurrent=options?.maxConcurrent??specs.length;
+  let busy=0;
+  const waiting:(()=>void)[]=[];
+  const enter=async()=>{
+    if(busy>=maxConcurrent)await new Promise<void>(resolve=>waiting.push(resolve));
+    busy++;
+  };
+  const leave=()=>{busy--;waiting.shift()?.();};
   const instances=specs.map(spec=>{
     const anchor=new TransformNode("mercer-extra-anchor:"+spec.id,scene);
     // Do not create colliders until the actual mesh is loaded and validated.
@@ -156,6 +167,8 @@ export function createMercerExtraParkedGLBs(
     const instantiateId="asset:instantiate:"+spec.id;
     audit.start(decodeId,"Download / decode "+spec.label,"asset",spec.url);
     const ready=(async()=>{
+      await enter();
+      try {
       if(!load)await import("@babylonjs/loaders/glTF");
       // WHEEL-001: Only use build-time rigged derivatives on the isolated
       // review preview; in local development/custom loader tests retain the
@@ -213,7 +226,8 @@ export function createMercerExtraParkedGLBs(
         .05-fitted.minY,
         -(fitted.minZ+fitted.maxZ)/2,
       );
-      anchor.position.set(spec.x,0,spec.z);
+      const supportY=options?.heightAt?.(spec.x,spec.z)??0;
+      anchor.position.set(spec.x,supportY,spec.z);
       anchor.rotation.y=spec.yaw;
       for(const mesh of meshes){
         mesh.isPickable=false;
@@ -222,13 +236,14 @@ export function createMercerExtraParkedGLBs(
       }
       if(closed)return;
       collider=physics.addStaticBox(
-        {x:spec.x,y:fit.dimensions.height/2,z:spec.z},
+        {x:spec.x,y:(options?.heightAt?.(spec.x,spec.z)??0)+fit.dimensions.height/2,z:spec.z},
         {x:fit.dimensions.width/2,y:fit.dimensions.height/2,
           z:fit.dimensions.length/2},
         spec.yaw,
       );
       instantiateMs=performance.now()-instantiationStartedAt;
       audit.finish(instantiateId,meshes.length+" visible meshes; collider registered");
+      } finally {leave();}
     })().catch(error=>{
       audit.fail(decodeId,error);
       audit.fail(instantiateId,error);

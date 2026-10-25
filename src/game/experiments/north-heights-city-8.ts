@@ -16,7 +16,11 @@ import { createMercerStaticCharacter } from "@/game/world/mercer-static-characte
 import {loadMeridiaCharacterTrial,type LoadedMeridiaCharacter} from "@/game/character/voight-humanoid-trial";
 import type {GameAction} from "@/game/core/types";
 import {northHeightsActionControl007,northHeightsUnavailableAction007} from "./north-heights-controls-007";
-import { createNorthHeightsWalk005, type NorthHeightsWalk005 } from "./north-heights-physics-005";
+import { createNorthHeightsWalk005,northHeightsBuildingCollision005, type NorthHeightsWalk005 } from "./north-heights-physics-005";
+import {resolveNorthHeightsThirdPersonCamera,clampNorthHeightsPitch,clampNorthHeightsActorXZ,type CameraBox} from "@/game/camera/third-person-camera-constraints";
+import {northHeightsLocationAt} from "@/game/world-generation/north-heights-location-009";
+import {MERCER_EXTRA_GLB_SPECS,createMercerExtraParkedGLBs} from "@/game/vehicles/mercer-additional-parked-glbs-006";
+import {normalizeThirdPersonCameraDistance} from "@/ui/menus/settings-state";
 import {northHeightsHardwareScale006,northHeightsFrameLimit006} from "./north-heights-presentation-006";
 import {touchCameraRadiansPerPixel} from "@/game/input/touch-camera-sensitivity";
 import {defaults,type Settings} from "@/ui/menus/settings-state";
@@ -39,6 +43,7 @@ export async function createNorthHeightsCity8(
   statistics: (message: string) => void,
   onModeChange?: (mode:"walk"|"fly")=>void,
   onFeedback?: (message:string)=>void,
+  onLocationChange?: (location:string)=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -72,6 +77,11 @@ export async function createNorthHeightsCity8(
   let yaw = 0, pitch = 0, closed = false;
   let treeHandle: {dispose:()=>void} | null = null;
   let walk:NorthHeightsWalk005|null=null;
+  let cameraBlockers:CameraBox[]=[];
+  let fleet:ReturnType<typeof createMercerExtraParkedGLBs>|null=null;
+  let lastLocationStreet:string|undefined;
+  let lastLocationText="";
+  let locationTick=0;
   let actor:ReturnType<typeof createMercerStaticCharacter>|null=null;
   let humanoid:LoadedMeridiaCharacter|null=null;
   let mode:"walk"|"fly"="fly";
@@ -108,8 +118,7 @@ export async function createNorthHeightsCity8(
     const gain=touch ? touchCameraRadiansPerPixel(settings.touchSensitivity) :
       .004*Math.max(.15,settings.sensitivity/50);
     yaw += dx*gain;
-    pitch=Math.max(-1.48,Math.min(1.48,
-      pitch + dy*gain*(settings.invertY?-1:1)));
+    pitch=clampNorthHeightsPitch(pitch + dy*gain*(settings.invertY?-1:1));
   };
   const pointerUp = (event: PointerEvent) => {
     if (dragPointer === event.pointerId) dragPointer = null;
@@ -129,6 +138,35 @@ export async function createNorthHeightsCity8(
     scene.fogDensity=settings.quality==="Low"?.0018:.00115;
   };
   const resize=()=>{applyGraphics();};
+  const updateLocation=(force=false)=>{
+    if(!walk)return;
+    const player=walk.physics.playerPosition();
+    const location=northHeightsLocationAt(player,lastLocationStreet);
+    lastLocationStreet=location.streetId;
+    if(force||lastLocationText!==location.text){
+      lastLocationText=location.text;
+      onLocationChange?.(location.text);
+    }
+  };
+  const setCameraAt=(player:{x:number;y:number;z:number})=>{
+    const computed=resolveNorthHeightsThirdPersonCamera(
+      player,yaw,pitch,normalizeThirdPersonCameraDistance(settings.thirdPersonCameraDistanceMeters),
+      northHeightsGround,cameraBlockers,
+    );
+    camera.position.set(computed.position.x,computed.position.y,computed.position.z);
+    camera.setTarget(new Vector3(computed.target.x,computed.target.y,computed.target.z));
+  };
+  const boundActor=()=>{
+    if(!walk)return;
+    const point=walk.physics.playerPosition();
+    const limited=clampNorthHeightsActorXZ(point.x,point.z);
+    // Player capsule centre is .92m above foot support; never put flight
+    // beneath the local ridge, even on boundary transitions.
+    const minY=northHeightsGround(limited.x,limited.z)+.92+.12;
+    if(limited.x!==point.x||limited.z!==point.z||point.y<minY){
+      walk.physics.setPlayerPosition({x:limited.x,y:Math.max(minY,point.y),z:limited.z});
+    }
+  };
   canvas.addEventListener("pointerdown", pointerDown);
   canvas.addEventListener("pointermove", pointerMove);
   canvas.addEventListener("pointerup", pointerUp);
@@ -164,7 +202,8 @@ export async function createNorthHeightsCity8(
           x:forward.x,z:forward.z,
           speed:fast?7.5:3.4,dt:1/60,jump:ascend,
         });
-        last=result.position;
+        boundActor();
+        last=walk.physics.playerPosition();
         lastGrounded=result.grounded;
         lastTravelSpeed=result.speed;
         if(result.speed>.07)headingYaw=Math.atan2(forward.x,forward.z);
@@ -185,17 +224,8 @@ export async function createNorthHeightsCity8(
         }
         physicsAccumulator-=1/60;
       }
-      // Third-person chase camera, retaining pointer look. Head clearance
-      // follows the real kinematic capsule, not a fake zero-Y floor.
-      const target=new Vector3(last.x,last.y+.40,last.z);
-      const orbit=Math.max(-.7,Math.min(.65,pitch));
-      const follow=new Vector3(
-        last.x-Math.sin(yaw)*Math.cos(orbit)*6.8,
-        last.y+2.4-Math.sin(orbit)*5.2,
-        last.z-Math.cos(yaw)*Math.cos(orbit)*6.8,
-      );
-      camera.position.copyFrom(follow);
-      camera.setTarget(target);
+      // Same South Ward-style bounded third-person framing for walking.
+      setCameraAt(last);
     } else if(mode==="fly"&&walk&&actor&&humanoid){
       // Flight is still third person. Move the SAME Rapier capsule, not
       // the camera in isolation; render exactly one selected visual actor.
@@ -210,6 +240,7 @@ export async function createNorthHeightsCity8(
       while(physicsAccumulator>=1/60){
         const desired=travel.scale(flightSpeed/60);
         walk.physics.movePlayer({x:desired.x,y:desired.y,z:desired.z});
+        boundActor();
         position=walk.physics.playerPosition();
         if(Math.hypot(desired.x,desired.z)>.005)
           headingYaw=Math.atan2(desired.x,desired.z);
@@ -226,16 +257,11 @@ export async function createNorthHeightsCity8(
         }
         physicsAccumulator-=1/60;
       }
-      const orbit=Math.max(-.65,Math.min(.65,pitch));
-      const target=new Vector3(position.x,position.y+.55,position.z);
-      const follow=new Vector3(
-        position.x-Math.sin(yaw)*Math.cos(orbit)*9,
-        position.y+2.8-Math.sin(orbit)*6.3,
-        position.z-Math.cos(yaw)*Math.cos(orbit)*9,
-      );
-      camera.position.copyFrom(follow);
-      camera.setTarget(target);
+      // Same radius/ground constraint on flight; no freely detached camera.
+      setCameraAt(position);
     }
+    locationTick+=dt;
+    if(locationTick>=.33){locationTick=0;updateLocation();}
     if(++frames%40===0)statistics(
       "FPS "+Math.round(engine.getFps())+" · "+
       "MODE "+mode.toUpperCase()+" · "+
@@ -291,6 +317,7 @@ export async function createNorthHeightsCity8(
     reset() {
       walk?.reset(footSpawn.x,footSpawn.z);
       yaw=initialYaw;pitch=initialPitch;headingYaw=0;
+      updateLocation(true);
       physicsAccumulator=0;clearKeys();
     },
     setTime(time) { sky.setTime(time); },
@@ -313,6 +340,7 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearKeys);
       window.removeEventListener("resize", resize);
+      fleet?.dispose();
       treeHandle?.dispose();
       actor?.dispose();
       humanoid?.disposeDriverContact();
@@ -325,6 +353,10 @@ export async function createNorthHeightsCity8(
   try {
     status("Generating North Heights · native roads, towers, terraces and facades");
     const world = buildNorthHeightsReconstruction(scene,mobile);
+    cameraBlockers=northHeightsBuildingCollision005(world.lotSpecs).map(box=>({
+      x:box.position.x,y:box.position.y,z:box.position.z,
+      halfX:box.halfExtents.x,halfY:box.halfExtents.y,halfZ:box.halfExtents.z,
+    }));
     if (closed) return controller;
     status("North Heights roads joined · loading original owner-committed tree GLB");
     let treeCount=0, treeInstances=0, treeError="";
@@ -345,6 +377,24 @@ export async function createNorthHeightsCity8(
     status("Building Rapier terrain, pavement and "+world.count+" blocking building colliders");
     walk=await createNorthHeightsWalk005(scene,world.lotSpecs,footSpawn);
     if(closed){walk.dispose();walk=null;return controller;}
+    // One North Heights street: existing six accepted South Ward GLBs.
+    // The inset parking strip is OUTSIDE the 8m two-lane road and 3.75m sidewalk.
+    const spaces=[-119,-110,-101,-92,-83,-74];
+    const nhParking=MERCER_EXTRA_GLB_SPECS.map((spec,index)=>({
+      ...spec,x:9.65,z:spaces[index]!,yaw:0,
+    }));
+    fleet=createMercerExtraParkedGLBs(scene,walk.physics,[],undefined,{
+      placements:nhParking,
+      heightAt:(x,z)=>northHeightsGround(x,z)+.075,
+      maxConcurrent:mobile?2:3,
+    });
+    // Let assets stream while Voight and UAL initialize. All models must
+    // be genuinely loaded before issuing the final physics-ready signal.
+    const fleetReady=fleet.ready.catch(error=>{
+      const message=error instanceof Error?error.message:String(error);
+      console.error("[NH-009] Six-car GLB load failed",error);
+      return message;
+    });
     status("Loading Voight's accepted walking animation and physics capsule");
     actor=createMercerStaticCharacter(scene);
     await actor.ready;
@@ -366,12 +416,16 @@ export async function createNorthHeightsCity8(
     applyGraphics();
     yaw=initialYaw;pitch=initialPitch;
     const spawn=walk.physics.playerPosition();
-    camera.position.set(spawn.x,spawn.y+2.5,spawn.z-6.8);
-    camera.setTarget(new Vector3(spawn.x,spawn.y+.4,spawn.z));
+    setCameraAt(spawn);
+    updateLocation(true);
+    const vehicleError=await fleetReady;
+    if(closed)return controller;
+    if(vehicleError)onFeedback?.("Vehicle import issue: "+vehicleError);
+    const fleetCount=fleet?.instances.filter(instance=>instance.loadTelemetry.instantiateMs!==null).length??0;
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
+      treeCount+" GLB trees · "+fleetCount+"/6 parked South Ward GLBs · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
