@@ -149,6 +149,9 @@ export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals
      // Other moving agents retain dots until their genuine model is ready.
      let createdThisFrame=0;
      for(const {agent,distance} of selected){
+       // Failed source-fit/paint validation is a permanent dot fallback for
+       // this pilot scene; never retry 300-mesh imports every render frame.
+       if(failed.includes("instance:"+agent.id))continue;
        const tier:Tier=distance<G1_NEAR?0:distance<G1_MEDIUM?1:2;
        const previous=visuals.get(agent.id);
        // Keep the currently valid tier temporarily if another model tier has
