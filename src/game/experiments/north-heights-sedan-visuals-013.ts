@@ -13,9 +13,17 @@ import {
 } from "@/game/traffic/nh013-sedan-pilot";
 import {resolveMercerGLBFit,type Bounds006,type MercerExtra006Spec} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {northHeightsGround} from "./north-heights-reconstruction-001";
+import {
+ NH013_SEDAN_HEADING_CORRECTION,prepareNH013SedanWheelRig,
+ sedanSteeringFromMovement,type NH013WheelPose,
+} from "@/game/vehicles/nh013-sedan-wheel-rig";
+import type {StreetVehicleWheelRig} from "@/game/vehicles/street-vehicle-wheels";
 
 type Tier=0|1|2;
-type Visual = {anchor:TransformNode;entries:ReturnType<AssetContainer["instantiateModelsToScene"]>;tier:Tier};
+type Visual = {
+ anchor:TransformNode;entries:ReturnType<AssetContainer["instantiateModelsToScene"]>;
+ tier:Tier;wheelRig:StreetVehicleWheelRig;lastPose:NH013WheelPose;smoothedSteer:number;
+};
 export interface NH013SedanVisuals {
  update(snapshot:NH012TrafficSnapshot,camera:{x:number;y:number;z:number}):ReadonlySet<string>;
  readonly report:{created:number;loaded:number;active:number;failed:string[]};
@@ -96,7 +104,8 @@ function instantiateSedan(scene:Scene,source:AssetContainer,agent:NH012Agent,tie
  if(!meshes.length)throw Error("NH013 empty imported sedan model");
  const initial=worldBounds(meshes);
  const fit=resolveMercerGLBFit(initial,sedanSpec);
- visual.rotation.y=fit.turn;
+ // VEH-008: visual-only yaw correction; NH-012 actual traffic heading stays unchanged.
+ visual.rotation.y=fit.turn+NH013_SEDAN_HEADING_CORRECTION;
  visual.scaling.setAll(fit.scale);
  const fitted=worldBounds(meshes);
  visual.position.set(-(fitted.minX+fitted.maxX)/2,-fitted.minY,-(fitted.minZ+fitted.maxZ)/2);
@@ -108,7 +117,15 @@ function instantiateSedan(scene:Scene,source:AssetContainer,agent:NH012Agent,tie
  for(const mesh of meshes){
    mesh.isPickable=false;mesh.receiveShadows=false;
  }
- return {anchor,entries,tier};
+ // Real wheels: source rims, tyres and tread each stay attached to their own
+ // measured hub. WHEEL-001 fail closed, never animate a fabricated cylinder.
+ const wheels=prepareNH013SedanWheelRig(anchor);
+ if(!wheels.ready||!wheels.rig){
+   entries.dispose();anchor.dispose(false,false);
+   throw Error("NH013 wheel qualification failed: "+wheels.reason);
+ }
+ return {anchor,entries,tier,wheelRig:wheels.rig,
+   lastPose:{x:agent.x,z:agent.z,heading:agent.heading},smoothedSteer:0};
 }
 export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals{
  let closed=false,created=0;
@@ -132,6 +149,7 @@ export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals
    const v=visuals.get(id);
    if(!v)return;
    visuals.delete(id);
+   v.wheelRig.dispose();
    v.entries.dispose();
    v.anchor.dispose(false,false);
  }
@@ -183,6 +201,13 @@ export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals
        const instance=visuals.get(agent.id)!;
        instance.anchor.position.set(agent.x,northHeightsGround(agent.x,agent.z)+.075,agent.z);
        instance.anchor.rotation.y=agent.heading;
+       // No second motion solver: roll is actual frame-to-frame progress of
+       // the NH-012 traffic agent; world-yaw front steering uses path curvature.
+       const pose:NH013WheelPose={x:agent.x,z:agent.z,heading:agent.heading};
+       const movement=sedanSteeringFromMovement(instance.lastPose,pose);
+       instance.smoothedSteer=instance.smoothedSteer*.72+movement.steeringRadians*.28;
+       instance.wheelRig.update(movement.travelMetres,instance.smoothedSteer);
+       instance.lastPose=pose;
        active.add(agent.id);shown.add(agent.id);
      }
      for(const id of visuals.keys())if(!active.has(id))release(id);
