@@ -18,7 +18,7 @@ type Tier=0|1|2;
 type Visual = {anchor:TransformNode;entries:ReturnType<AssetContainer["instantiateModelsToScene"]>;tier:Tier};
 export interface NH013SedanVisuals {
  update(snapshot:NH012TrafficSnapshot,camera:{x:number;y:number;z:number}):ReadonlySet<string>;
- readonly report:{created:number;loaded:number;failed:string[]};
+ readonly report:{created:number;loaded:number;active:number;failed:string[]};
  dispose():void;
 }
 const paintHex:Record<NH013SedanPaint,string>={
@@ -135,9 +135,14 @@ export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals
    v.entries.dispose();
    v.anchor.dispose(false,false);
  }
+ // Load the original once, regardless of distance to pilot agents.
+ // The first NH-013 build requested assets only *after* approaching 180m;
+ // if a user missed eight roaming agents, every visible car remained a dot.
+ // Preloading removes that timing trap while keeping car rendering view-bound.
+ request(0);
  const shown=new Set<string>();
  return {
-   get report(){return {created,loaded:sources.size,failed:[...failed]};},
+   get report(){return {created,loaded:sources.size,active:visuals.size,failed:[...failed]};},
    update(snapshot,camera){
      shown.clear();
      if(closed)return shown;
@@ -151,13 +156,16 @@ export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals
      for(const {agent,distance} of selected){
        // Failed source-fit/paint validation is a permanent dot fallback for
        // this pilot scene; never retry 300-mesh imports every render frame.
-       if(failed.includes("instance:"+agent.id))continue;
+       if(failed.some(x=>x.startsWith("instance:"+agent.id+":")))continue;
        const tier:Tier=distance<G1_NEAR?0:distance<G1_MEDIUM?1:2;
        const previous=visuals.get(agent.id);
        // Keep the currently valid tier temporarily if another model tier has
        // not finished decoding; the traffic dots remain authoritative fallback.
        if(!sources.has(tier))request(tier);
-       const actual=sources.has(tier)?tier:previous?.tier;
+       // Until the requested LOD finishes, use any safely loaded real sedan.
+       // Never keep a diagnostic dot merely because one derived tier is late.
+       const actual=sources.has(tier)?tier:
+         previous?.tier??([0,1,2] as const).find(level=>sources.has(level));
        if(actual===undefined)continue;
        if(previous&&previous.tier!==actual)release(agent.id);
        if(!visuals.has(agent.id)){
@@ -168,7 +176,7 @@ export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals
            visuals.set(agent.id,instance);created++;
          }catch(error){
            console.error("[NH-013] Sedan paint/model fit failed",agent.id,error);
-           failed.push("instance:"+agent.id);
+           failed.push("instance:"+agent.id+":"+(error instanceof Error?error.message:String(error)));
            continue; // Dot remains visible.
          }
        }
