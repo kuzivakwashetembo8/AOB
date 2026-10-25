@@ -13,6 +13,9 @@ import {
 } from "@/game/traffic/nh013-sedan-pilot";
 import {resolveMercerGLBFit,type Bounds006,type MercerExtra006Spec} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {northHeightsGround} from "./north-heights-reconstruction-001";
+import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
+import {trafficTurnSteering013,smoothTrafficToe013} from "@/game/vehicles/nh013-traffic-turn-steering";
+import type {TrafficGraph012} from "@/game/traffic/nh012-lane-network";
 import {
  NH013_SEDAN_HEADING_CORRECTION,prepareNH013SedanWheelRig,
  sedanSteeringFromMovement,type NH013WheelPose,
@@ -22,7 +25,7 @@ import type {StreetVehicleWheelRig} from "@/game/vehicles/street-vehicle-wheels"
 type Tier=0|1|2;
 type Visual = {
  anchor:TransformNode;entries:ReturnType<AssetContainer["instantiateModelsToScene"]>;
- tier:Tier;wheelRig:StreetVehicleWheelRig;lastPose:NH013WheelPose;smoothedSteer:number;
+ tier:Tier;wheelRig:StreetVehicleWheelRig;lastPose:NH013WheelPose;lastTick:number;smoothedSteer:number;
 };
 export interface NH013SedanVisuals {
  update(snapshot:NH012TrafficSnapshot,camera:{x:number;y:number;z:number}):ReadonlySet<string>;
@@ -41,7 +44,9 @@ const sedanSpec:MercerExtra006Spec={
  id:NH013_SEDAN_MODEL_ID,label:"Four Door Sedan",url:NH013_SEDAN_SOURCE,
  x:0,z:0,width:1.85,height:1.55,length:4.75,yaw:0,
 };
-const G1_NEAR=28,G1_MEDIUM=76,G1_FAR=180;
+// Wider representation radius ensures flyers can discover moving cars from
+// rooftops. Far cars use real source-derived LOD2, not original 304-part GLBs.
+const G1_NEAR=24,G1_MEDIUM=70,G1_FAR=425;
 function allRenderable(root:TransformNode):AbstractMesh[]{
  return root.getChildMeshes(false).filter(mesh=>mesh.getTotalVertices()>0);
 }
@@ -125,9 +130,9 @@ function instantiateSedan(scene:Scene,source:AssetContainer,agent:NH012Agent,tie
    throw Error("NH013 wheel qualification failed: "+wheels.reason);
  }
  return {anchor,entries,tier,wheelRig:wheels.rig,
-   lastPose:{x:agent.x,z:agent.z,heading:agent.heading},smoothedSteer:0};
+   lastPose:{x:agent.x,z:agent.z,heading:agent.heading},lastTick:-1,smoothedSteer:0};
 }
-export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals{
+export function createNorthHeightsSedanVisuals013(scene:Scene,graph:TrafficGraph012):NH013SedanVisuals{
  let closed=false,created=0;
  const sources=new Map<Tier,AssetContainer>();
  const pending=new Map<Tier,Promise<void>>();
@@ -199,15 +204,27 @@ export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals
          }
        }
        const instance=visuals.get(agent.id)!;
-       instance.anchor.position.set(agent.x,northHeightsGround(agent.x,agent.z)+.075,agent.z);
-       instance.anchor.rotation.y=agent.heading;
-       // No second motion solver: roll is actual frame-to-frame progress of
-       // the NH-012 traffic agent; world-yaw front steering uses path curvature.
-       const pose:NH013WheelPose={x:agent.x,z:agent.z,heading:agent.heading};
-       const movement=sedanSteeringFromMovement(instance.lastPose,pose);
-       instance.smoothedSteer=instance.smoothedSteer*.72+movement.steeringRadians*.28;
-       instance.wheelRig.update(movement.travelMetres,instance.smoothedSteer);
-       instance.lastPose=pose;
+       // Surface contact at four wheel footprints. North Heights gains
+       // considerable elevation on the northern ridge: centre-only placement
+       // previously buried the uphill axle.
+       const road=sampleTrafficVehicleRoadPose013({
+         x:agent.x,z:agent.z,heading:agent.heading,
+         wheelbase:2.8,track:1.62,ground:northHeightsGround,
+       });
+       instance.anchor.position.set(agent.x,road.y,agent.z);
+       instance.anchor.rotationQuaternion=road.rotation;
+       // Steer from the actual NH-012 junction connector and retain the
+       // commanded angle between its 20Hz steps; never decay to 0 every frame.
+       if(instance.lastTick!==snapshot.tick){
+         const pose:NH013WheelPose={x:agent.x,z:agent.z,heading:agent.heading};
+         const movement=sedanSteeringFromMovement(instance.lastPose,pose);
+         const target=trafficTurnSteering013(agent,graph,2.8);
+         instance.smoothedSteer=smoothTrafficToe013(instance.smoothedSteer,
+           target||movement.steeringRadians,true);
+         instance.wheelRig.update(movement.travelMetres,instance.smoothedSteer);
+         instance.lastPose=pose;
+         instance.lastTick=snapshot.tick;
+       }
        active.add(agent.id);shown.add(agent.id);
      }
      for(const id of visuals.keys())if(!active.has(id))release(id);
