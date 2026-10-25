@@ -468,7 +468,9 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
   // NH-009: reserve the compact curbside forecourt beside Meridian Boulevard
   // for the genuine six-car fleet. No road, window or main glass material edits.
   const parkPlan=planNorthHeightsTrees004(MIDPOINTS,occupied,northHeightsGround,mobile)
-    .filter(tree=>!(tree.x>7.5&&tree.x<13.5&&tree.z>=-126&&tree.z<=-67));
+    .filter(tree=>!NORTH_HEIGHTS_PARKING_LOTS_010.some(lot=>
+      Math.abs(tree.x-lot.x)<=lot.width/2+1.5&&
+      Math.abs(tree.z-lot.z)<=lot.depth/2+1.5));
   createNorthHeightsBlockSurfaces008(scene,{
     middle:MIDPOINTS,occupied,ground:northHeightsGround,trees:parkPlan,
     grass:city.mat("grass"),concrete:city.mat("concrete"),

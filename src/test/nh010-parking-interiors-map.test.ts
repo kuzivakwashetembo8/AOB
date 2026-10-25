@@ -17,6 +17,9 @@ describe("NH-010 parking, enterable interiors and map",()=>{
   expect(lot.blockId).toBe("NH-03-05");
   expect(NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010.has(lot.blockId)).toBe(true);
   expect(lot.stalls).toHaveLength(6);
+  expect(NORTH_HEIGHTS_PARKING_LOTS_010).toHaveLength(2);
+  expect(NORTH_HEIGHTS_PARKING_LOTS_010[1]!.stalls).toHaveLength(6);
+  expect(NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010.has("NH-04-07")).toBe(true);
   expect(new Set(lot.stalls.map(s=>s.id)).size).toBe(6);
   const fleet=[
    {width:2.03,length:4.85},{width:2.15,length:5.25},
@@ -47,7 +50,7 @@ describe("NH-010 parking, enterable interiors and map",()=>{
  it("projects district streets and green marker without any live map service",()=>{
   expect(NORTH_HEIGHTS_MAP_ROADS_010).toHaveLength(11);
   expect(NORTH_HEIGHTS_MAP_BLOCKS_010).toHaveLength(100);
-  expect(NORTH_HEIGHTS_MAP_PARKING_010).toHaveLength(1);
+  expect(NORTH_HEIGHTS_MAP_PARKING_010).toHaveLength(2);
   expect(northHeightsMapPoint010({x:0,z:0})).toEqual({x:320,y:320});
   expect(northHeightsMapPoint010({x:-320,z:320})).toEqual({x:0,y:0});
   expect(northHeightsMapPoint010({x:320,z:-320})).toEqual({x:640,y:640});

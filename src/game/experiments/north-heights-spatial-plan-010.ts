@@ -20,6 +20,18 @@ export const NORTH_HEIGHTS_PARKING_LOTS_010:readonly NorthHeightsParkingLot010[]
      {id:"NH-P05",x:-32,z:-147,yaw:Math.PI/2},
      {id:"NH-P06",x:-19,z:-147,yaw:Math.PI/2},
    ]},
+  // An additional *empty* parcel provides safe future fleet capacity without
+  // instantiating more GLBs. Its stalls share the identical world contract.
+  {id:"NH-PARKING-GLASS-02",blockId:"NH-04-07",x:96,z:-96,width:47,depth:47,
+   entry:{x:120,z:-96,roadX:128},
+   stalls:[
+     {id:"NH-P07",x:83,z:-109,yaw:Math.PI/2},
+     {id:"NH-P08",x:96,z:-109,yaw:Math.PI/2},
+     {id:"NH-P09",x:109,z:-109,yaw:Math.PI/2},
+     {id:"NH-P10",x:83,z:-83,yaw:Math.PI/2},
+     {id:"NH-P11",x:96,z:-83,yaw:Math.PI/2},
+     {id:"NH-P12",x:109,z:-83,yaw:Math.PI/2},
+   ]},
 ] as const;
 export const NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010=new Set(
   NORTH_HEIGHTS_PARKING_LOTS_010.map(l=>l.blockId),
