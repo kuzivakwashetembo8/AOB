@@ -33,6 +33,17 @@ function DistrictVector({x,z,labels=false}:{
     {labels&&<text x={lot.x+20} y={lot.y+5} fontSize="12"
       fill="#ffda94">PARKING</text>}
   </g>)}
+  {labels&&[
+    {name:"SOUTH GATEWAY",x:320,y:578},
+    {name:"WEST TERRACE",x:105,y:352},
+    {name:"GLASS EXCHANGE",x:315,y:352},
+    {name:"EASTVIEW QUARTER",x:532,y:352},
+    {name:"RIDGE GARDENS",x:322,y:122},
+    {name:"SUMMIT CREST",x:318,y:38},
+  ].map(area=><text key={area.name} x={area.x} y={area.y}
+    textAnchor="middle" fontWeight="bold" fontSize="13"
+    paintOrder="stroke" stroke="#071522" strokeWidth="3"
+    fill="#e9eef2" opacity=".92">{area.name}</text>)}
   {labels&&NORTH_HEIGHTS_MAP_ROADS_010.map((road,i)=><g key={i}>
     <text x={road.x+4} y="13" fontSize="9" fill="#e4edf1"
       transform={`rotate(90 ${road.x+4} 13)`}>{road.northSouth}</text>
@@ -110,7 +121,7 @@ export function NorthHeightsExpandedMap({position,onClose}:{
    </div>
    <footer className="flex w-full max-w-[780px] flex-wrap items-center justify-between gap-2 text-xs text-slate-200">
      <span><span className="inline-block h-2 w-2 rounded-full bg-[#41ed69]"/> YOU ARE HERE</span>
-     <span>22 named streets · 6 areas · Parking P01 · Drag to pan</span>
+     <span>22 named streets · 6 areas · 2 parking lots · Drag to pan</span>
    </footer>
  </div>;
 }
