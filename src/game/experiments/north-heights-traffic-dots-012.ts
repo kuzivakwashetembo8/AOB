@@ -8,7 +8,7 @@ const STATES=["moving","braking","stopped","turning"] as const satisfies readonl
 const COLORS:Record<NH012MotionState,string>={
  moving:"#13E9D0",braking:"#FFC247",stopped:"#FA414F",turning:"#B66CFC",
 };
-export interface NH012Dots {update(snapshot:NH012TrafficSnapshot,camera:{x:number;z:number}):number;dispose():void;}
+export interface NH012Dots {update(snapshot:NH012TrafficSnapshot,camera:{x:number;z:number},excludeIds?:ReadonlySet<string>):number;dispose():void;}
 export function createNorthHeightsTrafficDots012(scene:Scene,maxCount=125):NH012Dots{
  const masters=new Map<NH012MotionState,Mesh>();
  const scratch=new Map<NH012MotionState,Float32Array>();
@@ -32,10 +32,11 @@ export function createNorthHeightsTrafficDots012(scene:Scene,maxCount=125):NH012
    masters.set(state,mesh);scratch.set(state,matrices);counts.set(state,0);
  }
  return {
-   update(snapshot,camera){
+   update(snapshot,camera,excludeIds){
      for(const state of STATES)counts.set(state,0);
      let countVisible=0;
      for(const a of snapshot.agents){
+       if(excludeIds?.has(a.id))continue;
        // Distant dots do not consume per-agent Babylon Mesh objects.
        // Depth testing still hides cars behind buildings.
        const dx=a.x-camera.x,dz=a.z-camera.z;
