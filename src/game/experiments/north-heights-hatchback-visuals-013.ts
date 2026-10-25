@@ -13,6 +13,7 @@ import {
 } from "@/game/traffic/nh013-hatchback-pilot";
 import {resolveMercerGLBFit,type Bounds006,type MercerExtra006Spec} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {northHeightsGround} from "./north-heights-reconstruction-001";
+import {blackenHatchbackTyreMaterial013} from "@/game/vehicles/nh013-hatchback-tyre-material";
 import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
 import {trafficTurnSteering013,smoothTrafficToe013} from "@/game/vehicles/nh013-traffic-turn-steering";
 import type {TrafficGraph012} from "@/game/traffic/nh012-lane-network";
@@ -115,6 +116,19 @@ function instantiateHatchback(scene:Scene,source:AssetContainer,agent:NH012Agent
  const fitted=worldBounds(meshes);
  visual.position.set(-(fitted.minX+fitted.maxX)/2,-fitted.minY,-(fitted.minZ+fitted.maxZ)/2);
  const painted=tintBody(meshes,agent.paintId as NH013HatchbackPaint);
+ // Keep imported source tyre tread textures but ensure genuine tyre rubber
+ // is black independently of the five accepted body paint variants.
+ const tyreMaterials=new Set<Material>();
+ for(const mesh of meshes){
+   const m=mesh.material;
+   if(m instanceof MultiMaterial){
+     for(const part of m.subMaterials)if(part&&blackenHatchbackTyreMaterial013(part))tyreMaterials.add(part);
+   }else if(m&&blackenHatchbackTyreMaterial013(m))tyreMaterials.add(m);
+ }
+ if(tyreMaterials.size===0){
+   entries.dispose();anchor.dispose(false,false);
+   throw Error("NH013 hatchback tyre blackening: missing isolated M_Wheel_Tire material");
+ }
  if(!painted){
    entries.dispose();anchor.dispose(false,false);
    throw Error("NH013 hatchback lacks isolated main body paint material");
