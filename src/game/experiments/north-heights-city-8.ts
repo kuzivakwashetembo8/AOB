@@ -21,6 +21,7 @@ import {resolveNorthHeightsThirdPersonCamera,clampNorthHeightsPitch,clampNorthHe
 import {northHeightsLocationAt} from "@/game/world-generation/north-heights-location-009";
 import {MERCER_EXTRA_GLB_SPECS,createMercerExtraParkedGLBs} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {FirstDriveTrial} from "@/game/vehicles/first-drive-trial";
+import {FERRARI_WHEEL_MAPPING} from "@/game/vehicles/street-vehicle-wheels";
 import {nearestSportsCar,currentVehicleDisembark} from "@/game/vehicles/local-boarding";
 import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig} from "@/game/vehicles/ambient-fleet-driving-011";
 import {RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig} from "@/game/vehicles/range-rover-drive-007";
@@ -529,12 +530,22 @@ export async function createNorthHeightsCity8(
       const extra=rover?null:extraDriveName(parked.spec.id);
       if(!rover&&!extra)continue;
       try{
-        const wheel=rover?prepareRangeRoverWheelRig(parked.anchor):
-          prepareNativeFleetWheelRig(parked.anchor,extra!);
+        // Native wheel discovery may fail on a combined author GLB. It must
+        // not disable legitimate Rapier driving: physical steering/translation
+        // work without isolated wheel pivots (no fake tires are generated).
+        let wheelMapping=FERRARI_WHEEL_MAPPING;
+        try{
+          const wheel=rover?prepareRangeRoverWheelRig(parked.anchor):
+            prepareNativeFleetWheelRig(parked.anchor,extra!);
+          wheelMapping=wheel.mapping;
+        }catch(wheelIssue){
+          console.warn("[NH-010] Wheel mesh unavailable; driving without rig",
+            parked.spec.id,wheelIssue);
+        }
         const car=new FirstDriveTrial(walk.physics,parked.anchor,
           parked.drivingDimensions,
           rover?RANGE_ROVER_STREET_PROFILE:extraDriveProfile(extra!),
-          wheel.mapping,false,false);
+          wheelMapping,false,false);
         parked.releaseStaticCollider();
         cars.set(parked.spec.id,car);
         carNames.set(parked.spec.id,rover?"Range Rover":extra!);
