@@ -145,6 +145,9 @@ export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals
        .map(a=>({agent:a,distance:Math.hypot(a.x-camera.x,a.z-camera.z)}))
        .filter(x=>x.distance<G1_FAR).sort((a,b)=>a.distance-b.distance);
      const active=new Set<string>();
+     // Limit synchronous GLB hierarchy instantiation to ONE sedan per frame.
+     // Other moving agents retain dots until their genuine model is ready.
+     let createdThisFrame=0;
      for(const {agent,distance} of selected){
        const tier:Tier=distance<G1_NEAR?0:distance<G1_MEDIUM?1:2;
        const previous=visuals.get(agent.id);
@@ -155,8 +158,10 @@ export function createNorthHeightsSedanVisuals013(scene:Scene):NH013SedanVisuals
        if(actual===undefined)continue;
        if(previous&&previous.tier!==actual)release(agent.id);
        if(!visuals.has(agent.id)){
+         if(createdThisFrame>=1)continue;
          try{
            const instance=instantiateSedan(scene,sources.get(actual)!,agent,actual);
+           createdThisFrame++;
            visuals.set(agent.id,instance);created++;
          }catch(error){
            console.error("[NH-013] Sedan paint/model fit failed",agent.id,error);
