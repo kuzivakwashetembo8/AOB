@@ -236,7 +236,6 @@ export async function createNorthHeightsCity8(
       camera.position.copyFrom(follow);
       camera.setTarget(target);
     }
-    }
     if(++frames%40===0)statistics(
       "FPS "+Math.round(engine.getFps())+" · "+
       "MODE "+mode.toUpperCase()+" · "+

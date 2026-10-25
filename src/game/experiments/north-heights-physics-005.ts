@@ -67,6 +67,11 @@ export async function createNorthHeightsWalk005(
     addSurface("nh-ridge-terrain");
     addSurface("nh003-road:asphalt");
     addSurface("nh003-road:pavement");
+    // New park lawns and building-lot concrete become real walkable surfaces.
+    // Legacy NH-005 isolated tests omit them; they are optional at that level.
+    for(const block of ["nh008-block:grass","nh008-block:concrete"]){
+      if(scene.getMeshByName(block))addSurface(block);
+    }
     // Painted crossings have no independent collision surface. Curbs are
     // <=0.205m and covered by the existing Rapier 0.28m autostep.
     for(const lot of northHeightsBuildingCollision005(lots)){

@@ -1,6 +1,6 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
-import {ChevronDown,Info,X} from "lucide-react";
+import {X} from "lucide-react";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
 import type {GameCommand} from "@/game/core/types";
 import {pageHead} from "@/lib/page-head";
@@ -26,7 +26,6 @@ function NorthHeightsPreview(){
   const [meridianMinute,setMeridianMinute]=useState(14*60+53);
   const [meridianSpeed,setMeridianSpeed]=useState(2);
   const [mode,setMode]=useState<"walk"|"fly">("walk");
-  const [infoOpen,setInfoOpen]=useState(false);
   const [paused,setPaused]=useState(false);
   const [panel,setPanel]=useState<"pause"|"settings"|"objectives"|"save">("pause");
   const [feedback,setFeedback]=useState("");
@@ -119,28 +118,8 @@ function NorthHeightsPreview(){
         setMeridianTimeScale={setMeridianSpeed}/>}
       {ready&&!settings.hud&&<button type="button" className="absolute top-5 right-5 z-20"
         aria-label="Pause menu" onClick={()=>{setPanel("pause");setPaused(true);}}>II</button>}
-      <div className="pointer-events-none absolute left-2 top-[125px] z-20 flex max-w-[43vw] flex-col items-start gap-1">
-        <button type="button" aria-label="Toggle North Heights diagnostics"
-          aria-expanded={infoOpen} aria-controls="nh-diagnostics"
-          onClick={()=>setInfoOpen(v=>!v)}
-          className="pointer-events-auto flex h-9 max-w-full items-center gap-1.5 rounded-md border border-white/25 bg-[#111923]/90 px-2.5 text-[11px] font-bold text-amber-400">
-          <Info size={14}/><span className="truncate">NORTH HEIGHTS · 006</span>
-          <ChevronDown size={13} className={infoOpen?"rotate-180":""}/>
-        </button>
-        {infoOpen&&<section id="nh-diagnostics" aria-label="North Heights diagnostics"
-          className="pointer-events-auto max-h-[50dvh] w-[min(420px,78vw)] overflow-y-auto rounded-lg border border-white/25 bg-[#101923]/95 p-3 text-xs shadow-xl">
-          <div className="font-bold text-amber-400">MERIDIAN CITY // 05 NORTH HEIGHTS</div>
-          <div className="mt-2" role="status">{status}</div>
-          <div className="mt-2 text-white/75">{stats||"Initializing"}</div>
-          <div className="mt-2 text-white/60">Drag: look · Arrows/WASD: move · Shift: sprint · Space: jump</div>
-          <div className="mt-3 border-t border-white/15 pt-2 text-[10px] text-white/55">
-            North Heights experimental trial. City Pack 8 by Pasha (design reference, CC BY 4.0).
-            Tree model by 00amza (CC BY 4.0).
-          </div>
-        </section>}
-      </div>
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
-      {!ready&&!infoOpen&&<div role="status" className={"pointer-events-none absolute left-1/2 top-14 z-10 w-[min(460px,73vw)] -translate-x-1/2 rounded border border-white/15 px-2 py-1 text-center text-xs "+(failed?"bg-red-950/90":"bg-black/70")}>
+      {!ready&&<div role="status" className={"pointer-events-none absolute left-1/2 top-14 z-10 w-[min(460px,73vw)] -translate-x-1/2 rounded border border-white/15 px-2 py-1 text-center text-xs "+(failed?"bg-red-950/90":"bg-black/70")}>
         {failed?status:"Loading North Heights..."}
       </div>}
       {touchVisible&&!paused&&<TouchControls settings={settings} send={send} onAction={()=>undefined}/>}
@@ -167,6 +146,11 @@ function NorthHeightsPreview(){
               <p className="mb-5">{panel==="objectives"?snapshot.objective:"Save runtime not connected in North Heights trial."}</p>
               <button className="menu-button" onClick={()=>setPanel("pause")}>Back to pause menu</button>
             </div>}
+          <details className="overlay-note mt-4" aria-label="North Heights development diagnostics">
+            <summary>District diagnostics</summary>
+            <p>{status}</p><p>{stats||"Initializing"}</p>
+            <small>North Heights reconstruction trial · tree model by 00amza (CC BY 4.0).</small>
+          </details>
         </div>
       </div>}
     </main>
