@@ -109,7 +109,10 @@ export function prepareNH013SedanWheelRig(
    return {ready:true,identified:4,reason:"Four source rim/tyre/tread groups rigged",rig};
  }catch(error){
    for(const pivot of created.reverse()){
-     for(const child of pivot.getChildren())child.setParent(pivot.parent);
+     for(const child of pivot.getChildren()){
+       if(child instanceof TransformNode)child.setParent(pivot.parent as TransformNode);
+       else child.parent=pivot.parent;
+     }
      pivot.dispose();
    }
    return {ready:false,identified:0,
