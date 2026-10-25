@@ -5,7 +5,7 @@
 import {readFileSync,writeFileSync,mkdirSync} from "node:fs";
 import {join} from "node:path";
 const dir=join("public","GLBs","Cars");
-const source=readFileSync(join(dir,"Fourd Confusion Hatchback.glb"));
+const source=readFileSync(join(dir,"TrafficOptimized","Fourd-Confusion-Hatchback-Rigged.glb"));
 if(source.toString("ascii",0,4)!=="glTF"||source.readUInt32LE(4)!==2||
  source.readUInt32LE(8)!==source.length)throw Error("NH013 hatchback source corrupted");
 const jsonLength=source.readUInt32LE(12);
@@ -18,7 +18,7 @@ const keep=(p,m,level)=>{
  const count=input.accessors?.[p.indices??-1]?.count??
    input.accessors?.[p.attributes?.POSITION??-1]?.count??0;
  const triangles=Math.floor(count/3);
- const wheel=/wheel|rim|tyre|tire/.test(name+" "+material);
+ const wheel=/wheel|rim|tyre|tire|nh013_hatch/.test(name+" "+material);
  const required=/body_colormain|glass_main|glass_rubber/.test(material)||wheel;
  if(level===1)return required||triangles>=350;
  return required||(/light|chrome|body_plastic|mirror/.test(material)&&triangles>=500);
