@@ -13,6 +13,7 @@ import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generatio
 import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
 import { attachNorthHeightsGrass004, planNorthHeightsTrees004, type TreeLocation } from "./north-heights-trees-004";
+import {createNorthHeightsBlockSurfaces008} from "./north-heights-block-surfaces-008";
 
 export interface NorthHeightsGenerated {
   readonly count: number;
@@ -207,7 +208,7 @@ class InstancedCity {
       fresnel.rightColor=Color3.Black();
       material.reflectionFresnelParameters=fresnel;
     }
-    for(const [key,familyId] of [["road","asphalt"],["pavement","sidewalk-paving"]] as const) {
+    for(const [key,familyId] of [["road","asphalt"]] as const) {
       const family=MATERIAL_FAMILIES[familyId as MaterialFamilyId];
       const mat=this.mat(key);
       mat.diffuseTexture=createSurfaceTexture(scene,{
@@ -425,12 +426,16 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
         lodProfile:lot.family==="glass"?"skyline":"standard"},
     });
   }
+  const occupied=new Set(lots.map(l=>l.block));
+  const parkPlan=planNorthHeightsTrees004(MIDPOINTS,occupied,northHeightsGround,mobile);
+  createNorthHeightsBlockSurfaces008(scene,{
+    middle:MIDPOINTS,occupied,ground:northHeightsGround,trees:parkPlan,
+    grass:city.mat("grass"),concrete:city.mat("concrete"),
+  });
   const laneDashes=addTwoLaneMarkings005(city);
   const lamps=addStreetFurniture(city);
   const instances=city.commit();
-  const treeLocations=planNorthHeightsTrees004(
-    MIDPOINTS,new Set(lots.map(l=>l.block)),northHeightsGround,mobile,
-  );
+  const treeLocations=parkPlan;
   const trees=treeLocations.length;
   console.info("[NH-REBUILD-004] owner tree positions planned",{
     trees,asset:"tree_low_poly_lowpoly.glb",generatedCanopyCards:0,

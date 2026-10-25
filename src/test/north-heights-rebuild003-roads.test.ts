@@ -64,7 +64,7 @@ describe("NH-REBUILD-003 isolated South Ward-patterned road/curb checkpoint", ()
       for(let i=1;i<positions.length;i+=3)curbY.push(positions[i]!);
       // Real curb faces run from road top to sidewalk top; not only painted lines.
       expect(curbY.some(y=>Math.abs(y-.075)<.001)).toBe(true);
-      expect(curbY.some(y=>Math.abs(y-.205)<.001)).toBe(true);
+      expect(curbY.some(y=>Math.abs(y-.20)<.001)).toBe(true);
     } finally { scene.dispose();engine.dispose(); }
   });
 });

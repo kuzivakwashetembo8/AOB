@@ -12,6 +12,7 @@ import {
   SceneLoader, StandardMaterial, Texture, Vector3,
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
+import {sampleSouthWardGrassPixel} from "@/game/world-generation/ground-land-surface";
 
 export const NORTH_HEIGHTS_TREE_URI="/GLBs/Infrastructure/tree_low_poly_lowpoly.glb";
 export type TreeLocation={x:number;y:number;z:number;size:number;angle:number};
@@ -119,13 +120,9 @@ export async function placeNorthHeightsTrees004(
 
 /** SOUTH WARD's deterministic organic 64x64 grass distribution; no cube lawns. */
 export function attachNorthHeightsGrass004(scene:Scene,material:StandardMaterial){
-  const pixels=new Uint8Array(64*64*4),rand=rng(71421);
+  const pixels=new Uint8Array(64*64*4);
   for(let y=0;y<64;y++)for(let x=0;x<64;x++){
-    const i=(y*64+x)*4,n=rand(),b=rand();
-    pixels[i]=45+Math.round(n*18+b*10);
-    pixels[i+1]=78+Math.round(n*28+b*18);
-    pixels[i+2]=42+Math.round(n*16);
-    pixels[i+3]=255;
+    pixels.set(sampleSouthWardGrassPixel((x+.5)/8,(y+.5)/8,x,y),(y*64+x)*4);
   }
   const tex=RawTexture.CreateRGBATexture(pixels,64,64,scene,true,false,Texture.TRILINEAR_SAMPLINGMODE);
   tex.name="nh004-south-ward-grass";

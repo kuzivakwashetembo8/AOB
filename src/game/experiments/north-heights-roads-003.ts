@@ -25,7 +25,7 @@ type Layer = "asphalt" | "pavement" | "curb" | "crossing";
 type Builder = { p:number[];uv:number[];indices:number[] };
 type Point = Readonly<{x:number;y:number;z:number}>;
 const WIDTH=8, HALF=WIDTH/2, WALK=3.75, OUTER=HALF+WALK;
-const CURB_TOP=.205, WALK_TOP=.20, ASPHALT_TOP=.075;
+const CURB_TOP=.20, WALK_TOP=.20, ASPHALT_TOP=.075;
 const STEP=6; // metres between grade samples
 
 function empty():Builder{return {p:[],uv:[],indices:[]};}
@@ -151,14 +151,13 @@ export function createNorthHeightsRoads003(
       const start=streets[i]!+OUTER, end=streets[i+1]!-OUTER;
       // Clip every footpath and face curb at next crossroads.
       for(const side of [-1,1]){
-        const inner=side<0?-HALF-.20:HALF+.20;
+        const inner=side<0?-HALF:HALF;
         const outer=side*OUTER;
         runStrip(batch.pavement,axis,fixed,Math.min(inner,outer),Math.max(inner,outer),
           start,end,WALK_TOP,at); sidewalkCount++;
-        runStrip(batch.curb,axis,fixed,
-          side<0?-HALF-.20:HALF,side<0?-HALF:HALF+.20,
-          start,end,CURB_TOP,at);curbCount++;
+        // A vertical 3D curb face only: no thin raised top ribbon/stripe.
         curbFace(batch.curb,axis,fixed,side*HALF,start,end,at);
+        curbCount++;
       }
     }
   }

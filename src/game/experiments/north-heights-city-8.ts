@@ -69,7 +69,7 @@ export async function createNorthHeightsCity8(
   let settings:Settings=defaults;
   let paused=false,analog={x:0,y:0},keyboardUsed=false;
   let renderLast=0;
-  let yaw = 0, pitch = 0, closed = false, anchor = new Vector3(0, 4, -15);
+  let yaw = 0, pitch = 0, closed = false;
   let treeHandle: {dispose:()=>void} | null = null;
   let walk:NorthHeightsWalk005|null=null;
   let actor:ReturnType<typeof createMercerStaticCharacter>|null=null;
@@ -80,7 +80,7 @@ export async function createNorthHeightsCity8(
   const footSpawn={x:0,z:-31};
   let lastGrounded=false;
   let lastTravelSpeed=0;
-  let initialYaw = 0, initialPitch = 0;
+  const initialYaw = 0, initialPitch = 0;
   let dragPointer: number | null = null, lastX = 0, lastY = 0;
   let frames = 0;
   const keyDown = (event: KeyboardEvent) => {
@@ -196,12 +196,46 @@ export async function createNorthHeightsCity8(
       );
       camera.position.copyFrom(follow);
       camera.setTarget(target);
-    } else {
-      const y=Number(active("up")||key("Space"))-
+    } else if(mode==="fly"&&walk&&actor&&humanoid){
+      // Flight is still third person. Move the SAME Rapier capsule, not
+      // the camera in isolation; render exactly one selected visual actor.
+      const up=Number(active("up")||key("Space"))-
         Number(active("down")||key("ControlLeft")||key("ControlRight"));
-      const move=heading.scale(z).add(side.scale(x)).add(new Vector3(0,y,0));
-      if(move.lengthSquared()>0)camera.position.addInPlace(move.normalize().scale((fast?87:24)*dt));
-      camera.rotation.set(pitch,yaw,0);
+      const travel=heading.scale(z).add(side.scale(x)).add(new Vector3(0,up,0));
+      const length=Math.sqrt(travel.lengthSquared());
+      if(length>1)travel.scaleInPlace(1/length);
+      const flightSpeed=fast?25:9;
+      physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
+      let position=walk.physics.playerPosition();
+      while(physicsAccumulator>=1/60){
+        const desired=travel.scale(flightSpeed/60);
+        walk.physics.movePlayer({x:desired.x,y:desired.y,z:desired.z});
+        position=walk.physics.playerPosition();
+        if(Math.hypot(desired.x,desired.z)>.005)
+          headingYaw=Math.atan2(desired.x,desired.z);
+        const animation={
+          dt:1/60,forward:z>.08,backward:z<-.08,left:x<-.08,right:x>.08,
+          ascending:up>.08,descending:up<-.08,accelerated:fast,
+        };
+        if(settings.enableCharacter){
+          actor.updateControlledFlight(position,headingYaw,animation);
+        }else{
+          humanoid.root.position.set(position.x,position.y,position.z);
+          humanoid.root.rotation.y=headingYaw;
+          humanoid.updateFlightAnimation(animation);
+        }
+        physicsAccumulator-=1/60;
+      }
+      const orbit=Math.max(-.65,Math.min(.65,pitch));
+      const target=new Vector3(position.x,position.y+.55,position.z);
+      const follow=new Vector3(
+        position.x-Math.sin(yaw)*Math.cos(orbit)*9,
+        position.y+2.8-Math.sin(orbit)*6.3,
+        position.z-Math.cos(yaw)*Math.cos(orbit)*9,
+      );
+      camera.position.copyFrom(follow);
+      camera.setTarget(target);
+    }
     }
     if(++frames%40===0)statistics(
       "FPS "+Math.round(engine.getFps())+" · "+
@@ -256,15 +290,15 @@ export async function createNorthHeightsCity8(
       else {renderLast=0;engine.resize();}
     },
     reset() {
-      if(mode==="walk"&&walk)walk.reset(footSpawn.x,footSpawn.z);
-      else {camera.position.copyFrom(anchor);yaw=initialYaw;pitch=initialPitch;}
+      walk?.reset(footSpawn.x,footSpawn.z);
+      yaw=initialYaw;pitch=initialPitch;headingYaw=0;
       physicsAccumulator=0;clearKeys();
     },
     setTime(time) { sky.setTime(time); },
     setMode(next){
       if(next==="walk"&&(!walk||!actor||!humanoid))return false;
       mode=next;clearKeys();physicsAccumulator=0;
-      if(next==="fly"){camera.position.copyFrom(anchor);yaw=initialYaw;pitch=initialPitch;}
+      // Preserve the capsule position and third-person orbit on mode changes.
       onModeChange?.(next);
       return true;
     },
@@ -331,11 +365,10 @@ export async function createNorthHeightsCity8(
     onModeChange?.("walk");
     physicsAccumulator=0;
     applyGraphics();
-    anchor=world.overview.clone();
-    camera.position.copyFrom(anchor);
-    camera.setTarget(new Vector3(0,48,0));
-    yaw=0; pitch=.05;
-    initialYaw=yaw; initialPitch=pitch;
+    yaw=initialYaw;pitch=initialPitch;
+    const spawn=walk.physics.playerPosition();
+    camera.position.set(spawn.x,spawn.y+2.5,spawn.z-6.8);
+    camera.setTarget(new Vector3(spawn.x,spawn.y+.4,spawn.z));
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
