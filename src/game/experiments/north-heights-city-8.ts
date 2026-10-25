@@ -332,12 +332,29 @@ export async function createNorthHeightsCity8(
       locationTick=0;updateLocation();
       if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
     }
-    if(++frames%40===0)statistics(
-      "FPS "+Math.round(engine.getFps())+" · "+
-      "MODE "+mode.toUpperCase()+" · "+
-      (traffic?"TRAFFIC "+traffic.population+" DOTS "+visibleTrafficDots+" SIM "+traffic.tick+" · ":"")+
-      (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
-      "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
+    if(++frames%40===0){
+      const sedanReport=sedanVisuals?.report;
+      const pilots=traffic?.agents.filter(a=>a.modelId==="gtd-traffic-sedan-013")??[];
+      const closest=pilots.map(a=>({
+        distance:Math.hypot(a.x-camera.position.x,a.z-camera.position.z),
+        dx:a.x-camera.position.x,dz:a.z-camera.position.z,
+      })).sort((a,b)=>a.distance-b.distance)[0];
+      const sedanInfo=sedanReport
+        ?"SEDAN "+sedanReport.active+"/"+pilots.length+
+         " NEAREST "+(closest?closest.distance.toFixed(0)+"m":"NONE")+
+         " (E "+(closest?closest.dx.toFixed(0):"?")+
+         " / N "+(closest?closest.dz.toFixed(0):"?")+")"+
+         " LOD "+sedanReport.loaded+"/3"+
+         (sedanReport.failed.length?" ERROR "+sedanReport.failed[0]:"")
+        :"SEDAN PILOT INITIALIZING";
+      statistics(
+        "FPS "+Math.round(engine.getFps())+" · "+
+        "MODE "+mode.toUpperCase()+" · "+
+        (traffic?"TRAFFIC "+traffic.population+" DOTS "+visibleTrafficDots+" SIM "+traffic.tick+" · ":"")+
+        sedanInfo+" · "+
+        (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
+        "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
+    }
   });
   engine.runRenderLoop(() => {
     if(closed||paused)return;
