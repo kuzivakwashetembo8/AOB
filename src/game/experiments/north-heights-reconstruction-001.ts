@@ -14,6 +14,8 @@ import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
 import { attachNorthHeightsGrass004, planNorthHeightsTrees004, type TreeLocation } from "./north-heights-trees-004";
 import {createNorthHeightsBlockSurfaces008} from "./north-heights-block-surfaces-008";
+import {NORTH_HEIGHTS_PARKING_LOTS_010,NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010,
+ NORTH_HEIGHTS_PORTAL_WIDTH_010,NORTH_HEIGHTS_PORTAL_HEIGHT_010} from "./north-heights-spatial-plan-010";
 
 export interface NorthHeightsGenerated {
   readonly count: number;
@@ -22,6 +24,7 @@ export interface NorthHeightsGenerated {
   readonly treeLocations: readonly TreeLocation[];
   readonly streetCount: number;
   readonly lotSpecs: readonly BuildingSpec[];
+  readonly parkingLots: typeof NORTH_HEIGHTS_PARKING_LOTS_010;
   readonly focus: Vector3;
   readonly overview: Vector3;
   readonly dimensions: { width: number; height: number };
@@ -51,6 +54,7 @@ const palette: Record<string, string> = {
   "grass": "#36573e", "grass-light": "#587858",
   "trunk": "#675346", "leaf-a": "#3c684f", "leaf-b": "#568462", "leaf-c": "#78946a",
   "door": "#243139", "lamp": "#e7ddb8", "interior": "#151b22", "crosswalk": "#deded8",
+  "interior-white": "#ffffff",
 };
 const random = (seed: number) => {
   let value = seed >>> 0;
@@ -284,14 +288,32 @@ function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
     // geometry is generated over or behind individual square apertures.
     const xg=side==="z"?x:x+sign*(w/2-.20);
     const zg=side==="z"?z+sign*(d/2-.20):z;
-    city.box(pane,xg,base+height/2,zg,
+    const entranceFace=side==="z"&&sign===1;
+    const openingWidth=Math.min(NORTH_HEIGHTS_PORTAL_WIDTH_010,w*.45);
+    if(entranceFace){
+      // GLASS MAIN PRESERVED: identical pane material, only remove the real
+      // physical window surface from the doorway rectangle at ground level.
+      const panelSpan=(length-.5-openingWidth)/2;
+      for(const direction of [-1,1])
+        city.box(pane,x+direction*(openingWidth/2+panelSpan/2),base+height/2,zg,
+          panelSpan,height-.50,.055);
+      if(height>NORTH_HEIGHTS_PORTAL_HEIGHT_010+.6)
+        city.box(pane,x,base+NORTH_HEIGHTS_PORTAL_HEIGHT_010+
+          (height-.50-NORTH_HEIGHTS_PORTAL_HEIGHT_010)/2,zg,
+          openingWidth,height-.50-NORTH_HEIGHTS_PORTAL_HEIGHT_010,.055);
+    }else city.box(pane,xg,base+height/2,zg,
       side==="z"?length-.5:.055,height-.50,side==="z"?.055:length-.5);
     const xf=(at:number)=>side==="z"?x+at:x+sign*(w/2+.06);
     const zf=(at:number)=>side==="z"?z+sign*(d/2+.06):z+at;
     // Vertical piers (true facade solids) terminate at each window edge.
     for(let col=0;col<=bays;col++){
       const at=-length/2+col*bay;
-      city.box(frame,xf(at),base+height/2,zf(at),
+      if(entranceFace&&Math.abs(at)<openingWidth/2+.16){
+        if(height>NORTH_HEIGHTS_PORTAL_HEIGHT_010)
+          city.box(frame,xf(at),base+NORTH_HEIGHTS_PORTAL_HEIGHT_010+
+            (height-NORTH_HEIGHTS_PORTAL_HEIGHT_010)/2,zf(at),
+            isHigh?.16:.44,height-NORTH_HEIGHTS_PORTAL_HEIGHT_010,isHigh?.16:.44);
+      }else city.box(frame,xf(at),base+height/2,zf(at),
         side==="z"?isHigh?.16:.44:.16,height,side==="z"?.16:isHigh?.16:.44);
     }
     // Continuous physical sills/spandrels with apertures between; horizontal
@@ -300,19 +322,20 @@ function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
     for(let floor=0;floor<=floors;floor+=stride){
       const y=base+Math.min(floor,floors)*lot.floorHeight+.13;
       if(y>base+height+.2)break;
-      city.box(frame,xf(0),y,zf(0),
+      if(entranceFace&&floor===0){
+        const remaining=(length-openingWidth)/2;
+        for(const direction of [-1,1])
+          city.box(frame,xf(direction*(openingWidth/2+remaining/2)),y,zf(0),
+            remaining,sill,.20);
+      }else city.box(frame,xf(0),y,zf(0),
         side==="z"?length:.20,sill,side==="z"?.20:length);
     }
     if(floors%stride!==0)
       city.box(frame,xf(0),base+height-.02,zf(0),side==="z"?length:.20,sill,side==="z"?.20:length);
   };
   facade("z",1);facade("z",-1);facade("x",1);facade("x",-1);
-  const entrances=(mode==="estate"||mode==="residential")?1:2;
-  for(let i=0;i<entrances;i++){
-    const offset=(i-(entrances-1)/2)*Math.min(6,w*.23);
-    city.box("door",x+offset,base+1.45,z+d/2+.35,2.3,2.8,.13);
-    city.box("metal",x+offset,base+2.93,z+d/2+.39,2.75,.12,.17);
-  }
+  // NH-010: deliberately NO door mesh. The centered +Z opening passes
+  // through the glass, mullions and physical perimeter, all sharing a portal.
 }
 function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   const x=lot.x,z=lot.z,y=northHeightsGround(x,z),w=lot.width,d=lot.depth;
@@ -325,14 +348,12 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   const podium = style==="glass" || style==="office";
   const podiumH = podium ? 6.4 : 0;
   city.box("concrete",x,y+.45,z,w+1.8,.9,d+1.8);
-  // No exterior solid wall behind the windows. Inset service core reads as
-  // dark interior depth through 0.74-alpha glass rather than a painted cube.
-  const interiorMargin=Math.min(4,Math.min(w,d)*.13);
-  city.box("interior",x,y+height/2+.8,z,w-2*interiorMargin,height-.15,d-2*interiorMargin);
-  // Interior floor slabs at selected levels create parallax behind glazing,
-  // without loading dozens of fully modeled rooms in a distant tower.
-  for(let f=3;f<lot.floors;f+=Math.max(3,mobile?7:5))
-    city.box("roof",x,y+f*lot.floorHeight+.8,z,w-1.4,.16,d-1.4);
+  // Physically empty rooms, no dark central cuboid, no furniture. One shared
+  // PURE WHITE slab family for floor surfaces and interior roof undersides.
+  city.box("interior-white",x,y+.88,z,w-.6,.10,d-.6);
+  for(let f=1;f<lot.floors;f++)
+    city.box("interior-white",x,y+.80+f*lot.floorHeight,z,w-.6,.14,d-.6);
+  city.box("interior-white",x,y+height+.63,z,w-.6,.14,d-.6);
   if(podium) {
     // Open-sided podium: structural corner piers, not an opaque box hiding glass.
     for(const sx of [-1,1])for(const sz of [-1,1])
@@ -340,7 +361,8 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
     city.box("stone-c",x,y+podiumH+.9,z,w+2.4,.55,d+2.4);
     for(let c=0;c<Math.floor(w/4);c++) {
       const px=x-w/2+(c+.5)*w/Math.floor(w/4);
-      city.box("glass-mid",px,y+3.1,z+d/2+1.27,2.7,3.9,.08);
+      if(Math.abs(px-x)>NORTH_HEIGHTS_PORTAL_WIDTH_010/2+1.4)
+        city.box("glass-mid",px,y+3.1,z+d/2+1.27,2.7,3.9,.08);
     }
   }
   addFacade(city,lot,x,z,y+.8,height,w,d,style,lot.accent,mobile,wall);
@@ -426,7 +448,9 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
         lodProfile:lot.family==="glass"?"skyline":"standard"},
     });
   }
-  const occupied=new Set(lots.map(l=>l.block));
+  // NH-010: reserved land was not built on by the deterministic seeded
+  // generator; marking it occupied converts only this vacant lawn to pavement.
+  const occupied=new Set([...lots.map(l=>l.block),...NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010]);
   // NH-009: reserve the compact curbside forecourt beside Meridian Boulevard
   // for the genuine six-car fleet. No road, window or main glass material edits.
   const parkPlan=planNorthHeightsTrees004(MIDPOINTS,occupied,northHeightsGround,mobile)
@@ -435,6 +459,16 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
     middle:MIDPOINTS,occupied,ground:northHeightsGround,trees:parkPlan,
     grass:city.mat("grass"),concrete:city.mat("concrete"),
   });
+  // Economical shared lines denote six park bays, with a broad empty drive
+  // aisle. Preserve the building-free planned block and original road grid.
+  for(const lot of NORTH_HEIGHTS_PARKING_LOTS_010){
+    for(const stall of lot.stalls){
+      const elevation=northHeightsGround(stall.x,stall.z)+.085;
+      city.box("crosswalk",stall.x-4,elevation,stall.z, .12,.015,7.0);
+      city.box("crosswalk",stall.x+4,elevation,stall.z, .12,.015,7.0);
+      city.box("crosswalk",stall.x,elevation,stall.z-3.55, 8,.015,.12);
+    }
+  }
   const laneDashes=addTwoLaneMarkings005(city);
   const lamps=addStreetFurniture(city);
   const instances=city.commit();
@@ -450,7 +484,7 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
   return {
     count:lots.length,blocks:100,streetCount:STREETS.length*2,instanceCount:instances,
     treeLocations,
-    lotSpecs,dimensions:{width:EXTENT*2,height:tall},
+    lotSpecs,parkingLots:NORTH_HEIGHTS_PARKING_LOTS_010,dimensions:{width:EXTENT*2,height:tall},
     focus:new Vector3(-30,northHeightsGround(-30,-35)+1.5,-35),
     overview:new Vector3(142,103,-251),
   };
