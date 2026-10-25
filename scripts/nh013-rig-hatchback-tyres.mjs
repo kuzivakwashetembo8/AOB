@@ -6,6 +6,7 @@
  */
 import {readFileSync,writeFileSync,mkdirSync} from "node:fs";
 import {join} from "node:path";
+import draco3d from "draco3dgltf";
 const dir=join("public","GLBs","Cars");
 const input=readFileSync(join(dir,"Fourd Confusion Hatchback.glb"));
 if(input.toString("ascii",0,4)!=="glTF"||input.readUInt32LE(4)!==2||
@@ -29,43 +30,74 @@ const target=JSON.parse(JSON.stringify(json));
 const binaryExtra=[];
 let currentOffset=originalBin.length;
 const align4=()=>{const p=(4-currentOffset%4)%4;if(p){binaryExtra.push(Buffer.alloc(p));currentOffset+=p;}};
-function readPosition(p,index){
- const accessor=json.accessors[p.attributes.POSITION];
- const view=json.bufferViews[accessor.bufferView];
- if(accessor.componentType!==5126||accessor.type!=="VEC3")
-   throw Error("NH013 only certified float VEC3 tyre geometry");
- const stride=view.byteStride??12;
- const at=(view.byteOffset??0)+(accessor.byteOffset??0)+index*stride;
- return [originalBin.readFloatLE(at),originalBin.readFloatLE(at+4),
-   originalBin.readFloatLE(at+8)];
-}
-function readIndices(p){
- const a=json.accessors[p.indices],v=json.bufferViews[a.bufferView];
- const at=(v.byteOffset??0)+(a.byteOffset??0);
- const width=a.componentType===5125?4:a.componentType===5123?2:
-  a.componentType===5121?1:0;
- if(!width)throw Error("NH013 unexpected tire index type");
- const out=[];
- for(let i=0;i<a.count;i++){
-   const p=at+i*width;
-   out.push(width===4?originalBin.readUInt32LE(p):
-     width===2?originalBin.readUInt16LE(p):originalBin.readUInt8(p));
+const decoderModule=await draco3d.createDecoderModule();
+const decoder=new decoderModule.Decoder();
+const appendBytes=(bytes)=>{
+ align4();const offset=currentOffset;
+ const buffer=Buffer.from(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+ binaryExtra.push(buffer);currentOffset+=buffer.length;
+ const bv=target.bufferViews.length;
+ target.bufferViews.push({buffer:0,byteOffset:offset,byteLength:buffer.length});
+ return bv;
+};
+function decodeDraco(p){
+ const ext=p.extensions?.KHR_draco_mesh_compression;
+ if(!ext)throw Error("NH013 only certified Draco wheel primitives");
+ const view=json.bufferViews[ext.bufferView];
+ const compressed=originalBin.subarray(view.byteOffset??0,
+   (view.byteOffset??0)+view.byteLength);
+ const buf=new decoderModule.DecoderBuffer();
+ buf.Init(new Int8Array(compressed),compressed.length);
+ const mesh=new decoderModule.Mesh();
+ const status=decoder.DecodeBufferToMesh(buf,mesh);
+ if(!status.ok())throw Error("NH013 Draco wheel decode failed: "+status.error_msg());
+ const index=[];
+ const face=new decoderModule.DracoInt32Array();
+ for(let i=0;i<mesh.num_faces();i++){
+   decoder.GetFaceFromMesh(mesh,i,face);
+   index.push(face.GetValue(0),face.GetValue(1),face.GetValue(2));
  }
- if(out.length%3)throw Error("NH013 indexed triangle count invalid");
- return out;
+ const newAttributes={};
+ const localPositions=[];
+ for(const [semantic,attributeId] of Object.entries(ext.attributes)){
+   const attribute=decoder.GetAttributeByUniqueId(mesh,attributeId);
+   if(!attribute||!attribute.ptr)throw Error("Missing Draco wheel attribute "+semantic);
+   const array=new decoderModule.DracoFloat32Array();
+   decoder.GetAttributeFloatForAllPoints(mesh,attribute,array);
+   const length=array.size(),values=new Float32Array(length);
+   for(let i=0;i<length;i++)values[i]=array.GetValue(i);
+   const originalAccessor=json.accessors[p.attributes[semantic]];
+   const components=originalAccessor.type==="VEC4"?4:
+     originalAccessor.type==="VEC3"?3:originalAccessor.type==="VEC2"?2:1;
+   if(values.length!==mesh.num_points()*components)
+     throw Error("Incorrect Draco wheel attribute size "+semantic);
+   const bv=appendBytes(new Uint8Array(values.buffer));
+   const ai=target.accessors.length;
+   target.accessors.push({
+      bufferView:bv,componentType:5126,count:mesh.num_points(),
+      type:originalAccessor.type,...(originalAccessor.min?{min:originalAccessor.min}:{}),
+      ...(originalAccessor.max?{max:originalAccessor.max}:{}),
+   });
+   newAttributes[semantic]=ai;
+   if(semantic==="POSITION")localPositions.push(values);
+   decoderModule.destroy(array);
+ }
+ if(localPositions.length!==1)throw Error("Draco wheel POS failed");
+ decoderModule.destroy(face);decoderModule.destroy(mesh);decoderModule.destroy(buf);
+ return {indices:index,positions:localPositions[0],attributes:newAttributes};
 }
 const grouped=new Map();
 for(const corner of wheels)grouped.set(corner.name,[]);
 for(const meshIndex of [36,37]){
  const sourceMesh=json.meshes[meshIndex];
  for(const primitive of sourceMesh.primitives){
-   const inds=readIndices(primitive);
+   const decoded=decodeDraco(primitive);
+   const inds=decoded.indices,pos=decoded.positions;
    const pieces=new Map(wheels.map(c=>[c.name,[]]));
    for(let i=0;i<inds.length;i+=3){
-     const a=readPosition(primitive,inds[i]);
-     const b=readPosition(primitive,inds[i+1]);
-     const c=readPosition(primitive,inds[i+2]);
-     const mx=(a[0]+b[0]+c[0])/3,my=(a[1]+b[1]+c[1])/3;
+     const i0=inds[i]*3,i1=inds[i+1]*3,i2=inds[i+2]*3;
+     const mx=(pos[i0]+pos[i1]+pos[i2])/3;
+     const my=(pos[i0+1]+pos[i1+1]+pos[i2+1])/3;
      if(Math.abs(mx)<.35||Math.abs(my)<.5)
        throw Error("NH013 triangle crossing distinct source wheel region");
      const name=(my<0?"front":"rear")+(mx>0?"Left":"Right");
@@ -83,8 +115,11 @@ for(const meshIndex of [36,37]){
      target.accessors.push({bufferView:bv,componentType:5125,count:picked.length,
        type:"SCALAR",min:[Math.min(...picked)],max:[Math.max(...picked)]});
      const mesh=target.meshes.length;
+     // Material/UV/normal/tangent attributes come from EXACT decoded
+     // source geometry. The resulting primitive no longer needs Draco.
+     const {extensions:unusedExtensions,...originalSettings}=primitive;
      target.meshes.push({name:"NH013_"+name+"_"+sourceMesh.name,
-       primitives:[{...primitive,indices:acc}]});
+       primitives:[{...originalSettings,attributes:decoded.attributes,indices:acc}]});
      grouped.get(name).push(mesh);
    }
  }
@@ -120,6 +155,7 @@ const bh=Buffer.alloc(8);bh.writeUInt32LE(binLength,0);bh.write("BIN\0",4);
 const out=Buffer.concat([hdr,jsonChunk,bh,paddedBin]);
 const dest=join(dir,"TrafficOptimized");mkdirSync(dest,{recursive:true});
 writeFileSync(join(dest,"Fourd-Confusion-Hatchback-Rigged.glb"),out);
+decoderModule.destroy(decoder);
 console.info("NH013_HATCH_WHEEL_SPLIT "+JSON.stringify({
  originalBytes:input.length,derivativeBytes:out.length,
  pivots:wheels.length,originalTyreMeshes:[36,37],
