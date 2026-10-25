@@ -41,7 +41,7 @@ describe("NH-013 G1 source-authentic sedan heading and wheel qualification",()=>
    const back=center("107 reused Sculpted_tyre.002");
    expect(front[0]).toBeLessThan(0);
    expect(back[0]).toBeGreaterThan(0);
-   expect(back[0]-front[0]).toBeGreaterThan(2.7);
+   expect(back[0]!-front[0]!).toBeGreaterThan(2.7);
    expect(center("107 reused Sculpted_tyre.001")[2]).toBeLessThan(0);
    expect(center("107 reused Sculpted_tyre")[2]).toBeGreaterThan(0);
    // Real source headlamp x<0 and tail-light x>0, proving front/rear.
