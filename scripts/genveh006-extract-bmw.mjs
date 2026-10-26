@@ -4,6 +4,8 @@
  * accepted Lamborghini. Deliberately fails closed for missing wheel corners.
  */
 import {readFile,mkdir,writeFile} from "node:fs/promises";
+import {existsSync} from "node:fs";
+import {execFileSync} from "node:child_process";
 import {dirname} from "node:path";
 import {NodeIO} from "@gltf-transform/core";
 import {ALL_EXTENSIONS} from "@gltf-transform/extensions";
@@ -12,6 +14,10 @@ import draco3d from "draco3dgltf";
 const source="public/GLBs/Cars/bmw_m4_competition_m_package (1).glb";
 const sourceWheels="public/GLBs/Cars/Generated/bmw-m4-competition.glb";
 const output="src/game/vehicles/bmw-source-data-006.ts";
+// The standalone npm prebuild must also succeed without the custom Vercel
+// preflight: populate the verified WHEEL-001 derivative only if absent.
+if(!existsSync(sourceWheels))
+ execFileSync(process.execPath,["scripts/wheel001_extract_wheels.mjs"],{stdio:"inherit"});
 const bytes=await readFile(source);
 if(bytes.byteLength!==1928276)throw Error("GEN-VEH-006 unexpected source GLB size");
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
