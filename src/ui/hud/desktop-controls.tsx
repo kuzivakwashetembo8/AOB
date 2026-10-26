@@ -53,7 +53,7 @@ function MovementButton({
   return (
     <Button
       variant="control"
-      className="desktop-control-button"
+      className={`desktop-control-button gtd-priority-action gtd-action-${action}`}
       aria-label={`${label} (${keyHint})`}
       data-tooltip={`${label} · ${keyHint}`}
       onPointerDown={(event) => {
@@ -73,9 +73,11 @@ function MovementButton({
 export function DesktopControls({
   send,
   onAction,
+  driving = false, flying = false, canEnterVehicle = false, canExitVehicle = true,
 }: {
   send: Send;
   onAction: (action: GameAction) => void;
+  driving?: boolean; flying?: boolean; canEnterVehicle?: boolean; canExitVehicle?: boolean;
 }) {
   return (
     <div className="desktop-controls" aria-label="Desktop game controls">
@@ -89,7 +91,11 @@ export function DesktopControls({
       </div>
 
       <div className="desktop-action-pad" aria-label="Action controls">
-        {actionSpecs.map(({ action, label, keyHint, icon: Icon }) => (
+        {actionSpecs.filter(({action}) =>
+          driving ? action==="vehicle"&&canExitVehicle :
+          flying ? ["sprint","jump","descend","fly"].includes(action) :
+          ["sprint","jump","fly"].includes(action)||(action==="vehicle"&&canEnterVehicle)
+        ).map(({ action, label, keyHint, icon: Icon }) => (
           <Button
             variant="control"
             className="desktop-control-button"
