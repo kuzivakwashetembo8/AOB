@@ -31,6 +31,7 @@ function NorthHeightsPreview(){
   const [position,setPosition]=useState({x:0,z:-31});
   const [vehicle,setVehicle]=useState<string|null>(null);
   const [vehicleSpeed,setVehicleSpeed]=useState(0);
+  const [canEnterVehicle,setCanEnterVehicle]=useState(false);
   const [inside,setInside]=useState(false);
   const [mapOpen,setMapOpen]=useState(false);
   const [paused,setPaused]=useState(false);
@@ -82,7 +83,8 @@ function NorthHeightsPreview(){
             setVehicle(nextVehicle);
             setVehicleSpeed(speed);
           }},
-          nextInside=>{if(!closed)setInside(nextInside);});
+          nextInside=>{if(!closed)setInside(nextInside);},
+          available=>{if(!closed)setCanEnterVehicle(available);});
         if(closed)instance.dispose();
         else{
           controller.current=instance;
@@ -147,8 +149,11 @@ function NorthHeightsPreview(){
         {failed?status:"Loading North Heights..."}
       </div>}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
-        driving={vehicle!==null} onAction={()=>undefined}/>}
-      {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}/>}
+        driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
+        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
+      {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
+        driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
+        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
       {mapOpen&&<NorthHeightsExpandedMap position={position} onClose={()=>setMapOpen(false)}/>}
       {paused&&panel==="settings"&&<GTDSettingsOverlay
         location="NORTH HEIGHTS" settings={settings} onClose={close}
