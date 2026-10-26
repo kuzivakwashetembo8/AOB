@@ -105,6 +105,7 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
     },part==="body"?paint:part==="glass"?"#334D60":part==="wheels"?"#15191E":"#475560",part);
   }
   let lastCamera={x:NaN,y:NaN,z:NaN};
+  let lastCameraAt=0;
   let lastCounts={full:0,medium:0,distant:0,culled:0};
   function visibilityTier(a:{x:number;z:number},poseY:number,camera?:Camera) {
     if(!camera)return 0;
@@ -120,7 +121,9 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
     if(screen.x < -margin||screen.y < -margin||
        screen.x > engine.getRenderWidth()+margin||screen.y > engine.getRenderHeight()+margin)return -1;
     const apparent=(wheelbase+1)*engine.getRenderHeight()/(2*Math.tan(camera.fov/2)*distance);
-    const rapidDescent=Number.isFinite(lastCamera.y)&&camera.position.y<lastCamera.y-1.4;
+    const deltaSeconds=Math.max(.001,(performance.now()-lastCameraAt)/1000);
+    const rapidDescent=Number.isFinite(lastCamera.y)&&
+      (lastCamera.y-camera.position.y)/deltaSeconds>5;
     return apparent>(rapidDescent?14:42)?0:apparent>10?1:2;
   }
  let tick=-1;
@@ -185,7 +188,10 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
         b.mesh.thinInstanceRefreshBoundingInfo();
       }else b.mesh.setEnabled(false);
     }
-    if(camera)lastCamera={x:camera.position.x,y:camera.position.y,z:camera.position.z};
+    if(camera){
+      lastCamera={x:camera.position.x,y:camera.position.y,z:camera.position.z};
+      lastCameraAt=performance.now();
+    }
     last={vehicles3D:lastCounts.full+lastCounts.medium+lastCounts.distant,
       sourceGLBs:0,lowDetail:lastCounts.medium+lastCounts.distant,
       defaultFleet:snapshot.count,dots:0};
