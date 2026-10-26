@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Crosshair, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameSnapshot, HudContext, InputMode } from "@/game/core/types";
@@ -35,27 +35,26 @@ export function GameHud({
   setMeridianTimeScale: (scale: number) => void;
 }) {
   const [timeControlsOpen, setTimeControlsOpen] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  useEffect(() => {
+    if (timeControlsOpen) return;
+    const timeout = window.setTimeout(() => setHeaderVisible(false), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [headerVisible, timeControlsOpen]);
   const showHeat = snapshot.heat > 0;
   const showHealth = snapshot.health < 100;
   const showInteraction = interaction.trim().length > 0;
 
   return (
     <div className={`hud ${mode === "touch" ? "touch" : ""}`}>
-      <div className="hud-top">
-        {mapSlot ? <div className="flex min-w-0 items-start gap-2">
-          {mapSlot}
-          {showObjective&&<div className="objective">
-            <span className="system-label text-primary">OBJECTIVE</span>
-            <p>{snapshot.objective}</p>
-          </div>}
-        </div> : showObjective ? (
-          <div className="objective">
-            <span className="system-label text-primary">OBJECTIVE</span>
-            <p>{snapshot.objective}</p>
-          </div>
-        ) : (
-          <div />
-        )}
+      {mapSlot && <div className="gtd-map-always">{mapSlot}</div>}
+      <button type="button" className="gtd-header-reveal" aria-label={headerVisible ? "Hide game metadata" : "Show game metadata"} aria-expanded={headerVisible}
+        onClick={() => { setHeaderVisible(value => !value); setTimeControlsOpen(false); }}>
+        {headerVisible ? "HIDE INFO" : "INFO"}
+      </button>
+      <div className={`hud-top gtd-auto-header ${headerVisible ? "is-visible" : "is-hidden"}`}>
+
+        {showObjective ? <div className="objective"><span className="system-label text-primary">OBJECTIVE</span><p>{snapshot.objective}</p></div> : <div />}
 
         <div className="hud-top-right">
           <div className="relative">
@@ -155,17 +154,11 @@ export function GameHud({
             </div>
           )}
 
-          <Button
-            variant="control"
-            title="Pause menu"
-            aria-label="Pause menu"
-            onClick={pause}
-          >
-            <Pause size={18} />
-          </Button>
+
         </div>
       </div>
 
+      <Button variant="control" className="gtd-pause-always" title="Pause menu" aria-label="Pause menu" onClick={pause}><Pause size={18}/></Button>
       {showInteraction && (
         <div className="hud-prompt" aria-live="polite">
           {mode === "keyboard" && <span className="key">E</span>}
