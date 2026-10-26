@@ -82,3 +82,14 @@ Problem shown in accepted Step-2 images: generic grey disc hubs obscure the blac
 
 ### Previous acceptable checkpoints
 GEN-VEH-001 fast 125-car procedural traffic accepted by owner; GEN-VEH-002 Step 1 exterior source extraction accepted as method; GEN-VEH-002 Step 2 exterior reconstructed body accepted. Step 3 is limited to Lamborghini wheel fidelity and alignment.
+
+### Step 3 extraction checkpoint — build instrumentation
+The first build-time source extraction for GEN-VEH-003 completed its offline geometry stage successfully, with all four source-labelled wheel groups:
+| Corner | Native center X,Y,Z (m) | Radius (m) | Width (m) | Source nodes | Rim triangles | Tyre triangles |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| FL | +0.755, 0.320, +1.052 | .312 | .355 | 14 | 2,916 | 1,120 |
+| FR | -0.761, 0.320, +1.052 | .305 | .249 | 14 | 2,919 | 1,120 |
+| RL | +0.729, 0.328, -1.316 | .322 | .320 | 20 | 3,699 | 1,120 |
+| RR | -0.735, 0.328, -1.316 | .322 | .320 | 20 | 3,698 | 1,120 |
+
+Total native source-wheel geometry is 13,232 rim triangles + 4,480 tyre triangles = **17,712 triangles** across four corner meshes, not 17k per wheel. The source normalized axle wheelbase measures **2.368 m**, compared with the previous procedural approximation `4.75*.59=2.8025 m`. This 0.4345 m mismatch explains misplaced front/rear discs. Each corner's native geometry has preserved source spokes and tire construction. FL/FR naming uses original source labels, while X-sign follows GTD's normalized axis (FL is positive local X). Measurements are offline extraction facts, not visual proof of perfect contact. Source body remains the unchanged accepted Step-2 geometry (paint 110,217 triangles; five original accepted groups total 201,608); GEN-VEH-003 adds wheel derivatives only. Android preview acceptance pending.
