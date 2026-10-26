@@ -436,7 +436,7 @@ export default function GameSession({ active }: { active: boolean }) {
           settings={settings}
           driving={context === "driving"}
           flying={Boolean(snapshot.flying)}
-          canEnterVehicle={/vehicle|enter.*car|drive/i.test(interaction)}
+          canEnterVehicle={Boolean(snapshot.canEnterVehicle)}
           canExitVehicle={Math.abs(snapshot.speed) < .25}
           send={(command) => bridge.command(command)}
           onAction={action}
