@@ -19,21 +19,21 @@ const MODELS=[
  {id:"gtd-veh008-mercer-toyota-hilux",length:5.25,width:2.15,paints:["WHITE","SILVER","GREY","NAVY","FOREST_GREEN"]},
  {id:"gtd-veh009-mercer-land-rover-defender",length:4.75,width:2.10,paints:["WHITE","BLACK","GREY","FOREST_GREEN","CHAMPAGNE"]},
  {id:"gtd-veh010-mercer-dodge-hp",length:5.10,width:2.06,paints:["BLACK","WHITE","RED","BURGUNDY","GRAPHITE"]},
- {id:"gtd-veh014-mercer-bmw-m4",length:4.80,width:1.93,paints:["WHITE","BLACK","SILVER","BLUE_METALLIC","GRAPHITE"]},
  {id:"gtd-veh014-mercer-lamborghini-temerario",length:4.75,width:2.00,paints:["PEARL_WHITE","BLACK","RED","BURGUNDY","BLUE_METALLIC"]},
 ] as const;
-const EXTRAS=[1,0,2,2,2] as const; // one extra: Rover BLACK, Hilux WHITE, Defender GREY, BMW SILVER, Lambo RED
+/** Five accepted default traffic models, five colour variants and five agents
+ * per variant = the SAME 125 traffic actors. BMW is removed entirely; 34
+ * existing sedan/hatchback/taxi/Kangoo overlays still relabel those actors.
+ * No BMW model IDs, GLB or high-poly native meshes are in moving traffic. */
 function fleetManifest(){
  const out:{id:string;modelId:string;paintId:string;length:number;width:number}[]=[];
  for(const model of MODELS)
-   for(const paint of model.paints)for(let ordinal=0;ordinal<4;ordinal++)
-     out.push({id:"NH012:"+model.id+":"+paint+":"+ordinal,modelId:model.id,paintId:paint,length:model.length,width:model.width});
- for(const [i,modelIndex] of [0,1,2,4,5].entries()){
-   const model=MODELS[modelIndex]!,paint=model.paints[EXTRAS[i]!]!;
-   out.push({id:"NH012:"+model.id+":"+paint+":4",modelId:model.id,paintId:paint,length:model.length,width:model.width});
- }
- if(out.length!==125||new Set(out.map(a=>a.id)).size!==125)
-   throw Error("NH012 model/colour fleet manifest invalid");
+   for(const paint of model.paints)for(let ordinal=0;ordinal<5;ordinal++)
+     out.push({id:"NH012:"+model.id+":"+paint+":"+ordinal,
+       modelId:model.id,paintId:paint,length:model.length,width:model.width});
+ if(out.length!==125||new Set(out.map(a=>a.id)).size!==125||
+    out.some(a=>a.modelId.includes("bmw")))
+   throw Error("NH012 five-model, BMW-free 125-agent manifest invalid");
  return out;
 }
 function randomSeeded(seed:number){let v=seed>>>0;return ()=>{
