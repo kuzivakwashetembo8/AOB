@@ -54,12 +54,12 @@ function NorthHeightsPreview(){
     return()=>m.removeEventListener("change",onChange);
   },[]);
   useEffect(()=>{controller.current?.applySettings(settings);},[settings]);
-  useEffect(()=>{controller.current?.setPaused(paused||mapOpen);},[paused,mapOpen]);
+  useEffect(()=>{controller.current?.setPaused(paused);},[paused]);
   useEffect(()=>{
-    if(paused||mapOpen||!meridianSpeed)return;
+    if(paused||!meridianSpeed)return;
     const tick=window.setInterval(()=>setMeridianMinute(v=>(v+meridianSpeed/2)%1440),1000);
     return()=>window.clearInterval(tick);
-  },[paused,mapOpen,meridianSpeed]);
+  },[paused,meridianSpeed]);
   useEffect(()=>{
     const hour=Math.floor(meridianMinute/60);
     controller.current?.setTime(hour>=6&&hour<17?"day":hour>=17&&hour<20?"dusk":"night");
@@ -89,7 +89,7 @@ function NorthHeightsPreview(){
           instance.applySettings(currentSettings.current);
           const hour=Math.floor(meridianMinute/60);
           instance.setTime(hour>=6&&hour<17?"day":hour>=17&&hour<20?"dusk":"night");
-          instance.setPaused(paused||mapOpen);
+          instance.setPaused(paused);
         }
       }catch(error){
         if(!closed)setStatus("Viewport failure: "+(error instanceof Error?error.message:String(error)));
