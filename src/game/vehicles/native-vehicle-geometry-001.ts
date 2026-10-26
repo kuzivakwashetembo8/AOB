@@ -3,7 +3,7 @@
  * and angular commuter. No files, GLBs, textures or network calls.
  */
 import {Mesh,Scene,VertexData} from "@babylonjs/core";
-import {TEMERARIO_SOURCE_PARTS_002} from "./temerario-source-data-002";
+import {TEMERARIO_SOURCE_PARTS_002,TEMERARIO_SOURCE_WHEELS_003} from "./temerario-source-data-002";
 
 export type GTDGeneratedStyle =
   "supercar"|"pickup"|"offroad"|"sedan"|"hatch"|"taxi"|
@@ -148,6 +148,47 @@ export function createTemerarioSourceMesh002(
  }
  return toMesh(scene,name,geom);
 }
+
+/** GEN-VEH-003 source-measured original wheel placement; no body updates. */
+export type GTDTemerarioWheelCorner003=
+  "frontLeft"|"frontRight"|"rearLeft"|"rearRight";
+export type GTDTemerarioWheelPart003="tire"|"rim";
+const wheelDecoded003=new Map<string,Geometry>();
+export function getTemerarioWheelFit003(corner:GTDTemerarioWheelCorner003){
+ const info=TEMERARIO_SOURCE_WHEELS_003[corner];
+ return {center:info.center,radius:info.radius,width:info.width,
+   sourceParts:info.sourceParts};
+}
+/** Wheel source geometry is pivot-centered in the offline generator.
+ * Construct one shared Babylon thin-instance template per corner/material. */
+export function createTemerarioWheelMesh003(
+ scene:Scene,name:string,corner:GTDTemerarioWheelCorner003,
+ part:GTDTemerarioWheelPart003,
+):Mesh{
+ const record=TEMERARIO_SOURCE_WHEELS_003[corner][part];
+ if(!record||!record.p||!record.i)throw Error(
+   "GEN-VEH-003 source wheel missing "+corner+"/"+part);
+ const key=corner+":"+part;
+ let geometry=wheelDecoded003.get(key);
+ if(!geometry){
+   const p=Uint8Array.from(atob(record.p),c=>c.charCodeAt(0));
+   const n=Uint8Array.from(atob(record.n),c=>c.charCodeAt(0));
+   const i=Uint8Array.from(atob(record.i),c=>c.charCodeAt(0));
+   const vertices=new Int16Array(p.buffer);
+   const indices=Number(record.indexBits)===32?
+     new Uint32Array(i.buffer):new Uint16Array(i.buffer);
+   geometry={positions:Array.from(vertices,v=>v/1000),
+     normals:Array.from(new Int8Array(n.buffer),v=>v/127),
+     indices:Array.from(indices)};
+   if(geometry.positions.length/3!==record.vertices||
+     geometry.indices.length/3!==record.triangles||
+     geometry.normals?.length!==geometry.positions.length)
+     throw Error("GEN-VEH-003 source wheel corrupt "+key);
+   wheelDecoded003.set(key,geometry);
+ }
+ return toMesh(scene,name,geometry);
+}
+
 export function createGTDGeneratedVehicleMesh001(
   scene:Scene,name:string,s:GTDGeneratedDimensions,part:"body"|"glass",
 ):Mesh{
