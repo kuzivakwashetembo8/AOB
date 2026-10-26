@@ -74,7 +74,7 @@ function World() {
               <Button variant="game" disabled aria-disabled="true" className="mt-8 w-64 opacity-60" title="This district is not ready yet">
                 COMING SOON — DISTRICT NOT READY
               </Button>
-            )
+            )}
             <div className="system-label mt-5">DISTRICT PROFILE // WORLD PREVIEW</div>
           </article>
         </div>
