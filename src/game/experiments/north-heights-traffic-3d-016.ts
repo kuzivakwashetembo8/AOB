@@ -8,7 +8,10 @@ import {
  Color3,Matrix,Mesh,MeshBuilder,Quaternion,Scene,StandardMaterial,Vector3,
 } from "@babylonjs/core";
 import type {NH012TrafficSnapshot} from "@/game/traffic/nh012-traffic-simulator";
-import {createGTDGeneratedVehicleMesh001,createTemerarioSourceMesh002,generatedWheelRadius001} from "@/game/vehicles/native-vehicle-geometry-001";
+import {createGTDGeneratedVehicleMesh001,createTemerarioSourceMesh002,
+ createTemerarioWheelMesh003,getTemerarioWheelFit003,generatedWheelRadius001,
+ type GTDTemerarioWheelCorner003,type GTDTemerarioWheelPart003
+} from "@/game/vehicles/native-vehicle-geometry-001";
 import {MERCER_EXTRA_GLB_SPECS} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
 import {trafficTurnSteering013} from "@/game/vehicles/nh013-traffic-turn-steering";
@@ -80,6 +83,25 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
    if(!b){b=makeBucket(scene,key,color,shape,spec);buckets.set(key,b);}
    return b;
  }
+ // Source wheel pivots come from actual Draco WHL_ nodes, not the generic
+ // 59%-length/81%-width proxy. Shares source templates across all instances.
+ const sourcedWheel=(corner:GTDTemerarioWheelCorner003,part:GTDTemerarioWheelPart003)=>{
+   const key="temerario:wheel:"+corner+":"+part;
+   let b=buckets.get(key);
+   if(b)return b;
+   const mesh=createTemerarioWheelMesh003(scene,key,corner,part);
+   const mat=new StandardMaterial("mat:"+key,scene);
+   mat.diffuseColor=Color3.FromHexString(part==="tire"?"#101215":"#24272D");
+   mat.specularColor=Color3.FromHexString(part==="tire"?"#050506":"#555A61");
+   mat.backFaceCulling=false;
+   mesh.material=mat;mesh.alwaysSelectAsActiveMesh=true;
+   mesh.receiveShadows=false;mesh.isPickable=false;
+   const buffer=new Float32Array(125*6*16);
+   mesh.thinInstanceSetBuffer("matrix",buffer,16,false);
+   mesh.thinInstanceCount=0;mesh.setEnabled(false);
+   b={mesh,buffer,count:0};buckets.set(key,b);
+   return b;
+ };
  const tires=get("rubber","#171B20","wheel"),
    alloys=get("rims","#ADB4BD","wheel"),
    wheelSpoke=get("moving-wheel-spoke","#ECEDEF"),
@@ -135,6 +157,24 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
        last.set(a.id,{x:a.x,z:a.z,spin,tick:snapshot.tick});
        const steer=a.connectorId?Math.max(-.8,Math.min(.8,
           trafficTurnSteering013(a,graph,wheelbase)*1.6)):0;
+       if(spec.style==="supercar"){
+         const corners:GTDTemerarioWheelCorner003[]=[
+           "frontLeft","frontRight","rearLeft","rearRight"];
+         for(const corner of corners){
+           const fit=getTemerarioWheelFit003(corner);
+           const isFront=corner.startsWith("front");
+           const steering=isFront?steer:0;
+           // Source part vertices already face the GTD wheel lateral axis.
+           // Rotation is about the measured source axle, not a guessed slot.
+           const spinQ=Quaternion.RotationAxis(up,steering)
+             .multiply(Quaternion.RotationAxis(right,spin));
+           const pivot=Matrix.Compose(Vector3.One(),spinQ,
+             new Vector3(fit.center[0],fit.center[1],fit.center[2]));
+           const transform=pivot.multiply(world);
+           write(sourcedWheel(corner,"tire"),transform);
+           write(sourcedWheel(corner,"rim"),transform);
+         }
+       }else{
        for(const zSign of [-1,1])for(const xSign of [-1,1]){
          const x=xSign*track*.5,z=zSign*wheelbase*.5;
          const q=(zSign>0?Quaternion.RotationAxis(up,steer):Quaternion.Identity())
@@ -149,6 +189,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          const spoke=Matrix.Compose(new Vector3(radius*.37,.045,.05),
            Quaternion.Identity(),new Vector3(radius*.48,xSign*.13,0));
          write(wheelSpoke,spoke.multiply(hub).multiply(world));
+       }
        }
        if(spec.style!=="supercar")for(const side of [-1,1]){
          write(headlights,matrix({x:side*spec.width*.33,y:.91,z:spec.length*.502,
