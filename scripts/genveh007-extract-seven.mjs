@@ -266,9 +266,67 @@ for(const model of models){
   triangleCount=sum;packed=geom;chosen=step;
   if(sum<=target)break;
  }
- // If even very aggressive conservative clustering cannot reach the budget,
- // the model must stay procedural rather than causing another BMW regression.
- const sourceUsable=triangleCount<=target;
+
+ // Where a source is made of hundreds of independent disconnected islands,
+ // conventional vertex-clustering cannot eliminate enough triangles without
+ // welding distinct panels (the rejected Step-1 Lamborghini defect).
+ // Preserve original *whole* contiguous source islands, ranked by visible
+ // projected footprint and surface area per triangle. A missing micro-detail
+ // is preferable to 200k triangles or a crumpled exterior panel.
+ let keptParts=Object.fromEntries(groups.map(k=>[k,parts[k].length]));
+ if(triangleCount>target){
+   const all=[];
+   for(const k of groups){
+     const gg=parts[k].map(x=>simplify(x,.06*(k==="glass"?.6:1)));
+     for(const g of gg){
+       if(g.i.length<3)continue;
+       const b=bounds(g.p),tri=g.i.length/3;
+       const bboxArea=Math.max(b.dims[0]*b.dims[1],b.dims[0]*b.dims[2],b.dims[1]*b.dims[2]);
+       let surface=0;
+       for(let j=0;j<g.i.length;j+=3){
+         const a=g.i[j]*3,b0=g.i[j+1]*3,c=g.i[j+2]*3;
+         const ux=g.p[b0]-g.p[a],uy=g.p[b0+1]-g.p[a+1],uz=g.p[b0+2]-g.p[a+2],
+           vx=g.p[c]-g.p[a],vy=g.p[c+1]-g.p[a+1],vz=g.p[c+2]-g.p[a+2];
+         surface+=Math.hypot(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx)*.5;
+       }
+       const score=((Math.sqrt(Math.max(bboxArea,1e-7))*2+
+        Math.sqrt(Math.max(surface,1e-7)))*(k==="paint"?1.7:k==="glass"?1.6:1))/
+         Math.pow(Math.max(tri,1),.62);
+       all.push({k,g,tri,score});
+     }
+   }
+   all.sort((a,b)=>b.score-a.score||a.tri-b.tri);
+   const selected=Object.fromEntries(groups.map(k=>[k,[]])),counts=Object.fromEntries(groups.map(k=>[k,0]));
+   let used=0;
+   // Reserve most of the budget for meaningful body contour sheets.
+   const priority=(kind,share)=>{
+     const list=all.filter(x=>x.k===kind).sort((a,b)=>
+       (b.score*Math.min(b.tri,1000))-(a.score*Math.min(a.tri,1000)));
+     const desired=target*share;
+     for(const item of list){
+       if(used+item.tri>target||counts[kind]+item.tri>desired)continue;
+       selected[kind].push(item.g);counts[kind]+=item.tri;used+=item.tri;
+     }
+   };
+   priority("paint",.75);priority("glass",.12);
+   for(const item of all){
+     if(used+item.tri>target||selected[item.k].includes(item.g))continue;
+     selected[item.k].push(item.g);counts[item.k]+=item.tri;used+=item.tri;
+   }
+   // Some originals carry their principal hood or roof as one large sheet.
+   // Do not falsely claim extraction if no useful body shell survived.
+   const geom={},packedCounts={};
+   for(const k of groups){
+      geom[k]=pack(selected[k]);
+      packedCounts[k]=selected[k].length;
+   }
+   const n=Object.values(geom).reduce((x,v)=>x+(v?.triangles||0),0);
+   if((geom.paint?.triangles??0)>=200&&n>=500){
+     packed=geom;triangleCount=n;chosen=.06;
+     keptParts=packedCounts;
+   }
+ }
+ const sourceUsable=triangleCount<=target&&!!packed?.paint?.triangles;
  const fittedWheels={};let genuine=0;
  for(const corner of corners){
    const rim=wheels[corner].rim,tire=wheels[corner].tire;
@@ -299,6 +357,7 @@ for(const model of models){
   geometryTriangles:triangleCount,cluster:chosen,
   bodyReady:sourceUsable,genuineWheels:genuine,wheelsReady:completeWheels,
   sourceParts:Object.fromEntries(groups.map(k=>[k,parts[k].length])),
+  keptParts,
   wheelPrimitives:Object.fromEntries(corners.map(k=>[k,{
     tire:wheels[k].tire.length,rim:wheels[k].rim.length}]))};
  diagnostics.push(report);console.info("GEN_VEH_007_RESULT "+JSON.stringify(report));
