@@ -7,6 +7,11 @@ import {
 import { defaults, type Settings } from "@/ui/menus/settings-state";
 
 /** Shared form, mounted inside the paused game without navigating away. */
+// OPT-05: controls without a connected runtime implementation must be
+// discoverable, but must not accept changes or claim that they work.
+const comingSoonSettings=new Set<keyof Settings>([
+  "master","music","effects","muted","subtitles","vibration",
+]);
 const categories = [
   { name: "Graphics", icon: Monitor },
   { name: "Audio", icon: Volume2 },
@@ -34,12 +39,13 @@ export function SettingsEditor({
     setSaved(false);
   };
   const range = (key: keyof Settings, label: string, max = 100, min = 0, unit = "%", step = 1) => (
-    <label className="setting-row" key={key}>
-      <span>{label}</span>
+    <label className="setting-row" key={key} aria-disabled={comingSoonSettings.has(key)}>
+      <span>{label}{comingSoonSettings.has(key)&&<small>Coming soon</small>}</span>
       <span className="range-control">
         <input
           aria-label={label}
           type="range"
+          disabled={comingSoonSettings.has(key)}
           min={min}
           max={max}
           step={step}
@@ -60,6 +66,7 @@ export function SettingsEditor({
         <input
           aria-label={label}
           type="checkbox"
+          disabled={comingSoonSettings.has(key)}
           checked={Boolean(settings[key])}
           onChange={(event) => update(key, event.target.checked)}
         />
