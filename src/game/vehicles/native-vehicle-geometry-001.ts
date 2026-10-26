@@ -227,6 +227,41 @@ export function createRoverWheelMesh005(scene:Scene,name:string,
    ROVER_SOURCE_WHEELS_005[corner][part]));
 }
 
+/** GEN-VEH-003.2: bounded native visibility aid for the source M4-style
+ * Lamborghini rim face. It DOES NOT replace the extracted Lamborghini rim:
+ * preserve source spokes, axle, tyres, and body; add 10 legible graphite
+ * split spokes on the OUTER face where the source is occluded by the tyre.
+ * Coordinates are normalized to the owner's measured tyre radius.
+ */
+export function createTemerarioRimFaceOverlay007(scene:Scene,name:string):Mesh{
+ const g:Geometry={positions:[],indices:[],normals:[]};
+ const quad=(r0:number,r1:number,a0:number,a1:number)=>{
+  const off=g.positions.length/3;
+  for(const [r,a] of [[r0,a0],[r1,a0],[r1,a1],[r0,a1]]){
+   g.positions.push(0,Math.sin(a)*r,Math.cos(a)*r);
+   g.normals!.push(1,0,0);
+  }
+  g.indices.push(off,off+1,off+2,off,off+2,off+3);
+ };
+ // Thin peripheral machined ring and dark central hub, with a visible gap
+ // behind each spoke. Never fill the entire wheel with an opaque disc.
+ for(let j=0;j<40;j++){
+  const a=j*2*Math.PI/40,b=(j+1)*2*Math.PI/40;
+  quad(.746,.778,a,b);
+  quad(.085,.132,a,b);
+ }
+ for(let j=0;j<5;j++){
+  const base=j*2*Math.PI/5;
+  // Paired narrow branches, a recognisable ten-spoke forged rim pattern.
+  for(const sign of [-1,1]){
+   const theta=base+sign*.09;
+   quad(.16,.69,theta-.043,theta+.043);
+   quad(.65,.748,theta-.052,theta+.052);
+  }
+ }
+ return toMesh(scene,name,g);
+}
+
 export function createGTDGeneratedVehicleMesh001(
   scene:Scene,name:string,s:GTDGeneratedDimensions,part:"body"|"glass",
 ):Mesh{
