@@ -39,7 +39,7 @@ describe("GEN-VEH-002 source-Lamborghini exterior",()=>{
    expect(script).toContain("wheels[corner]={center:");
    expect(mesh).toContain("createTemerarioWheelMesh003");
    expect(traffic).toContain('if(spec.style==="supercar")');
-   expect(traffic).toContain('write(sourcedWheel(corner,"rim"),transform)');
+   expect(traffic).toContain('write(sourcedWheel(corner,"rim"),rimSurface)');
    expect(traffic).toContain('write(sourcedWheel(corner,"tire"),transform)');
    for(const corner of ["frontLeft","frontRight","rearLeft","rearRight"] as const){
      const wheel=TEMERARIO_SOURCE_WHEELS_003[corner];
