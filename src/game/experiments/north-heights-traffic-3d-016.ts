@@ -15,6 +15,11 @@ import {createGTDGeneratedVehicleMesh001,createTemerarioSourceMesh002,
  type GTDRoverSourcePart005,type GTDRoverCorner005,type GTDRoverWheelPart005,
  type GTDTemerarioWheelCorner003,type GTDTemerarioWheelPart003
 } from "@/game/vehicles/native-vehicle-geometry-001";
+import {
+ SEVEN_TRAFFIC_MODELS_007,hasNativeBody007,hasNativeWheels007,hasSourcePart007,
+ createNativeBodyPart007,createNativeWheel007,sourceWheelFit007,
+ type SevenSourceModel007,type SevenSourceBody007,type SevenSourceCorner007,type SevenSourceWheelPart007
+} from "@/game/vehicles/native-seven-vehicle-007";
 import {MERCER_EXTRA_GLB_SPECS} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
 import {trafficTurnSteering013} from "@/game/vehicles/nh013-traffic-turn-steering";
@@ -138,6 +143,41 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
   mesh.thinInstanceCount=0;mesh.setEnabled(false);
   b={mesh,buffer,count:0};buckets.set(key,b);return b;
  };
+ // Seven additional source-derived vehicle families, one native template
+ // per material and paint variant. Wheel templates stay separate so all four
+ // wheels rotate with actual source axles. No GLB URL or async LOD transition.
+ const sevenBody=(model:SevenSourceModel007,part:SevenSourceBody007,color:string)=>{
+   const key="seven:"+model+":body:"+part+":"+(part==="paint"?color:"standard");
+   let b=buckets.get(key);if(b)return b;
+   const mesh=createNativeBodyPart007(scene,key,model,part);
+   const mat=new StandardMaterial("mat:"+key,scene);
+   mat.diffuseColor=Color3.FromHexString(color);
+   mat.specularColor=Color3.FromHexString(part==="paint"?"#444B54":"#363C43");
+   if(part==="frontLight"||part==="rearLight")
+     mat.emissiveColor=Color3.FromHexString(color).scale(.43);
+   mat.backFaceCulling=false;mesh.material=mat;
+   mesh.receiveShadows=false;mesh.isPickable=false;mesh.alwaysSelectAsActiveMesh=true;
+   const buffer=new Float32Array(125*6*16);
+   mesh.thinInstanceSetBuffer("matrix",buffer,16,false);
+   mesh.thinInstanceCount=0;mesh.setEnabled(false);
+   b={mesh,buffer,count:0};buckets.set(key,b);return b;
+ };
+ const sevenWheel=(model:SevenSourceModel007,corner:SevenSourceCorner007,
+   part:SevenSourceWheelPart007)=>{
+   const key="seven:"+model+":wheel:"+corner+":"+part;
+   let b=buckets.get(key);if(b)return b;
+   const mesh=createNativeWheel007(scene,key,model,corner,part);
+   const mat=new StandardMaterial("mat:"+key,scene);
+   mat.diffuseColor=Color3.FromHexString(part==="tire"?"#121417":"#767B82");
+   mat.specularColor=Color3.FromHexString(part==="tire"?"#090A0D":"#9EA5AE");
+   mat.emissiveColor=Color3.FromHexString(part==="tire"?"#000000":"#1B1F23");
+   mat.backFaceCulling=false;mesh.material=mat;
+   mesh.receiveShadows=false;mesh.isPickable=false;mesh.alwaysSelectAsActiveMesh=true;
+   const buffer=new Float32Array(125*6*16);
+   mesh.thinInstanceSetBuffer("matrix",buffer,16,false);
+   mesh.thinInstanceCount=0;mesh.setEnabled(false);
+   b={mesh,buffer,count:0};buckets.set(key,b);return b;
+ };
  // Thin-instance, radius-normalized 10-spoke fallback for mobile rim face.
  // The accepted source rims remain under this sparse metal geometry.
  const spokeRim=()=>{
@@ -188,10 +228,19 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          a.modelId==="gtd-traffic-taxi-014"?"WHITE":a.paintId;
        const paint=fleetPaint016(base);
        const isRover=a.modelId==="gtd-veh006-mercer-range-rover";
-       // A/B experiment: retain BMW traffic identities, render procedural coupe.
+       const sevenModel=SEVEN_TRAFFIC_MODELS_007[a.modelId];
+       const nativeBody=!!sevenModel&&hasNativeBody007(sevenModel);
+       const nativeWheels=!!sevenModel&&hasNativeWheels007(sevenModel);
+       const frontFit=nativeWheels?sourceWheelFit007(sevenModel!,"frontLeft"):null;
+       const rearFit=nativeWheels?sourceWheelFit007(sevenModel!,"rearLeft"):null;
+       const rightFit=nativeWheels?sourceWheelFit007(sevenModel!,"frontRight"):null;
+       const contactLength=frontFit&&rearFit?
+         Math.abs(frontFit.center[2]-rearFit.center[2]):spec.length*.59;
+       const contactTrack=frontFit&&rightFit?
+         Math.abs(frontFit.center[0]-rightFit.center[0]):spec.width*.81;
        const road=sampleTrafficVehicleRoadPose013({
-         x:a.x,z:a.z,heading:a.heading,wheelbase:spec.length*.59,
-         track:spec.width*.81,ground:northHeightsGround,
+         x:a.x,z:a.z,heading:a.heading,wheelbase:contactLength,
+         track:contactTrack,ground:northHeightsGround,
        });
        const world=Matrix.Compose(Vector3.One(),road.rotation,
          new Vector3(a.x,road.y,a.z));
@@ -201,6 +250,14 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
         write(roverPart("trim","#252A30"),world);
         write(roverPart("frontLight","#DDE2E6"),world);
         write(roverPart("rearLight","#BF363B"),world);
+       }else if(sevenModel&&nativeBody){
+        for(const [part,color] of [
+          ["paint",paint],["glass","#263D4C"],["trim","#282D32"],
+          ["frontLight","#E4E5E7"],["rearLight","#B52B34"]
+        ] as const){
+          if(hasSourcePart007(sevenModel,part))
+            write(sevenBody(sevenModel,part,color),world);
+        }
        }else{
         write(get("body:"+a.modelId+":"+paint,paint,"body",spec),world);
         write(get("windows:"+a.modelId,"#263D4C","glass",spec),world);
@@ -210,8 +267,8 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          write(get("temerario:headlights","#DADFE5","frontLight"),world);
          write(get("temerario:taillights","#B82B2F","rearLight"),world);
        }
-       const wheelbase=spec.length*.59,track=spec.width*.81;
-       const radius=generatedWheelRadius001(spec);
+       const wheelbase=contactLength,track=contactTrack;
+       const radius=frontFit?.radius??generatedWheelRadius001(spec);
        const previous=last.get(a.id);
        const distance=previous?Math.hypot(a.x-previous.x,a.z-previous.z):0;
        const spin=(previous?.spin??0)+(previous?.tick===snapshot.tick?0:distance/radius);
@@ -260,6 +317,20 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          write(roverWheel(corner,"rim"),
            Matrix.Translation(side*.012,0,0).multiply(transform));
         }
+       }else if(sevenModel&&nativeWheels){
+         for(const corner of ["frontLeft","frontRight","rearLeft","rearRight"] as const){
+           const fit=sourceWheelFit007(sevenModel,corner);
+           const turn=corner.startsWith("front")?steer:0;
+           const spinQ=Quaternion.RotationAxis(up,turn)
+             .multiply(Quaternion.RotationAxis(right,spin));
+           const pivot=Matrix.Compose(Vector3.One(),spinQ,
+             new Vector3(fit.center[0],fit.center[1],fit.center[2]));
+           const transform=pivot.multiply(world);
+           write(sevenWheel(sevenModel,corner,"tire"),transform);
+           const sign=fit.center[0]>=0?1:-1;
+           write(sevenWheel(sevenModel,corner,"rim"),
+             Matrix.Translation(sign*.012,0,0).multiply(transform));
+         }
        }else{
        for(const zSign of [-1,1])for(const xSign of [-1,1]){
          const x=xSign*track*.5,z=zSign*wheelbase*.5;
@@ -277,7 +348,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          write(wheelSpoke,spoke.multiply(hub).multiply(world));
        }
        }
-       if(spec.style!=="supercar"&&!isRover)for(const side of [-1,1]){
+       if(spec.style!=="supercar"&&!isRover&&!nativeBody)for(const side of [-1,1]){
          write(headlights,matrix({x:side*spec.width*.33,y:.91,z:spec.length*.502,
            w:.30,h:.13,d:.05},world));
          write(taillights,matrix({x:side*spec.width*.35,y:.83,z:-spec.length*.502,
