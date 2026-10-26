@@ -978,7 +978,8 @@ export class GTDGameRuntime implements GameRuntime {
   /** OPT-03: Same wall-aware eligibility for the action button and F boarding.
    * Existing vehicle-only building footprints include walls and sealed corners. */
   private nearestAccessibleVehicle(actor:{x:number;y:number;z:number}){
-    const obstacles=this.physics?.vehicleNoStepFootprintsNear(actor,VEHICLE_BOARD_RADIUS+2)??[];
+    const obstacles=this.physics && typeof this.physics.vehicleNoStepFootprintsNear==="function"
+      ?this.physics.vehicleNoStepFootprintsNear(actor,VEHICLE_BOARD_RADIUS+2):[];
     return nearestAccessiblePlanarCar(actor,
       [...this.sportsCars.entries()].map(([id,car])=>({id,pose:car.pose})),obstacles);
   }
