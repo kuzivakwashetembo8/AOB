@@ -123,14 +123,29 @@ export function createNorthHeightsAuthenticFleet016(
        .map(agent=>({agent,distance:Math.hypot(agent.x-camera.x,agent.z-camera.z)}))
        .filter(x=>x.distance<nearRange)
        .sort((a,b)=>a.distance-b.distance||a.agent.id.localeCompare(b.agent.id));
-     const keep=new Set<string>(),selectedModels=new Set<string>();
+     // Choose the nearest distinct fleet classes BEFORE managing mobile cache.
+     // Otherwise three loaded classes permanently block the other three
+     // when the player flies to a new district.
+     const selectedModels=new Set<string>();
+     const choices:typeof ordered=[];
+     for(const candidate of ordered){
+       if(choices.length>=maxActive)break;
+       if(rejected.has(candidate.agent.modelId)||selectedModels.has(candidate.agent.modelId))continue;
+       selectedModels.add(candidate.agent.modelId);
+       choices.push(candidate);
+     }
+     const choiceIds=new Set(choices.map(x=>x.agent.id));
+     for(const id of visuals.keys())if(!choiceIds.has(id))release(id);
+     for(const [id,asset] of source){
+       if(!selectedModels.has(id)){
+         asset.dispose();source.delete(id); // bounded mobile source-cache LRU
+       }
+     }
+     const keep=new Set<string>();
      let initialized=0;
-     for(const {agent} of ordered){
-       if(keep.size>=maxActive)break;
+     for(const {agent} of choices){
        const spec=specById.get(agent.modelId);
-       if(!spec||selectedModels.has(spec.id))continue;
-       if(rejected.has(spec.id))continue;
-       selectedModels.add(spec.id);
+       if(!spec)continue;
        if(!visuals.has(agent.id)){
          const container=source.get(spec.id);
          if(!container){request(spec);continue;}
