@@ -43,14 +43,15 @@ describe("NH016 all six genuine default classes join traffic without dots",()=>{
    expect(a.validate()).toEqual([]);
    expect(verifyCompleteFleet016(a.snapshot()).original).toBe(91);
  });
- it("preserves six authored paint families and 3D source-integrated fallbacks",()=>{
+ it("preserves six paint families and replaces source traffic GLB upgrades on experimental branch",()=>{
    expect(Object.keys(NH016_PAINT).length).toBeGreaterThanOrEqual(12);
    for(const agent of selectDefaultFleetAgents016(init().snapshot())){
      expect(fleetPaint016(agent.paintId)).toMatch(/^#[a-fA-F0-9]{6}$/);
    }
    const city=readFileSync("src/game/experiments/north-heights-city-8.ts","utf8");
    expect(city).toContain("createNorthHeightsTraffic3D016(scene,traffic.graph)");
-   expect(city).toContain("createNorthHeightsAuthenticFleet016(scene,traffic.graph,mobile)");
+   expect(city).not.toContain("createNorthHeightsAuthenticFleet016(scene,traffic.graph,mobile)");
+   expect(city).toContain("GEN-VEH-001");
    expect(city).toContain("DOTS 0 SIM");
    expect(city).not.toContain("createNorthHeightsTrafficDots012");
    expect(city).not.toContain("trafficDots.update");
