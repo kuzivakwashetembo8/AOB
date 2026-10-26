@@ -135,7 +135,7 @@ export function createTemerarioSourceMesh002(
   const ibytes=Uint8Array.from(atob(record.i),c=>c.charCodeAt(0));
   const nbytes=Uint8Array.from(atob(record.n),c=>c.charCodeAt(0));
   const coords=new Int16Array(pbytes.buffer);
-  const indices=record.indexBits===32
+  const indices=Number(record.indexBits)===32
     ?new Uint32Array(ibytes.buffer):new Uint16Array(ibytes.buffer);
   const positions=Array.from(coords,v=>v/1000);
   const normals=Array.from(new Int8Array(nbytes.buffer),v=>v/127);
