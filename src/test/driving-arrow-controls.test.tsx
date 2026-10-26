@@ -28,7 +28,7 @@ describe("UI-DRIVE-009 optional vehicle arrows",()=>{
     expect(screen.queryByRole("button",{name:"Jump or ascend"})).toBeNull();
     expect(screen.queryByRole("button",{name:"Toggle flight mode"})).toBeNull();
     rerender(<TouchControls settings={{...defaults,drivingTouchLayout:"arrows"}} driving={false} send={send} onAction={()=>{}}/>);
-    expect(screen.getByRole("button",{name:"Jump"})).toBeTruthy();
+    expect(screen.getByRole("button",{name:"Jump or ascend"})).toBeTruthy();
   });
   it("preserves drag defaults and rejects unrecognized persisted control layouts",()=>{
     expect(defaults.drivingTouchLayout).toBe("drag");
