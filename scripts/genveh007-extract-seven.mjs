@@ -76,6 +76,20 @@ function islands(seg){
  }
  return result;
 }
+function compactIndices(seg,subset){
+ const p=[],n=[],idx=[],mapping=new Map();
+ for(const old of subset){
+  let a=mapping.get(old);
+  if(a===undefined){
+   a=p.length/3;mapping.set(old,a);
+   for(let k=0;k<3;k++){
+    p.push(seg.p[old*3+k]);if(seg.n.length===seg.p.length)n.push(seg.n[old*3+k]);
+   }
+  }
+  idx.push(a);
+ }
+ return {...seg,p,n,i:idx};
+}
 function rimOrTire(name,material){
  const n=(name+" "+material).toLowerCase();
  if(/tire|tyre|rubber|tread|_0-tire/.test(n))return "tire";
@@ -219,7 +233,7 @@ for(const model of models){
        const c=(centre[2]>=0?"front":"rear")+(centre[0]>=0?"Left":"Right");
        (group[c]??=[]).push(...ix);
       }
-      for(const [c,idx] of Object.entries(group))wheels[c][rtype].push({...seg,i:idx});
+      for(const [c,idx] of Object.entries(group))wheels[c][rtype].push(compactIndices(seg,idx));
     }else if(rtype){wheels[cornerFor(seg)][rtype].push(seg);}
     else{wheelCandidates.push(seg);}
     continue;
