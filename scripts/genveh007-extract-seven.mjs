@@ -38,6 +38,7 @@ const bounds=points=>{
 };
 const groupFor=(model,seg)=>{
  const m=seg.mat.toLowerCase(),name=seg.name.toLowerCase();
+ if(["hilux","defender","dodge"].includes(model.id))return "paint";
  if(/glass|window|windscreen|windshield|clearlens|wind_screen/.test(m+" "+name))return "glass";
  if(/headlight|front.?light|fl_(lens|halo|glass)|light_white|light_.*shine/.test(m+" "+name))return "frontLight";
  if(/tail.?light|redlens|redlight|_0-red|_0-3stop|tailight/.test(m+" "+name))return "rearLight";
