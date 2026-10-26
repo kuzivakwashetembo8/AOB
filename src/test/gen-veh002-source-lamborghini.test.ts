@@ -1,6 +1,6 @@
 import {describe,expect,it} from "vitest";
 import {readFileSync} from "node:fs";
-import {TEMERARIO_SOURCE_PARTS_002} from "@/game/vehicles/temerario-source-data-002";
+import {TEMERARIO_SOURCE_PARTS_002,TEMERARIO_SOURCE_WHEELS_003} from "@/game/vehicles/temerario-source-data-002";
 describe("GEN-VEH-002 source-Lamborghini exterior",()=>{
  it("retains five material classes for source-derived exterior shape",()=>{
   expect(Object.keys(TEMERARIO_SOURCE_PARTS_002).sort()).toEqual(
@@ -30,6 +30,30 @@ describe("GEN-VEH-002 source-Lamborghini exterior",()=>{
     expect(atob(part.p).length).toBe(part.vertices*3*2);
     expect(atob(part.i).length).toBe(part.triangles*3*(part.indexBits/8));
   }
+ });
+ it("derives all four Lamborghini wheel pivots from source, not proxy dimensions",()=>{
+   const script=readFileSync("scripts/genveh002-extract-temerario.mjs","utf8");
+   const traffic=readFileSync("src/game/experiments/north-heights-traffic-3d-016.ts","utf8");
+   const mesh=readFileSync("src/game/vehicles/native-vehicle-geometry-001.ts","utf8");
+   expect(script).toContain('const wheelMatch=/^WHL_(FL|FR|RL|RR)');
+   expect(script).toContain("wheels[corner]={center:");
+   expect(mesh).toContain("createTemerarioWheelMesh003");
+   expect(traffic).toContain('if(spec.style==="supercar")');
+   expect(traffic).toContain('write(sourcedWheel(corner,"rim"),transform)');
+   expect(traffic).toContain('write(sourcedWheel(corner,"tire"),transform)');
+   for(const corner of ["frontLeft","frontRight","rearLeft","rearRight"] as const){
+     const wheel=TEMERARIO_SOURCE_WHEELS_003[corner];
+     expect(wheel.center).toHaveLength(3);
+     expect(wheel.radius).toBeGreaterThan(.2);
+     if(!wheel.rim.p)continue; // placeholder before offline generation
+     for(const part of [wheel.rim,wheel.tire]){
+       expect(part?.p).toBeTruthy();
+       expect(part?.n).toBeTruthy();
+       expect(part?.i).toBeTruthy();
+       expect(part?.vertices).toBeGreaterThan(30);
+       expect(part?.triangles).toBeGreaterThan(10);
+     }
+   }
  });
  it("renders the authored shapes without moving-GLB runtime imports",()=>{
   const mesh=readFileSync("src/game/experiments/north-heights-traffic-3d-016.ts","utf8");
