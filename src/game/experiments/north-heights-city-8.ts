@@ -28,7 +28,9 @@ import {RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig} from "@/game/vehic
 import {validateNorthHeightsParking010} from "./north-heights-spatial-plan-010";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
-import {createNorthHeightsTrafficDots012,type NH012Dots} from "./north-heights-traffic-dots-012";
+import {createNorthHeightsTraffic3D016,type NH016Traffic3D} from "./north-heights-traffic-3d-016";
+import {createNorthHeightsAuthenticFleet016,type NH016AuthenticFleet} from "./north-heights-authentic-fleet-016";
+import {verifyCompleteFleet016} from "@/game/traffic/nh016-fleet-manifest";
 import {assignNH013SedanPilot} from "@/game/traffic/nh013-sedan-pilot";
 import {createNorthHeightsSedanVisuals013,type NH013SedanVisuals} from "./north-heights-sedan-visuals-013";
 import {assignNH013HatchbackPilot} from "@/game/traffic/nh013-hatchback-pilot";
@@ -100,12 +102,13 @@ export async function createNorthHeightsCity8(
   let cameraBlockers:CameraBox[]=[];
   let fleet:ReturnType<typeof createMercerExtraParkedGLBs>|null=null;
   let traffic:NH012TrafficSimulator|null=null;
-  let trafficDots:NH012Dots|null=null;
+  let traffic3D:NH016Traffic3D|null=null;
+  let authenticFleet:NH016AuthenticFleet|null=null;
   let sedanVisuals:NH013SedanVisuals|null=null;
   let taxiVisuals:NH014TaxiVisuals|null=null;
   let kangoVisuals:NH015KangoVisuals|null=null;
   let hatchbackVisuals:NH013HatchbackVisuals|null=null;
-  let trafficAccumulator=0,visibleTrafficDots=0;
+  let trafficAccumulator=0,visibleTrafficCars=0,visibleAuthenticCars=0;
   const cars=new Map<string,FirstDriveTrial>();
   const carNames=new Map<string,string>();
   let driving:FirstDriveTrial|null=null;
@@ -224,7 +227,7 @@ export async function createNorthHeightsCity8(
   scene.onBeforeRenderObservable.add(() => {
     const dt=Math.min(.05,engine.getDeltaTime()/1000);
     if(paused)return;
-    if(traffic&&trafficDots){
+    if(traffic&&traffic3D){
       trafficAccumulator=Math.min(.15,trafficAccumulator+dt);
       let steps=0;
       while(trafficAccumulator>=NH012_SIMULATION_DT-1e-7&&steps<3){
@@ -233,14 +236,17 @@ export async function createNorthHeightsCity8(
         steps++;
       }
       const snapshot=traffic.snapshot();
-      // Same 125 NH-012 traffic agents drive both the dots and the original-
-      // asset sedan LOD representations. Renderers never modify route state.
+      // NH-016: exactly 125 real traffic identities. Close-up owner GLBs take
+      // priority; every other agent has a batched 3D car instead of a dot.
       const sedanCars=sedanVisuals?.update(snapshot,camera.position);
       const hatchCars=hatchbackVisuals?.update(snapshot,camera.position);
       const taxiCars=taxiVisuals?.update(snapshot,camera.position);
       const kangoCars=kangoVisuals?.update(snapshot,camera.position);
-      const carsShowing=new Set([...(sedanCars??[]),...(hatchCars??[]),...(taxiCars??[]),...(kangoCars??[])]);
-      visibleTrafficDots=trafficDots.update(snapshot,camera.position,carsShowing);
+      const originalCars=authenticFleet?.update(snapshot,camera.position);
+      const carsShowing=new Set([...(sedanCars??[]),...(hatchCars??[]),...(taxiCars??[]),...(kangoCars??[]),...(originalCars??[])]);
+      const views=traffic3D.update(snapshot,carsShowing);
+      visibleAuthenticCars=views.sourceGLBs;
+      visibleTrafficCars=views.vehicles3D;
     }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
@@ -372,11 +378,16 @@ export async function createNorthHeightsCity8(
       const kangoInfo=kangoReport
         ?" KANGO "+kangoReport.active+"/"+NH015_KANGO_COUNT+" SRC "+kangoReport.loaded+"/1"+
         (kangoReport.failed.length?" ERROR "+kangoReport.failed[0]:""):"";
+      const originalReport=authenticFleet?.report;
+      const originalInfo=originalReport
+        ?" ORIGINAL "+originalReport.active+"/6 TYPES "+originalReport.sources+"/6"+
+        (originalReport.failed.length?" ERROR "+originalReport.failed[0]:""):"";
       statistics(
         "FPS "+Math.round(engine.getFps())+" · "+
         "MODE "+mode.toUpperCase()+" · "+
-        (traffic?"TRAFFIC "+traffic.population+" DOTS "+visibleTrafficDots+" SIM "+traffic.tick+" · ":"")+
-        sedanInfo+hatchInfo+taxiInfo+kangoInfo+" · "+
+        (traffic?"TRAFFIC "+traffic.population+" 3D "+visibleTrafficCars+
+         " GLB "+visibleAuthenticCars+" DOTS 0 SIM "+traffic.tick+" · ":"")+
+        sedanInfo+hatchInfo+taxiInfo+kangoInfo+originalInfo+" · "+
         (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
         "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
     }
@@ -501,11 +512,13 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("resize", resize);
       for(const car of cars.values())car.dispose();
       cars.clear();
+      authenticFleet?.dispose();authenticFleet=null;
+      traffic3D?.dispose();traffic3D=null;
       kangoVisuals?.dispose();kangoVisuals=null;
       taxiVisuals?.dispose();taxiVisuals=null;
       hatchbackVisuals?.dispose();hatchbackVisuals=null;
       sedanVisuals?.dispose();sedanVisuals=null;
-      trafficDots?.dispose();trafficDots=null;traffic=null;
+      traffic=null;
       fleet?.dispose();
       treeHandle?.dispose();
       actor?.dispose();
@@ -543,8 +556,9 @@ export async function createNorthHeightsCity8(
     status("Building Rapier terrain, pavement and "+world.count+" blocking building colliders");
     walk=await createNorthHeightsWalk005(scene,world.lotSpecs,footSpawn);
     if(closed){walk.dispose();walk=null;return controller;}
-    // NH-012: traffic intelligence and four dot meshes only; no 125 car GLBs,
-    // per-agent Rapier bodies or simulation ownership in the Babylon renderer.
+    // NH-016: retain NH-012's single deterministic 125-car circuit. A batched
+    // 3D LOD represents every car; authenticated source GLBs are camera-near
+    // replacements rather than 91 additional agents or Rapier bodies.
     traffic=new NH012TrafficSimulator(125,120125);
     const pilotIds=assignNH013SedanPilot(traffic,8);
     const hatchIds=assignNH013HatchbackPilot(traffic,12);
@@ -554,12 +568,15 @@ export async function createNorthHeightsCity8(
     hatchbackVisuals=createNorthHeightsHatchbackVisuals013(scene,traffic.graph);
     taxiVisuals=createNorthHeightsTaxiVisuals014(scene,traffic.graph);
     kangoVisuals=createNorthHeightsKangoVisuals015(scene,traffic.graph);
-    trafficDots=createNorthHeightsTrafficDots012(scene,traffic.population);
-    console.info("[NH-013] Existing NH-012 moving agents represented as cars",{
+    const circuit=verifyCompleteFleet016(traffic.snapshot());
+    authenticFleet=createNorthHeightsAuthenticFleet016(scene,traffic.graph,mobile);
+    traffic3D=createNorthHeightsTraffic3D016(scene,traffic.graph);
+    console.info("[NH-016] Full six-model circuit, no colored diagnostic dots",{
        sedans:pilotIds.size,hatchbacks:hatchIds.size,taxis:taxiIds.size,kango:kangoIds.size,
-       remainingDots:traffic.population-pilotIds.size-hatchIds.size-taxiIds.size-kangoIds.size
+       defaultVehicleModels:circuit.models,defaultVehicles:circuit.original,
+       vehicleViews:traffic.population,dots:0,
     });
-    trafficDots.update(traffic.snapshot(),camera.position);
+    traffic3D.update(traffic.snapshot(),new Set());
     console.info("[NH-012] directed lane traffic initialized",{
       nodes:traffic.graph.nodes.size,directedLanes:traffic.graph.edges.size,
       turns:traffic.graph.connectors.size,agents:traffic.population,
