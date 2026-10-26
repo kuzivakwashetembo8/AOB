@@ -10,6 +10,9 @@ import {
 import type {NH012TrafficSnapshot} from "@/game/traffic/nh012-traffic-simulator";
 import {createGTDGeneratedVehicleMesh001,createTemerarioSourceMesh002,
  createTemerarioWheelMesh003,getTemerarioWheelFit003,generatedWheelRadius001,
+ createTemerarioRimFaceOverlay007,
+ createBMWSourceMesh006,createBMWWheelMesh006,getBMWWheelFit006,
+ type GTDBMWPart006,type GTDBMWCorner006,type GTDBMWWheelPart006,
  createRoverSourceMesh005,createRoverWheelMesh005,getRoverWheelFit005,
  type GTDRoverSourcePart005,type GTDRoverCorner005,type GTDRoverWheelPart005,
  type GTDTemerarioWheelCorner003,type GTDTemerarioWheelPart003
@@ -137,6 +140,56 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
   mesh.thinInstanceCount=0;mesh.setEnabled(false);
   b={mesh,buffer,count:0};buckets.set(key,b);return b;
  };
+ // Native original BMW M4. This explicitly does not change Rover or
+ // Lamborghini body materials or the NH-012 agent count.
+ const bmwBody=(part:GTDBMWPart006,color:string)=>{
+   const key="bmw:body:"+part+":"+(part==="paint"?color:"std");
+   let b=buckets.get(key);if(b)return b;
+   const mesh=createBMWSourceMesh006(scene,key,part);
+   const mat=new StandardMaterial("mat:"+key,scene);
+   mat.diffuseColor=Color3.FromHexString(color);
+   mat.specularColor=Color3.FromHexString(part==="paint"?"#66696B":"#40464E");
+   if(part==="frontLight"||part==="rearLight")
+     mat.emissiveColor=Color3.FromHexString(color).scale(.38);
+   mat.backFaceCulling=false;mesh.material=mat;
+   mesh.isPickable=false;mesh.receiveShadows=false;mesh.alwaysSelectAsActiveMesh=true;
+   const buffer=new Float32Array(125*6*16);
+   mesh.thinInstanceSetBuffer("matrix",buffer,16,false);
+   mesh.thinInstanceCount=0;mesh.setEnabled(false);
+   b={mesh,buffer,count:0};buckets.set(key,b);return b;
+ };
+ const bmwWheel=(corner:GTDBMWCorner006,part:GTDBMWWheelPart006)=>{
+   const key="bmw:wheel:"+corner+":"+part;
+   let b=buckets.get(key);if(b)return b;
+   const mesh=createBMWWheelMesh006(scene,key,corner,part);
+   const mat=new StandardMaterial("mat:"+key,scene);
+   mat.diffuseColor=Color3.FromHexString(part==="tire"?"#181A1D":"#676E78");
+   mat.specularColor=Color3.FromHexString(part==="tire"?"#111213":"#A7AFBC");
+   mat.emissiveColor=Color3.FromHexString(part==="tire"?"#000000":"#1E2228");
+   mat.backFaceCulling=false;mesh.material=mat;
+   mesh.isPickable=false;mesh.receiveShadows=false;mesh.alwaysSelectAsActiveMesh=true;
+   const buffer=new Float32Array(125*6*16);
+   mesh.thinInstanceSetBuffer("matrix",buffer,16,false);
+   mesh.thinInstanceCount=0;mesh.setEnabled(false);
+   b={mesh,buffer,count:0};buckets.set(key,b);return b;
+ };
+ // Thin-instance, radius-normalized 10-spoke fallback for mobile rim face.
+ // The accepted source rims remain under this sparse metal geometry.
+ const spokeRim=()=>{
+   const key="temerario:spoke-face:0032";
+   let b=buckets.get(key);if(b)return b;
+   const mesh=createTemerarioRimFaceOverlay007(scene,key);
+   const mat=new StandardMaterial("mat:"+key,scene);
+   mat.diffuseColor=Color3.FromHexString("#737D89");
+   mat.emissiveColor=Color3.FromHexString("#313942");
+   mat.specularColor=Color3.FromHexString("#C5CDD6");
+   mat.specularPower=84;mat.backFaceCulling=false;mesh.material=mat;
+   mesh.isPickable=false;mesh.receiveShadows=false;mesh.alwaysSelectAsActiveMesh=true;
+   const buffer=new Float32Array(125*6*16);
+   mesh.thinInstanceSetBuffer("matrix",buffer,16,false);
+   mesh.thinInstanceCount=0;mesh.setEnabled(false);
+   b={mesh,buffer,count:0};buckets.set(key,b);return b;
+ };
  const tires=get("rubber","#171B20","wheel"),
    alloys=get("rims","#ADB4BD","wheel"),
    wheelSpoke=get("moving-wheel-spoke","#ECEDEF"),
@@ -170,6 +223,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          a.modelId==="gtd-traffic-taxi-014"?"WHITE":a.paintId;
        const paint=fleetPaint016(base);
        const isRover=a.modelId==="gtd-veh006-mercer-range-rover";
+       const isBMW=a.modelId==="gtd-veh014-mercer-bmw-m4";
        const road=sampleTrafficVehicleRoadPose013({
          x:a.x,z:a.z,heading:a.heading,wheelbase:spec.length*.59,
          track:spec.width*.81,ground:northHeightsGround,
@@ -182,6 +236,12 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
         write(roverPart("trim","#252A30"),world);
         write(roverPart("frontLight","#DDE2E6"),world);
         write(roverPart("rearLight","#BF363B"),world);
+       }else if(isBMW){
+        write(bmwBody("paint",paint),world);
+        write(bmwBody("glass","#253947"),world);
+        write(bmwBody("trim","#22272E"),world);
+        write(bmwBody("frontLight","#E4E6EA"),world);
+        write(bmwBody("rearLight","#BF3036"),world);
        }else{
         write(get("body:"+a.modelId+":"+paint,paint,"body",spec),world);
         write(get("windows:"+a.modelId,"#263D4C","glass",spec),world);
@@ -218,6 +278,28 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
             const outward=fit.center[0]>0?1:-1;
             const rimSurface=Matrix.Translation(outward*.024,0,0).multiply(transform);
             write(sourcedWheel(corner,"rim"),rimSurface);
+           // This additional EMPTY-GAP split-spoke face is deliberately
+           // anchored to the *outer tyre face*, not deep inside the rubber.
+           const face=Matrix.Compose(
+             new Vector3(fit.radius,fit.radius,fit.radius),spinQ,
+             new Vector3(fit.center[0]+outward*(fit.width*.5+.018),
+               fit.center[1],fit.center[2])).multiply(world);
+           write(spokeRim(),face);
+         }
+       }else if(isBMW){
+         const corners:GTDBMWCorner006[]=["frontLeft","frontRight","rearLeft","rearRight"];
+         for(const corner of corners){
+           const fit=getBMWWheelFit006(corner);
+           const turn=corner.startsWith("front")?steer:0;
+           const q=Quaternion.RotationAxis(up,turn)
+             .multiply(Quaternion.RotationAxis(right,spin));
+           const local=Matrix.Compose(Vector3.One(),q,
+             new Vector3(fit.center[0],fit.center[1],fit.center[2]));
+           const transform=local.multiply(world);
+           write(bmwWheel(corner,"tire"),transform);
+           const outward=fit.center[0]>0?1:-1;
+           write(bmwWheel(corner,"rim"),
+             Matrix.Translation(outward*.015,0,0).multiply(transform));
          }
        }else if(isRover){
         const corners:GTDRoverCorner005[]=["frontLeft","frontRight","rearLeft","rearRight"];
@@ -251,7 +333,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          write(wheelSpoke,spoke.multiply(hub).multiply(world));
        }
        }
-       if(spec.style!=="supercar"&&!isRover)for(const side of [-1,1]){
+       if(spec.style!=="supercar"&&!isRover&&!isBMW)for(const side of [-1,1]){
          write(headlights,matrix({x:side*spec.width*.33,y:.91,z:spec.length*.502,
            w:.30,h:.13,d:.05},world));
          write(taillights,matrix({x:side*spec.width*.35,y:.83,z:-spec.length*.502,
