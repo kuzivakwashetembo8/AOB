@@ -16,7 +16,7 @@ function DistrictVector({x,z,labels=false}:{
  const point=northHeightsMapPoint010({x,z});
  return <g>
   <rect width="640" height="640" fill="#172533"/>
-  {NORTH_HEIGHTS_MAP_BLOCKS_010.map(block=><rect key={block.id}
+  {labels&&NORTH_HEIGHTS_MAP_BLOCKS_010.map(block=><rect key={block.id}
     x={block.x+3} y={block.y+3} width="58" height="58" rx="2"
     fill={block.kind==="park"?"#346553":
       block.kind==="parking"?"#4d555d":regionColor[block.area]??"#43536a"}
@@ -27,7 +27,7 @@ function DistrictVector({x,z,labels=false}:{
     <line x1="0" x2="640" y1={road.z} y2={road.z}
       stroke="#aeb8bf" strokeWidth="7" strokeOpacity=".65"/>
   </g>)}
-  {NORTH_HEIGHTS_MAP_PARKING_010.map(lot=><g key={lot.id}>
+  {labels&&NORTH_HEIGHTS_MAP_PARKING_010.map(lot=><g key={lot.id}>
     <rect x={lot.x-18} y={lot.y-18} width="36" height="36"
       fill="#7b8a91" stroke="#f3cd78" strokeWidth="2"/>
     {labels&&<text x={lot.x+20} y={lot.y+5} fontSize="12"
@@ -50,9 +50,9 @@ function DistrictVector({x,z,labels=false}:{
     <text x="8" y={road.z-5} fontSize="9" fill="#e4edf1">{road.eastWest}</text>
   </g>)}
   <circle cx={point.x} cy={point.y} r={labels?10:17}
-    fill="#41ed69" stroke="#061908" strokeWidth={labels?3:6}/>
+    fill="#ffffff" stroke="#111827" strokeWidth={labels?3:6}/>
   <circle cx={point.x} cy={point.y} r={labels?18:29}
-    fill="none" stroke="#b9ffc8" strokeOpacity=".6" strokeWidth="3"/>
+    fill="none" stroke="#ffffff" strokeOpacity=".6" strokeWidth="3"/>
  </g>;
 }
 export function NorthHeightsMiniMap({position,onExpand}:{
@@ -61,12 +61,12 @@ export function NorthHeightsMiniMap({position,onExpand}:{
  return <button type="button" aria-label="Expand North Heights map"
   title="Open North Heights map"
   onClick={onExpand}
-  className="relative z-10 shrink-0 overflow-hidden rounded-md border border-white/45 bg-[#071522] shadow-xl"
-  style={{width:"clamp(85px,10vw,120px)",height:"clamp(85px,10vw,120px)"}}>
+  className="relative z-10 shrink-0 overflow-hidden rounded-full border border-white/45 bg-[#071522] shadow-xl"
+  style={{width:"clamp(82px,9vw,116px)",height:"clamp(82px,9vw,116px)"}}>
   <svg viewBox="0 0 640 640" aria-hidden="true" className="h-full w-full">
     <DistrictVector x={position.x} z={position.z}/>
   </svg>
-  <span className="absolute bottom-0 left-0 right-0 bg-black/65 py-0.5 text-center text-[9px] uppercase tracking-wider text-white">
+  <span className="sr-only">
     North Heights
   </span>
  </button>;
@@ -83,7 +83,7 @@ export function NorthHeightsExpandedMap({position,onClose}:{
    return()=>window.removeEventListener("keydown",escape);
  },[onClose]);
  return <div role="dialog" aria-modal="true" aria-label="North Heights 2D map"
-   className="fixed inset-0 z-[100] flex flex-col items-center gap-2 overflow-auto bg-[#07111d]/95 p-3 text-white">
+   className="fixed inset-0 z-[100] flex flex-col items-center gap-2 overflow-hidden bg-[#07111d]/95 p-2 text-white">
    <header className="flex w-full max-w-[780px] items-center justify-between gap-2">
      <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
        <MapPinned size={17}/> NORTH HEIGHTS — MERIDIAN CITY
@@ -99,9 +99,9 @@ export function NorthHeightsExpandedMap({position,onClose}:{
          onClick={onClose}><X size={18}/></button>
      </div>
    </header>
-   <div className="min-h-0 w-full max-w-[min(78vh,760px)] flex-1 overflow-hidden rounded-lg border border-white/25 bg-[#142334]">
+   <div className="min-h-0 w-full flex-1 overflow-hidden rounded-lg border border-white/25 bg-[#142334]">
      <svg viewBox="0 0 640 640" className="h-full w-full" role="img"
-       aria-label="Top-down street map of North Heights, green dot marks the player"
+       aria-label="Top-down street map of North Heights, white dot marks the player"
        style={{touchAction:"none"}}
        onPointerDown={e=>{drag.current={id:e.pointerId,x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}}
        onPointerMove={e=>{
@@ -120,7 +120,7 @@ export function NorthHeightsExpandedMap({position,onClose}:{
      </svg>
    </div>
    <footer className="flex w-full max-w-[780px] flex-wrap items-center justify-between gap-2 text-xs text-slate-200">
-     <span><span className="inline-block h-2 w-2 rounded-full bg-[#41ed69]"/> YOU ARE HERE</span>
+     <span><span className="inline-block h-2 w-2 rounded-full bg-white"/> YOU ARE HERE</span>
      <span>22 named streets · 6 areas · 2 parking lots · Drag to pan</span>
    </footer>
  </div>;
