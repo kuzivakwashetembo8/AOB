@@ -16,15 +16,16 @@ const init=()=>{
  assignNH014TaxiPilot(s,8);assignNH015KangoPilot(s,6);
  return s;
 };
-describe("NH016 all six genuine default classes join traffic without dots",()=>{
+describe("NH016 five BMW-free original source classes join traffic without dots",()=>{
  it("covers 125 original deterministic agents, 91 default and 34 accepted types",()=>{
    const sim=init(),snapshot=sim.snapshot();
    const all=verifyCompleteFleet016(snapshot);
    expect(all.total).toBe(125);
    expect(all.original).toBe(91);
    expect(selectDefaultFleetAgents016(snapshot)).toHaveLength(91);
-   expect(new Set(Object.values(NH016_CLASS)).size).toBe(6);
-   expect(NH016_FLEET_IDS).toHaveLength(6);
+   expect(new Set(Object.values(NH016_CLASS)).size).toBe(5);
+   expect(NH016_FLEET_IDS).toHaveLength(5);
+   expect(snapshot.agents.some(a=>a.modelId.includes("bmw"))).toBe(false);
    for(const id of NH016_FLEET_IDS)expect(all.models[id]).toBeGreaterThan(0);
    expect(new Set(snapshot.agents.map(a=>a.id)).size).toBe(125);
    expect(sim.validate()).toEqual([]);
@@ -43,7 +44,7 @@ describe("NH016 all six genuine default classes join traffic without dots",()=>{
    expect(a.validate()).toEqual([]);
    expect(verifyCompleteFleet016(a.snapshot()).original).toBe(91);
  });
- it("preserves six paint families and replaces source traffic GLB upgrades on experimental branch",()=>{
+ it("preserves the 5 source paint families and replaces source traffic GLB upgrades on experimental branch",()=>{
    expect(Object.keys(NH016_PAINT).length).toBeGreaterThanOrEqual(12);
    for(const agent of selectDefaultFleetAgents016(init().snapshot())){
      expect(fleetPaint016(agent.paintId)).toMatch(/^#[a-fA-F0-9]{6}$/);
