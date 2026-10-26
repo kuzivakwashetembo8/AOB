@@ -126,49 +126,72 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
  let tick=-1;
  let last={vehicles3D:0,sourceGLBs:0 as const,lowDetail:0,defaultFleet:0,dots:0 as const};
  return {
-   update(snapshot,_exclude){
-     if(snapshot.tick===tick)return last;
-     sedanFleetAudit009(snapshot);
-     tick=snapshot.tick;
-     for(const b of buckets.values())b.count=0;
-     for(const a of snapshot.agents){
-       const color=sedanPaint009(a.id);
-       const pose=sampleTrafficVehicleRoadPose013({
-         x:a.x,z:a.z,heading:a.heading,wheelbase,track,ground:northHeightsGround
-       });
-       const world=Matrix.Compose(Vector3.One(),pose.rotation,new Vector3(a.x,pose.y,a.z));
-       write(exterior("paint",color),world);
-       for(const part of parts){
-         if(part==="paint"||(tier===1&&part!=="glass")||!hasSourcePart007("sedan",part))continue;
-         write(exterior(part,exteriorColors[part]),world);
-       }
-       const previous=positions.get(a.id);
-       const distance=previous?Math.hypot(a.x-previous.x,a.z-previous.z):0;
-       const spin=(previous?.spin??0)+(previous?.tick===snapshot.tick?0:distance/front.radius);
-       positions.set(a.id,{x:a.x,z:a.z,spin,tick:snapshot.tick});
-       const steer=a.connectorId?
-         Math.max(-.8,Math.min(.8,trafficTurnSteering013(a,graph,wheelbase)*1.6)):0;
-       for(const corner of corners){
-         const fit=sourceWheelFit007(NH009_SEDAN_MODEL,corner);
-         const turn=corner.startsWith("front")?steer:0;
-         const rotation=Quaternion.RotationAxis(up,turn).multiply(Quaternion.RotationAxis(right,spin));
-         const transform=Matrix.Compose(Vector3.One(),rotation,
-           new Vector3(fit.center[0]??0,fit.center[1]??0,fit.center[2]??0)).multiply(world);
-         write(wheel(corner,"tire"),transform);
-         const outward=(fit.center[0]??0)>=0?1:-1;
-         write(wheel(corner,"rim"),Matrix.Translation(outward*.012,0,0).multiply(transform));
-       }
-     }
-     for(const b of buckets.values()){
-       b.mesh.thinInstanceCount=b.count;
-       if(b.count){b.mesh.setEnabled(true);b.mesh.thinInstanceBufferUpdated("matrix");b.mesh.thinInstanceRefreshBoundingInfo();}
-       else b.mesh.setEnabled(false);
-     }
-     last={vehicles3D:snapshot.count,sourceGLBs:0,lowDetail:snapshot.count,
-       defaultFleet:snapshot.count,dots:0};
-     return last;
-   },
-   dispose(){
+  update(snapshot,_exclude,camera){
+    const moved=camera?Math.hypot(camera.position.x-lastCamera.x,camera.position.y-lastCamera.y,camera.position.z-lastCamera.z):0;
+    if(snapshot.tick===tick && (!camera||moved<.45))return last;
+    sedanFleetAudit009(snapshot);
+    tick=snapshot.tick;
+    lastCounts={full:0,medium:0,distant:0,culled:0};
+    for(const b of buckets.values())b.count=0;
+    for(const a of snapshot.agents){
+      const color=sedanPaint009(a.id);
+      const pose=sampleTrafficVehicleRoadPose013({
+        x:a.x,z:a.z,heading:a.heading,wheelbase,track,ground:northHeightsGround
+      });
+      const world=Matrix.Compose(Vector3.One(),pose.rotation,new Vector3(a.x,pose.y,a.z));
+      const previous=positions.get(a.id);
+      const distance=previous?Math.hypot(a.x-previous.x,a.z-previous.z):0;
+      const spin=(previous?.spin??0)+(previous?.tick===snapshot.tick?0:distance/front.radius);
+      positions.set(a.id,{x:a.x,z:a.z,spin,tick:snapshot.tick});
+      const tier=visibilityTier(a,pose.y,camera);
+      if(tier<0){lastCounts.culled++;continue;}
+      if(tier===2){
+        write(distantPart("body",color),world);
+        write(distantPart("cabin",color),world);
+        write(distantPart("glass",color),world);
+        write(distantPart("wheels",color),world);
+        lastCounts.distant++;
+        continue;
+      }
+      write(exterior("paint",color),world);
+      for(const part of parts){
+        if(part==="paint"||(tier===1&&part!=="glass")||!hasSourcePart007("sedan",part))continue;
+        write(exterior(part,exteriorColors[part]),world);
+      }
+      if(tier===1){
+        write(distantPart("wheels",color),world);
+        lastCounts.medium++;
+        continue;
+      }
+      lastCounts.full++;
+      const steer=a.connectorId?
+        Math.max(-.8,Math.min(.8,trafficTurnSteering013(a,graph,wheelbase)*1.6)):0;
+      for(const corner of corners){
+        const fit=sourceWheelFit007(NH009_SEDAN_MODEL,corner);
+        const turn=corner.startsWith("front")?steer:0;
+        const rotation=Quaternion.RotationAxis(up,turn).multiply(Quaternion.RotationAxis(right,spin));
+        const transform=Matrix.Compose(Vector3.One(),rotation,
+          new Vector3(fit.center[0]??0,fit.center[1]??0,fit.center[2]??0)).multiply(world);
+        write(wheel(corner,"tire"),transform);
+        const outward=(fit.center[0]??0)>=0?1:-1;
+        write(wheel(corner,"rim"),Matrix.Translation(outward*.012,0,0).multiply(transform));
+      }
+    }
+    for(const b of buckets.values()){
+      b.mesh.thinInstanceCount=b.count;
+      if(b.count){
+        b.mesh.setEnabled(true);
+        b.mesh.thinInstanceBufferUpdated("matrix");
+        b.mesh.thinInstanceRefreshBoundingInfo();
+      }else b.mesh.setEnabled(false);
+    }
+    if(camera)lastCamera={x:camera.position.x,y:camera.position.y,z:camera.position.z};
+    last={vehicles3D:lastCounts.full+lastCounts.medium+lastCounts.distant,
+      sourceGLBs:0,lowDetail:lastCounts.medium+lastCounts.distant,
+      defaultFleet:snapshot.count,dots:0};
+    return last;
+  },
+  dispose(){
      for(const bucket of buckets.values())bucket.mesh.dispose(false,false);
      for(const material of materials)material.dispose();
      buckets.clear();positions.clear();
