@@ -332,6 +332,7 @@ export async function createNorthHeightsCity8(
       if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
       onNearbyVehicleChange?.(!driving&&mode==="walk"&&!!walk&&!!nearestAccessibleCar(walk.physics.playerPosition(),[...cars].map(([id,car])=>({id,pose:car.pose})),cameraBlockers));
     }
+    // GEN-VEH-001: all traffic generated, zero source-GLB proximity swaps.
     // OPT-02: render LOD after camera and actor have moved in this very frame,
     // avoiding one-frame stale full-detail promotion during rapid flight descent.
     if(traffic&&traffic3D){
