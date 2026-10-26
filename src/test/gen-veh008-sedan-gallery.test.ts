@@ -4,7 +4,9 @@ import {GALLERY_VEHICLES_008,galleryVehicleAt008} from "@/game/vehicles/vehicle-
 describe("GEN-VEH-008 sedan repair and isolated review",()=>{
  it("tracks reviewed sedan, accepted Rover and pending hatchback/Dodge separately",()=>{
    expect(GALLERY_VEHICLES_008[0].id).toBe("sedan");
-   expect(GALLERY_VEHICLES_008.find(x=>x.id==="rover")?.status).toBe("ACCEPTED BASELINE");
+   expect(GALLERY_VEHICLES_008.find(x=>x.id==="rover")?.status).toBe("NEEDS WORK");
+   expect(GALLERY_VEHICLES_008.find(x=>x.id==="sedan")?.status).toBe("ACCEPTED");
+   expect(GALLERY_VEHICLES_008.filter(x=>x.status==="ACCEPTED")).toHaveLength(1);
    expect(GALLERY_VEHICLES_008.find(x=>x.id==="hatchback")?.status).toBe("REPAIR REQUIRED");
    expect(GALLERY_VEHICLES_008.find(x=>x.id==="dodge")?.status).toBe("REPAIR REQUIRED");
    expect(galleryVehicleAt008(-1).id).toBe("temerario");

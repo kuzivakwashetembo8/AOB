@@ -28,7 +28,7 @@ import {RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig} from "@/game/vehic
 import {validateNorthHeightsParking010} from "./north-heights-spatial-plan-010";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
-import {createNorthHeightsTraffic3D016,type NH016Traffic3D} from "./north-heights-traffic-3d-016";
+import {createNorthHeightsSedanTraffic009,type NH009SedanTraffic} from "./north-heights-sedan-traffic-009";
 import {verifyCompleteFleet016} from "@/game/traffic/nh016-fleet-manifest";
 import {assignNH013SedanPilot} from "@/game/traffic/nh013-sedan-pilot";
 import {assignNH013HatchbackPilot} from "@/game/traffic/nh013-hatchback-pilot";
@@ -97,7 +97,7 @@ export async function createNorthHeightsCity8(
   let cameraBlockers:CameraBox[]=[];
   let fleet:ReturnType<typeof createMercerExtraParkedGLBs>|null=null;
   let traffic:NH012TrafficSimulator|null=null;
-  let traffic3D:NH016Traffic3D|null=null;
+  let traffic3D:NH009SedanTraffic|null=null;
   let trafficAccumulator=0,visibleTrafficCars=0,visibleAuthenticCars=0;
   const cars=new Map<string,FirstDriveTrial>();
   const carNames=new Map<string,string>();
@@ -338,7 +338,7 @@ export async function createNorthHeightsCity8(
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
         " MOVING GLB "+visibleAuthenticCars+" DOTS 0 SIM "+(traffic?.tick??0)+
-        " · GEN-VEH-001 FOUR FOUNDING FORMS · "+
+        " · GEN-VEH-009 125 SOURCE SEDANS · "+
         (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
         "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
     }
@@ -502,20 +502,20 @@ export async function createNorthHeightsCity8(
     status("Building Rapier terrain, pavement and "+world.count+" blocking building colliders");
     walk=await createNorthHeightsWalk005(scene,world.lotSpecs,footSpawn);
     if(closed){walk.dispose();walk=null;return controller;}
-    // NH-016: retain NH-012's single deterministic 125-car circuit. A batched
-    // 3D LOD represents every car; authenticated source GLBs are camera-near
-    // replacements rather than 91 additional agents or Rapier bodies.
+    // GEN-VEH-009: retain all 125 NH-012 routes/identities, but render every
+    // moving traffic agent as the single owner-accepted sedan in varied paint.
+    // Other car models remain review-only; no proximity GLB swapping.
     traffic=new NH012TrafficSimulator(125,120125);
     const pilotIds=assignNH013SedanPilot(traffic,8);
     const hatchIds=assignNH013HatchbackPilot(traffic,12);
     const taxiIds=assignNH014TaxiPilot(traffic,NH014_TAXI_COUNT);
     const kangoIds=assignNH015KangoPilot(traffic,NH015_KANGO_COUNT);
     const circuit=verifyCompleteFleet016(traffic.snapshot());
-    traffic3D=createNorthHeightsTraffic3D016(scene,traffic.graph);
-    console.info("[GEN-VEH-001] Generated native traffic with no colored dots",{
+    traffic3D=createNorthHeightsSedanTraffic009(scene,traffic.graph);
+    console.info("[GEN-VEH-009] Accepted sedan-only 125-agent native traffic",{
        sedans:pilotIds.size,hatchbacks:hatchIds.size,taxis:taxiIds.size,kango:kangoIds.size,
        defaultVehicleModels:circuit.models,defaultVehicles:circuit.original,
-       vehicleViews:traffic.population,dots:0,movingGLBs:0,
+       vehicleViews:traffic.population,renderModel:"sedan",dots:0,movingGLBs:0,
     });
     traffic3D.update(traffic.snapshot(),new Set());
     console.info("[NH-012] directed lane traffic initialized",{
@@ -607,7 +607,7 @@ export async function createNorthHeightsCity8(
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 8 sedans + 12 hatchbacks + 8 taxis + 6 Kangoo + 91 default fleet models · 125 3D cars, zero dots, no traffic GLB swapping · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
+      treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 125 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));

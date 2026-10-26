@@ -50,7 +50,7 @@ describe("NH016 five BMW-free original source classes join traffic without dots"
      expect(fleetPaint016(agent.paintId)).toMatch(/^#[a-fA-F0-9]{6}$/);
    }
    const city=readFileSync("src/game/experiments/north-heights-city-8.ts","utf8");
-   expect(city).toContain("createNorthHeightsTraffic3D016(scene,traffic.graph)");
+   expect(city).toContain("createNorthHeightsSedanTraffic009(scene,traffic.graph)");
    expect(city).not.toContain("createNorthHeightsAuthenticFleet016(scene,traffic.graph,mobile)");
    expect(city).toContain("GEN-VEH-001");
    expect(city).toContain("DOTS 0 SIM");
