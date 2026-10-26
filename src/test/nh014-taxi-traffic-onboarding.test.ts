@@ -42,9 +42,9 @@ describe("NH-014 authentic taxi visual onboarding",()=>{
    const nodes=g.nodes.filter((v:{name:string})=>wheels.includes(v.name));
    expect(nodes).toHaveLength(4);
    expect(new Set(nodes.map((v:{translation:number[]})=>v.translation.join(","))).size).toBe(4);
-   expect(nodes.every((v:{children:number[]})=>v.children.length===1&&g.nodes[v.children[0]].mesh!==undefined)).toBe(true);
+   expect(nodes.every((v:{children:number[]})=>v.children.length===1&&g.nodes[v.children[0]!]?.mesh!==undefined)).toBe(true);
    expect(nodes.filter((v:{name:string;translation:number[]})=>/WFL|WFR/.test(v.name))
-     .every((v:{translation:number[]})=>v.translation[2]<0)).toBe(true);
+     .every((v:{translation:number[]})=>v.translation[2]!<0)).toBe(true);
    expect(g.materials.some((m:{name:string})=>m.name==="body")).toBe(true);
    expect(g.materials.some((m:{name:string})=>m.name==="taxiSign")).toBe(true);
    expect(NH014_TAXI_WHEELBASE).toBeGreaterThan(2.7);
