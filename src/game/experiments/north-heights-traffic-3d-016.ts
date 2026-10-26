@@ -235,9 +235,9 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
        const rearFit=nativeWheels?sourceWheelFit007(sevenModel!,"rearLeft"):null;
        const rightFit=nativeWheels?sourceWheelFit007(sevenModel!,"frontRight"):null;
        const contactLength=frontFit&&rearFit?
-         Math.abs(frontFit.center[2]-rearFit.center[2]):spec.length*.59;
+         Math.abs((frontFit.center[2]??0)-(rearFit.center[2]??0)):spec.length*.59;
        const contactTrack=frontFit&&rightFit?
-         Math.abs(frontFit.center[0]-rightFit.center[0]):spec.width*.81;
+         Math.abs((frontFit.center[0]??0)-(rightFit.center[0]??0)):spec.width*.81;
        const road=sampleTrafficVehicleRoadPose013({
          x:a.x,z:a.z,heading:a.heading,wheelbase:contactLength,
          track:contactTrack,ground:northHeightsGround,
@@ -287,7 +287,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
            const spinQ=Quaternion.RotationAxis(up,steering)
              .multiply(Quaternion.RotationAxis(right,spin));
            const pivot=Matrix.Compose(Vector3.One(),spinQ,
-             new Vector3(fit.center[0],fit.center[1],fit.center[2]));
+             new Vector3(fit.center[0]??0,fit.center[1]??0,fit.center[2]??0));
            const transform=pivot.multiply(world);
            write(sourcedWheel(corner,"tire"),transform);
            // Nudge only the rim face outward; preserve measured wheel pivot.
@@ -327,7 +327,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
              new Vector3(fit.center[0],fit.center[1],fit.center[2]));
            const transform=pivot.multiply(world);
            write(sevenWheel(sevenModel,corner,"tire"),transform);
-           const sign=fit.center[0]>=0?1:-1;
+           const sign=(fit.center[0]??0)>=0?1:-1;
            write(sevenWheel(sevenModel,corner,"rim"),
              Matrix.Translation(sign*.012,0,0).multiply(transform));
          }
