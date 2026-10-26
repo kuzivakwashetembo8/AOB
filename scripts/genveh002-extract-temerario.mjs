@@ -23,7 +23,7 @@ if(gltf.meshes?.length!==782||gltf.materials?.length!==80||
  !gltf.extensionsRequired?.includes("KHR_draco_mesh_compression"))
  throw Error("GEN-VEH-002 source signature changed: inspect original before re-extracting");
 const groups=["paint","glass","trim","frontLight","rearLight"];
-const raw=Object.fromEntries(groups.map(k=>[k,{vertices:[],indices:[],sourceNodes:0}]));
+const raw=Object.fromEntries(groups.map(k=>[k,{segments:[],sourceNodes:0}]));
 const materialGroup=(name,nodeName)=>{
  const m=name.toLowerCase(),n=nodeName.toUpperCase();
  if(n.startsWith("GLS_")||/glass|window|blackplane/i.test(m))return "glass";
@@ -34,7 +34,6 @@ const materialGroup=(name,nodeName)=>{
  return "trim";
 };
 const nodeSelected=n=>/^(EXT_|DOOR_|GLS_|LGT_|Carpaint)/.test(n);
-const identity=()=>[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 const matmul=(a,b)=>{
  const o=new Array(16).fill(0);
  for(let c=0;c<4;c++)for(let r=0;r<4;r++)
@@ -67,6 +66,21 @@ const transformed=(p,m)=>[
  m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],
  m[2]*p[0]+m[6]*p[1]+m[10]*p[2]+m[14],
 ];
+
+/** Inverse-transpose of the source node linear transform; protects highlights
+ * on rotated/non-uniformly scaled body panels. */
+function transformedNormal(v,m){
+ const a=m[0],b=m[4],c=m[8],d=m[1],e=m[5],f=m[9],g=m[2],h=m[6],i=m[10];
+ const A=e*i-f*h,B=f*g-d*i,C=d*h-e*g,D=c*h-b*i,E=a*i-c*g,F=b*g-a*h,
+       G=b*f-c*e,H=c*d-a*f,I=a*e-b*d;
+ const det=a*A+b*B+c*C;
+ if(Math.abs(det)<1e-12)throw Error("GEN-VEH-002 degenerate source normal transform");
+ const x=(A*v[0]+B*v[1]+C*v[2])/det,
+       y=(D*v[0]+E*v[1]+F*v[2])/det,
+       z=(G*v[0]+H*v[1]+I*v[2])/det;
+ const n=Math.hypot(x,y,z)||1;return [x/n,y/n,z/n];
+}
+
 const mod=await draco3d.createDecoderModule(),decoder=new mod.Decoder();
 function decode(primitive){
  const ext=primitive.extensions?.KHR_draco_mesh_compression;
@@ -76,18 +90,29 @@ function decode(primitive){
  const source=new mod.DecoderBuffer();source.Init(new Int8Array(bytes),bytes.length);
  const mesh=new mod.Mesh(),status=decoder.DecodeBufferToMesh(source,mesh);
  if(!status.ok())throw Error("GEN-VEH-002 Draco: "+status.error_msg());
- const a=decoder.GetAttributeByUniqueId(mesh,ext.attributes.POSITION);
+ const positionsAttribute=decoder.GetAttributeByUniqueId(mesh,ext.attributes.POSITION);
  const numbers=new mod.DracoFloat32Array();
- decoder.GetAttributeFloatForAllPoints(mesh,a,numbers);
+ decoder.GetAttributeFloatForAllPoints(mesh,positionsAttribute,numbers);
  const vertices=new Float32Array(numbers.size());
  for(let i=0;i<vertices.length;i++)vertices[i]=numbers.GetValue(i);
+ let normals=null;
+ if(ext.attributes.NORMAL!==undefined){
+   const attribute=decoder.GetAttributeByUniqueId(mesh,ext.attributes.NORMAL);
+   if(attribute){
+     decoder.GetAttributeFloatForAllPoints(mesh,attribute,numbers);
+     if(numbers.size()===vertices.length){
+       normals=new Float32Array(numbers.size());
+       for(let i=0;i<normals.length;i++)normals[i]=numbers.GetValue(i);
+     }
+   }
+ }
  const face=new mod.DracoInt32Array(),indices=[];
  for(let i=0;i<mesh.num_faces();i++){
-  decoder.GetFaceFromMesh(mesh,i,face);
-  indices.push(face.GetValue(0),face.GetValue(1),face.GetValue(2));
+   decoder.GetFaceFromMesh(mesh,i,face);
+   indices.push(face.GetValue(0),face.GetValue(1),face.GetValue(2));
  }
  mod.destroy(face);mod.destroy(numbers);mod.destroy(mesh);mod.destroy(source);
- return {vertices,indices};
+ return {vertices,normals,indices};
 }
 let inspected=0,totalTriangles=0;
 let min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
@@ -97,20 +122,26 @@ for(let ni=0;ni<gltf.nodes.length;ni++){
  const mesh=gltf.meshes[n.mesh],matrix=worldMatrix(ni);
  for(const primitive of mesh.primitives??[]){
   const group=materialGroup(gltf.materials[primitive.material??-1]?.name??"",n.name??"");
-  const d=decode(primitive),acc=raw[group],offset=acc.vertices.length/3;
+  const d=decode(primitive),acc=raw[group];
+  const positions=[],normals=[];
   for(let i=0;i<d.vertices.length;i+=3){
    const v=transformed([d.vertices[i],d.vertices[i+1],d.vertices[i+2]],matrix);
-   acc.vertices.push(...v);
+   positions.push(...v);
+   if(d.normals)normals.push(...transformedNormal(
+     [d.normals[i],d.normals[i+1],d.normals[i+2]],matrix));
    for(let k=0;k<3;k++){min[k]=Math.min(min[k],v[k]);max[k]=Math.max(max[k],v[k]);}
   }
-  for(const index of d.indices)acc.indices.push(index+offset);
+  // A distinct primitive is a hard barrier for merging. In particular never
+  // join adjacent GLB surfaces that merely occupy the same voxel.
+  acc.segments.push({positions,normals,indices:d.indices,
+    name:n.name??"",material:gltf.materials[primitive.material??-1]?.name??""});
   inspected++;acc.sourceNodes++;totalTriangles+=d.indices.length/3;
  }
 }
 mod.destroy(decoder);
-if(inspected<250||totalTriangles<180000||groups.some(k=>!raw[k].indices.length))
+if(inspected<250||totalTriangles<180000||groups.some(k=>!raw[k].segments.length))
  throw Error("GEN-VEH-002 exterior extraction incomplete "+JSON.stringify(
-   {inspected,totalTriangles,parts:groups.map(k=>[k,raw[k].indices.length])}));
+   {inspected,totalTriangles,parts:groups.map(k=>[k,raw[k].segments.length])}));
 const spans=max.map((v,k)=>v-min[k]);
 if(spans.some(v=>!Number.isFinite(v)||v<=0))throw Error("GEN-VEH-002 exterior bounds invalid");
 const longAxis=spans[0]>spans[2]?0:2,wideAxis=longAxis===0?2:0;
@@ -122,56 +153,147 @@ function normalize(v){
  // Lamborghini source control nodes confirm FRONT lies on -X; face +Z in GTD.
  return [rawX,(v[1]-min[1])*scale+0.07,-forward];
 }
-const budget={paint:9500,glass:1800,trim:4500,frontLight:600,rearLight:550};
-const steps=[.004,.006,.009,.013,.018,.025,.035,.050,.070,.10,.14,.20];
-function cluster(key,step){
- const g=raw[key],mapped=[],lookup=new Map(),indices=[];
- const val=g.vertices;
- const remap=new Int32Array(val.length/3);
- for(let i=0;i<remap.length;i++){
-  const p=normalize([val[i*3],val[i*3+1],val[i*3+2]]);
-  const q=p.map(x=>Math.round(x/step));
-  const label=q.join(",");
-  let v=lookup.get(label);
-  if(v===undefined){v=mapped.length/3;lookup.set(label,v);mapped.push(...q.map(x=>x*step));}
-  remap[i]=v;
+// Step 2: conservative, source-island-local simplification. The old code
+// merged ENTIRE paint / glass groups and snapped into one world-position grid,
+// fusing independent roof/door/panel sheets and ruining surface normals.
+const stepByPart={paint:.012,glass:.007,trim:.018,frontLight:.006,rearLight:.006};
+const maxTriangles={paint:120000,glass:28000,trim:120000,frontLight:20000,rearLight:20000};
+const maxTotalTriangles=260000;
+let rejectedDegenerate=0,rejectedInversion=0,sourceNormalsPresent=0;
+// Remapping is a +Z-front coordinate convention. It must match the position
+// conversion. A normal is *direction*, never translated.
+function normalizedNormal(v){
+ const length=v[longAxis],width=v[wideAxis];
+ const p=[width,v[1],-length];
+ const norm=Math.hypot(...p)||1;return p.map(x=>x/norm);
+}
+function clusterSegment(seg,step){
+ const {positions:vertices,normals:originalNormals,indices:triangles}=seg;
+ const vertexCount=vertices.length/3;
+ const p=new Float32Array(vertexCount*3),n=new Float32Array(vertexCount*3);
+ for(let v=0;v<vertexCount;v++){
+   const point=normalize(vertices.slice(v*3,v*3+3));
+   p.set(point,v*3);
+   if(originalNormals.length){
+     const normal=normalizedNormal(originalNormals.slice(v*3,v*3+3));
+     n.set(normal,v*3);sourceNormalsPresent++;
+   }
  }
- const seen=new Set();
- for(let i=0;i<g.indices.length;i+=3){
-  const a=remap[g.indices[i]],b=remap[g.indices[i+1]],c=remap[g.indices[i+2]];
-  if(a===b||a===c||b===c)continue;
-  const x0=mapped[a*3],y0=mapped[a*3+1],z0=mapped[a*3+2];
-  const x1=mapped[b*3],y1=mapped[b*3+1],z1=mapped[b*3+2];
-  const x2=mapped[c*3],y2=mapped[c*3+1],z2=mapped[c*3+2];
-  const ux=x1-x0,uy=y1-y0,uz=z1-z0,vx=x2-x0,vy=y2-y0,vz=z2-z0;
-  const area=Math.hypot(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx);
-  if(area<.000025)continue;
-  const uniq=[a,b,c].sort((p,q)=>p-q).join(":");
-  if(seen.has(uniq))continue;seen.add(uniq);
-  indices.push(a,b,c);
+ // Vertices on topology edges are never moved or welded. This protects
+ // bonnet/door/glass boundaries and isolated islands within a primitive.
+ const edges=new Map(),boundary=new Uint8Array(vertexCount);
+ const edge=(a,b)=>{
+   const label=a<b?a+":"+b:b+":"+a;
+   edges.set(label,(edges.get(label)??0)+1);
+ };
+ for(let j=0;j<triangles.length;j+=3){
+   const a=triangles[j],b=triangles[j+1],c=triangles[j+2];
+   edge(a,b);edge(b,c);edge(c,a);
  }
- return {mapped,indices};
+ for(const [key,count] of edges){
+   if(count!==2){const [a,b]=key.split(":").map(Number);boundary[a]=1;boundary[b]=1;}
+ }
+ edges.clear();
+ // A local vertex neighborhood plus source-normal class is the only weld
+ // domain. Do not weld between different GLB mesh nodes or primitives.
+ const lookup=new Map(),verticesOut=[],normalsOut=[],sums=[],remap=new Uint32Array(vertexCount);
+ for(let v=0;v<vertexCount;v++){
+   const i=v*3,x=p[i],y=p[i+1],z=p[i+2];
+   const nx=n[i],ny=n[i+1],nz=n[i+2];
+   const cell=[Math.round(x/step),Math.round(y/step),Math.round(z/step)].join(",");
+   const direction=originalNormals.length?[Math.round(nx*8),Math.round(ny*8),Math.round(nz*8)].join(","):"none";
+   const key=boundary[v]?"b:"+v:cell+":"+direction;
+   let id=lookup.get(key);
+   if(id===undefined){
+     id=sums.length;
+     lookup.set(key,id);
+     sums.push({x:0,y:0,z:0,nx:0,ny:0,nz:0,count:0});
+   }
+   const accum=sums[id];accum.x+=x;accum.y+=y;accum.z+=z;
+   accum.nx+=nx;accum.ny+=ny;accum.nz+=nz;accum.count++;
+   remap[v]=id;
+ }
+ for(const accum of sums){
+   verticesOut.push(accum.x/accum.count,accum.y/accum.count,accum.z/accum.count);
+   const mag=Math.hypot(accum.nx,accum.ny,accum.nz);
+   normalsOut.push(mag>1e-8?accum.nx/mag:0,
+     mag>1e-8?accum.ny/mag:0,mag>1e-8?accum.nz/mag:0);
+ }
+ const indicesOut=[],seen=new Set();
+ for(let j=0;j<triangles.length;j+=3){
+   const oa=triangles[j],ob=triangles[j+1],oc=triangles[j+2];
+   const a=remap[oa],b=remap[ob],c=remap[oc];
+   if(a===b||a===c||b===c){rejectedDegenerate++;continue;}
+   const cross=(coords,ia,ib,ic)=>{
+     const A=ia*3,B=ib*3,C=ic*3;
+     const ux=coords[B]-coords[A],uy=coords[B+1]-coords[A+1],uz=coords[B+2]-coords[A+2];
+     const vx=coords[C]-coords[A],vy=coords[C+1]-coords[A+1],vz=coords[C+2]-coords[A+2];
+     return [uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx];
+   };
+   const after=cross(verticesOut,a,b,c),area=Math.hypot(...after);
+   if(area<1e-7){rejectedDegenerate++;continue;}
+   const before=cross(p,oa,ob,oc),oldArea=Math.hypot(...before);
+   // Never keep inverted or catastrophically flattened polygons.
+   if(oldArea>1e-9&&((after[0]*before[0]+after[1]*before[1]+after[2]*before[2])/(oldArea*area)<.35)){
+     rejectedInversion++;continue;
+   }
+   const key=[a,b,c].sort((x,y)=>x-y).join(":");
+   if(seen.has(key))continue;
+   seen.add(key);indicesOut.push(a,b,c);
+ }
+ // Missing Draco normal channels: use geometric normals for this source
+ // primitive alone, not across different body panels.
+ if(!originalNormals.length){
+   for(let i=0;i<normalsOut.length;i++)normalsOut[i]=0;
+   for(let j=0;j<indicesOut.length;j+=3){
+     const a=indicesOut[j],b=indicesOut[j+1],c=indicesOut[j+2];
+     const A=a*3,B=b*3,C=c*3;
+     const ux=verticesOut[B]-verticesOut[A],uy=verticesOut[B+1]-verticesOut[A+1],uz=verticesOut[B+2]-verticesOut[A+2];
+     const vx=verticesOut[C]-verticesOut[A],vy=verticesOut[C+1]-verticesOut[A+1],vz=verticesOut[C+2]-verticesOut[A+2];
+     const cx=uy*vz-uz*vy,cy=uz*vx-ux*vz,cz=ux*vy-uy*vx;
+     for(const k of [A,B,C]){normalsOut[k]+=cx;normalsOut[k+1]+=cy;normalsOut[k+2]+=cz;}
+   }
+   for(let i=0;i<normalsOut.length;i+=3){
+     const mag=Math.hypot(normalsOut[i],normalsOut[i+1],normalsOut[i+2])||1;
+     normalsOut[i]/=mag;normalsOut[i+1]/=mag;normalsOut[i+2]/=mag;
+   }
+ }
+ return {positions:verticesOut,normals:normalsOut,indices:indicesOut};
 }
 function encoded(group){
- let result,step;
- for(const s of steps){
-  result=cluster(group,s);step=s;
-  if(result.indices.length/3<=budget[group]&&result.mapped.length/3<65536)break;
+ const outP=[],outN=[],outI=[];
+ let empty=0,srcTriangles=0;
+ for(const seg of raw[group].segments){
+   srcTriangles+=seg.indices.length/3;
+   const result=clusterSegment(seg,stepByPart[group]);
+   if(!result.indices.length){empty++;continue;}
+   const off=outP.length/3;
+   outP.push(...result.positions);outN.push(...result.normals);
+   for(const i of result.indices)outI.push(i+off);
  }
- const positions=new Int16Array(result.mapped.length);
+ if(!outI.length||outP.length/3>500000||outI.length/3>maxTriangles[group])
+   throw Error("GEN-VEH-002 source detail limits exceeded: "+group+
+     " input="+srcTriangles+" output="+outI.length/3+" vertices="+outP.length/3);
+ const positions=new Int16Array(outP.length),normals=new Int8Array(outN.length);
  for(let i=0;i<positions.length;i++){
-  const packed=Math.round(result.mapped[i]*1000);
-  if(packed<-32768||packed>32767)throw Error("GEN-VEH-002 out-of-range packed coordinate");
-  positions[i]=packed;
+   const value=Math.round(outP[i]*1000);
+   if(value<-32768||value>32767)throw Error("GEN-VEH-002 out-of-range source position");
+   positions[i]=value;normals[i]=Math.max(-127,Math.min(127,Math.round(outN[i]*127)));
  }
- const indices=new Uint16Array(result.indices);
- if(indices.length/3>budget[group]||indices.length<9)
-  throw Error("GEN-VEH-002 excessive/empty geometry "+group+" "+indices.length/3);
+ const wide=outP.length/3>65535;
+ const indices=wide?new Uint32Array(outI):new Uint16Array(outI);
  return {p:Buffer.from(positions.buffer).toString("base64"),
+  n:Buffer.from(normals.buffer).toString("base64"),
   i:Buffer.from(indices.buffer).toString("base64"),
-  triangles:indices.length/3,vertices:positions.length/3,clusterMetres:step};
+  indexBits:wide?32:16,
+  triangles:indices.length/3,vertices:positions.length/3,
+  sourceTriangles:srcTriangles,sourcePrimitives:raw[group].segments.length,
+  emptyPrimitives:empty,clusterMetres:stepByPart[group]};
 }
+
 const result=Object.fromEntries(groups.map(k=>[k,encoded(k)]));
+const finalTriangles=groups.reduce((s,k)=>s+result[k].triangles,0);
+if(finalTriangles>maxTotalTriangles)throw Error("GEN-VEH-002 excessive native triangle load "+finalTriangles);
 const output=[
  "/** GENERATED by scripts/genveh002-extract-temerario.mjs from ORIGINAL committed GLB.",
  " * This is compact SOURCE-DERIVED EXTERIOR triangle geometry, NOT a GLB runtime import.",
@@ -186,5 +308,6 @@ console.info("GEN_VEH_002_SOURCE_EXTERIOR "+JSON.stringify({
   exteriorBounds:min.map((v,k)=>[v,max[k]]),footprintScale:scale,
   outputBytes:Buffer.byteLength(output),
   parts:Object.fromEntries(groups.map(k=>[k,{triangles:result[k].triangles,
-    vertices:result[k].vertices,clusterMetres:result[k].clusterMetres}])),
+    vertices:result[k].vertices,sourceTriangles:result[k].sourceTriangles,sourcePrimitives:result[k].sourcePrimitives,clusterMetres:result[k].clusterMetres}])),
+  finalTriangles,rejectedDegenerate,rejectedInversion,sourceNormalsPresent,
 }));
