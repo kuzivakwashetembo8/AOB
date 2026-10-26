@@ -63,7 +63,7 @@ export function accessibleAcrossPlan(start:Point3,end:Point3,blocks:readonly Pla
     const a=rel(start),d=rel(end);
     const dx=d.x-a.x,dz=d.z-a.z;
     let low=0,high=1;
-    for(const [v,delta,half] of [[a.x,dx,b.halfX],[a.z,dz,b.halfZ]]){
+    for(const [v,delta,half] of [[a.x,dx,b.halfX],[a.z,dz,b.halfZ]] as const){
       if(Math.abs(delta)<1e-8){if(Math.abs(v)>half)high=-1;continue;}
       const first=(-half-v)/delta,last=(half-v)/delta;
       low=Math.max(low,Math.min(first,last));high=Math.min(high,Math.max(first,last));
