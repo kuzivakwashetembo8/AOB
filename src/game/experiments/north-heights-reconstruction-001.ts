@@ -439,9 +439,13 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
   const city=new InstancedCity(scene);
   attachNorthHeightsGrass004(scene,city.mat("grass"));
   terrain(scene,city.mat("grass"));
+  // Curb surfaces intentionally use consistent unlit municipal material; corner
+  // faces must not darken because of ambiguous quad winding or per-face normals.
+  city.mat("curb").disableLighting=true;
+  city.mat("curb").backFaceCulling=false;
   const roads=createNorthHeightsRoads003(scene,STREETS,northHeightsGround,{
     asphalt:city.mat("road"),pavement:city.mat("pavement"),
-    curb:city.mat("curb"),crossing:city.mat("crosswalk"),
+    curb:city.mat("curb"),crossing:city.mat("crosswalk"),marking:city.mat("lane"),
   });
   console.info("[NH-REBUILD-003] South Ward road batch",roads);
   const rnd=random(503021);
@@ -485,7 +489,7 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
       city.box("crosswalk",stall.x,elevation,stall.z-3.55, 8,.015,.12);
     }
   }
-  const laneDashes=addTwoLaneMarkings005(city);
+  const laneDashes=roads.markings;
   const lamps=addStreetFurniture(city);
   const instances=city.commit();
   const treeLocations=parkPlan;
