@@ -91,8 +91,10 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
    if(b)return b;
    const mesh=createTemerarioWheelMesh003(scene,key,corner,part);
    const mat=new StandardMaterial("mat:"+key,scene);
-   mat.diffuseColor=Color3.FromHexString(part==="tire"?"#101215":"#24272D");
-   mat.specularColor=Color3.FromHexString(part==="tire"?"#050506":"#555A61");
+   mat.diffuseColor=Color3.FromHexString(part==="tire"?"#101215":"#656A73");
+   mat.specularColor=Color3.FromHexString(part==="tire"?"#060709":"#B0B5BF");
+   mat.emissiveColor=Color3.FromHexString(part==="tire"?"#000000":"#272B30");
+   mat.specularPower=part==="tire"?18:76;
    mat.backFaceCulling=false;
    mesh.material=mat;mesh.alwaysSelectAsActiveMesh=true;
    mesh.receiveShadows=false;mesh.isPickable=false;
@@ -172,7 +174,10 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
              new Vector3(fit.center[0],fit.center[1],fit.center[2]));
            const transform=pivot.multiply(world);
            write(sourcedWheel(corner,"tire"),transform);
-           write(sourcedWheel(corner,"rim"),transform);
+           // Nudge only the rim face outward; preserve measured wheel pivot.
+            const outward=fit.center[0]>0?1:-1;
+            const rimSurface=Matrix.Translation(outward*.024,0,0).multiply(transform);
+            write(sourcedWheel(corner,"rim"),rimSurface);
          }
        }else{
        for(const zSign of [-1,1])for(const xSign of [-1,1]){
