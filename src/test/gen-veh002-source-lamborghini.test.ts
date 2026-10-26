@@ -13,6 +13,24 @@ describe("GEN-VEH-002 source-Lamborghini exterior",()=>{
   expect(script).toContain("DOOR_");
   expect(script).toContain("LGT_");
  });
+ it("preserves source triangle sheets and normals instead of merging unrelated body panels",()=>{
+  const script=readFileSync("scripts/genveh002-extract-temerario.mjs","utf8");
+  expect(script).toContain("acc.segments.push(");
+  expect(script).toContain("clusterSegment(seg,stepByPart[group])");
+  expect(script).toContain("boundary[a]=1;boundary[b]=1;");
+  expect(script).toContain("transformedNormal(");
+  expect(script).not.toContain("const steps=[.004,.006,.009,.013,.018,.025,.035,.050,.070,.10,.14,.20]");
+  for(const part of Object.values(TEMERARIO_SOURCE_PARTS_002)){
+    if(!part.p)continue; // Placeholder-only source checks run before prebuild too.
+    expect(part.n.length).toBeGreaterThan(0);
+    expect(part.indexBits===16||part.indexBits===32).toBe(true);
+    expect(part.sourceTriangles).toBeGreaterThanOrEqual(part.triangles);
+    expect(part.sourcePrimitives).toBeGreaterThan(0);
+    expect(atob(part.n).length).toBe(part.vertices*3);
+    expect(atob(part.p).length).toBe(part.vertices*3*2);
+    expect(atob(part.i).length).toBe(part.triangles*3*(part.indexBits/8));
+  }
+ });
  it("renders the authored shapes without moving-GLB runtime imports",()=>{
   const mesh=readFileSync("src/game/experiments/north-heights-traffic-3d-016.ts","utf8");
   const geometry=readFileSync("src/game/vehicles/native-vehicle-geometry-001.ts","utf8");
