@@ -24,6 +24,10 @@ if(gltf.meshes?.length!==782||gltf.materials?.length!==80||
  throw Error("GEN-VEH-002 source signature changed: inspect original before re-extracting");
 const groups=["paint","glass","trim","frontLight","rearLight"];
 const raw=Object.fromEntries(groups.map(k=>[k,{segments:[],sourceNodes:0}]));
+// The accepted five exterior groups are frozen in Step 3: wheel-only additions.
+const wheelCorners={FL:"frontLeft",FR:"frontRight",RL:"rearLeft",RR:"rearRight"};
+const wheelRaw=Object.fromEntries(Object.values(wheelCorners).map(k=>[k,{segments:[]}]));
+const sourceWheelNames=new Set();
 const materialGroup=(name,nodeName)=>{
  const m=name.toLowerCase(),n=nodeName.toUpperCase();
  if(n.startsWith("GLS_")||/glass|window|blackplane/i.test(m))return "glass";
@@ -118,24 +122,27 @@ let inspected=0,totalTriangles=0;
 let min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
 for(let ni=0;ni<gltf.nodes.length;ni++){
  const n=gltf.nodes[ni];
- if(n.mesh===undefined||!nodeSelected(n.name??""))continue;
+ const wheelMatch=/^WHL_(FL|FR|RL|RR)(?:_|$)/i.exec(n.name??"");
+ if(n.mesh===undefined||(!nodeSelected(n.name??"")&&!wheelMatch))continue;
  const mesh=gltf.meshes[n.mesh],matrix=worldMatrix(ni);
  for(const primitive of mesh.primitives??[]){
   const group=materialGroup(gltf.materials[primitive.material??-1]?.name??"",n.name??"");
-  const d=decode(primitive),acc=raw[group];
+  const d=decode(primitive),acc=wheelMatch
+    ?wheelRaw[wheelCorners[wheelMatch[1].toUpperCase()]]:raw[group];
   const positions=[],normals=[];
   for(let i=0;i<d.vertices.length;i+=3){
    const v=transformed([d.vertices[i],d.vertices[i+1],d.vertices[i+2]],matrix);
    positions.push(...v);
    if(d.normals)normals.push(...transformedNormal(
      [d.normals[i],d.normals[i+1],d.normals[i+2]],matrix));
-   for(let k=0;k<3;k++){min[k]=Math.min(min[k],v[k]);max[k]=Math.max(max[k],v[k]);}
+   if(!wheelMatch)for(let k=0;k<3;k++){min[k]=Math.min(min[k],v[k]);max[k]=Math.max(max[k],v[k]);}
   }
   // A distinct primitive is a hard barrier for merging. In particular never
   // join adjacent GLB surfaces that merely occupy the same voxel.
   acc.segments.push({positions,normals,indices:d.indices,
     name:n.name??"",material:gltf.materials[primitive.material??-1]?.name??""});
-  inspected++;acc.sourceNodes++;totalTriangles+=d.indices.length/3;
+  if(wheelMatch){sourceWheelNames.add(n.name??"");}
+  else {inspected++;acc.sourceNodes++;totalTriangles+=d.indices.length/3;}
  }
 }
 mod.destroy(decoder);
@@ -331,6 +338,100 @@ function encoded(group){
   skippedTriangles,emptyPrimitives:empty,clusterMetres:stepByPart[group]};
 }
 
+
+/** Step 3: source-labelled wheel assemblies. Transform into the SAME
+ * canonical GTD frame as accepted body; pivot about measured wheel centre.
+ * No source wheel geometry enters the accepted body/trim extraction.
+ */
+const wheels={};
+const wheelGroups=["frontLeft","frontRight","rearLeft","rearRight"];
+const isRubber=seg=>/tire|tyre|rubber|pneumatic|pneu|gomma/i.test(seg.name+" "+seg.material);
+const projectedBounds=seg=>{
+ const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+ for(let i=0;i<seg.positions.length;i+=3){
+   const v=normalize(seg.positions.slice(i,i+3));
+   for(let k=0;k<3;k++){min[k]=Math.min(min[k],v[k]);max[k]=Math.max(max[k],v[k]);}
+ }
+ return {min,max,span:min.map((v,k)=>max[k]-v)};
+};
+function nativeWheelPart(segments,centre,kind){
+ const positions=[],normals=[],indices=[];
+ let sourceTriangles=0;
+ for(const seg of segments){
+   sourceTriangles+=seg.indices.length/3;
+   // Preserve original rim-spoke openings and contours; no cross-mesh weld.
+   const g=clusterSegment(seg,kind==="rim"?.002:.003);
+   if(!g.indices.length)continue;
+   const offset=positions.length/3;
+   for(let i=0;i<g.positions.length;i+=3){
+     positions.push(g.positions[i]-centre[0],g.positions[i+1]-centre[1],
+       g.positions[i+2]-centre[2]);
+   }
+   normals.push(...g.normals);
+   for(const k of g.indices)indices.push(k+offset);
+ }
+ if(indices.length<9||indices.length/3>30000)throw Error(
+   "GEN-VEH-003 source wheel "+kind+" geometry unusable "+indices.length/3);
+ const p=new Int16Array(positions.length),n=new Int8Array(normals.length);
+ for(let i=0;i<p.length;i++){
+   const q=Math.round(positions[i]*1000);
+   if(q<-32768||q>32767)throw Error("GEN-VEH-003 wheel coordinate overflow");
+   p[i]=q;n[i]=Math.round(Math.max(-1,Math.min(1,normals[i]))*127);
+ }
+ const wide=positions.length/3>65535;
+ const idx=wide?new Uint32Array(indices):new Uint16Array(indices);
+ return {p:Buffer.from(p.buffer).toString("base64"),
+   n:Buffer.from(n.buffer).toString("base64"),
+   i:Buffer.from(idx.buffer).toString("base64"),
+   indexBits:wide?32:16,triangles:indices.length/3,vertices:positions.length/3,
+   sourceTriangles,sourcePrimitives:segments.length};
+}
+for(const corner of wheelGroups){
+ const all=wheelRaw[corner].segments;
+ if(all.length<3)throw Error("GEN-VEH-003 missing source wheel group "+corner+" "+all.length);
+ const rubber=all.filter(isRubber);
+ // The GLB names outer tyre rubber surfaces; use their actual transformed
+ // bounds to locate each axle. Conservative fallback uses roundest/large
+ // radial extents, NEVER hardcoded nominal car dimensions.
+ const candidates=rubber.length?rubber:all;
+ let best=null,bestScore=-Infinity;
+ for(const seg of candidates){
+   const b=projectedBounds(seg),dia=Math.max(b.span[1],b.span[2]);
+   const circleRatio=Math.min(b.span[1],b.span[2])/Math.max(dia,.0001);
+   const score=dia*circleRatio*(1+Math.min(2,seg.indices.length/9000));
+   if(circleRatio>.72&&score>bestScore){best=b;bestScore=score;}
+ }
+ if(!best)throw Error("GEN-VEH-003 no circular tyre mesh at "+corner+
+   " source nodes="+all.map(s=>s.name).slice(0,25).join("|"));
+ const centre=best.min.map((v,i)=>(v+best.max[i])/2);
+ // Axle points are measured separately for each wheel, from its rim/tire.
+ const radius=Math.max(best.span[1],best.span[2])*.5;
+ const lateralWidth=best.span[0];
+ if(radius<.20||radius>.65||lateralWidth<.05||lateralWidth>.65)
+   throw Error("GEN-VEH-003 nonphysical "+corner+" radius="+radius+" width="+lateralWidth);
+ const rims=all.filter(s=>!rubber.includes(s));
+ if(!rims.length)throw Error("GEN-VEH-003 missing source rim at "+corner);
+ const tyres=rubber.length?rubber:[candidates.find(s=>projectedBounds(s)===best)].filter(Boolean);
+ // Without explicit tire tags source rim extraction remains truthful: any
+ // black wheel detail is kept, and a cheap tire shell can be used at runtime.
+ wheels[corner]={center:centre.map(v=>Math.round(v*1000)/1000),
+   radius:Math.round(radius*1000)/1000,width:Math.round(lateralWidth*1000)/1000,
+   tire:rubber.length?nativeWheelPart(tyres,centre,"tire"):null,
+   rim:nativeWheelPart(rims,centre,"rim"),
+   sourceParts:all.length,usedTaggedRubber:rubber.length>0};
+}
+const wf=wheels.frontLeft,wr=wheels.frontRight,
+      wl=wheels.rearLeft,wrr=wheels.rearRight;
+if(Math.abs(wf.center[2]-wr.center[2])>.15||
+   Math.abs(wl.center[2]-wrr.center[2])>.15||
+   Math.abs(wf.center[1]-wr.center[1])>.15||
+   Math.abs(wl.center[1]-wrr.center[1])>.15||
+   Math.abs(Math.abs(wf.center[0])-Math.abs(wr.center[0]))>.18||
+   Math.abs(Math.abs(wl.center[0])-Math.abs(wrr.center[0]))>.18||
+   Math.abs(wf.center[2]-wl.center[2])<1.8)
+ throw Error("GEN-VEH-003 wheel centres not four symmetric source axles "+
+   JSON.stringify(wheelGroups.map(k=>[k,wheels[k].center])));
+
 const result=Object.fromEntries(groups.map(k=>[k,encoded(k)]));
 const finalTriangles=groups.reduce((s,k)=>s+result[k].triangles,0);
 if(finalTriangles>maxTotalTriangles)throw Error("GEN-VEH-002 excessive native triangle load "+finalTriangles);
@@ -339,6 +440,7 @@ const output=[
  " * This is compact SOURCE-DERIVED EXTERIOR triangle geometry, NOT a GLB runtime import.",
  " * Do not hand-edit: rerun node scripts/genveh002-extract-temerario.mjs. */",
  "export const TEMERARIO_SOURCE_PARTS_002 = "+JSON.stringify(result)+" as const;",
+ "export const TEMERARIO_SOURCE_WHEELS_003 = "+JSON.stringify(wheels)+" as const;",
  "",
 ].join("\n");
 mkdirSync(dirname(outPath),{recursive:true});
@@ -350,4 +452,5 @@ console.info("GEN_VEH_002_SOURCE_EXTERIOR "+JSON.stringify({
   parts:Object.fromEntries(groups.map(k=>[k,{triangles:result[k].triangles,
     vertices:result[k].vertices,sourceTriangles:result[k].sourceTriangles,sourcePrimitives:result[k].sourcePrimitives,keptPrimitives:result[k].keptPrimitives,skippedPrimitives:result[k].skippedPrimitives,skippedTriangles:result[k].skippedTriangles,clusterMetres:result[k].clusterMetres}])),
   finalTriangles,rejectedDegenerate,rejectedInversion,sourceNormalsPresent,
+  wheelParts:[...sourceWheelNames].length,wheels:Object.fromEntries(wheelGroups.map(k=>[k,{center:wheels[k].center,radius:wheels[k].radius,width:wheels[k].width,sourceParts:wheels[k].sourceParts,rimTriangles:wheels[k].rim.triangles,tireTriangles:wheels[k].tire?.triangles??0,usedTaggedRubber:wheels[k].usedTaggedRubber}])),
 }));
