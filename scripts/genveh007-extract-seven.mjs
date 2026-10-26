@@ -296,7 +296,7 @@ const text=[
 "export type SevenNativeWheel007={center:number[];radius:number;width:number;rim:SevenNativeEncoded007;tire:SevenNativeEncoded007};",
 "export type SevenNativeEntry007={source:string;sourceTriangles:number;geometryTriangles:number;cluster:number;status:string;wheelsStatus:string;body:Record<string,SevenNativeEncoded007|null>|null;wheels:Record<string,SevenNativeWheel007>|null};",
 "export const SEVEN_SOURCE_NATIVE_007:Record<string,SevenNativeEntry007> = "+JSON.stringify(output)+";",""
-].join("\\n");
+].join("\n");
 await mkdir(dirname(path),{recursive:true});
 await writeFile(path,text);
 console.info("GEN_VEH_007_COMPLETE "+JSON.stringify({
