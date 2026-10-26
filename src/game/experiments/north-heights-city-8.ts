@@ -22,7 +22,7 @@ import {northHeightsLocationAt} from "@/game/world-generation/north-heights-loca
 import {MERCER_EXTRA_GLB_SPECS,createMercerExtraParkedGLBs} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {FirstDriveTrial} from "@/game/vehicles/first-drive-trial";
 import {FERRARI_WHEEL_MAPPING} from "@/game/vehicles/street-vehicle-wheels";
-import {nearestSportsCar,currentVehicleDisembark} from "@/game/vehicles/local-boarding";
+import {nearestAccessibleCar,currentVehicleDisembark} from "@/game/vehicles/local-boarding";
 import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig} from "@/game/vehicles/ambient-fleet-driving-011";
 import {RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig} from "@/game/vehicles/range-rover-drive-007";
 import {validateNorthHeightsParking010} from "./north-heights-spatial-plan-010";
@@ -61,6 +61,7 @@ export async function createNorthHeightsCity8(
   onPoseChange?: (pose:{x:number;z:number})=>void,
   onVehicleChange?: (vehicle:string|null,speed:number)=>void,
   onInteriorChange?: (inside:boolean)=>void,
+  onNearbyVehicleChange?: (available:boolean)=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -124,7 +125,7 @@ export async function createNorthHeightsCity8(
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
     if(paused)return;
     keyboardUsed=true;
-    if(event.code==="KeyF"||event.code==="KeyE"){
+    if(event.code==="KeyF"){
       if(!event.repeat)toggleVehicle();
       return;
     }
@@ -227,7 +228,7 @@ export async function createNorthHeightsCity8(
       }
       const snapshot=traffic.snapshot();
       // GEN-VEH-001: all traffic generated, zero source-GLB proximity swaps.
-      const views=traffic3D.update(snapshot,new Set());
+      const views=traffic3D.update(snapshot,new Set(),camera);
       visibleAuthenticCars=0;
       visibleTrafficCars=views.vehicles3D;
     }
@@ -333,6 +334,7 @@ export async function createNorthHeightsCity8(
     if(locationTick>=.33){
       locationTick=0;updateLocation();
       if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
+      onNearbyVehicleChange?.(!driving&&mode==="walk"&&!!walk&&!!nearestAccessibleCar(walk.physics.playerPosition(),[...cars].map(([id,car])=>({id,pose:car.pose})),cameraBlockers));
     }
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
@@ -391,7 +393,7 @@ export async function createNorthHeightsCity8(
       return;
     }
     const player=walk.physics.playerPosition();
-    const near=nearestSportsCar(player,[...cars].map(([id,car])=>({id,pose:car.pose})));
+    const near=nearestAccessibleCar(player,[...cars].map(([id,car])=>({id,pose:car.pose})),cameraBlockers);
     if(!near){onFeedback?.("Approach a parked vehicle to drive");return;}
     const car=cars.get(near.id);
     if(!car)return;
@@ -411,7 +413,7 @@ export async function createNorthHeightsCity8(
     move(x,y){if(paused)return;analog={x:Math.max(-1,Math.min(1,x)),y:Math.max(-1,Math.min(1,y))};},
     action(action,pressed){
       if(paused)return;
-      if(pressed&&(action==="vehicle"||action==="interact")){
+      if(pressed&&action==="vehicle"){
         toggleVehicle();return;
       }
       const control=northHeightsActionControl007(action);
