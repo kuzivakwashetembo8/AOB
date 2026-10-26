@@ -47,7 +47,7 @@ describe("NH-010 parking, enterable interiors and map",()=>{
   expect(collisions).toContain("physics.addVehiclePlanarBarrier");
   expect(collisions).not.toContain("handles.push(physics.addStaticBox(lot.position,lot.halfExtents");
  });
- it("projects district streets and green marker without any live map service",()=>{
+ it("projects district streets and owner-approved white marker without any live map service",()=>{
   expect(NORTH_HEIGHTS_MAP_ROADS_010).toHaveLength(11);
   expect(NORTH_HEIGHTS_MAP_BLOCKS_010).toHaveLength(100);
   expect(NORTH_HEIGHTS_MAP_PARKING_010).toHaveLength(2);
@@ -56,7 +56,7 @@ describe("NH-010 parking, enterable interiors and map",()=>{
   expect(northHeightsMapPoint010({x:320,z:-320})).toEqual({x:640,y:640});
   expect(northHeightsMapPoint010({x:900,z:-900})).toEqual({x:640,y:640});
   const view=read("src/ui/hud/north-heights-map-010.tsx");
-  expect(view).toContain('fill="#41ed69"');
+  expect(view).toContain('fill="#ffffff"');
   expect(view).toContain("North Heights 2D map");
   const controls=read("src/game/experiments/north-heights-city-8.ts");
   expect(controls).toContain('event.code==="KeyF"');

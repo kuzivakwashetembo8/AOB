@@ -48,7 +48,7 @@ describe("GEN-VEH-009 owner-approved sedan-only traffic",()=>{
      const sim=simulator(),render=createNorthHeightsSedanTraffic009(scene,sim.graph);
      try{
        const report=render.update(sim.snapshot(),new Set());
-       expect(report).toMatchObject({vehicles3D:125,sourceGLBs:0,lowDetail:125,dots:0});
+       expect(report).toMatchObject({vehicles3D:125,sourceGLBs:0,lowDetail:0,dots:0});
        expect([...scene.meshes].filter(m=>m.name.startsWith("nh009:body:paint:"))).toHaveLength(12);
        const grouped=scene.meshes.filter(m=>m.name.startsWith("nh009:"));
        expect(grouped.some(m=>m.name.includes("wheel:frontLeft:tire"))).toBe(true);

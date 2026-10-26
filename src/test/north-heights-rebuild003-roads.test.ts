@@ -17,7 +17,7 @@ describe("NH-REBUILD-003 isolated South Ward-patterned road/curb checkpoint", ()
       };
       const materials = {
         asphalt: make("road"), pavement: make("pavement"),
-        curb: make("curb"), crossing: make("crossing"),
+        curb: make("curb"), crossing: make("crossing"), marking: make("marking"),
       };
       const axes = [-128,-64,0,64,128];
       const plan = createNorthHeightsRoads003(scene, axes,() => 0,materials);
@@ -25,11 +25,11 @@ describe("NH-REBUILD-003 isolated South Ward-patterned road/curb checkpoint", ()
       expect(plan.crossings).toBeGreaterThan(0);
       expect(plan.curbs).toBeGreaterThan(0);
       expect(plan.sidewalks).toBeGreaterThan(0);
-      expect(plan.surfaceMeshes).toBe(4);
+      expect(plan.surfaceMeshes).toBe(5);
       const layers=scene.meshes.filter(m=>m.name.startsWith("nh003-road:"));
-      expect(layers).toHaveLength(4);
+      expect(layers).toHaveLength(5);
       const names=new Set(layers.map(m=>m.name));
-      for(const kind of ["asphalt","pavement","curb","crossing"])
+      for(const kind of ["asphalt","pavement","curb","crossing","marking"])
         expect(names.has("nh003-road:"+kind)).toBe(true);
       const asphalt=scene.getMeshByName("nh003-road:asphalt")!;
       const walk=scene.getMeshByName("nh003-road:pavement")!;

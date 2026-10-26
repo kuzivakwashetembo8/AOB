@@ -16,6 +16,7 @@ export const Route = createFileRoute("/world")({
 function World() {
   const [selected, setSelected] = useState(0);
   const district = districts[selected] ?? districts[0];
+  const playableRoute = district.code === "02" ? "/game" : district.code === "05" ? "/north-heights-preview" : null;
   return (
     <PageShell>
       <section className="page-content">
@@ -44,7 +45,8 @@ function World() {
               >
                 <span className="district-code">{item.code}</span>
                 {item.name}
-                {selected === index && <ArrowRight className="ml-auto" size={13} />}
+                {item.code !== "02" && item.code !== "05" && <span className="ml-auto text-[9px] uppercase tracking-wider text-slate-400" aria-label="Coming soon">SOON</span>}
+                {selected === index && (item.code === "02" || item.code === "05") && <ArrowRight className="ml-auto" size={13} />}
               </Button>
             ))}
           </nav>
@@ -65,11 +67,15 @@ function World() {
                 <strong>{district.landmark}</strong>
               </div>
             </div>
-            <Button variant="game" asChild className="mt-8 w-64">
-              <Link to={district.code === "05" ? "/north-heights-preview" : "/game"}>
-                ENTER MERIDIAN <ArrowRight />
-              </Link>
-            </Button>
+            {playableRoute ? (
+              <Button variant="game" asChild className="mt-8 w-64">
+                <Link to={playableRoute}>ENTER {district.name.toUpperCase()} <ArrowRight /></Link>
+              </Button>
+            ) : (
+              <Button variant="game" disabled aria-disabled="true" className="mt-8 w-64 opacity-60" title="This district is not ready yet">
+                COMING SOON — DISTRICT NOT READY
+              </Button>
+            )}
             <div className="system-label mt-5">DISTRICT PROFILE // WORLD PREVIEW</div>
           </article>
         </div>

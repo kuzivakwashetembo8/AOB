@@ -22,7 +22,7 @@ import {northHeightsLocationAt} from "@/game/world-generation/north-heights-loca
 import {MERCER_EXTRA_GLB_SPECS,createMercerExtraParkedGLBs} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {FirstDriveTrial} from "@/game/vehicles/first-drive-trial";
 import {FERRARI_WHEEL_MAPPING} from "@/game/vehicles/street-vehicle-wheels";
-import {nearestSportsCar,currentVehicleDisembark} from "@/game/vehicles/local-boarding";
+import {nearestAccessibleCar,currentVehicleDisembark} from "@/game/vehicles/local-boarding";
 import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig} from "@/game/vehicles/ambient-fleet-driving-011";
 import {RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig} from "@/game/vehicles/range-rover-drive-007";
 import {validateNorthHeightsParking010} from "./north-heights-spatial-plan-010";
@@ -61,6 +61,8 @@ export async function createNorthHeightsCity8(
   onPoseChange?: (pose:{x:number;z:number})=>void,
   onVehicleChange?: (vehicle:string|null,speed:number)=>void,
   onInteriorChange?: (inside:boolean)=>void,
+  onNearbyVehicleChange?: (available:boolean)=>void,
+  onFirstPlayableFrame?: ()=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -124,7 +126,7 @@ export async function createNorthHeightsCity8(
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
     if(paused)return;
     keyboardUsed=true;
-    if(event.code==="KeyF"||event.code==="KeyE"){
+    if(event.code==="KeyF"){
       if(!event.repeat)toggleVehicle();
       return;
     }
@@ -225,11 +227,6 @@ export async function createNorthHeightsCity8(
         trafficAccumulator-=NH012_SIMULATION_DT;
         steps++;
       }
-      const snapshot=traffic.snapshot();
-      // GEN-VEH-001: all traffic generated, zero source-GLB proximity swaps.
-      const views=traffic3D.update(snapshot,new Set());
-      visibleAuthenticCars=0;
-      visibleTrafficCars=views.vehicles3D;
     }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
@@ -333,6 +330,16 @@ export async function createNorthHeightsCity8(
     if(locationTick>=.33){
       locationTick=0;updateLocation();
       if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
+      onNearbyVehicleChange?.(!driving&&mode==="walk"&&!!walk&&!!nearestAccessibleCar(walk.physics.playerPosition(),[...cars].map(([id,car])=>({id,pose:car.pose})),cameraBlockers));
+    }
+    // GEN-VEH-001: all traffic generated, zero source-GLB proximity swaps.
+    // OPT-02: render LOD after camera and actor have moved in this very frame,
+    // avoiding one-frame stale full-detail promotion during rapid flight descent.
+    if(traffic&&traffic3D){
+      scene.updateTransformMatrix();
+      const views=traffic3D.update(traffic.snapshot(),new Set(),camera);
+      visibleAuthenticCars=0;
+      visibleTrafficCars=views.vehicles3D;
     }
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
@@ -391,7 +398,7 @@ export async function createNorthHeightsCity8(
       return;
     }
     const player=walk.physics.playerPosition();
-    const near=nearestSportsCar(player,[...cars].map(([id,car])=>({id,pose:car.pose})));
+    const near=nearestAccessibleCar(player,[...cars].map(([id,car])=>({id,pose:car.pose})),cameraBlockers);
     if(!near){onFeedback?.("Approach a parked vehicle to drive");return;}
     const car=cars.get(near.id);
     if(!car)return;
@@ -411,7 +418,7 @@ export async function createNorthHeightsCity8(
     move(x,y){if(paused)return;analog={x:Math.max(-1,Math.min(1,x)),y:Math.max(-1,Math.min(1,y))};},
     action(action,pressed){
       if(paused)return;
-      if(pressed&&(action==="vehicle"||action==="interact")){
+      if(pressed&&action==="vehicle"){
         toggleVehicle();return;
       }
       const control=northHeightsActionControl007(action);
@@ -609,6 +616,8 @@ export async function createNorthHeightsCity8(
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
       treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 125 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
+    // Loading completes only after the initialized world actually draws.
+    scene.onAfterRenderObservable.addOnce(()=>{if(!closed)onFirstPlayableFrame?.();});
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
     console.error("[NH-REBUILD-001] procedural generation failed",error);

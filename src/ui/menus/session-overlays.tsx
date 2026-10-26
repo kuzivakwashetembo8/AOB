@@ -11,13 +11,13 @@ export function GTDSessionPauseActions({onResume,onObjectives,onSettings,onSave,
 }){
   return <nav className="pause-list" aria-label="Pause actions">
     <Button autoFocus variant="menu" onClick={onResume}>Resume <ArrowRight/></Button>
-    <Button variant="menu" asChild><Link to="/world">Map <ArrowRight/></Link></Button>
+    <Button variant="menu" asChild><Link to="/world">World directory <ArrowRight/></Link></Button>
     <Button variant="menu" onClick={onObjectives}>Objectives <ArrowRight/></Button>
     <Button variant="menu" onClick={onSettings}>Settings <ArrowRight/></Button>
     {onLocomotion&&<Button variant="menu" onClick={onLocomotion}>
       Character locomotion (L1) <ArrowRight/>
     </Button>}
-    <Button variant="menu" onClick={onSave}>Save / Load <ArrowRight/></Button>
+    <Button variant="menu" disabled title="Save and Load — Coming soon" aria-disabled="true">Save / Load — Coming soon</Button>
     <Button variant="menu" asChild><Link to="/">Return to Main Menu <ArrowRight/></Link></Button>
   </nav>;
 }

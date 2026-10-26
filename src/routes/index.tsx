@@ -51,7 +51,7 @@ function Launcher() {
         </p>
         <Button variant="game" asChild className="launcher-primary">
           <Link
-            to="/game"
+            to="/world"
             onFocus={() => setSelection("Your city. Your responsibility.")}
             onMouseEnter={() => setSelection("Your city. Your responsibility.")}
           >
@@ -64,15 +64,15 @@ function Launcher() {
             <Button
               variant="menu"
               disabled
-              title="Available when a game runtime provides save data"
+              title="Continue — Coming soon until a durable save system is available"
             >
-              <Play size={14} /> Continue <span className="menu-shortcut">NO SAVE</span>
+              <Play size={14} /> Continue <span className="menu-shortcut">COMING SOON</span>
             </Button>
           </div>
           <div className="menu-entry">
             <Button variant="menu" asChild>
               <Link
-                to="/game"
+                to="/world"
                 onFocus={() => setSelection("Every protector starts somewhere.")}
                 onMouseEnter={() => setSelection("Every protector starts somewhere.")}
               >

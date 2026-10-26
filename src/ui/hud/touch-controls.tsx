@@ -134,31 +134,36 @@ export function Joystick({ send }: { send: Send }) {
     </div>
   );
 }
-// Keep Enter/Exit accessible while driving; on-foot and flight-only actions
-// must never obstruct the windshield or lower screen in either drive layout.
-export const visibleTouchActions = (driving: boolean) =>
-  driving ? actions.filter((entry) => entry.action === "vehicle") : actions;
-
+// OPT-03/04: only implemented actions, selected from actual locomotion/capabilities.
 const actions: Array<{ action: GameAction; label: string; icon: typeof Hand }> = [
-  { action: "interact", label: "Interact", icon: Hand },
-  { action: "jump", label: "Jump", icon: ArrowUp },
-  { action: "combat", label: "Combat", icon: Crosshair },
-  { action: "sprint", label: "Sprint", icon: Footprints },
+  { action: "jump", label: "Jump or ascend", icon: ArrowUp },
+  { action: "sprint", label: "Sprint or speed boost", icon: Footprints },
   { action: "vehicle", label: "Enter or exit vehicle", icon: Car },
   { action: "fly", label: "Toggle flight mode", icon: Plane },
-  { action: "descend", label: "Descend while flying (hold)", icon: ArrowDown },
-  { action: "context", label: "Context action", icon: Zap },
+  { action: "descend", label: "Descend while flying", icon: ArrowDown },
 ];
+export function visibleTouchActions(driving:boolean,flying=false,canEnterVehicle=false,canExitVehicle=true){
+  if(driving)return canExitVehicle?actions.filter(a=>a.action==="vehicle"):[];
+  if(flying)return actions.filter(a=>["sprint","jump","descend","fly"].includes(a.action));
+  return actions.filter(a=>["sprint","jump","fly"].includes(a.action)||
+    (a.action==="vehicle"&&canEnterVehicle));
+}
 export function TouchControls({
   send,
   settings,
   onAction,
   driving = false,
+  flying = false,
+  canEnterVehicle = false,
+  canExitVehicle = true,
 }: {
   send: Send;
   settings: Settings;
   onAction: (action: GameAction) => void;
   driving?: boolean;
+  flying?: boolean;
+  canEnterVehicle?: boolean;
+  canExitVehicle?: boolean;
 }) {
   const style = {
     "--control-opacity": settings.opacity / 100,
@@ -168,14 +173,15 @@ export function TouchControls({
   const arrowMode = driving && settings.drivingTouchLayout === "arrows";
   return (
     <div
-      className={`touch-controls ${arrowMode ? "driving-arrow-mode" : ""} positions-${settings.position.toLowerCase()} ${!arrowMode && settings.handedness === "Left-handed" ? "left-handed" : ""}`}
+      className={`touch-controls ${arrowMode ? "driving-arrow-mode" : ""} ${driving ? "gtd-driving" : flying ? "gtd-flying" : "gtd-walking"} positions-${settings.position.toLowerCase()} ${!arrowMode && settings.handedness === "Left-handed" ? "left-handed" : ""}`}
       style={style}
     >
       {arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
       <div className="touch-actions">
-        {visibleTouchActions(driving).map(({ action, label, icon: Icon }) => (
+        {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).map(({ action, label, icon: Icon }) => (
           <Button
             variant="control"
+            className={`gtd-priority-action gtd-action-${action}`}
             aria-label={label}
             title={label}
             key={action}

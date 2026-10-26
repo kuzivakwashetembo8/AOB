@@ -14,6 +14,8 @@ export type GameSnapshot = Readonly<{
   heat: number;
   speed: number;
   vehicle: string | null;
+  /** OPT-03: confirmed nearby accessible drivable vehicle (not merely close). */
+  canEnterVehicle?: boolean;
   meridianTime: string;
   meridianMinuteOfDay: number;
   meridianTimeScale: number;
