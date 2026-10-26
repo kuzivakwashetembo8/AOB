@@ -12,7 +12,7 @@ export interface GTDGeneratedDimensions {
   width:number;length:number;height:number;style:GTDGeneratedStyle;
 }
 type Ring={z:number;w:number;bottom:number;top:number};
-type Geometry={positions:number[];indices:number[]};
+type Geometry={positions:number[];indices:number[];normals?:number[]};
 type Cabin={front:number;frontRoof:number;backRoof:number;back:number;
   roof:number;base:number;wide:number};
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
@@ -66,8 +66,8 @@ function toMesh(scene:Scene,name:string,g:Geometry):Mesh{
  const mesh=new Mesh(name,scene);
  const data=new VertexData();
  data.positions=g.positions;data.indices=g.indices;
- const normals:number[]=[];
- VertexData.ComputeNormals(g.positions,g.indices,normals);
+ const normals:number[]=g.normals??[];
+ if(!g.normals)VertexData.ComputeNormals(g.positions,g.indices,normals);
  data.normals=normals;data.applyToMesh(mesh);
  mesh.isPickable=false;mesh.receiveShadows=false;
  return mesh;
@@ -133,12 +133,16 @@ export function createTemerarioSourceMesh002(
   if(!record.p||!record.i)throw Error("GEN-VEH-002 source triangle extraction was not run");
   const pbytes=Uint8Array.from(atob(record.p),c=>c.charCodeAt(0));
   const ibytes=Uint8Array.from(atob(record.i),c=>c.charCodeAt(0));
+  const nbytes=Uint8Array.from(atob(record.n),c=>c.charCodeAt(0));
   const coords=new Int16Array(pbytes.buffer);
-  const indices=new Uint16Array(ibytes.buffer);
+  const indices=record.indexBits===32
+    ?new Uint32Array(ibytes.buffer):new Uint16Array(ibytes.buffer);
   const positions=Array.from(coords,v=>v/1000);
-  geom={positions,indices:Array.from(indices)};
+  const normals=Array.from(new Int8Array(nbytes.buffer),v=>v/127);
+  geom={positions,indices:Array.from(indices),normals};
   if(geom.positions.length/3!==record.vertices||
-     geom.indices.length/3!==record.triangles)
+     geom.indices.length/3!==record.triangles||
+     geom.normals?.length!==geom.positions.length)
      throw Error("GEN-VEH-002 native source count mismatch");
   sourceDecoded002.set(part,geom);
  }
