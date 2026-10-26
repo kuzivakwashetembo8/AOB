@@ -10,6 +10,8 @@ import {
 import type {NH012TrafficSnapshot} from "@/game/traffic/nh012-traffic-simulator";
 import {createGTDGeneratedVehicleMesh001,createTemerarioSourceMesh002,
  createTemerarioWheelMesh003,getTemerarioWheelFit003,generatedWheelRadius001,
+ createRoverSourceMesh005,createRoverWheelMesh005,getRoverWheelFit005,
+ type GTDRoverSourcePart005,type GTDRoverCorner005,type GTDRoverWheelPart005,
  type GTDTemerarioWheelCorner003,type GTDTemerarioWheelPart003
 } from "@/game/vehicles/native-vehicle-geometry-001";
 import {MERCER_EXTRA_GLB_SPECS} from "@/game/vehicles/mercer-additional-parked-glbs-006";
@@ -104,6 +106,37 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
    b={mesh,buffer,count:0};buckets.set(key,b);
    return b;
  };
+ // Range Rover Sport owns original reconstructed body and wheels ONLY.
+ const roverPart=(part:GTDRoverSourcePart005,color:string)=>{
+  const key="rover:body:"+part+":"+(part==="paint"?color:"std");
+  let b=buckets.get(key);if(b)return b;
+  const mesh=createRoverSourceMesh005(scene,key,part);
+  const mat=new StandardMaterial("mat:"+key,scene);
+  mat.diffuseColor=Color3.FromHexString(color);
+  mat.specularColor=Color3.FromHexString(part==="paint"?"#535A62":"#283039");
+  if(part==="frontLight"||part==="rearLight")mat.emissiveColor=Color3.FromHexString(color).scale(.5);
+  mat.backFaceCulling=false;mesh.material=mat;
+  mesh.isPickable=false;mesh.receiveShadows=false;mesh.alwaysSelectAsActiveMesh=true;
+  const buffer=new Float32Array(125*6*16);
+  mesh.thinInstanceSetBuffer("matrix",buffer,16,false);
+  mesh.thinInstanceCount=0;mesh.setEnabled(false);
+  b={mesh,buffer,count:0};buckets.set(key,b);return b;
+ };
+ const roverWheel=(corner:GTDRoverCorner005,part:GTDRoverWheelPart005)=>{
+  const key="rover:wheel:"+corner+":"+part;
+  let b=buckets.get(key);if(b)return b;
+  const mesh=createRoverWheelMesh005(scene,key,corner,part);
+  const mat=new StandardMaterial("mat:"+key,scene);
+  mat.diffuseColor=Color3.FromHexString(part==="tire"?"#121417":"#737983");
+  mat.specularColor=Color3.FromHexString(part==="tire"?"#0B0D0F":"#B6BCC8");
+  mat.emissiveColor=Color3.FromHexString(part==="tire"?"#000000":"#282B30");
+  mat.backFaceCulling=false;mesh.material=mat;
+  mesh.isPickable=false;mesh.receiveShadows=false;mesh.alwaysSelectAsActiveMesh=true;
+  const buffer=new Float32Array(125*6*16);
+  mesh.thinInstanceSetBuffer("matrix",buffer,16,false);
+  mesh.thinInstanceCount=0;mesh.setEnabled(false);
+  b={mesh,buffer,count:0};buckets.set(key,b);return b;
+ };
  const tires=get("rubber","#171B20","wheel"),
    alloys=get("rims","#ADB4BD","wheel"),
    wheelSpoke=get("moving-wheel-spoke","#ECEDEF"),
@@ -136,16 +169,23 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          a.modelId==="gtd-traffic-kango-015"?"CHAMPAGNE":
          a.modelId==="gtd-traffic-taxi-014"?"WHITE":a.paintId;
        const paint=fleetPaint016(base);
-       const body=get("body:"+a.modelId+":"+paint,paint,"body",spec);
+       const isRover=a.modelId==="gtd-veh006-mercer-range-rover";
        const road=sampleTrafficVehicleRoadPose013({
          x:a.x,z:a.z,heading:a.heading,wheelbase:spec.length*.59,
          track:spec.width*.81,ground:northHeightsGround,
        });
        const world=Matrix.Compose(Vector3.One(),road.rotation,
          new Vector3(a.x,road.y,a.z));
-       write(body,world);
-       const glass=get("windows:"+a.modelId,"#263D4C","glass",spec);
-       write(glass,world);
+       if(isRover){
+        write(roverPart("paint",paint),world);
+        write(roverPart("glass","#263D4C"),world);
+        write(roverPart("trim","#252A30"),world);
+        write(roverPart("frontLight","#DDE2E6"),world);
+        write(roverPart("rearLight","#BF363B"),world);
+       }else{
+        write(get("body:"+a.modelId+":"+paint,paint,"body",spec),world);
+        write(get("windows:"+a.modelId,"#263D4C","glass",spec),world);
+       }
        if(spec.style==="supercar"){
          write(get("temerario:darktrim","#191D22","trim"),world);
          write(get("temerario:headlights","#DADFE5","frontLight"),world);
@@ -179,6 +219,21 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
             const rimSurface=Matrix.Translation(outward*.024,0,0).multiply(transform);
             write(sourcedWheel(corner,"rim"),rimSurface);
          }
+       }else if(isRover){
+        const corners:GTDRoverCorner005[]=["frontLeft","frontRight","rearLeft","rearRight"];
+        for(const corner of corners){
+         const fit=getRoverWheelFit005(corner);
+         const turn=corner.startsWith("front")?steer:0;
+         const rotation=Quaternion.RotationAxis(up,turn)
+           .multiply(Quaternion.RotationAxis(right,spin));
+         const pivot=Matrix.Compose(Vector3.One(),rotation,
+           new Vector3(fit.center[0],fit.center[1],fit.center[2]));
+         const transform=pivot.multiply(world);
+         write(roverWheel(corner,"tire"),transform);
+         const side=fit.center[0]>0?1:-1;
+         write(roverWheel(corner,"rim"),
+           Matrix.Translation(side*.012,0,0).multiply(transform));
+        }
        }else{
        for(const zSign of [-1,1])for(const xSign of [-1,1]){
          const x=xSign*track*.5,z=zSign*wheelbase*.5;
@@ -196,7 +251,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          write(wheelSpoke,spoke.multiply(hub).multiply(world));
        }
        }
-       if(spec.style!=="supercar")for(const side of [-1,1]){
+       if(spec.style!=="supercar"&&!isRover)for(const side of [-1,1]){
          write(headlights,matrix({x:side*spec.width*.33,y:.91,z:spec.length*.502,
            w:.30,h:.13,d:.05},world));
          write(taillights,matrix({x:side*spec.width*.35,y:.83,z:-spec.length*.502,
