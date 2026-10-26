@@ -8,6 +8,7 @@ import {
  Color3,Matrix,Mesh,MeshBuilder,Quaternion,Scene,StandardMaterial,Vector3,
 } from "@babylonjs/core";
 import type {NH012TrafficSnapshot} from "@/game/traffic/nh012-traffic-simulator";
+import {createGTDGeneratedVehicleMesh001,generatedWheelRadius001} from "@/game/vehicles/native-vehicle-geometry-001";
 import {MERCER_EXTRA_GLB_SPECS} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
 import {trafficTurnSteering013} from "@/game/vehicles/nh013-traffic-turn-steering";
@@ -41,42 +42,12 @@ export function trafficProxySpec016(model:string):Spec{
  if(!found||!found.style)throw Error("NH016 unknown traffic model "+model);
  return found;
 }
-function bodyPieces(s:Spec):WorldPart[]{
- const w=s.width,d=s.length;
- const bottom=Math.max(.46,Math.min(.65,s.height*.36));
- const isPickup=s.style==="pickup";
- const low=s.style==="supercar"||s.style==="coupe"||s.style==="muscle";
- const nose=isPickup?.30:low?.28:.25;
- const cab=isPickup?.44:low?.52:s.style==="kango"?.73:.64;
- const cabZ=isPickup?-.32:low?-.14:0;
- const cabH=Math.max(.30,s.height-bottom-.18);
- const result:WorldPart[]=[
-   {x:0,y:.37+bottom/2,z:0,w,h:bottom,d},
-   {x:0,y:.37+bottom+.15,z:d*(.5-nose/2),w:w*.94,h:.26,d:d*nose},
-   {x:0,y:.37+bottom+cabH/2,z:cabZ,w:w*.84,h:cabH,d:d*cab},
- ];
- if(isPickup)result.push({x:0,y:.37+bottom+.10,z:-d*.37,w:w*.92,h:.20,d:d*.25});
- if(s.style==="offroad")result.push({x:0,y:.37+bottom+.25,z:-d*.47,w:w*.89,h:.32,d:.15});
- if(s.style==="supercar")result.push({x:0,y:.37+bottom+.15,z:-d*.44,w:w*.90,h:.10,d:.20});
- return result;
-}
-function glassPieces(s:Spec):WorldPart[]{
- const bottom=Math.max(.46,Math.min(.65,s.height*.36));
- const cabH=Math.max(.30,s.height-bottom-.18);
- const pickup=s.style==="pickup",low=["supercar","coupe","muscle"].includes(s.style);
- const cab=pickup?.44:low?.52:s.style==="kango"?.73:.64;
- const z=pickup?-.32:low?-.14:0;
- return [
-   {x:0,y:.37+bottom+cabH*.56,z:z+s.length*cab*.45,
-      w:s.width*.78,h:cabH*.74,d:.035},
-   {x:0,y:.37+bottom+cabH*.56,z:z-s.length*cab*.45,
-      w:s.width*.78,h:cabH*.74,d:.035},
- ];
-}
-function makeBucket(scene:Scene,key:string,color:string,shape:"box"|"wheel",capacity=125*6):Bucket{
- const mesh=shape==="box"
-  ?MeshBuilder.CreateBox("nh016:"+key,{size:1},scene)
-  :MeshBuilder.CreateCylinder("nh016:"+key,{diameter:1,height:1,tessellation:12},scene);
+function makeBucket(scene:Scene,key:string,color:string,shape:"box"|"wheel"|"body"|"glass",spec?:Spec,capacity=125*6):Bucket{
+ const mesh=shape==="body"||shape==="glass"
+  ?createGTDGeneratedVehicleMesh001(scene,"gtd-native:"+key,spec!,shape)
+  :shape==="box"
+    ?MeshBuilder.CreateBox("nh016:"+key,{size:1},scene)
+    :MeshBuilder.CreateCylinder("nh016:"+key,{diameter:1,height:1,tessellation:12},scene);
  const material=new StandardMaterial("nh016:mat:"+key,scene);
  material.diffuseColor=Color3.FromHexString(color);
  material.specularColor=Color3.FromHexString("#17191C");
@@ -100,18 +71,19 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
  const buckets=new Map<string,Bucket>();
  // The body is tinted per-model/paint; four shared detail materials across all
  // 125 meshes limit drawcalls. No per-agent Babylon mesh objects.
- function get(key:string,color:string,shape:"box"|"wheel"="box"){
+ function get(key:string,color:string,shape:"box"|"wheel"|"body"|"glass"="box",spec?:Spec){
    let b=buckets.get(key);
-   if(!b){b=makeBucket(scene,key,color,shape);buckets.set(key,b);}
+   if(!b){b=makeBucket(scene,key,color,shape,spec);buckets.set(key,b);}
    return b;
  }
- const wind=get("windows","#263D4C"),
-   tires=get("rubber","#171B20","wheel"),
+ const tires=get("rubber","#171B20","wheel"),
    alloys=get("rims","#ADB4BD","wheel"),
    wheelSpoke=get("moving-wheel-spoke","#ECEDEF"),
    headlights=get("front-light","#F3F0D9"),
    taillights=get("rear-light","#B93335");
  const last=new Map<string,{x:number;z:number;spin:number;tick:number}>();
+ let updatedTick=-1;
+ let lastReport={vehicles3D:0,sourceGLBs:0,lowDetail:0,defaultFleet:0,dots:0 as const};
  function write(b:Bucket,m:Matrix){
    const start=b.count*16;
    if(start+16>b.buffer.length)throw Error("NH016 125-agent proxy capacity exceeded "+b.mesh.name);
@@ -120,6 +92,10 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
  }
  return {
    update(snapshot,exclude){
+     // All traffic visuals are native; no camera-dependent import or LOD swap.
+     // Reuse the GPU transforms between NH-012 simulation ticks.
+     if(snapshot.tick===updatedTick)return lastReport;
+     updatedTick=snapshot.tick;
      for(const b of buckets.values())b.count=0;
      let defaultFleet=0,lowDetail=0;
      for(const a of snapshot.agents){
@@ -132,19 +108,18 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          a.modelId==="gtd-traffic-kango-015"?"CHAMPAGNE":
          a.modelId==="gtd-traffic-taxi-014"?"WHITE":a.paintId;
        const paint=fleetPaint016(base);
-       const body=get("body:"+a.modelId+":"+paint,paint);
+       const body=get("body:"+a.modelId+":"+paint,paint,"body",spec);
        const road=sampleTrafficVehicleRoadPose013({
          x:a.x,z:a.z,heading:a.heading,wheelbase:spec.length*.59,
          track:spec.width*.81,ground:northHeightsGround,
        });
        const world=Matrix.Compose(Vector3.One(),road.rotation,
          new Vector3(a.x,road.y,a.z));
-       for(const p of bodyPieces(spec))write(body,matrix(p,world));
-       for(const p of glassPieces(spec))write(wind,matrix(p,world));
+       write(body,world);
+       const glass=get("windows:"+a.modelId,"#263D4C","glass",spec);
+       write(glass,world);
        const wheelbase=spec.length*.59,track=spec.width*.81;
-       const radius=own&&spec.style==="pickup"?.40:
-         spec.style==="offroad"?.39:spec.style==="suv"?.38:
-         spec.style==="supercar"?.33:.35;
+       const radius=generatedWheelRadius001(spec);
        const previous=last.get(a.id);
        const distance=previous?Math.hypot(a.x-previous.x,a.z-previous.z):0;
        const spin=(previous?.spin??0)+(previous?.tick===snapshot.tick?0:distance/radius);
@@ -178,8 +153,9 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
        if(b.count){b.mesh.setEnabled(true);b.mesh.thinInstanceBufferUpdated("matrix");}
        else b.mesh.setEnabled(false);
      }
-     return {vehicles3D:snapshot.count,sourceGLBs:exclude.size,
+     lastReport={vehicles3D:snapshot.count,sourceGLBs:exclude.size,
        lowDetail,defaultFleet,dots:0};
+     return lastReport;
    },
    dispose(){for(const b of buckets.values()){b.mesh.material?.dispose();b.mesh.dispose(false,false);}
      buckets.clear();last.clear();},
