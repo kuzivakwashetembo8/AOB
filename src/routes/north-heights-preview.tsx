@@ -26,6 +26,7 @@ function NorthHeightsPreview(){
   const {settings,save}=useSettings();
   const currentSettings=useRef(settings);currentSettings.current=settings;
   const [status,setStatus]=useState("Preparing North Heights");
+  const [firstPlayable,setFirstPlayable]=useState(false);
   const loader=useRef<RealLoadingLedger|null>(null);
   if(!loader.current)loader.current=new RealLoadingLedger();
   const [loadingSnapshot,setLoadingSnapshot]=useState(()=>loader.current!.snapshot());
@@ -46,7 +47,7 @@ function NorthHeightsPreview(){
   const [feedback,setFeedback]=useState("");
   const [coarse,setCoarse]=useState(false);
   const inputMode=useInputMode();
-  const ready=status.includes("physics ready");
+  const ready=firstPlayable&&status.includes("physics ready");
   const failed=/failed|failure|error/i.test(status);
   const touchVisible=coarse&&!(settings.autoHide&&inputMode==="keyboard");
   const desktopVisible=!coarse&&settings.desktopControls;
@@ -109,12 +110,15 @@ function NorthHeightsPreview(){
             setVehicleSpeed(speed);
           }},
           nextInside=>{if(!closed)setInside(nextInside);},
-          available=>{if(!closed)setCanEnterVehicle(available);});
+          available=>{if(!closed)setCanEnterVehicle(available);},
+          ()=>{if(!closed){
+            if(currentStage)ledger.finish(currentStage,"First drawn playable North Heights frame");
+            ledger.finish("nh:bootstrap","First playable scene frame rendered");
+            setFirstPlayable(true);setLoadingSnapshot(ledger.snapshot());
+          }});
         if(closed)instance.dispose();
         else{
-          if(currentStage)ledger.finish(currentStage);
-          ledger.finish("nh:bootstrap","North Heights walking physics and first render ready");
-          setLoadingSnapshot(ledger.snapshot());
+          // First-frame completion is delivered by Babylon onAfterRender, not here.
           controller.current=instance;
           instance.applySettings(currentSettings.current);
           const hour=Math.floor(meridianMinute/60);
