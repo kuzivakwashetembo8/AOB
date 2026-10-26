@@ -12,6 +12,9 @@ import type {GameSnapshot} from "@/game/core/types";
 import {TouchControls} from "@/ui/hud/touch-controls";
 import {DesktopControls} from "@/ui/hud/desktop-controls";
 import {useInputMode} from "@/game/input/use-input-mode";
+import {BootstrapOverlay} from "@/ui/menus/bootstrap";
+import {initialStartupChecklist} from "@/game/core/loading-checklist";
+import {RealLoadingLedger} from "@/lib/real-loading-ledger";
 
 export const Route=createFileRoute("/north-heights-preview")({
   head:()=>pageHead("North Heights · Procedural Reconstruction",
@@ -23,6 +26,10 @@ function NorthHeightsPreview(){
   const {settings,save}=useSettings();
   const currentSettings=useRef(settings);currentSettings.current=settings;
   const [status,setStatus]=useState("Preparing North Heights");
+  const loader=useRef<RealLoadingLedger|null>(null);
+  if(!loader.current)loader.current=new RealLoadingLedger();
+  const [loadingSnapshot,setLoadingSnapshot]=useState(()=>loader.current!.snapshot());
+  const [loadingSeconds,setLoadingSeconds]=useState(0);
   const [stats,setStats]=useState("");
   const [meridianMinute,setMeridianMinute]=useState(14*60+53);
   const [meridianSpeed,setMeridianSpeed]=useState(2);
@@ -54,6 +61,15 @@ function NorthHeightsPreview(){
     m.addEventListener("change",onChange);
     return()=>m.removeEventListener("change",onChange);
   },[]);
+  useEffect(()=>{
+    const id=window.setInterval(()=>{
+      if(!loader.current)return;
+      const snapshot=loader.current.snapshot();
+      setLoadingSnapshot(snapshot);
+      setLoadingSeconds(Math.floor(snapshot.elapsedMs/1000));
+    },1000);
+    return()=>window.clearInterval(id);
+  },[]);
   useEffect(()=>{controller.current?.applySettings(settings);},[settings]);
   useEffect(()=>{controller.current?.setPaused(paused);},[paused]);
   useEffect(()=>{
@@ -68,12 +84,21 @@ function NorthHeightsPreview(){
   useEffect(()=>{
     let closed=false;
     const start=async()=>{
+      const ledger=loader.current!;
+      ledger.startBrowserObservers();
+      ledger.start("nh:bootstrap","North Heights world startup","stage");
+      let currentStage:string|null=null,sequence=0;
       try{
         if(!canvas.current)return;
         const {createNorthHeightsCity8}=await import("@/game/experiments/north-heights-city-8");
         if(closed||!canvas.current)return;
         const instance=await createNorthHeightsCity8(canvas.current,
-          message=>{if(!closed)setStatus(message);},
+          message=>{if(!closed){
+            setStatus(message);
+            if(currentStage)ledger.finish(currentStage);
+            currentStage="nh:stage:"+(++sequence);
+            ledger.start(currentStage,message,"world");
+          }},
           message=>{if(!closed)setStats(message);},
           next=>{if(!closed)setMode(next);},
           note=>{if(!closed)setFeedback(note);},
@@ -87,6 +112,9 @@ function NorthHeightsPreview(){
           available=>{if(!closed)setCanEnterVehicle(available);});
         if(closed)instance.dispose();
         else{
+          if(currentStage)ledger.finish(currentStage);
+          ledger.finish("nh:bootstrap","North Heights walking physics and first render ready");
+          setLoadingSnapshot(ledger.snapshot());
           controller.current=instance;
           instance.applySettings(currentSettings.current);
           const hour=Math.floor(meridianMinute/60);
@@ -94,7 +122,9 @@ function NorthHeightsPreview(){
           instance.setPaused(paused);
         }
       }catch(error){
-        if(!closed)setStatus("Viewport failure: "+(error instanceof Error?error.message:String(error)));
+        ledger.fail("nh:bootstrap",error);
+        if(currentStage)ledger.fail(currentStage,error);
+        if(!closed){setStatus("Viewport failure: "+(error instanceof Error?error.message:String(error)));setLoadingSnapshot(ledger.snapshot());}
       }
     };
     void start();
@@ -145,9 +175,14 @@ function NorthHeightsPreview(){
             : "SEDAN PILOT INITIALIZING"}
         </div>}
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
-      {!ready&&<div role="status" className={"pointer-events-none absolute left-1/2 top-14 z-10 w-[min(460px,73vw)] -translate-x-1/2 rounded border border-white/15 px-2 py-1 text-center text-xs "+(failed?"bg-red-950/90":"bg-black/70")}>
-        {failed?status:"Loading North Heights..."}
-      </div>}
+      {!ready&&<BootstrapOverlay entries={initialStartupChecklist()}
+        measured={loadingSnapshot} elapsedSeconds={loadingSeconds}
+        error={failed?status:null}
+        onDownloadStartupDiagnostics={()=>{const data=JSON.stringify(loader.current?.snapshot()??loadingSnapshot,null,2);
+          const url=URL.createObjectURL(new Blob([data],{type:"application/json"}));
+          const link=document.createElement("a");link.href=url;link.download="gtd-north-heights-loading.json";link.click();
+          window.setTimeout(()=>URL.revokeObjectURL(url),3000);}}
+      />}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
