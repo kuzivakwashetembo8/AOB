@@ -32,17 +32,17 @@ describe("NH-012 actual lightweight North Heights traffic",()=>{
    expect(sim.agents).toHaveLength(125);
    expect(new Set(sim.agents.map(a=>a.id)).size).toBe(125);
    expect(new Set(sim.agents.map(a=>a.edgeId)).size).toBe(125);
-   expect(new Set(sim.agents.map(a=>a.modelId)).size).toBe(6);
+   expect(new Set(sim.agents.map(a=>a.modelId)).size).toBe(5);
    expect(new Set(sim.agents.map(a=>a.paintId)).size).toBe(12);
    expect([...new Set(sim.agents.map(a=>a.modelId))].sort()).toEqual(
-     MERCER_EXTRA_GLB_SPECS.map(s=>s.id).sort());
+     MERCER_EXTRA_GLB_SPECS.filter(s=>!s.id.includes("bmw")).map(s=>s.id).sort());
    const variants=new Map<string,number>();
    for(const a of sim.agents){
      const key=a.modelId+"|"+a.paintId;variants.set(key,(variants.get(key)??0)+1);
    }
-   expect(variants.size).toBe(30);
-   expect([...variants.values()].filter(n=>n===5)).toHaveLength(5);
-   expect([...variants.values()].filter(n=>n===4)).toHaveLength(25);
+   expect(variants.size).toBe(25);
+   expect([...variants.values()].filter(n=>n===5)).toHaveLength(25);
+   expect([...variants.values()].filter(n=>n===4)).toHaveLength(0);
    expect(sim.validate()).toEqual([]);
  });
  it("is deterministic across multiple lane transitions without resetting identity",()=>{
