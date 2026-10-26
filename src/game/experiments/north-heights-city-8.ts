@@ -62,6 +62,7 @@ export async function createNorthHeightsCity8(
   onVehicleChange?: (vehicle:string|null,speed:number)=>void,
   onInteriorChange?: (inside:boolean)=>void,
   onNearbyVehicleChange?: (available:boolean)=>void,
+  onFirstPlayableFrame?: ()=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -611,6 +612,8 @@ export async function createNorthHeightsCity8(
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
       treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 125 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
+    // Loading completes only after the initialized world actually draws.
+    scene.onAfterRenderObservable.addOnce(()=>{if(!closed)onFirstPlayableFrame?.();});
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
     console.error("[NH-REBUILD-001] procedural generation failed",error);
