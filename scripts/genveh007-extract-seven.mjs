@@ -397,7 +397,7 @@ await writeFile("public/genveh007-extraction-report.json",JSON.stringify({date:"
 // seven native source buffers. No additional source-GLB browser imports.
 await mkdir("public/vehicle-gallery",{recursive:true});
 for(const model of models)
- await writeFile("public/vehicle-gallery/"+model.id+".json",JSON.stringify(output[model]));
+ await writeFile("public/vehicle-gallery/"+model.id+".json",JSON.stringify(output[model.id]));
 console.info("GEN_VEH_007_COMPLETE "+JSON.stringify({
   models:diagnostics.map(x=>x.id),sourceReady:diagnostics.filter(x=>x.bodyReady).length,
   wheelReady:diagnostics.filter(x=>x.wheelsReady).length,bytes:Buffer.byteLength(text)}));
