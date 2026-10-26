@@ -144,7 +144,8 @@ function pack(geoms,shift=[0,0,0]){
  for(const g of geoms){
   const off=p.length/3;
   for(let j=0;j<g.p.length;j+=3)p.push(g.p[j]-shift[0],g.p[j+1]-shift[1],g.p[j+2]-shift[2]);
-  n.push(...g.n);for(const idx of g.i)i.push(idx+off);
+  for(const normal of g.n)n.push(normal);
+  for(const idx of g.i)i.push(idx+off);
  }
  if(i.length<3)throw Error("GEN-VEH-005 empty geometry group");
  const P=new Int16Array(p.length),N=new Int8Array(n.length);
