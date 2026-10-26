@@ -8,7 +8,7 @@ import {
  Color3,Matrix,Mesh,MeshBuilder,Quaternion,Scene,StandardMaterial,Vector3,
 } from "@babylonjs/core";
 import type {NH012TrafficSnapshot} from "@/game/traffic/nh012-traffic-simulator";
-import {createGTDGeneratedVehicleMesh001,generatedWheelRadius001} from "@/game/vehicles/native-vehicle-geometry-001";
+import {createGTDGeneratedVehicleMesh001,createTemerarioSourceMesh002,generatedWheelRadius001} from "@/game/vehicles/native-vehicle-geometry-001";
 import {MERCER_EXTRA_GLB_SPECS} from "@/game/vehicles/mercer-additional-parked-glbs-006";
 import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
 import {trafficTurnSteering013} from "@/game/vehicles/nh013-traffic-turn-steering";
@@ -42,9 +42,11 @@ export function trafficProxySpec016(model:string):Spec{
  if(!found||!found.style)throw Error("NH016 unknown traffic model "+model);
  return found;
 }
-function makeBucket(scene:Scene,key:string,color:string,shape:"box"|"wheel"|"body"|"glass",spec?:Spec,capacity=125*6):Bucket{
- const mesh=shape==="body"||shape==="glass"
-  ?createGTDGeneratedVehicleMesh001(scene,"gtd-native:"+key,spec!,shape)
+function makeBucket(scene:Scene,key:string,color:string,shape:"box"|"wheel"|"body"|"glass"|"trim"|"frontLight"|"rearLight",spec?:Spec,capacity=125*6):Bucket{
+ const mesh=(shape==="trim"||shape==="frontLight"||shape==="rearLight")
+  ?createTemerarioSourceMesh002(scene,"gtd-lambo:"+key,shape)
+  :(shape==="body"||shape==="glass")
+    ?createGTDGeneratedVehicleMesh001(scene,"gtd-native:"+key,spec!,shape)
   :shape==="box"
     ?MeshBuilder.CreateBox("nh016:"+key,{size:1},scene)
     :MeshBuilder.CreateCylinder("nh016:"+key,{diameter:1,height:1,tessellation:12},scene);
@@ -54,6 +56,8 @@ function makeBucket(scene:Scene,key:string,color:string,shape:"box"|"wheel"|"bod
  if(key==="front-light"||key==="rear-light"){
    material.disableLighting=true;material.emissiveColor=Color3.FromHexString(color);
  }
+ if(shape==="body"||shape==="glass"||shape==="trim"||shape==="frontLight"||shape==="rearLight")
+   material.backFaceCulling=false;
  mesh.material=material;mesh.isPickable=false;mesh.receiveShadows=false;
  mesh.alwaysSelectAsActiveMesh=true;
  const buffer=new Float32Array(capacity*16);
@@ -71,7 +75,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
  const buckets=new Map<string,Bucket>();
  // The body is tinted per-model/paint; four shared detail materials across all
  // 125 meshes limit drawcalls. No per-agent Babylon mesh objects.
- function get(key:string,color:string,shape:"box"|"wheel"|"body"|"glass"="box",spec?:Spec){
+ function get(key:string,color:string,shape:"box"|"wheel"|"body"|"glass"|"trim"|"frontLight"|"rearLight"="box",spec?:Spec){
    let b=buckets.get(key);
    if(!b){b=makeBucket(scene,key,color,shape,spec);buckets.set(key,b);}
    return b;
@@ -118,6 +122,11 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
        write(body,world);
        const glass=get("windows:"+a.modelId,"#263D4C","glass",spec);
        write(glass,world);
+       if(spec.style==="supercar"){
+         write(get("temerario:darktrim","#191D22","trim"),world);
+         write(get("temerario:headlights","#DADFE5","frontLight"),world);
+         write(get("temerario:taillights","#B82B2F","rearLight"),world);
+       }
        const wheelbase=spec.length*.59,track=spec.width*.81;
        const radius=generatedWheelRadius001(spec);
        const previous=last.get(a.id);
@@ -141,7 +150,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
            Quaternion.Identity(),new Vector3(radius*.48,xSign*.13,0));
          write(wheelSpoke,spoke.multiply(hub).multiply(world));
        }
-       for(const side of [-1,1]){
+       if(spec.style!=="supercar")for(const side of [-1,1]){
          write(headlights,matrix({x:side*spec.width*.33,y:.91,z:spec.length*.502,
            w:.30,h:.13,d:.05},world));
          write(taillights,matrix({x:side*spec.width*.35,y:.83,z:-spec.length*.502,
