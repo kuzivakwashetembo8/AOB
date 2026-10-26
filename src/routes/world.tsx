@@ -45,7 +45,8 @@ function World() {
               >
                 <span className="district-code">{item.code}</span>
                 {item.name}
-                {selected === index && <ArrowRight className="ml-auto" size={13} />}
+                {item.code !== "02" && item.code !== "05" && <span className="ml-auto text-[9px] uppercase tracking-wider text-slate-400" aria-label="Coming soon">SOON</span>}
+                {selected === index && (item.code === "02" || item.code === "05") && <ArrowRight className="ml-auto" size={13} />}
               </Button>
             ))}
           </nav>
