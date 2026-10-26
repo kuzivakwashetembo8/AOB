@@ -200,6 +200,11 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
    wheelSpoke=get("moving-wheel-spoke","#ECEDEF"),
    headlights=get("front-light","#F3F0D9"),
    taillights=get("rear-light","#B93335");
+ function reviewOnlySevenNative008(_modelId:string):SevenSourceModel007|undefined{
+   // Preserve the renderer wiring for later individual promotion, but
+   // never silently render incomplete GEN-VEH-007 shells in live traffic.
+   return undefined;
+ }
  const last=new Map<string,{x:number;z:number;spin:number;tick:number}>();
  let updatedTick=-1;
  let lastReport={vehicles3D:0,sourceGLBs:0,lowDetail:0,defaultFleet:0,dots:0 as const};
@@ -228,7 +233,10 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          a.modelId==="gtd-traffic-taxi-014"?"WHITE":a.paintId;
        const paint=fleetPaint016(base);
        const isRover=a.modelId==="gtd-veh006-mercer-range-rover";
-       const sevenModel=SEVEN_TRAFFIC_MODELS_007[a.modelId];
+       // GEN-VEH-008: the rejected seven-vehicle extraction batch is review
+       // only until each model earns separate owner approval in /vehicles.
+       // Render the earlier safe native silhouettes in active North Heights.
+       const sevenModel=reviewOnlySevenNative008(a.modelId);
        const nativeBody=!!sevenModel&&hasNativeBody007(sevenModel);
        const nativeWheels=!!sevenModel&&hasNativeWheels007(sevenModel);
        const frontFit=nativeWheels?sourceWheelFit007(sevenModel!,"frontLeft"):null;

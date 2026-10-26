@@ -5,6 +5,7 @@ import {
   Plus,
   Globe2,
   SlidersHorizontal,
+  CarFront,
   Terminal,
   Volume2,
   VolumeX,
@@ -94,6 +95,13 @@ function Launcher() {
             <Button variant="menu" asChild>
               <Link to="/settings">
                 <SlidersHorizontal size={14} /> Settings <ChevronRight size={13} />
+              </Link>
+            </Button>
+          </div>
+          <div className="menu-entry">
+            <Button variant="menu" asChild>
+              <Link to="/vehicles" onFocus={() => setSelection("Inspect extracted vehicle geometry.")}>
+                <CarFront size={14} /> Vehicles <ChevronRight size={13} />
               </Link>
             </Button>
           </div>
