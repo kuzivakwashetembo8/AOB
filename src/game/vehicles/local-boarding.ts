@@ -52,3 +52,29 @@ export function nearestAccessibleCar<T extends {id:string;pose:Point3}>(actor:Po
     Math.abs(car.pose.y-actor.y)<3&&unobstructedBoardingLine(actor,car.pose,blockers))
     .sort((a,b)=>Math.hypot(a.pose.x-actor.x,a.pose.z-actor.z)-Math.hypot(b.pose.x-actor.x,b.pose.z-actor.z)||a.id.localeCompare(b.id))[0]??null;
 }
+
+/** South Ward building footprints may be rotated; test actual plan-view path to
+ * the candidate vehicle, not merely nearest-car distance. */
+export interface PlanarBuildingFootprint {x:number;z:number;halfX:number;halfZ:number;yaw:number}
+export function accessibleAcrossPlan(start:Point3,end:Point3,blocks:readonly PlanarBuildingFootprint[]):boolean {
+  for(const b of blocks){
+    const c=Math.cos(b.yaw),q=Math.sin(b.yaw);
+    const rel=(p:Point3)=>({x:(p.x-b.x)*c+(p.z-b.z)*q,z:-(p.x-b.x)*q+(p.z-b.z)*c});
+    const a=rel(start),d=rel(end);
+    const dx=d.x-a.x,dz=d.z-a.z;
+    let low=0,high=1;
+    for(const [v,delta,half] of [[a.x,dx,b.halfX],[a.z,dz,b.halfZ]]){
+      if(Math.abs(delta)<1e-8){if(Math.abs(v)>half)high=-1;continue;}
+      const first=(-half-v)/delta,last=(half-v)/delta;
+      low=Math.max(low,Math.min(first,last));high=Math.min(high,Math.max(first,last));
+    }
+    if(low<=high&&high>=0&&low<=1)return false;
+  }
+  return true;
+}
+export function nearestAccessiblePlanarCar<T extends {id:string;pose:Point3}>(
+ actor:Point3,cars:readonly T[],blocks:readonly PlanarBuildingFootprint[]):T|null{
+ return cars.filter(car=>Math.hypot(car.pose.x-actor.x,car.pose.z-actor.z)<=VEHICLE_BOARD_RADIUS&&
+   Math.abs(car.pose.y-actor.y)<3&&accessibleAcrossPlan(actor,car.pose,blocks))
+   .sort((a,b)=>Math.hypot(a.pose.x-actor.x,a.pose.z-actor.z)-Math.hypot(b.pose.x-actor.x,b.pose.z-actor.z)||a.id.localeCompare(b.id))[0]??null;
+}
