@@ -15,3 +15,9 @@ Initial `scripts/genveh005-audit-rover.mjs` reports the GLB's actual material li
 
 ## GEN-VEH-003.1 — accepted Lamborghini wheel follow-up
 The Lamborghini Step 3 source wheel geometry and axle placement were accepted, with visually dark/absent rim spokes. Current patch is cosmetic-only: rim diffuse/specular contrast and a 24 mm outward rim-face offset, without moving tyre centers, source body, front/rear axle placement or traffic. Must be inspected on Android, not claimed complete from code alone.
+
+## Owner visual acceptance (2026-10-26) — Steps 1–3 locked
+Owner reviewed mobile North Heights screenshots of white and blue native Range Rover Sport traffic and explicitly confirmed **Range Rover extraction fully successful**. The body proportions, recognizable source SUV design, glass and original rim-style wheels have passed the visual acceptance gate. Keep these as the source reference for future vehicle extraction; do not restructure Range Rover shape or wheel fit while working on the BMW.
+The known moving fleet remains 125 agents, zero traffic GLB proximity-swaps and zero dots. This is visual approval rather than measured FPS/p95 certification. Rover original parked/drivable GLB is still intentionally preserved as control.
+### Next work
+**GEN-VEH-006 BMW M4 Competition M Package**: use `public/GLBs/Cars/bmw_m4_competition_m_package (1).glb`, original source size 1,928,276 bytes, footprint 4.80 m length x 1.93 m width x 1.46 m height; inspect mesh/node/material hierarchy and separately extract four wheel assemblies. Preserve accepted Rover/Lamborghini source reconstruction. Lamborghini `GEN-VEH-003.2`: outward offset and brighter rim material still produce featureless discs, so this is **not visually accepted**. Investigate source rim vs tire mesh occlusion and visible face geometry; do not merely brighten the disc again.
