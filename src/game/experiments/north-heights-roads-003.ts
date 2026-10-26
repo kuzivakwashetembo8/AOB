@@ -12,6 +12,7 @@ export type NorthHeightsRoadMaterials = Readonly<{
   asphalt: StandardMaterial;
   pavement: StandardMaterial;
   curb: StandardMaterial;
+  marking: StandardMaterial;
   crossing: StandardMaterial;
 }>;
 export type NorthHeightsRoadResult = Readonly<{
@@ -19,9 +20,10 @@ export type NorthHeightsRoadResult = Readonly<{
   crossings: number;
   sidewalks: number;
   curbs: number;
+  markings: number;
   surfaceMeshes: number;
 }>;
-type Layer = "asphalt" | "pavement" | "curb" | "crossing";
+type Layer = "asphalt" | "pavement" | "curb" | "crossing" | "marking";
 type Builder = { p:number[];uv:number[];indices:number[] };
 type Point = Readonly<{x:number;y:number;z:number}>;
 const WIDTH=8, HALF=WIDTH/2, WALK=3.75, OUTER=HALF+WALK;
@@ -136,9 +138,9 @@ export function createNorthHeightsRoads003(
   material:NorthHeightsRoadMaterials,
 ):NorthHeightsRoadResult{
   const batch:Record<Layer,Builder>={
-    asphalt:empty(),pavement:empty(),curb:empty(),crossing:empty(),
+    asphalt:empty(),pavement:empty(),curb:empty(),crossing:empty(),marking:empty(),
   };
-  let sidewalkCount=0,curbCount=0,crossings=0;
+  let sidewalkCount=0,curbCount=0,crossings=0,markings=0;
   // IMPORTANT: generate DISJOINT road spans. Previously both full-length axes
   // covered every intersection; a raised cover pad only disguised the resulting
   // coplanar z-fighting, producing intermittent grey/black junction bands.
@@ -148,6 +150,13 @@ export function createNorthHeightsRoads003(
     for(let i=0;i<streets.length-1;i++){
       runStrip(batch.asphalt,axis,fixed,-HALF,HALF,streets[i]!+HALF,
         streets[i+1]!-HALF,ASPHALT_TOP,at);
+      // Paint is co-generated with the road strips and conforms to the same grade.
+      // It never uses independent floating boxes or separate terrain instance transforms.
+      const laneStart=streets[i]!+HALF,laneEnd=streets[i+1]!-HALF;
+      for(let mark=laneStart+3;mark+3.4<laneEnd-2;mark+=9){
+        runStrip(batch.marking,axis,fixed,-.067,.067,mark,mark+3.4,ASPHALT_TOP+.003,at);
+        markings++;
+      }
       const start=streets[i]!+OUTER, end=streets[i+1]!-OUTER;
       // Clip every footpath and face curb at next crossroads.
       for(const side of [-1,1]){
@@ -180,19 +189,19 @@ export function createNorthHeightsRoads003(
       for(let k=0;k<5;k++){
         const delta=(k-2)*.78;
         pad(batch.crossing,x-3.35,z+stop+delta-.22,
-          x+3.35,z+stop+delta+.22,.097,at);
+          x+3.35,z+stop+delta+.22,ASPHALT_TOP+.003,at);
         pad(batch.crossing,x+stop+delta-.22,z-3.35,
-          x+stop+delta+.22,z+3.35,.097,at);
+          x+stop+delta+.22,z+3.35,ASPHALT_TOP+.003,at);
       }
       crossings+=2;
     }
   }
   const materials:Record<Layer,StandardMaterial>={
     asphalt:material.asphalt,pavement:material.pavement,
-    curb:material.curb,crossing:material.crossing,
+    curb:material.curb,crossing:material.crossing,marking:material.marking,
   };
   let surfaceMeshes=0;
-  for(const name of ["asphalt","pavement","curb","crossing"] as const)
+  for(const name of ["asphalt","pavement","curb","crossing","marking"] as const)
     if(materialMesh(scene,name,batch[name],materials[name]))surfaceMeshes++;
-  return {roads:streets.length*2,crossings,sidewalks:sidewalkCount,curbs:curbCount,surfaceMeshes};
+  return {roads:streets.length*2,crossings,sidewalks:sidewalkCount,curbs:curbCount,markings,surfaceMeshes};
 }
