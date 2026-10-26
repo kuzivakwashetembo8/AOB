@@ -6,12 +6,13 @@ import {createTemerarioRimFaceOverlay007} from "@/game/vehicles/native-vehicle-g
 
 /** A/B control intentionally does not load high-poly BMW mesh.
  * Source extraction is preserved in original feature branch and script. */
-describe("GEN-VEH-006 BMW render cost isolation A/B",()=>{
- it("retains all 125 deterministic agents and all 21 BMW IDs",()=>{
+describe("GEN-VEH-006 GEN-VEH-006 BMW fully dropped from traffic",()=>{
+ it("retires BMW from all 125 deterministic moving traffic agents",()=>{
    const sim=new NH012TrafficSimulator(125,120125);
    const s=sim.snapshot();
    expect(s.count).toBe(125);
-   expect(s.agents.filter(a=>a.modelId==="gtd-veh014-mercer-bmw-m4")).toHaveLength(21);
+   expect(s.agents.filter(a=>a.modelId==="gtd-veh014-mercer-bmw-m4")).toHaveLength(0);
+   expect(new Set(s.agents.map(a=>a.modelId)).size).toBe(5);
    expect(sim.validate()).toEqual([]);
  });
  it("keeps original extractor documented while removing detailed BMW rendering",()=>{
