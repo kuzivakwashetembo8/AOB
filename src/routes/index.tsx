@@ -51,7 +51,7 @@ function Launcher() {
         </p>
         <Button variant="game" asChild className="launcher-primary">
           <Link
-            to="/game"
+            to="/world"
             onFocus={() => setSelection("Your city. Your responsibility.")}
             onMouseEnter={() => setSelection("Your city. Your responsibility.")}
           >
@@ -72,7 +72,7 @@ function Launcher() {
           <div className="menu-entry">
             <Button variant="menu" asChild>
               <Link
-                to="/game"
+                to="/world"
                 onFocus={() => setSelection("Every protector starts somewhere.")}
                 onMouseEnter={() => setSelection("Every protector starts somewhere.")}
               >
