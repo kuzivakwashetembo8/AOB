@@ -157,8 +157,8 @@ function normalize(v){
 // merged ENTIRE paint / glass groups and snapped into one world-position grid,
 // fusing independent roof/door/panel sheets and ruining surface normals.
 const stepByPart={paint:.012,glass:.007,trim:.018,frontLight:.006,rearLight:.006};
-const maxTriangles={paint:120000,glass:28000,trim:120000,frontLight:20000,rearLight:20000};
-const maxTotalTriangles=260000;
+const maxTriangles={paint:120000,glass:28000,trim:72000,frontLight:20000,rearLight:20000};
+const maxTotalTriangles=230000;
 let rejectedDegenerate=0,rejectedInversion=0,sourceNormalsPresent=0;
 // Remapping is a +Z-front coordinate convention. It must match the position
 // conversion. A normal is *direction*, never translated.
@@ -260,16 +260,55 @@ function clusterSegment(seg,step){
  }
  return {positions:verticesOut,normals:normalsOut,indices:indicesOut};
 }
+function sourcePriority(item){
+ // Preserve original mesh boundaries; select complete source mesh surfaces
+ // instead of deleting alternating individual triangles (which creates holes).
+ // Large area and silhouette footprint win; small decorative seams lose.
+ const p=item.result.positions,idx=item.result.indices;
+ const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+ for(let i=0;i<p.length;i+=3)for(let k=0;k<3;k++){
+   lo[k]=Math.min(lo[k],p[i+k]);hi[k]=Math.max(hi[k],p[i+k]);
+ }
+ const ex=hi[0]-lo[0],ey=hi[1]-lo[1],ez=hi[2]-lo[2];
+ const footprint=Math.max(ex*ez,ey*ez,ey*ex);
+ let area=0;
+ for(let j=0;j<idx.length;j+=3){
+   const a=idx[j]*3,b=idx[j+1]*3,c=idx[j+2]*3;
+   const ux=p[b]-p[a],uy=p[b+1]-p[a+1],uz=p[b+2]-p[a+2];
+   const vx=p[c]-p[a],vy=p[c+1]-p[a+1],vz=p[c+2]-p[a+2];
+   area+=Math.hypot(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx)*.5;
+ }
+ const important=/intake|grill|vent|blackparts|splitter|bumper|door|front|rear|glass/i.test(
+   item.seg.name+" "+item.seg.material);
+ return (Math.sqrt(Math.max(footprint,.00001))+
+   Math.sqrt(Math.max(area,.00001)))*(important?1.25:1)/
+   Math.pow(Math.max(1,idx.length/3),.33);
+}
 function encoded(group){
  const outP=[],outN=[],outI=[];
- let empty=0,srcTriangles=0;
+ let empty=0,skipped=0,skippedTriangles=0,srcTriangles=0,keptNodes=0;
+ const segments=[];
  for(const seg of raw[group].segments){
    srcTriangles+=seg.indices.length/3;
    const result=clusterSegment(seg,stepByPart[group]);
    if(!result.indices.length){empty++;continue;}
+   segments.push({seg,result});
+ }
+ if(group==="trim"){
+   segments.sort((a,b)=>sourcePriority(b)-sourcePriority(a)||
+     a.seg.name.localeCompare(b.seg.name));
+ }
+ let used=0;
+ for(const {seg,result} of segments){
+   const count=result.indices.length/3;
+   if(group==="trim" && used+count>maxTriangles.trim){
+     skipped++;skippedTriangles+=count;continue;
+   }
    const off=outP.length/3;
-   outP.push(...result.positions);outN.push(...result.normals);
+   for(const v of result.positions)outP.push(v);
+   for(const n of result.normals)outN.push(n);
    for(const i of result.indices)outI.push(i+off);
+   used+=count;keptNodes++;
  }
  if(!outI.length||outP.length/3>500000||outI.length/3>maxTriangles[group])
    throw Error("GEN-VEH-002 source detail limits exceeded: "+group+
@@ -288,7 +327,8 @@ function encoded(group){
   indexBits:wide?32:16,
   triangles:indices.length/3,vertices:positions.length/3,
   sourceTriangles:srcTriangles,sourcePrimitives:raw[group].segments.length,
-  emptyPrimitives:empty,clusterMetres:stepByPart[group]};
+  keptPrimitives:keptNodes,skippedPrimitives:skipped,
+  skippedTriangles,emptyPrimitives:empty,clusterMetres:stepByPart[group]};
 }
 
 const result=Object.fromEntries(groups.map(k=>[k,encoded(k)]));
@@ -308,6 +348,6 @@ console.info("GEN_VEH_002_SOURCE_EXTERIOR "+JSON.stringify({
   exteriorBounds:min.map((v,k)=>[v,max[k]]),footprintScale:scale,
   outputBytes:Buffer.byteLength(output),
   parts:Object.fromEntries(groups.map(k=>[k,{triangles:result[k].triangles,
-    vertices:result[k].vertices,sourceTriangles:result[k].sourceTriangles,sourcePrimitives:result[k].sourcePrimitives,clusterMetres:result[k].clusterMetres}])),
+    vertices:result[k].vertices,sourceTriangles:result[k].sourceTriangles,sourcePrimitives:result[k].sourcePrimitives,keptPrimitives:result[k].keptPrimitives,skippedPrimitives:result[k].skippedPrimitives,skippedTriangles:result[k].skippedTriangles,clusterMetres:result[k].clusterMetres}])),
   finalTriangles,rejectedDegenerate,rejectedInversion,sourceNormalsPresent,
 }));
