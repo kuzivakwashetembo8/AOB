@@ -96,9 +96,14 @@ function NorthHeightsPreview(){
         const instance=await createNorthHeightsCity8(canvas.current,
           message=>{if(!closed){
             setStatus(message);
-            if(currentStage)ledger.finish(currentStage);
-            currentStage="nh:stage:"+(++sequence);
-            ledger.start(currentStage,message,"world");
+            if(/failed|failure|error/i.test(message)){
+              if(currentStage)ledger.fail(currentStage,message);
+              ledger.fail("nh:bootstrap",message);
+            }else{
+              if(currentStage)ledger.finish(currentStage);
+              currentStage="nh:stage:"+(++sequence);
+              ledger.start(currentStage,message,"world");
+            }
           }},
           message=>{if(!closed)setStats(message);},
           next=>{if(!closed)setMode(next);},
