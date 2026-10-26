@@ -108,6 +108,7 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
  const wind=get("windows","#263D4C"),
    tires=get("rubber","#171B20","wheel"),
    alloys=get("rims","#ADB4BD","wheel"),
+   wheelSpoke=get("moving-wheel-spoke","#ECEDEF"),
    headlights=get("front-light","#F3F0D9"),
    taillights=get("rear-light","#B93335");
  const last=new Map<string,{x:number;z:number;spin:number;tick:number}>();
@@ -157,6 +158,13 @@ export function createNorthHeightsTraffic3D016(scene:Scene,graph:TrafficGraph012
          write(tires,matrix({x,y:radius,z,w:radius*2,h:.21,d:radius*2},world,q));
          write(alloys,matrix({x:x+xSign*.113,y:radius,z,
            w:radius*1.18,h:.017,d:radius*1.18},world,q));
+         // Cylinder symmetry alone makes rolling invisible. One original-style
+         // bright spoke marker orbits its axle as distance advances, including
+         // from the player's aerial flight camera.
+         const hub=Matrix.Compose(Vector3.One(),q,new Vector3(x,radius,z));
+         const spoke=Matrix.Compose(new Vector3(radius*.37,.045,.05),
+           Quaternion.Identity(),new Vector3(radius*.48,xSign*.13,0));
+         write(wheelSpoke,spoke.multiply(hub).multiply(world));
        }
        for(const side of [-1,1]){
          write(headlights,matrix({x:side*spec.width*.33,y:.91,z:spec.length*.502,
