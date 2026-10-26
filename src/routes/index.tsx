@@ -64,9 +64,9 @@ function Launcher() {
             <Button
               variant="menu"
               disabled
-              title="Available when a game runtime provides save data"
+              title="Continue — Coming soon until a durable save system is available"
             >
-              <Play size={14} /> Continue <span className="menu-shortcut">NO SAVE</span>
+              <Play size={14} /> Continue <span className="menu-shortcut">COMING SOON</span>
             </Button>
           </div>
           <div className="menu-entry">
