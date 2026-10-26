@@ -19,7 +19,7 @@ export const SEVEN_TRAFFIC_MODELS_007:Readonly<Record<string,SevenSourceModel007
  "gtd-traffic-kango-015":"kangoo"
 };
 const cached=new Map<string,{positions:number[];normals:number[];indices:number[]}>();
-const base64=bytes=>Uint8Array.from(atob(bytes),c=>c.charCodeAt(0));
+const base64=(bytes:string)=>Uint8Array.from(atob(bytes),c=>c.charCodeAt(0));
 function geometryFor(key:string,src:SevenNativeEncoded007){
  let g=cached.get(key);if(g)return g;
  const p=new Int16Array(base64(src.p).buffer),
