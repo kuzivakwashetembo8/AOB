@@ -65,3 +65,20 @@ Measured from the offline extractor for the third attempt:
 - No runtime GLB imports introduced; other native vehicle archetypes and NH-012 movement remain unchanged.
 
 **Interpretation:** These are offline processing counts, not evidence of FPS or completed visual correction. At 201k exterior triangles per detailed Lamborghini, mobile GPU throughput is a specific risk. The build must pass and the owner must evaluate close-up smoothness, missing trim details, wheel appearance and Android motion before any further change or merge. If the mesh is too heavy, add camera-distance native geometric LOD rather than restoring runtime GLB swaps.
+
+## Step 2 — Owner acceptance (locked, 2026-10-26)
+Owner inspected the refined exterior in North Heights and explicitly accepted the Lamborghini body. The former crumpled/noisy shell is replaced by a visually coherent, recognizable source-derived supercar with preserved wedge profile, bonnet, side cuts, cabin and roofline. **Freeze the accepted body extraction, material grouping, front alignment, scene placement and mesh data; wheel work must not modify body/paint/glass/trim buffers.** Source-derived exterior generator's 201,608 triangles remain a measured load risk, so avoid adding unnecessary runtime CPU work. The observed visual win was accepted on Android; an instrumented FPS delta against GLB baseline has not been established.
+
+## Step 3 — Original Lamborghini wheel extraction, 4-corner fit and realism (authorized)
+Status: IN IMPLEMENTATION; separate owner preview required.
+Problem shown in accepted Step-2 images: generic grey disc hubs obscure the black multi-spoke look, tyre width/radius and front/rear axle centers disagree with the body arches; wheels visually float or project out of silhouette.
+
+### Source-of-truth and method
+1. Reuse the owner's unmodified GLB and Step-2 Draco decoder, hierarchy world transforms and original longitudinal-axis normalization. Explicitly identify `WHL_FL_*`, `WHL_FR_*`, `WHL_RL_*`, `WHL_RR_*` source mesh families. Measure all four true wheel world-space axis centers, external tyre radius, signed lateral offset, and front/rear wheelbase from actual wheel vertices. Assert symmetric counterpart positions and finite reasonable bounds. Never use fixed `spec.length*.59` and `spec.width*.81` as source wheel placement guesses.
+2. Build native derivative meshes for each of the four wheel corners, separated by original material name into rubber tyre and dark metallic rims/brakes. Center vertices around their original measured wheel pivot. Preserve source normals and wheel-face geometry; low polygon target for mobile. If source labels are insufficient, fail the extraction with diagnostics rather than silently recreating oversized discs.
+3. Replace *only* the Lamborghini traffic wheel rendering path. Preserve the five accepted exterior buckets and all other vehicles' established generic wheels; no GLB swaps or runtime imports. Four source-derived wheel corner meshes rotate as a unit, with steer on the front axle and travel-derived wheel roll on both axles. Geometry is loaded from compact build-time native data once per source wheel type, reused through Babylon thin instances.
+4. Source wheels must fit original wheel arches and contact the road; no excess body lean, negative ground penetration or detached wheels on grade. If needed use per-wheel position in the existing grade sampler without changing road AI physics.
+5. Test deterministic 125-agent traffic, zero dots, no moving GLBs, unchanged six parked/drivable GLBs, preservation of body bytes, source wheel metadata, side-view stance, front 3/4 dark spokes, full steer deflection, and front/rear wheel rolling. A matching mobile preview is the acceptance gate; do not merge to main before inspection.
+
+### Previous acceptable checkpoints
+GEN-VEH-001 fast 125-car procedural traffic accepted by owner; GEN-VEH-002 Step 1 exterior source extraction accepted as method; GEN-VEH-002 Step 2 exterior reconstructed body accepted. Step 3 is limited to Lamborghini wheel fidelity and alignment.
