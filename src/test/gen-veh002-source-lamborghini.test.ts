@@ -23,7 +23,7 @@ describe("GEN-VEH-002 source-Lamborghini exterior",()=>{
   for(const part of Object.values(TEMERARIO_SOURCE_PARTS_002)){
     if(!part.p)continue; // Placeholder-only source checks run before prebuild too.
     expect(part.n.length).toBeGreaterThan(0);
-    expect(part.indexBits===16||part.indexBits===32).toBe(true);
+    expect(Number(part.indexBits)===16||Number(part.indexBits)===32).toBe(true);
     expect(part.sourceTriangles).toBeGreaterThanOrEqual(part.triangles);
     expect(part.sourcePrimitives).toBeGreaterThan(0);
     expect(atob(part.n).length).toBe(part.vertices*3);
