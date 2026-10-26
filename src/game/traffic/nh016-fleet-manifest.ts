@@ -1,4 +1,4 @@
-/** NH-016: the six original, already-parked/drivable North Heights GLBs
+/** NH-016: the five BMW-free source model families in North Heights traffic
  * complete the SAME 125-agent NH-012 fleet, not 91 new actors.
  * Pure inventory and zero mutation of simulator route/kinematics.
  */
@@ -8,7 +8,6 @@ export const NH016_FLEET_IDS=[
  "gtd-veh008-mercer-toyota-hilux",
  "gtd-veh009-mercer-land-rover-defender",
  "gtd-veh010-mercer-dodge-hp",
- "gtd-veh014-mercer-bmw-m4",
  "gtd-veh014-mercer-lamborghini-temerario",
 ] as const;
 export type NH016FleetId=(typeof NH016_FLEET_IDS)[number];
@@ -23,16 +22,15 @@ export function verifyCompleteFleet016(snapshot:NH012TrafficSnapshot):{
  const agents=selectDefaultFleetAgents016(snapshot);
  for(const a of agents)models[a.modelId as NH016FleetId]++;
  if(snapshot.count!==125||agents.length!==91||NH016_FLEET_IDS.some(id=>models[id]<1))
-   throw Error("NH016 default six failed fleet circuit integrity (need 91 / 125 across six)");
+   throw Error("NH016 default six failed fleet circuit integrity (need 91 / 125 across five BMW-free models)");
  return {total:snapshot.count,original:agents.length,models};
 }
-export type NH016FleetVisualClass="suv"|"pickup"|"offroad"|"muscle"|"coupe"|"supercar";
+export type NH016FleetVisualClass="suv"|"pickup"|"offroad"|"muscle"|"supercar";
 export const NH016_CLASS:Record<NH016FleetId,NH016FleetVisualClass>={
  "gtd-veh006-mercer-range-rover":"suv",
  "gtd-veh008-mercer-toyota-hilux":"pickup",
  "gtd-veh009-mercer-land-rover-defender":"offroad",
  "gtd-veh010-mercer-dodge-hp":"muscle",
- "gtd-veh014-mercer-bmw-m4":"coupe",
  "gtd-veh014-mercer-lamborghini-temerario":"supercar",
 };
 export const NH016_PAINT:Readonly<Record<string,string>>={
