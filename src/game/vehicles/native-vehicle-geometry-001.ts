@@ -5,6 +5,7 @@
 import {Mesh,Scene,VertexData} from "@babylonjs/core";
 import {TEMERARIO_SOURCE_PARTS_002,TEMERARIO_SOURCE_WHEELS_003} from "./temerario-source-data-002";
 import {ROVER_SOURCE_PARTS_005,ROVER_SOURCE_WHEELS_005} from "./rover-source-data-005";
+import {BMW_SOURCE_PARTS_006,BMW_SOURCE_WHEELS_006} from "./bmw-source-data-006";
 
 export type GTDGeneratedStyle =
   "supercar"|"pickup"|"offroad"|"sedan"|"hatch"|"taxi"|
@@ -225,6 +226,41 @@ export function createRoverWheelMesh005(scene:Scene,name:string,
  corner:GTDRoverCorner005,part:GTDRoverWheelPart005):Mesh{
  return toMesh(scene,name,roverSourceGeometry005("wheel:"+corner+":"+part,
    ROVER_SOURCE_WHEELS_005[corner][part]));
+}
+
+/** GEN-VEH-006 BMW M4 Competition: five original exterior parts and
+ * source-derived wheel assemblies, processed offline from owner GLB.
+ */
+export type GTDBMWPart006="paint"|"glass"|"trim"|"frontLight"|"rearLight";
+export type GTDBMWCorner006="frontLeft"|"frontRight"|"rearLeft"|"rearRight";
+export type GTDBMWWheelPart006="tire"|"rim";
+const bmwDecoded006=new Map<string,Geometry>();
+function bmwGeometry006(key:string,r:{p:string;n:string;i:string;indexBits:number;vertices:number;triangles:number}):Geometry{
+ let g=bmwDecoded006.get(key);if(g)return g;
+ if(!r.p||!r.n||!r.i)throw Error("GEN-VEH-006 missing source BMW part "+key);
+ const p=Uint8Array.from(atob(r.p),c=>c.charCodeAt(0));
+ const n=Uint8Array.from(atob(r.n),c=>c.charCodeAt(0));
+ const i=Uint8Array.from(atob(r.i),c=>c.charCodeAt(0));
+ const idx=Number(r.indexBits)===32?new Uint32Array(i.buffer):new Uint16Array(i.buffer);
+ const result:Geometry={positions:Array.from(new Int16Array(p.buffer),v=>v/1000),
+   normals:Array.from(new Int8Array(n.buffer),v=>v/127),indices:Array.from(idx)};
+ if(result.positions.length/3!==r.vertices||
+    result.indices.length/3!==r.triangles||
+    result.normals?.length!==result.positions.length)
+   throw Error("GEN-VEH-006 BMW native index/normal mismatch "+key);
+ bmwDecoded006.set(key,result);return result;
+}
+export function createBMWSourceMesh006(scene:Scene,name:string,part:GTDBMWPart006):Mesh{
+ return toMesh(scene,name,bmwGeometry006("body:"+part,BMW_SOURCE_PARTS_006[part]));
+}
+export function getBMWWheelFit006(corner:GTDBMWCorner006){
+ const w=BMW_SOURCE_WHEELS_006[corner];
+ return {center:w.center,radius:w.radius,width:w.width};
+}
+export function createBMWWheelMesh006(scene:Scene,name:string,
+ corner:GTDBMWCorner006,part:GTDBMWWheelPart006):Mesh{
+ return toMesh(scene,name,bmwGeometry006("wheel:"+corner+":"+part,
+  BMW_SOURCE_WHEELS_006[corner][part]));
 }
 
 /** GEN-VEH-003.2: bounded native visibility aid for the source M4-style
