@@ -52,3 +52,16 @@ The old group-wide spatial weld merged close but **unconnected** surfaces, somet
 3. Separate body paint from dark plastics, windows and light assemblies; do not fuse source material families by position. Preserve window/body separation and source panel orientation.
 4. Validate original topological closure/non-degenerate triangles, finite normals, memory budget and correct traffic orientation with automated checks. Failed extraction must fail the preview build, not silently revert to generic wedge geometry.
 5. Produce a new isolated North Heights preview. Owner compares from matched side/three-quarter views, checks for clean panels and mobile smoothness; no merge until accepted. Wheel/rim geometry fidelity is reserved for the following focused iteration.
+
+### Step-2 implementation checkpoint (provisional — owner preview pending)
+The first update failed before extraction because a source-data placeholder encoded `indexBits` as a literal 16; this was corrected to support either 16/32-bit indices. A second attempt rejected the high-resolution trim inventory (201,074 source triangles). The constrained third attempt completed offline extraction and continued into the build's automated test suite.
+
+Measured from the offline extractor for the third attempt:
+- Source GLB bytes: 4,499,268; selected exterior mesh primitives: 376; selected source triangles: 341,498.
+- Native output triangles: **201,608** across paint 110,217, glass 11,581, trim 72,000, frontLight 6,696, rearLight 1,114.
+- Native source-derived generator module: **3,119,438 bytes before production bundling**, not the GLB itself.
+- Paint: 47/47 source primitives retained. Glass: 78/78 retained. Trim: 114/224 retained using ranked whole-primitive selection; 110 trim primitives omitted, representing 117,474 already-conditioned triangles. Front lamps: 21/21 retained; rear lamps: 6/6 retained.
+- Per-primitive topology-preserving clustering: paint 12 mm, glass 7 mm, trim 18 mm, lamps 6 mm. Source normals preserved and compactly packed into signed 8-bit triples. 17,899 degenerate and 4,422 inversion-prone triangles rejected while conditioning.
+- No runtime GLB imports introduced; other native vehicle archetypes and NH-012 movement remain unchanged.
+
+**Interpretation:** These are offline processing counts, not evidence of FPS or completed visual correction. At 201k exterior triangles per detailed Lamborghini, mobile GPU throughput is a specific risk. The build must pass and the owner must evaluate close-up smoothness, missing trim details, wheel appearance and Android motion before any further change or merge. If the mesh is too heavy, add camera-distance native geometric LOD rather than restoring runtime GLB swaps.
