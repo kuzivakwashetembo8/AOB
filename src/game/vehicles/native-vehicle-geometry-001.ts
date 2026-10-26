@@ -263,7 +263,7 @@ export function createBMWWheelMesh006(scene:Scene,name:string,
   BMW_SOURCE_WHEELS_006[corner][part]));
 }
 
-/** GEN-VEH-003.2: bounded native visibility aid for the source M4-style
+/** GEN-VEH-003.2: bounded native visibility aid for the original
  * Lamborghini rim face. It DOES NOT replace the extracted Lamborghini rim:
  * preserve source spokes, axle, tyres, and body; add 10 legible graphite
  * split spokes on the OUTER face where the source is occluded by the tyre.
@@ -273,7 +273,7 @@ export function createTemerarioRimFaceOverlay007(scene:Scene,name:string):Mesh{
  const g:Geometry={positions:[],indices:[],normals:[]};
  const quad=(r0:number,r1:number,a0:number,a1:number)=>{
   const off=g.positions.length/3;
-  for(const [r,a] of [[r0,a0],[r1,a0],[r1,a1],[r0,a1]]){
+  for(const [r,a] of [[r0,a0],[r1,a0],[r1,a1],[r0,a1]] as [number,number][]) {
    g.positions.push(0,Math.sin(a)*r,Math.cos(a)*r);
    g.normals!.push(1,0,0);
   }
