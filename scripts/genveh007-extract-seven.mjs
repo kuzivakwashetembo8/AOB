@@ -313,6 +313,7 @@ const text=[
 ].join("\n");
 await mkdir(dirname(path),{recursive:true});
 await writeFile(path,text);
+await writeFile("public/genveh007-extraction-report.json",JSON.stringify({date:"2026-10-26",modelCount:models.length,diagnostics},null,2));
 console.info("GEN_VEH_007_COMPLETE "+JSON.stringify({
   models:diagnostics.map(x=>x.id),sourceReady:diagnostics.filter(x=>x.bodyReady).length,
   wheelReady:diagnostics.filter(x=>x.wheelsReady).length,bytes:Buffer.byteLength(text)}));
