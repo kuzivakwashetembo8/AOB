@@ -34,5 +34,11 @@ Onboard the committed Taxi.glb **before Renault** and **before the original six 
 ## SEC-CHECK
 All assets are project-local, no new external fetchers or telemetry. The renderer only observes NH-012 and creates no Rapier traffic colliders; avoid claiming physical traffic collision protection. One source container, eight visible original models maximum, with disposal on teardown. Preview branch only; no merge or production deployment without owner approval.
 
+## G2 owner-reported visual corrective patch (2026-10-26)
+- Owner found only one taxi during inspection and observed rear-first movement with insufficient front-wheel toe. This supersedes G1's unverified zero-yaw guess.
+- Apply a half-turn to the **visual fitting node**, never to NH-012 logical heading or position. Heading correction: Math.PI, same successful correction as NH-013 sedan.
+- Match NH-013's 20 Hz connector-based front-wheel steering, hold toe between ticks, and scale the source taxi's front toe command by 1.6, clamped to +/-0.85 rad; rear wheels are not steered. All four original wheels roll.
+- Expand taxi render discovery horizon from 425m to 600m; keep eight agents and original low-poly (~20k-triangle) single-asset load. Changes require new visual owner verification; no production merge yet.
+
 ## Next gate
 After this taxi preview is accepted, independently audit/onboard Renault Kango Optimized.glb against the original. Only then consider the six default vehicles' traffic visualization. 

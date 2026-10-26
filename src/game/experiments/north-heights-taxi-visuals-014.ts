@@ -31,7 +31,7 @@ const spec:MercerExtra006Spec={
  id:NH014_TAXI_MODEL_ID,label:"Source Taxi",url:NH014_TAXI_SOURCE,
  x:0,z:0,width:1.85,height:1.90,length:4.5,yaw:0,
 };
-const HORIZON=425;
+const HORIZON=600; // eight lightweight taxis remain discoverable during flight
 function meshes(root:TransformNode):AbstractMesh[]{
  return root.getChildMeshes(false).filter(m=>m.getTotalVertices()>0);
 }
@@ -124,7 +124,11 @@ export function createNorthHeightsTaxiVisuals014(scene:Scene,graph:TrafficGraph0
            Math.cos(agent.heading-v.lastPose.heading));
          const turn=distance>.003?Math.atan(NH014_TAXI_WHEELBASE*dHeading/distance):0;
          const target=trafficTurnSteering013(agent,graph,NH014_TAXI_WHEELBASE);
-         v.toe=smoothTrafficToe013(v.toe,target||Math.max(-.72,Math.min(.72,turn)),true);
+         // Accepted NH-013 solution: connector-curvature toe is updated on each
+         // 20Hz SIM tick, not smoothed back to zero on render frames. Taxi
+         // imported hub pivots require a stronger toe command for full corners.
+         const requested=(Math.abs(target)>.004?target:turn)*1.6;
+         v.toe=smoothTrafficToe013(v.toe,Math.max(-.85,Math.min(.85,requested)),true);
          v.wheels.update(distance,v.toe);
          v.lastPose={x:agent.x,z:agent.z,heading:agent.heading};
          v.lastTick=snapshot.tick;

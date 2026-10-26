@@ -11,7 +11,10 @@ import {StreetVehicleWheelRig,type StreetVehicleWheelMapping,type WheelCorner}
 
 export const NH014_TAXI_WHEELBASE=2.865;
 export const NH014_TAXI_TRACK=1.50;
-export const NH014_TAXI_HEADING_CORRECTION=0; // source front -Z; Babylon left-handed import faces +Z
+/** Owner visual review NH-014 G2: car bonnet was behind NH-012 movement.
+ * Correct visual-root heading only; NH-012 authoritative heading is untouched.
+ */
+export const NH014_TAXI_HEADING_CORRECTION=Math.PI;
 const sourceNodes:Record<WheelCorner,string>={
  frontLeft:"lgnWFL_1",frontRight:"lgnWFR_9",
  rearLeft:"lgnWRL_8",rearRight:"lgnWRR_10",

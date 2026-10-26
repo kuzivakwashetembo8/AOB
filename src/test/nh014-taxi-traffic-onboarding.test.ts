@@ -48,6 +48,6 @@ describe("NH-014 authentic taxi visual onboarding",()=>{
    expect(g.materials.some((m:{name:string})=>m.name==="body")).toBe(true);
    expect(g.materials.some((m:{name:string})=>m.name==="taxiSign")).toBe(true);
    expect(NH014_TAXI_WHEELBASE).toBeGreaterThan(2.7);
-   expect(NH014_TAXI_HEADING_CORRECTION).toBe(0);
+   expect(NH014_TAXI_HEADING_CORRECTION).toBe(Math.PI);
  });
 });
