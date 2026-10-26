@@ -227,11 +227,6 @@ export async function createNorthHeightsCity8(
         trafficAccumulator-=NH012_SIMULATION_DT;
         steps++;
       }
-      const snapshot=traffic.snapshot();
-      // GEN-VEH-001: all traffic generated, zero source-GLB proximity swaps.
-      const views=traffic3D.update(snapshot,new Set(),camera);
-      visibleAuthenticCars=0;
-      visibleTrafficCars=views.vehicles3D;
     }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
@@ -336,6 +331,14 @@ export async function createNorthHeightsCity8(
       locationTick=0;updateLocation();
       if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
       onNearbyVehicleChange?.(!driving&&mode==="walk"&&!!walk&&!!nearestAccessibleCar(walk.physics.playerPosition(),[...cars].map(([id,car])=>({id,pose:car.pose})),cameraBlockers));
+    }
+    // OPT-02: render LOD after camera and actor have moved in this very frame,
+    // avoiding one-frame stale full-detail promotion during rapid flight descent.
+    if(traffic&&traffic3D){
+      scene.updateTransformMatrix();
+      const views=traffic3D.update(traffic.snapshot(),new Set(),camera);
+      visibleAuthenticCars=0;
+      visibleTrafficCars=views.vehicles3D;
     }
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
