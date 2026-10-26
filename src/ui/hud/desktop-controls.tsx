@@ -53,7 +53,7 @@ function MovementButton({
   return (
     <Button
       variant="control"
-      className={`desktop-control-button gtd-priority-action gtd-action-${action}`}
+      className="desktop-control-button"
       aria-label={`${label} (${keyHint})`}
       data-tooltip={`${label} · ${keyHint}`}
       onPointerDown={(event) => {
@@ -98,7 +98,7 @@ export function DesktopControls({
         ).map(({ action, label, keyHint, icon: Icon }) => (
           <Button
             variant="control"
-            className="desktop-control-button"
+            className={`desktop-control-button gtd-priority-action gtd-action-${action}`}
             aria-label={`${label} (${keyHint})`}
             data-tooltip={`${label} · ${keyHint}`}
             key={action}
