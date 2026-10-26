@@ -35,6 +35,8 @@ import {assignNH013HatchbackPilot} from "@/game/traffic/nh013-hatchback-pilot";
 import {createNorthHeightsHatchbackVisuals013,type NH013HatchbackVisuals} from "./north-heights-hatchback-visuals-013";
 import {assignNH014TaxiPilot,NH014_TAXI_COUNT} from "@/game/traffic/nh014-taxi-pilot";
 import {createNorthHeightsTaxiVisuals014,type NH014TaxiVisuals} from "./north-heights-taxi-visuals-014";
+import {assignNH015KangoPilot,NH015_KANGO_COUNT} from "@/game/traffic/nh015-kango-pilot";
+import {createNorthHeightsKangoVisuals015,type NH015KangoVisuals} from "./north-heights-kango-visuals-015";
 import {normalizeThirdPersonCameraDistance} from "@/ui/menus/settings-state";
 import {northHeightsHardwareScale006,northHeightsFrameLimit006} from "./north-heights-presentation-006";
 import {touchCameraRadiansPerPixel} from "@/game/input/touch-camera-sensitivity";
@@ -101,6 +103,7 @@ export async function createNorthHeightsCity8(
   let trafficDots:NH012Dots|null=null;
   let sedanVisuals:NH013SedanVisuals|null=null;
   let taxiVisuals:NH014TaxiVisuals|null=null;
+  let kangoVisuals:NH015KangoVisuals|null=null;
   let hatchbackVisuals:NH013HatchbackVisuals|null=null;
   let trafficAccumulator=0,visibleTrafficDots=0;
   const cars=new Map<string,FirstDriveTrial>();
@@ -235,7 +238,8 @@ export async function createNorthHeightsCity8(
       const sedanCars=sedanVisuals?.update(snapshot,camera.position);
       const hatchCars=hatchbackVisuals?.update(snapshot,camera.position);
       const taxiCars=taxiVisuals?.update(snapshot,camera.position);
-      const carsShowing=new Set([...(sedanCars??[]),...(hatchCars??[]),...(taxiCars??[])]);
+      const kangoCars=kangoVisuals?.update(snapshot,camera.position);
+      const carsShowing=new Set([...(sedanCars??[]),...(hatchCars??[]),...(taxiCars??[]),...(kangoCars??[])]);
       visibleTrafficDots=trafficDots.update(snapshot,camera.position,carsShowing);
     }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
@@ -364,11 +368,15 @@ export async function createNorthHeightsCity8(
       const taxiInfo=taxiReport
         ?" TAXI "+taxiReport.active+"/"+NH014_TAXI_COUNT+" SRC "+taxiReport.loaded+"/1"+
         (taxiReport.failed.length?" ERROR "+taxiReport.failed[0]:""):"";
+      const kangoReport=kangoVisuals?.report;
+      const kangoInfo=kangoReport
+        ?" KANGO "+kangoReport.active+"/"+NH015_KANGO_COUNT+" SRC "+kangoReport.loaded+"/1"+
+        (kangoReport.failed.length?" ERROR "+kangoReport.failed[0]:""):"";
       statistics(
         "FPS "+Math.round(engine.getFps())+" · "+
         "MODE "+mode.toUpperCase()+" · "+
         (traffic?"TRAFFIC "+traffic.population+" DOTS "+visibleTrafficDots+" SIM "+traffic.tick+" · ":"")+
-        sedanInfo+hatchInfo+taxiInfo+" · "+
+        sedanInfo+hatchInfo+taxiInfo+kangoInfo+" · "+
         (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
         "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
     }
@@ -493,6 +501,7 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("resize", resize);
       for(const car of cars.values())car.dispose();
       cars.clear();
+      kangoVisuals?.dispose();kangoVisuals=null;
       taxiVisuals?.dispose();taxiVisuals=null;
       hatchbackVisuals?.dispose();hatchbackVisuals=null;
       sedanVisuals?.dispose();sedanVisuals=null;
@@ -540,13 +549,15 @@ export async function createNorthHeightsCity8(
     const pilotIds=assignNH013SedanPilot(traffic,8);
     const hatchIds=assignNH013HatchbackPilot(traffic,12);
     const taxiIds=assignNH014TaxiPilot(traffic,NH014_TAXI_COUNT);
+    const kangoIds=assignNH015KangoPilot(traffic,NH015_KANGO_COUNT);
     sedanVisuals=createNorthHeightsSedanVisuals013(scene,traffic.graph);
     hatchbackVisuals=createNorthHeightsHatchbackVisuals013(scene,traffic.graph);
     taxiVisuals=createNorthHeightsTaxiVisuals014(scene,traffic.graph);
+    kangoVisuals=createNorthHeightsKangoVisuals015(scene,traffic.graph);
     trafficDots=createNorthHeightsTrafficDots012(scene,traffic.population);
     console.info("[NH-013] Existing NH-012 moving agents represented as cars",{
-       sedans:pilotIds.size,hatchbacks:hatchIds.size,taxis:taxiIds.size,
-       remainingDots:traffic.population-pilotIds.size-hatchIds.size-taxiIds.size
+       sedans:pilotIds.size,hatchbacks:hatchIds.size,taxis:taxiIds.size,kango:kangoIds.size,
+       remainingDots:traffic.population-pilotIds.size-hatchIds.size-taxiIds.size-kangoIds.size
     });
     trafficDots.update(traffic.snapshot(),camera.position);
     console.info("[NH-012] directed lane traffic initialized",{
@@ -638,7 +649,7 @@ export async function createNorthHeightsCity8(
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 8 sedans + 12 hatchbacks + 8 taxis · dots + authentic source views · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
+      treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 8 sedans + 12 hatchbacks + 8 taxis + 6 Kangoo · dots + authentic source views · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
