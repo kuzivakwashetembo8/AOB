@@ -39,7 +39,7 @@ function productionHostnameForFit002(name: string) {
   return name === "grand-theft-division.vercel.app";
 }
 import { ferrariRearCameraAlpha, advanceFerrariCameraAlpha, FERRARI_REAR_CAMERA_BETA, FERRARI_REAR_CAMERA_RADIUS } from "../vehicles/ferrari-camera";
-import { nearestSportsCar, currentVehicleDisembark } from "../vehicles/local-boarding";
+import { nearestAccessiblePlanarCar, currentVehicleDisembark, VEHICLE_BOARD_RADIUS } from "../vehicles/local-boarding";
 import { flightFacingPolicy } from "../character/locomotion/flight-pose";
 import { FL4Diagnostics } from "../debug/fl4-diagnostics";
 import {
@@ -975,6 +975,13 @@ export class GTDGameRuntime implements GameRuntime {
     return () => this.eventListeners.delete(listener);
   }
 
+  /** OPT-03: Same wall-aware eligibility for the action button and F boarding.
+   * Existing vehicle-only building footprints include walls and sealed corners. */
+  private nearestAccessibleVehicle(actor:{x:number;y:number;z:number}){
+    const obstacles=this.physics?.vehicleNoStepFootprintsNear(actor,VEHICLE_BOARD_RADIUS+2)??[];
+    return nearestAccessiblePlanarCar(actor,
+      [...this.sportsCars.entries()].map(([id,car])=>({id,pose:car.pose})),obstacles);
+  }
   /** VEH-BASIC-001: car-only driving. No character seats or cabin poses.
    * Always exit beside the LIVE car, never where F was pressed to board. */
   private toggleVehicleDriving() {
@@ -1017,8 +1024,7 @@ export class GTDGameRuntime implements GameRuntime {
       return;
     }
     const actor=physics.playerPosition();
-    const nearest=nearestSportsCar(actor,
-      [...this.sportsCars.entries()].map(([id,car])=>({id,pose:car.pose})));
+    const nearest=this.nearestAccessibleVehicle(actor);
     if(!nearest){
       this.emit({type:"interaction",label:"Approach a nearby vehicle before pressing F"});
       return;
