@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Crosshair, Pause } from "lucide-react";
+import { Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameSnapshot, HudContext, InputMode } from "@/game/core/types";
 
@@ -177,10 +177,6 @@ export function GameHud({
             />
           </div>
         </div>
-      )}
-
-      {context === "combat" && (
-        <Crosshair className="crosshair-icon" aria-hidden="true" />
       )}
     </div>
   );
