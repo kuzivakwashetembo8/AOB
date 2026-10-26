@@ -14,7 +14,7 @@ const models=[
  {id:"hilux",source:"public/GLBs/Cars/toyota hilux 002.glb",L:5.25,W:2.15,H:1.87,axis:"z",budget:26000},
  {id:"defender",source:"public/GLBs/Cars/Land rover defender 001.glb",L:4.75,W:2.10,H:2.02,axis:"z",budget:26000},
  {id:"dodge",source:"public/GLBs/Cars/dodge_HP.glb",L:5.10,W:2.06,H:1.87,axis:"z",budget:30000},
- {id:"sedan",source:"public/GLBs/Cars/Four Door Sedan.glb",L:4.75,W:1.85,H:1.55,axis:"x",budget:22000},
+ {id:"sedan",source:"public/GLBs/Cars/Four Door Sedan.glb",L:4.75,W:1.85,H:1.55,axis:"x",budget:82000,forward:"-x"},
  {id:"hatchback",source:"public/GLBs/Cars/Fourd Confusion Hatchback.glb",L:4.35,W:1.78,H:1.60,axis:"z",budget:22000},
  {id:"taxi",source:"public/GLBs/Cars/Taxi.glb",L:4.50,W:1.85,H:1.90,axis:"z",budget:17000},
  {id:"kangoo",source:"public/GLBs/Cars/Renault Kango Optimized.glb",L:4.45,W:1.85,H:1.88,axis:"z",budget:26000},
@@ -111,10 +111,10 @@ function sourceGroup(model,segs){
  const canonical=p=>[
    (model.axis==="x"?p[2]-b.center[2]:p[0]-b.center[0])*scale,
    (p[1]-b.lo[1])*scale+.015,
-   (model.axis==="x"?p[0]-b.center[0]:p[2]-b.center[2])*scale
+   (model.axis==="x"?(model.forward==="-x"?b.center[0]-p[0]:p[0]-b.center[0]):p[2]-b.center[2])*scale
  ];
  const normal=p=>{
-   const v=model.axis==="x"?[p[2],p[1],p[0]]:p;
+   const v=model.axis==="x"?[p[2],p[1],model.forward==="-x"?-p[0]:p[0]]:p;
    const m=Math.hypot(...v)||1;return v.map(t=>t/m);
  };
  const transformed=segs.map(s=>({name:s.name,mat:s.mat,
@@ -298,13 +298,22 @@ for(const model of models){
    all.sort((a,b)=>b.score-a.score||a.tri-b.tri);
    const selected=Object.fromEntries(groups.map(k=>[k,[]])),counts=Object.fromEntries(groups.map(k=>[k,0]));
    let used=0;
+   // GEN-VEH-008: the sedan's 24 authored glazing primitives and 23
+   // body-paint primitives are mandatory. Never let ranking discard a
+   // window/roof/bonnet to reach the old arbitrary 22k triangle budget.
+   if(model.id==="sedan"){
+     for(const item of all.filter(item=>["glass","paint","frontLight","rearLight"].includes(item.k))){
+       if(used+item.tri>target)throw Error("GEN-VEH-008 sedan mandatory source surfaces exceed review budget: "+(used+item.tri)+"/"+target);
+       selected[item.k].push(item.g);counts[item.k]+=item.tri;used+=item.tri;
+     }
+   }
    // Reserve most of the budget for meaningful body contour sheets.
    const priority=(kind,share)=>{
      const list=all.filter(x=>x.k===kind).sort((a,b)=>
        (b.score*Math.min(b.tri,1000))-(a.score*Math.min(a.tri,1000)));
      const desired=target*share;
      for(const item of list){
-       if(used+item.tri>target||counts[kind]+item.tri>desired)continue;
+       if(selected[kind].includes(item.g)||used+item.tri>target||counts[kind]+item.tri>desired)continue;
        selected[kind].push(item.g);counts[kind]+=item.tri;used+=item.tri;
      }
    };
@@ -325,6 +334,16 @@ for(const model of models){
      packed=geom;triangleCount=n;chosen=.06;
      keptParts=packedCounts;
    }
+ }
+ // Source coverage is a hard qualification gate for the reviewed sedan.
+ // Four corners and authentic glazing may not be traded for smaller bundles.
+ if(model.id==="sedan"){
+   if(parts.glass.length<6||parts.paint.length<4)
+     throw Error("GEN-VEH-008 sedan source lacks expected body/glazing categories");
+   if(keptParts.glass!==parts.glass.length||keptParts.paint!==parts.paint.length)
+     throw Error("GEN-VEH-008 dropped a mandatory sedan body/glass primitive");
+   if(!packed?.glass?.triangles||!packed?.paint?.triangles)
+     throw Error("GEN-VEH-008 incomplete sedan glazing or body output");
  }
  const sourceUsable=triangleCount<=target&&!!packed?.paint?.triangles;
  const fittedWheels={};let genuine=0;
@@ -373,6 +392,12 @@ const text=[
 await mkdir(dirname(path),{recursive:true});
 await writeFile(path,text);
 await writeFile("public/genveh007-extraction-report.json",JSON.stringify({date:"2026-10-26",modelCount:models.length,diagnostics},null,2));
+// Independent on-demand review artifacts. The gallery fetches only the
+// selected derivative; neither the launcher nor the viewer downloads all
+// seven native source buffers. No additional source-GLB browser imports.
+await mkdir("public/vehicle-gallery",{recursive:true});
+for(const model of models)
+ await writeFile("public/vehicle-gallery/"+model.id+".json",JSON.stringify(output[model]));
 console.info("GEN_VEH_007_COMPLETE "+JSON.stringify({
   models:diagnostics.map(x=>x.id),sourceReady:diagnostics.filter(x=>x.bodyReady).length,
   wheelReady:diagnostics.filter(x=>x.wheelsReady).length,bytes:Buffer.byteLength(text)}));
