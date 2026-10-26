@@ -3,6 +3,7 @@
  * and angular commuter. No files, GLBs, textures or network calls.
  */
 import {Mesh,Scene,VertexData} from "@babylonjs/core";
+import {TEMERARIO_SOURCE_PARTS_002} from "./temerario-source-data-002";
 
 export type GTDGeneratedStyle =
   "supercar"|"pickup"|"offroad"|"sedan"|"hatch"|"taxi"|
@@ -117,11 +118,39 @@ function greenhouse(s:GTDGeneratedDimensions):Geometry{
   loft(g,rings);
   return g;
 }
+/** Source-derived exterior data is emitted during the OFFLINE prebuild.
+ * Decode ONCE per module, not per frame/traffic agent. A prebuild placeholder
+ * keeps source-level unit tests usable without requiring an original GLB decode.
+ */
+type ExteriorPart002="paint"|"glass"|"trim"|"frontLight"|"rearLight";
+const sourceDecoded002=new Map<ExteriorPart002,Geometry>();
+export function createTemerarioSourceMesh002(
+ scene:Scene,name:string,part:ExteriorPart002,
+):Mesh{
+ let geom=sourceDecoded002.get(part);
+ if(!geom){
+  const record=TEMERARIO_SOURCE_PARTS_002[part];
+  if(!record.p||!record.i)throw Error("GEN-VEH-002 source triangle extraction was not run");
+  const pbytes=Uint8Array.from(atob(record.p),c=>c.charCodeAt(0));
+  const ibytes=Uint8Array.from(atob(record.i),c=>c.charCodeAt(0));
+  const coords=new Int16Array(pbytes.buffer);
+  const indices=new Uint16Array(ibytes.buffer);
+  const positions=Array.from(coords,v=>v/1000);
+  geom={positions,indices:Array.from(indices)};
+  if(geom.positions.length/3!==record.vertices||
+     geom.indices.length/3!==record.triangles)
+     throw Error("GEN-VEH-002 native source count mismatch");
+  sourceDecoded002.set(part,geom);
+ }
+ return toMesh(scene,name,geom);
+}
 export function createGTDGeneratedVehicleMesh001(
   scene:Scene,name:string,s:GTDGeneratedDimensions,part:"body"|"glass",
 ):Mesh{
   if(!(s.length>2&&s.width>1&&s.height>1))
     throw Error("GEN-VEH-001 invalid vehicle size");
+  if(s.style==="supercar" && TEMERARIO_SOURCE_PARTS_002.paint.p)
+    return createTemerarioSourceMesh002(scene,name,part==="body"?"paint":"glass");
   return toMesh(scene,name,part==="body"?hull(s):greenhouse(s));
 }
 export const GTD_GENERATED_STARTERS_001=[
