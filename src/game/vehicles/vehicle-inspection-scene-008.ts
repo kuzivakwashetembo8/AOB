@@ -56,7 +56,7 @@ export function createVehicleInspectionScene008(canvas:HTMLCanvasElement):Vehicl
  floor.material=floorMat;floor.position.y=-.025;floor.isPickable=false;
  const resize=()=>engine.resize();
  window.addEventListener("resize",resize);
- engine.runRenderLoop(()=>{if(!scene.isDisposed())scene.render();});
+ engine.runRenderLoop(()=>{if(!scene.isDisposed)scene.render();});
  let closed=false,version=0,controller:AbortController|null=null;
  let current:TransformNode|null=null,materials:StandardMaterial[]=[];
  const teardown=()=>{

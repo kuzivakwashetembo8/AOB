@@ -9,7 +9,7 @@ describe("GEN-VEH-008 sedan repair and isolated review",()=>{
    expect(GALLERY_VEHICLES_008.find(x=>x.id==="dodge")?.status).toBe("REPAIR REQUIRED");
    expect(galleryVehicleAt008(-1).id).toBe("temerario");
    expect(galleryVehicleAt008(GALLERY_VEHICLES_008.length).id).toBe("sedan");
-   expect(GALLERY_VEHICLES_008.some(x=>x.id==="bmw")).toBe(false);
+   expect(GALLERY_VEHICLES_008.some(x=>String(x.id)==="bmw")).toBe(false);
  });
  it("preserves sedan forward and all mandatory source glazing from the offline extractor",()=>{
    const script=readFileSync("scripts/genveh007-extract-seven.mjs","utf8");
