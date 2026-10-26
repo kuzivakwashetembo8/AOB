@@ -37,8 +37,8 @@ export interface NH009SedanTraffic{
 export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph012):NH009SedanTraffic{
  const source=sourceRecord007(NH009_SEDAN_MODEL);
  if(!hasNativeBody007(NH009_SEDAN_MODEL)||!hasNativeWheels007(NH009_SEDAN_MODEL)||
-   !source?.body?.glass||!source?.body?.paint||
-   !corners.every(c=>source.wheels?.[c]?.rim&&source.wheels[c]?.tire))
+   !source?.body?.['glass']||!source?.body?.['paint']||
+   !corners.every(c=>source.wheels?.[c]?.rim&&source.wheels?.[c]?.tire))
    throw Error("GEN-VEH-009 requires the accepted sedan body, glass and four original rim/tyre pairs");
  const buckets=new Map<string,Bucket009>();
  const materials:StandardMaterial[]=[];

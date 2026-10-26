@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {readFileSync} from "node:fs";
-import {NullEngine,Scene} from "@babylonjs/core";
+import {NullEngine,Scene,Mesh} from "@babylonjs/core";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {assignNH013SedanPilot} from "@/game/traffic/nh013-sedan-pilot";
 import {assignNH013HatchbackPilot} from "@/game/traffic/nh013-hatchback-pilot";
@@ -40,8 +40,8 @@ describe("GEN-VEH-009 owner-approved sedan-only traffic",()=>{
    const record=sourceRecord007("sedan");
    expect(record?.status).toBe("source");
    expect(record?.wheelsStatus).toBe("source");
-   expect(record?.body?.paint?.triangles).toBeGreaterThan(1000);
-   expect(record?.body?.glass?.triangles).toBeGreaterThan(1000);
+   expect(record?.body?.['paint']?.triangles).toBeGreaterThan(1000);
+   expect(record?.body?.['glass']?.triangles).toBeGreaterThan(1000);
    expect(Object.keys(record?.wheels??{})).toHaveLength(4);
    const engine=new NullEngine(),scene=new Scene(engine);
    try{
@@ -53,7 +53,7 @@ describe("GEN-VEH-009 owner-approved sedan-only traffic",()=>{
        const grouped=scene.meshes.filter(m=>m.name.startsWith("nh009:"));
        expect(grouped.some(m=>m.name.includes("wheel:frontLeft:tire"))).toBe(true);
        expect(grouped.some(m=>m.name.includes("wheel:rearRight:rim"))).toBe(true);
-       expect(grouped.reduce((n,m)=>n+m.thinInstanceCount,0)).toBeGreaterThan(1250);
+       expect(grouped.reduce((n,m)=>n+(m instanceof Mesh?m.thinInstanceCount:0),0)).toBeGreaterThan(1250);
        expect(grouped.some(m=>/rover|dodge|hatchback|kangoo|hilux|defender|taxi|lamborghini/.test(m.name))).toBe(false);
        sim.step();
        expect(render.update(sim.snapshot(),new Set()).dots).toBe(0);
