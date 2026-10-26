@@ -4,6 +4,7 @@
  */
 import {Mesh,Scene,VertexData} from "@babylonjs/core";
 import {TEMERARIO_SOURCE_PARTS_002,TEMERARIO_SOURCE_WHEELS_003} from "./temerario-source-data-002";
+import {ROVER_SOURCE_PARTS_005,ROVER_SOURCE_WHEELS_005} from "./rover-source-data-005";
 
 export type GTDGeneratedStyle =
   "supercar"|"pickup"|"offroad"|"sedan"|"hatch"|"taxi"|
@@ -187,6 +188,43 @@ export function createTemerarioWheelMesh003(
    wheelDecoded003.set(key,geometry);
  }
  return toMesh(scene,name,geometry);
+}
+
+/** GEN-VEH-005: Range Rover Sport 2018 offline-decoded original exterior and wheels. */
+export type GTDRoverSourcePart005="paint"|"glass"|"trim"|"frontLight"|"rearLight";
+export type GTDRoverCorner005="frontLeft"|"frontRight"|"rearLeft"|"rearRight";
+export type GTDRoverWheelPart005="tire"|"rim";
+const roverDecoded005=new Map<string,Geometry>();
+function roverSourceGeometry005(key:string,record:{p:string;n:string;i:string;indexBits:number;vertices:number;triangles:number}):Geometry{
+ let existing=roverDecoded005.get(key);
+ if(existing)return existing;
+ if(!record.p||!record.n||!record.i)throw Error("GEN-VEH-005 source geometry prebuild missing "+key);
+ const p=Uint8Array.from(atob(record.p),c=>c.charCodeAt(0));
+ const n=Uint8Array.from(atob(record.n),c=>c.charCodeAt(0));
+ const i=Uint8Array.from(atob(record.i),c=>c.charCodeAt(0));
+ const pos=new Int16Array(p.buffer);
+ const indices=Number(record.indexBits)===32?new Uint32Array(i.buffer):new Uint16Array(i.buffer);
+ const result:Geometry={positions:Array.from(pos,v=>v/1000),
+   normals:Array.from(new Int8Array(n.buffer),v=>v/127),
+   indices:Array.from(indices)};
+ if(result.positions.length/3!==record.vertices||
+   result.indices.length/3!==record.triangles||
+   result.normals?.length!==result.positions.length)
+   throw Error("GEN-VEH-005 corrupted Rover source geometry "+key);
+ roverDecoded005.set(key,result);
+ return result;
+}
+export function createRoverSourceMesh005(scene:Scene,name:string,part:GTDRoverSourcePart005):Mesh{
+ return toMesh(scene,name,roverSourceGeometry005("body:"+part,ROVER_SOURCE_PARTS_005[part]));
+}
+export function getRoverWheelFit005(corner:GTDRoverCorner005){
+ const wheel=ROVER_SOURCE_WHEELS_005[corner];
+ return {center:wheel.center,radius:wheel.radius,width:wheel.width};
+}
+export function createRoverWheelMesh005(scene:Scene,name:string,
+ corner:GTDRoverCorner005,part:GTDRoverWheelPart005):Mesh{
+ return toMesh(scene,name,roverSourceGeometry005("wheel:"+corner+":"+part,
+   ROVER_SOURCE_WHEELS_005[corner][part]));
 }
 
 export function createGTDGeneratedVehicleMesh001(
