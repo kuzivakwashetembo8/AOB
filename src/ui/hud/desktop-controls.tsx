@@ -90,7 +90,7 @@ export function DesktopControls({
         <div/>
         <MovementButton x={-1} y={0} label="Steer Sedan left anywhere" keyHint="← / A"
           icon={ArrowLeft} send={send}/>
-        <MovementButton x={0} y={1} label="Hold to brake then reverse Sedan" keyHint="↓ / S"
+        <MovementButton x={0} y={1} label="Hold to brake Sedan then reverse" keyHint="↓ / S"
           icon={ArrowDown} send={send}/>
         <MovementButton x={1} y={0} label="Steer Sedan right anywhere" keyHint="→ / D"
           icon={ArrowRight} send={send}/>
