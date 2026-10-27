@@ -28,6 +28,17 @@ const parts:readonly SevenSourceBody007[]=[
 ];
 const up=Vector3.Up(),right=Vector3.Right();
 type Bucket009={mesh:Mesh;matrix:Float32Array;count:number};
+/** Signed ground distance projected onto the Sedan's forward axle axis.
+ * Unlike unsigned displacement, reversing rolls BOTH source tyre and rim
+ * backwards; a purely in-place turn contributes no fake tyre rotation. */
+export function sedanSignedWheelTravel009(
+  from:Readonly<{x:number;z:number}>,
+  to:Readonly<{x:number;z:number;heading:number}>,
+):number{
+  const dx=to.x-from.x,dz=to.z-from.z;
+  return dx*Math.sin(to.heading)+dz*Math.cos(to.heading);
+}
+
 export interface NH009SedanTraffic{
  update(snapshot:NH012TrafficSnapshot,exclude:ReadonlySet<string>,camera?:Camera):{
    vehicles3D:number;sourceGLBs:0;lowDetail:number;defaultFleet:number;dots:0;
@@ -143,8 +154,12 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
       });
       const world=Matrix.Compose(Vector3.One(),pose.rotation,new Vector3(a.x,pose.y,a.z));
       const previous=positions.get(a.id);
-      const distance=previous?Math.hypot(a.x-previous.x,a.z-previous.z):0;
-      const spin=(previous?.spin??0)+(previous?.tick===snapshot.tick?0:distance/front.radius);
+      const longitudinalTravel=previous
+        ?sedanSignedWheelTravel009(previous,{x:a.x,z:a.z,heading:a.heading}):0;
+      // Extractor now puts all four source Siped tread shells in the SAME
+      // tire bucket as the carcass. Tire and rim both share this signed roll.
+      const spin=(previous?.spin??0)+(previous?.tick===snapshot.tick
+        ?0:longitudinalTravel/front.radius);
       positions.set(a.id,{x:a.x,z:a.z,spin,tick:snapshot.tick});
       const tier=visibilityTier(a,pose.y,camera);
       if(tier<0){lastCounts.culled++;continue;}

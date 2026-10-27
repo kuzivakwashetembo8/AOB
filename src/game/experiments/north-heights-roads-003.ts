@@ -72,15 +72,24 @@ function runStrip(
     addQuad(batch,x0,x1,y1,y0,axis==="x");
   }
 }
-function curbFace(batch:Builder,axis:"x"|"z",fixed:number,edge:number,start:number,end:number,at:(x:number,z:number)=>number){
-  if(end-start<.01)return;
-  const steps=Math.max(1,Math.ceil((end-start)/STEP));
-  const pt=(t:number,elev:number):Point=>axis==="z"?
-    projected(fixed+edge,t,at,elev):projected(t,fixed+edge,at,elev);
-  for(let i=0;i<steps;i++){
-    const t0=start+(end-start)*i/steps, t1=start+(end-start)*(i+1)/steps;
-    addQuad(batch,pt(t0,ASPHALT_TOP),pt(t1,ASPHALT_TOP),pt(t1,CURB_TOP),pt(t0,CURB_TOP));
+/** Solid fascia of a pavement edge: vertical surface follows actual grade.
+ * Exposed outer faces run from terrain to WALK_TOP rather than floating in air.
+ * Group into one shared curb mesh, never independent geometry per sidewalk. */
+function solidSide(batch:Builder,x0:number,z0:number,x1:number,z1:number,
+  bottom:number,top:number,at:(x:number,z:number)=>number){
+  const len=Math.hypot(x1-x0,z1-z0),segments=Math.max(1,Math.ceil(len/STEP));
+  for(let i=0;i<segments;i++){
+    const t0=i/segments,t1=(i+1)/segments;
+    const aX=x0+(x1-x0)*t0,aZ=z0+(z1-z0)*t0;
+    const bX=x0+(x1-x0)*t1,bZ=z0+(z1-z0)*t1;
+    addQuad(batch,projected(aX,aZ,at,bottom),projected(bX,bZ,at,bottom),
+      projected(bX,bZ,at,top),projected(aX,aZ,at,top));
   }
+}
+function curbFace(batch:Builder,axis:"x"|"z",fixed:number,edge:number,
+  start:number,end:number,at:(x:number,z:number)=>number,bottom=ASPHALT_TOP,top=CURB_TOP){
+  if(axis==="z")solidSide(batch,fixed+edge,start,fixed+edge,end,bottom,top,at);
+  else solidSide(batch,start,fixed+edge,end,fixed+edge,bottom,top,at);
 }
 function pad(batch:Builder,x0:number,z0:number,x1:number,z1:number,elevation:number,at:(x:number,z:number)=>number){
   addQuad(batch,projected(x0,z0,at,elevation),projected(x1,z0,at,elevation),
@@ -164,8 +173,14 @@ export function createNorthHeightsRoads003(
         const outer=side*OUTER;
         runStrip(batch.pavement,axis,fixed,Math.min(inner,outer),Math.max(inner,outer),
           start,end,WALK_TOP,at); sidewalkCount++;
-        // A vertical 3D curb face only: no thin raised top ribbon/stripe.
-        curbFace(batch.curb,axis,fixed,side*HALF,start,end,at);
+        // A physical curb/pavement block has a hidden terrain base, the
+        // road-facing lip, and the full OUTER face descending to terrain.
+        // Keep the accepted 7.5cm asphalt and 20cm paving elevations.
+        runStrip(batch.curb,axis,fixed,Math.min(inner,outer),Math.max(inner,outer),
+          start,end,0,at);
+        curbFace(batch.curb,axis,fixed,side*HALF,start,end,at,0,ASPHALT_TOP);
+        curbFace(batch.curb,axis,fixed,side*HALF,start,end,at,ASPHALT_TOP,CURB_TOP);
+        curbFace(batch.curb,axis,fixed,outer,start,end,at,0,WALK_TOP);
         curbCount++;
       }
     }
@@ -178,8 +193,16 @@ export function createNorthHeightsRoads003(
     for(const sx of [-1,1])for(const sz of [-1,1]){
       const x0=x+sx*HALF,x1=x+sx*OUTER;
       const z0=z+sz*HALF,z1=z+sz*OUTER;
-      pad(batch.pavement,Math.min(x0,x1),Math.min(z0,z1),
-        Math.max(x0,x1),Math.max(z0,z1),WALK_TOP,at);
+      const xa=Math.min(x0,x1),xb=Math.max(x0,x1);
+      const za=Math.min(z0,z1),zb=Math.max(z0,z1);
+      pad(batch.pavement,xa,za,xb,zb,WALK_TOP,at);
+      // Join at junctions using the SAME material, grade and concrete
+      // elevation; the former open-ended top quad looked like grey paper.
+      pad(batch.curb,xa,za,xb,zb,0,at); // terrain-supported block underside
+      solidSide(batch.curb,xa,za,xb,za,0,WALK_TOP,at);
+      solidSide(batch.curb,xb,za,xb,zb,0,WALK_TOP,at);
+      solidSide(batch.curb,xb,zb,xa,zb,0,WALK_TOP,at);
+      solidSide(batch.curb,xa,zb,xa,za,0,WALK_TOP,at);
       sidewalkCount++;
     }
     // Every third junction gets explicit pedestrian zebra crossing approaches.

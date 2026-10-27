@@ -98,7 +98,10 @@ function rimOrTire(name,material){
 }
 function knownWheel(model,seg){
  const n=seg.name,mat=seg.mat;
- if(model.id==="sedan")return /107 reused (Sculpted_tyre|Siped tread blocks|Alloy_five_spoke_rim|Center_cap|Lug_|Valve_stem)/i.test(n);
+ // Outer "Siped tread blocks" nodes lack the "107 reused" prefix.
+ // Those four source meshes must roll WITH the original four tyre carcasses.
+ if(model.id==="sedan")return /^Siped tread blocks(?:\.\d+)?$/i.test(n)||
+   /107 reused (Sculpted_tyre|Alloy_five_spoke_rim|Center_cap|Lug_|Valve_stem)/i.test(n);
  if(model.id==="hatchback")return /Ford_Rim|Wheel_Tires_/i.test(n)||/M_Wheel_(Rim|Tire)/i.test(mat);
  if(model.id==="taxi")return /^Object_(7|33|35|37)$/.test(n);
  if(model.id==="kangoo")return /_0-tire|_0-alu|chrome08/i.test(mat);
@@ -251,6 +254,22 @@ for(const model of models){
   const kind=rimOrTire(seg.name,seg.mat)||
    (Math.max(b.dims[1],b.dims[2])>.4?"tire":"rim");
   wheels[c][kind].push(seg);
+ }
+ // GEN-VEH-009: hard-fail preprocessing if any source tread shell was
+ // accidentally reclassified as static exterior or assigned to wrong axle.
+ // Every moving Sedan must have exactly four animated ORIGINAL tread shells.
+ if(model.id==="sedan"){
+   const tread=/^Siped tread blocks(?:\.\d+)?$/i;
+   const original=norm.segments.filter(seg=>tread.test(seg.name));
+   if(original.length!==4)throw Error("GEN-VEH-009 expected four original Sedan tread nodes, found "+original.length);
+   for(const corner of corners){
+     const matching=wheels[corner].tire.filter(seg=>tread.test(seg.name));
+     if(matching.length!==1)throw Error("GEN-VEH-009 incorrect rotating tread ownership "+corner+": "+matching.length);
+   }
+   if(Object.values(parts).some(group=>group.some(seg=>tread.test(seg.name))))
+     throw Error("GEN-VEH-009 static Sedan exterior still contains a tire tread shell");
+   console.info("GEN_VEH_009_TREAD_SYNC",JSON.stringify({model:model.id,
+     treadNodes:original.length,rotatingCorners:corners}));
  }
  // If a mono-mesh wheel cannot be isolated confidently, retain full source
  // body and use inexpensive native procedural rolling wheels in the renderer.

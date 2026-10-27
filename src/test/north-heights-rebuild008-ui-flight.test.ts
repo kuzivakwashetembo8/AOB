@@ -31,7 +31,10 @@ describe("NH-008 district UI parity and third-person flight",()=>{
     const roads=read("src/game/experiments/north-heights-roads-003.ts");
     expect(world).toContain("createNorthHeightsBlockSurfaces008");
     expect(world).not.toContain('["pavement","sidewalk-paving"]');
-    expect(roads).not.toContain("runStrip(batch.curb");
+    // VIS-027-001: the pavement has a genuine underside and sidewalls.
+    // The old "no curb strip" assertion prohibited solid curb volume.
+    expect(roads).toContain("runStrip(batch.curb");
+    expect(roads).toContain("solidSide(batch.curb");
     expect(roads).toContain("curbFace(batch.curb");
   });
 });
