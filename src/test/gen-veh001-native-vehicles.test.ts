@@ -45,7 +45,9 @@ describe("GEN-VEH-001 native moving traffic / four founding silhouettes",()=>{
    expect(city).not.toContain("createNorthHeightsTaxiVisuals014(");
    expect(city).not.toContain("createNorthHeightsHatchbackVisuals013(");
    expect(city).not.toContain("createNorthHeightsKangoVisuals015(");
-   expect(city).toContain("createMercerExtraParkedGLBs("); // A/B parked GLB control retained
+   // Stage 6 owner decision: no six parked GLB imports/instances in North Heights.
+   expect(city).not.toContain("createMercerExtraParkedGLBs(");
+   expect(city).not.toContain("MERCER_EXTRA_GLB_SPECS");
    expect(mesh).toContain("createGTDGeneratedVehicleMesh001");
    expect(mesh).toContain("if(snapshot.tick===updatedTick)return lastReport");
    expect(mesh).not.toContain("loadAssetContainerAsync");
