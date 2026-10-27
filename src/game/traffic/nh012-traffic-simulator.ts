@@ -149,7 +149,7 @@ export class NH012TrafficSimulator {
      const back=nh012PointOnConnector(c,Math.max(0,agent.s-.12));
      agent.x=pose.x;agent.z=pose.z;agent.heading=nh012HeadingBetween(back,front);
      agent.state=braking?(v<.12?"stopped":"braking"):"turning";
-     if(agent.s>=c.length-1e-4&&this.hasExitSpace(c.outgoing)){
+     if(!braking&&agent.s>=c.length-1e-4&&this.hasExitSpace(c.outgoing,agent)){
        agent.edgeId=c.outgoing;agent.connectorId=null;agent.s=0;
        agent.speed=Math.min(v,4);agent.arrivalTick=-1;agent.waitTicks=0;
        agent.plannedConnectorId=null;
