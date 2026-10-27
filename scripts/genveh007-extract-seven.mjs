@@ -259,7 +259,7 @@ for(const model of models){
  // accidentally reclassified as static exterior or assigned to wrong axle.
  // Every moving Sedan must have exactly four animated ORIGINAL tread shells.
  if(model.id==="sedan"){
-   const tread=/^Siped tread blocks(?:\\.\\d+)?$/i;
+   const tread=/^Siped tread blocks(?:\.\d+)?$/i;
    const original=norm.segments.filter(seg=>tread.test(seg.name));
    if(original.length!==4)throw Error("GEN-VEH-009 expected four original Sedan tread nodes, found "+original.length);
    for(const corner of corners){
