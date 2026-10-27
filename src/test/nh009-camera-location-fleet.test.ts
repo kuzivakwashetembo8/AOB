@@ -70,17 +70,17 @@ describe("NH-009 approval / pure geometry and integration contracts",()=>{
       expect(z.streetId).toBe("nh-road-z-"+i);
     }
   });
-  it("loads six authentic South Ward cars into a validated North Heights parking parcel",()=>{
+  it("preserves the parking parcel but does NOT load the six parked GLBs in North Heights",()=>{
+    // Source assets remain present for other districts, but no runtime fetch
+    // is authorized for these six objects in the Stage 6 North Heights world.
     expect(MERCER_EXTRA_GLB_SPECS).toHaveLength(6);
-    expect(new Set(MERCER_EXTRA_GLB_SPECS.map(spec=>spec.id)).size).toBe(6);
     const city=source("src/game/experiments/north-heights-city-8.ts");
-    expect(city).toContain("MERCER_EXTRA_GLB_SPECS.map((spec,index)");
-    expect(city).toContain("createMercerExtraParkedGLBs(scene,walk.physics");
-    expect(city).toContain("heightAt:(x,z)=>northHeightsGround(x,z)+.075");
-    expect(city).toContain("maxConcurrent:mobile?2:3");
-    // The NH-009 hard-coded roadside strip was rejected by owner evidence.
-    // NH-010 replaces it with an actually reserved vacant square and blocks
-    // vegetation across the entire parcel, rather than one narrow tree strip.
+    expect(city).not.toContain("createMercerExtraParkedGLBs");
+    expect(city).not.toContain("MERCER_EXTRA_GLB_SPECS");
+    expect(city).not.toContain("validateNorthHeightsParking010");
+    expect(city).not.toContain("maxConcurrent:mobile?2:3");
+    expect(city).toContain("0 parked GLB vehicle loads");
+    // The previously accepted vacant parking parcels stay valid geometry.
     const renderer=source("src/game/experiments/north-heights-reconstruction-001.ts");
     expect(renderer).toContain("NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010");
     expect(renderer).toContain(".filter(tree=>!NORTH_HEIGHTS_PARKING_LOTS_010.some");
@@ -88,8 +88,6 @@ describe("NH-009 approval / pure geometry and integration contracts",()=>{
     const spatial=source("src/game/experiments/north-heights-spatial-plan-010.ts");
     expect(spatial).toContain('blockId:"NH-03-05"');
     expect(spatial).toContain('blockId:"NH-04-07"');
-    expect(city).toContain("validateNorthHeightsParking010(world.lotSpecs");
-    expect(city).toContain("yaw:parking.stalls[index]!.yaw,");
 
   });
 });
