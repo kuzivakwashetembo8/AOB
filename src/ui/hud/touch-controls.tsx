@@ -77,10 +77,17 @@ export function DrivingArrowControls({ send, haptics }: { send: Send; haptics: b
 export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean}){
   const holds=useRef(new DrivingArrowHolds());
   const sendRef=useRef(send);sendRef.current=send;
+  const sendPedals=()=>{
+    const next=holds.current.intent();
+    // When two fingers hold Gas and Brake, Brake MUST win: the generic
+    // arrow helper otherwise resolves opposite directions to neutral.
+    sendRef.current({type:"move",x:0,
+      y:holds.current.pressed("down")?1:next.y,source:"touch-arrows"});
+  };
   useEffect(()=>{
-    const reset=()=>sendRef.current({
-      type:"move",...holds.current.reset(),source:"touch-arrows",
-    });
+    const reset=()=>{holds.current.reset();sendRef.current({
+      type:"move",x:0,y:0,source:"touch-arrows",
+    });};
     const hidden=()=>{if(document.hidden)reset();};
     window.addEventListener("blur",reset);
     document.addEventListener("visibilitychange",hidden);
@@ -93,13 +100,15 @@ export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean})
   const release=(event:PointerEvent<HTMLButtonElement>)=>{
     if(!holds.current.has(event.pointerId))return;
     event.preventDefault();
-    sendRef.current({type:"move",...holds.current.release(event.pointerId),source:"touch-arrows"});
+    holds.current.release(event.pointerId);
+    sendPedals();
   };
   const begin=(event:PointerEvent<HTMLButtonElement>,direction:"up"|"down")=>{
     event.preventDefault();event.stopPropagation();
     if(holds.current.has(event.pointerId))return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    sendRef.current({type:"move",...holds.current.press(event.pointerId,direction),source:"touch-arrows"});
+    holds.current.press(event.pointerId,direction);
+    sendPedals();
     if(haptics)navigator.vibrate?.(12);
   };
   return (
