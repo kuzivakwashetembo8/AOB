@@ -193,6 +193,24 @@ export class MeridianPhysics {
     this.playerBody.setNextKinematicTranslation(position);
   }
 
+  /** NH-OPT2 Stage 1: an autonomous Sedan has no player-owned Rapier actor.
+   * Suspend only Voight's capsule during passenger travel; re-enable after
+   * placing the player at a physically validated disembark point. */
+  setPlayerCollisionEnabled(enabled: boolean) {
+    this.playerCollider.setEnabled(enabled);
+  }
+
+  /** Test a potential disembark capsule against the actual Rapier buildings,
+   * parked vehicles and ground. The original player capsule is excluded. */
+  isPlayerPositionClear(position: Vec3): boolean {
+    if(![position.x,position.y,position.z].every(Number.isFinite))return false;
+    const capsule=new RAPIER.Capsule(0.55,0.35);
+    const identity={x:0,y:0,z:0,w:1};
+    return !this.world.intersectionWithShape(
+      position,identity,capsule,undefined,undefined,this.playerCollider,
+    );
+  }
+
   /** World-accurate ray against existing Rapier ground; exclude player capsule. */
   probeGround(origin: Vec3, maxDistance = 2): { x:number;y:number;z:number;normal:Vec3 } | null {
     const max = Math.max(0.1, Math.min(4, maxDistance));
