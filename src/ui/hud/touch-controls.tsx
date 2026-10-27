@@ -142,7 +142,7 @@ export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean})
         </button>
         <button type="button" className="driving-arrow-button"
           data-testid="nh-opt2-sedan-brake" data-direction="down"
-          aria-label="Hold to brake then reverse Sedan"
+          aria-label="Hold to brake Sedan then reverse"
           onPointerDown={event=>begin(event,"down")}
           onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}>
           <ArrowDown aria-hidden="true" size={30}/>
