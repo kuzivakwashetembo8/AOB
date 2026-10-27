@@ -5,7 +5,7 @@ import type {BuildingSpec} from "@/game/world-generation/schema";
 
 export type SedanStage6Pose=Readonly<{x:number;z:number;heading:number}>;
 export type SedanStage6Blocker=Readonly<{x:number;z:number;halfX:number;halfZ:number;yaw:number}>;
-export const STAGE6_WORLD_EDGE=309;
+export const STAGE6_WORLD_EDGE=330;
 export const STAGE6_STEER_RADIANS=.52;
 export const STAGE6_WHEELBASE_METERS=2.8;
 export const STAGE6_STEER_RESPONSE_PER_SECOND=3.2;
