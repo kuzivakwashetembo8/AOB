@@ -94,7 +94,7 @@ export function DesktopControls({
           icon={ArrowDown} send={send}/>
         <MovementButton x={1} y={0} label="Choose next legal right turn" keyHint="→ / D"
           icon={ArrowRight} send={send}/>
-      </div>
+      </div>}
       {!passenger&&<div className="desktop-movement-pad" aria-label="Movement controls">
         <div />
         <MovementButton x={0} y={-1} label="Move forward" keyHint="↑ / W" icon={ArrowUp} send={send} />
