@@ -24,7 +24,6 @@ describe("GTD-NH-OPT2 Stage 6 independent free steering and off-road",()=>{
     for(let i=0;i<38;i++)s.step();
     // No connector requirement, no lane center snap.
     expect(a.connectorId).toBeNull();
-    const p0={x:px+(a.z-pz)*e.dx,z:pz+(a.x-px)*e.dz};
     const lateral=Math.abs((a.x-px)*e.dz-(a.z-pz)*e.dx);
     expect(lateral).toBeGreaterThan(.6);
     expect(Math.abs(a.heading-Math.atan2(e.dx,e.dz))).toBeGreaterThan(.3);
