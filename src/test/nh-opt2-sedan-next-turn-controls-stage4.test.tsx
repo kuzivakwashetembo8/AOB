@@ -13,12 +13,12 @@ function pointer(element:Element,type:string,pointerId:number){
 }
 afterEach(()=>cleanup());
 
-describe("GTD-NH-OPT2 Stage 4 one-tap junction controls",()=>{
-  it("shows the accepted left/right, gas/brake and vehicle action without a free-steering wheel",()=>{
+describe("GTD-NH-OPT2 Stage 4 pointer regression under Stage 6 free steering",()=>{
+  it("shows accepted left/right gas/brake and vehicle controls after Stage 6 steering upgrade",()=>{
     const send=vi.fn();
     render(<TouchControls send={send} settings={defaults} onAction={()=>{}} driving passenger/>);
-    expect(screen.getByRole("button",{name:/choose left turn at next legal junction/i})).toBeTruthy();
-    expect(screen.getByRole("button",{name:/choose right turn at next legal junction/i})).toBeTruthy();
+    expect(screen.getByRole("button",{name:/hold to steer sedan left anywhere/i})).toBeTruthy();
+    expect(screen.getByRole("button",{name:/hold to steer sedan right anywhere/i})).toBeTruthy();
     expect(screen.getByRole("button",{name:/hold to accelerate sedan/i})).toBeTruthy();
     expect(screen.getByRole("button",{name:/hold to brake sedan/i})).toBeTruthy();
     expect(screen.getByRole("button",{name:/enter or exit vehicle/i})).toBeTruthy();
@@ -27,8 +27,8 @@ describe("GTD-NH-OPT2 Stage 4 one-tap junction controls",()=>{
   it("sends a distinct left-right rising edge and restores neutral on pointer release",()=>{
     const send=vi.fn();
     render(<SedanPassengerPedals send={send} haptics={false}/>);
-    const left=screen.getByRole("button",{name:/choose left turn/i});
-    const right=screen.getByRole("button",{name:/choose right turn/i});
+    const left=screen.getByRole("button",{name:/hold to steer sedan left/i});
+    const right=screen.getByRole("button",{name:/hold to steer sedan right/i});
     Object.defineProperty(left,"setPointerCapture",{value:vi.fn()});
     Object.defineProperty(right,"setPointerCapture",{value:vi.fn()});
     pointer(left,"pointerdown",11);
@@ -45,7 +45,7 @@ describe("GTD-NH-OPT2 Stage 4 one-tap junction controls",()=>{
     const send=vi.fn();
     render(<SedanPassengerPedals send={send} haptics={false}/>);
     const gas=screen.getByRole("button",{name:/hold to accelerate sedan/i});
-    const left=screen.getByRole("button",{name:/choose left turn/i});
+    const left=screen.getByRole("button",{name:/hold to steer sedan left/i});
     Object.defineProperty(gas,"setPointerCapture",{value:vi.fn()});
     Object.defineProperty(left,"setPointerCapture",{value:vi.fn()});
     pointer(gas,"pointerdown",21);
@@ -62,7 +62,7 @@ describe("GTD-NH-OPT2 Stage 4 one-tap junction controls",()=>{
     render(<SedanPassengerPedals send={send} haptics={false}/>);
     const gas=screen.getByRole("button",{name:/hold to accelerate sedan/i});
     const brake=screen.getByRole("button",{name:/hold to brake sedan/i});
-    const right=screen.getByRole("button",{name:/choose right turn/i});
+    const right=screen.getByRole("button",{name:/hold to steer sedan right/i});
     for(const btn of [gas,brake,right])
       Object.defineProperty(btn,"setPointerCapture",{value:vi.fn()});
     pointer(gas,"pointerdown",31);
@@ -76,8 +76,8 @@ describe("GTD-NH-OPT2 Stage 4 one-tap junction controls",()=>{
   it("exposes LEFT/RIGHT on desktop without hiding existing pedals",()=>{
     const send=vi.fn();
     render(<DesktopControls driving passenger send={send} onAction={()=>{}}/>);
-    expect(screen.getByRole("button",{name:/choose next legal left turn/i})).toBeTruthy();
-    expect(screen.getByRole("button",{name:/choose next legal right turn/i})).toBeTruthy();
+    expect(screen.getByRole("button",{name:/steer sedan left anywhere/i})).toBeTruthy();
+    expect(screen.getByRole("button",{name:/steer sedan right anywhere/i})).toBeTruthy();
     expect(screen.getByRole("button",{name:/hold to brake sedan/i})).toBeTruthy();
     expect(screen.getByRole("button",{name:/hold to accelerate sedan/i})).toBeTruthy();
   });
