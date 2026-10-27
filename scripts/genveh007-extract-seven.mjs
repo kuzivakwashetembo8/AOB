@@ -255,6 +255,22 @@ for(const model of models){
    (Math.max(b.dims[1],b.dims[2])>.4?"tire":"rim");
   wheels[c][kind].push(seg);
  }
+ // GEN-VEH-009: hard-fail preprocessing if any source tread shell was
+ // accidentally reclassified as static exterior or assigned to wrong axle.
+ // Every moving Sedan must have exactly four animated ORIGINAL tread shells.
+ if(model.id==="sedan"){
+   const tread=/^Siped tread blocks(?:\\.\\d+)?$/i;
+   const original=norm.segments.filter(seg=>tread.test(seg.name));
+   if(original.length!==4)throw Error("GEN-VEH-009 expected four original Sedan tread nodes, found "+original.length);
+   for(const corner of corners){
+     const matching=wheels[corner].tire.filter(seg=>tread.test(seg.name));
+     if(matching.length!==1)throw Error("GEN-VEH-009 incorrect rotating tread ownership "+corner+": "+matching.length);
+   }
+   if(Object.values(parts).some(group=>group.some(seg=>tread.test(seg.name))))
+     throw Error("GEN-VEH-009 static Sedan exterior still contains a tire tread shell");
+   console.info("GEN_VEH_009_TREAD_SYNC",JSON.stringify({model:model.id,
+     treadNodes:original.length,rotatingCorners:corners}));
+ }
  // If a mono-mesh wheel cannot be isolated confidently, retain full source
  // body and use inexpensive native procedural rolling wheels in the renderer.
  let originalTriangles=raw.reduce((a,s)=>a+s.i.length/3,0);
