@@ -51,6 +51,7 @@ function NorthHeightsPreview(){
   const failed=/failed|failure|error/i.test(status);
   const touchVisible=coarse&&!(settings.autoHide&&inputMode==="keyboard");
   const desktopVisible=!coarse&&settings.desktopControls;
+  const sedanPassenger=vehicle?.startsWith("Sedan · Autopilot")??false;
   const send=(command:GameCommand)=>{
     if(command.type==="move")controller.current?.move(command.x,command.y);
     if(command.type==="action")controller.current?.action(command.action,command.pressed);
@@ -156,7 +157,7 @@ function NorthHeightsPreview(){
   const snapshot:GameSnapshot={
     lifecycle:ready?(paused?"paused":"running"):"bootstrapping",
     context:vehicle?"driving":"walking",location,
-    objective:"Explore North Heights on foot or in flight",
+    objective:sedanPassenger?"Sedan autopilot passenger · exit when traffic stops":"Explore North Heights on foot or in flight",
     health:100,reputation:0,heat:0,speed:vehicleSpeed,vehicle,
     meridianTime:clock,meridianMinuteOfDay:Math.floor(meridianMinute),
     meridianTimeScale:meridianSpeed,interiorState:inside?"inside":"outside",
@@ -183,6 +184,10 @@ function NorthHeightsPreview(){
             ? "SEDAN "+stats.split("SEDAN ")[1]?.split(" · ")[0]
             : "SEDAN PILOT INITIALIZING"}
         </div>}
+      {ready&&sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
+        className="pointer-events-none absolute left-1/2 top-24 z-10 -translate-x-1/2 rounded bg-black/65 px-3 py-1 text-center text-xs text-white">
+        SEDAN AUTOPILOT · {vehicleSpeed>.25?"WAIT FOR A STOP TO EXIT":"PRESS F / VEHICLE TO EXIT"}
+      </div>}
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
       {!ready&&<BootstrapOverlay entries={initialStartupChecklist()}
         measured={loadingSnapshot} elapsedSeconds={loadingSeconds}
@@ -194,9 +199,11 @@ function NorthHeightsPreview(){
       />}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
+        passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
+        passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
       {mapOpen&&<NorthHeightsExpandedMap position={position} onClose={()=>setMapOpen(false)}/>}
       {paused&&panel==="settings"&&<GTDSettingsOverlay
