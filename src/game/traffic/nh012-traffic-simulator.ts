@@ -26,6 +26,8 @@ export type NH012Agent= {
  edgeId:string;connectorId:string|null;plannedConnectorId:string|null;s:number;speed:number;
  x:number;z:number;heading:number;state:NH012MotionState;
  destination:string;arrivalTick:number;waitTicks:number;
+ /** Explicit manual wheel angle control, only while Stage 6 is active. */
+ manualSteer?:number;
 };
 const MODELS=[
  {id:"gtd-veh006-mercer-range-rover",length:4.85,width:2.03,paints:["WHITE","BLACK","SILVER","GRAPHITE","NAVY"]},
@@ -124,6 +126,7 @@ export class NH012TrafficSimulator {
    if(!this.isStage6FreeDriving(agentId))return;
    const a=this.agents.find(v=>v.id===agentId)!;
    a.speed=0;a.state="stopped";
+   delete a.manualSteer;
    this.freeParkedAgents.add(agentId);
    this.manual=null;
  }
@@ -160,6 +163,7 @@ export class NH012TrafficSimulator {
      // may continue to exist; overlapping at handoff is explicitly temporary.
      agent.speed=this.manual.free
        ?Math.max(0,this.manual.velocity):Math.abs(this.manual.velocity);
+     delete agent.manualSteer;
      if(rejoin){
        agent.edgeId=rejoin.edgeId;agent.s=rejoin.s;
        agent.connectorId=null;agent.plannedConnectorId=null;
@@ -230,6 +234,7 @@ export class NH012TrafficSimulator {
      const steering=stage6SteerStep(
        m.steering,m.steeringRequest,m.velocity,dt);
      m.steering=steering.angle;
+     agent.manualSteer=m.steering;
      const nextHeading=agent.heading+steering.yawDelta;
      const moved=stage6SweepSedan(
        {x:agent.x,z:agent.z,heading:agent.heading},
