@@ -5,6 +5,10 @@ import {
  nh012HeadingBetween, NH012_SIMULATION_DT,
  type TrafficGraph012,type TrafficConnector012,
 } from "./nh012-lane-network";
+import {
+ stage6SteerStep,stage6SweepSedan,STAGE6_WHEELBASE_METERS,
+ type SedanStage6Pose,
+} from "@/game/vehicles/nh-opt2-sedan-free-steering-stage6";
 
 export type NH012MotionState="moving"|"braking"|"stopped"|"turning";
 /** A single tap queues the next legal relative turn, not freeform steering. */
@@ -75,8 +79,55 @@ export class NH012TrafficSimulator {
   * All other traffic agents use the identical accepted NH-012 AI solver. */
  private manual: {
    agentId:string;velocity:number;forward:number;reverse:number;
-   history:string[];
+   history:string[];steering:number;steeringRequest:number;free:boolean;
  }|null=null;
+ /** Only one original traffic sedan may leave the NH012 route graph. The
+  * other 124 agents retain their exact AI movement and reservation model. */
+ private freeDrivingAdmission:((p:SedanStage6Pose,length:number,width:number)=>boolean)|null=null;
+ private readonly freeParkedAgents=new Set<string>();
+ configureStage6FreeDriving(
+   admission:(p:SedanStage6Pose,length:number,width:number)=>boolean,
+ ):void{this.freeDrivingAdmission=admission;}
+ isStage6FreeDriving(agentId:string):boolean{
+   return this.manual?.agentId===agentId&&this.manual.free;
+ }
+ isStage6FreeParked(agentId:string):boolean{return this.freeParkedAgents.has(agentId);}
+ setManualSteering(agentId:string,amount:number):void{
+   if(!this.isStage6FreeDriving(agentId))return;
+   this.manual!.steeringRequest=Number.isFinite(amount)
+     ?Math.max(-1,Math.min(1,amount)):0;
+ }
+ /** Reconnect only when the free car is already aligned with a genuine
+  * directed lane. Never teleport the off-road car across a building. */
+ canResumeStage6Autopilot(agentId:string):boolean{
+   if(!this.isStage6FreeDriving(agentId))return false;
+   const a=this.agents.find(v=>v.id===agentId)!;
+   const c=this.nearestFreeLane(a);
+   return c!==null;
+ }
+ private nearestFreeLane(agent:NH012Agent):{edgeId:string;s:number}|null{
+   let closest:{edgeId:string;s:number;distance:number}|null=null;
+   for(const e of this.graph.edges.values()){
+     const t=Math.max(0,Math.min(e.length,(agent.x-e.start.x)*e.dx+(agent.z-e.start.z)*e.dz));
+     const p=nh012PointOnEdge(e,t);
+     const dist=Math.hypot(p.x-agent.x,p.z-agent.z);
+     const direction=nh012HeadingBetween(e.start,e.end);
+     const delta=Math.abs(Math.atan2(Math.sin(direction-agent.heading),Math.cos(direction-agent.heading)));
+     if(dist<=1.8&&delta<=.55&&(!closest||dist<closest.distance))
+       closest={edgeId:e.id,s:t,distance:dist};
+   }
+   return closest?{edgeId:closest.edgeId,s:closest.s}:null;
+ }
+ /** Called by on-foot exit; an off-road car stays parked at its exact
+  * coordinates instead of teleporting into NH012 autopilot. */
+ parkManualOffRoad(agentId:string):void{
+   if(!this.isStage6FreeDriving(agentId))return;
+   const a=this.agents.find(v=>v.id===agentId)!;
+   a.speed=0;a.state="stopped";
+   this.freeParkedAgents.add(agentId);
+   this.manual=null;
+ }
+
  isManualDriving(agentId:string):boolean{return this.manual?.agentId===agentId;}
  manualSignedSpeed(agentId:string):number{return this.isManualDriving(agentId)?this.manual!.velocity:0;}
  /** A manual takeover retains visual pose, paint, body, source hubs and AI ID. */
@@ -91,17 +142,32 @@ export class NH012TrafficSimulator {
      if(this.reservations.get(c.junction)===agent.id)this.reservations.delete(c.junction);
    }
    agent.plannedConnectorId=null;
-   this.manual={agentId,velocity:agent.speed,forward:0,reverse:0,history:[]};
+   this.freeParkedAgents.delete(agentId);
+   this.manual={agentId,velocity:agent.speed,forward:0,reverse:0,history:[],
+     steering:0,steeringRequest:0,free:!!this.freeDrivingAdmission};
    this.setDriverBrake(null,false);this.setDriverThrottle(null,0);
  }
- endManualDriving():void{
-   if(!this.manual)return;
+ endManualDriving():boolean{
+   if(!this.manual)return true;
    const agent=this.agents.find(a=>a.id===this.manual!.agentId);
+   // A free car cannot rejoin a lane until physically on it and facing its
+   // direction. Do not snap/teleport it to the closest traffic position.
+   const rejoin=agent&&this.manual.free?this.nearestFreeLane(agent):null;
+   if(agent&&this.manual.free&&!rejoin)return false;
    if(agent){
      // AI uses nonnegative velocity even after manual reverse. On an occupied
      // curve, reacquire reservation when available. A conflicting reservation
      // may continue to exist; overlapping at handoff is explicitly temporary.
-     agent.speed=Math.abs(this.manual.velocity);
+     agent.speed=this.manual.free
+       ?Math.max(0,this.manual.velocity):Math.abs(this.manual.velocity);
+     if(rejoin){
+       agent.edgeId=rejoin.edgeId;agent.s=rejoin.s;
+       agent.connectorId=null;agent.plannedConnectorId=null;
+       const e=this.graph.edges.get(rejoin.edgeId)!;
+       const p=nh012PointOnEdge(e,rejoin.s);
+       agent.x=p.x;agent.z=p.z;
+       agent.heading=nh012HeadingBetween(e.start,e.end);
+     }
      if(agent.connectorId){
        const c=this.graph.connectors.get(agent.connectorId)!;
        if(!this.reservations.has(c.junction))
@@ -111,6 +177,7 @@ export class NH012TrafficSimulator {
      }
    }
    this.manual=null;
+   return true;
  }
  setManualPedals(agentId:string,forward:number,reverse:number):void{
    if(!this.isManualDriving(agentId))return;
@@ -158,6 +225,26 @@ export class NH012TrafficSimulator {
    }else{
      const d=NH012_MANUAL_COAST*dt;
      m.velocity=m.velocity>0?Math.max(0,m.velocity-d):Math.min(0,m.velocity+d);
+   }
+   if(m.free&&this.freeDrivingAdmission){
+     const steering=stage6SteerStep(
+       m.steering,m.steeringRequest,m.velocity,dt);
+     m.steering=steering.angle;
+     const nextHeading=agent.heading+steering.yawDelta;
+     const moved=stage6SweepSedan(
+       {x:agent.x,z:agent.z,heading:agent.heading},
+       nextHeading,m.velocity*dt,agent.length,agent.width,
+       this.freeDrivingAdmission,
+     );
+     agent.x=moved.pose.x;agent.z=moved.pose.z;
+     agent.heading=Math.atan2(Math.sin(moved.pose.heading),Math.cos(moved.pose.heading));
+     if(moved.blocked)m.velocity=0; // impact on solid building/wall
+     agent.speed=Math.abs(m.velocity);
+     agent.arrivalTick=-1;agent.waitTicks=0;
+     agent.connectorId=null;agent.plannedConnectorId=null;
+     agent.state=agent.speed<.12?"stopped":
+       m.reverse>0||m.forward<=0?"braking":"moving";
+     return;
    }
    let distance=m.velocity*dt;
    for(let iterations=0;iterations<8;iterations++){
@@ -343,7 +430,8 @@ export class NH012TrafficSimulator {
  }
  private hasExitSpace(edgeId:string,agent:NH012Agent):boolean{
    const limit=agent.length+MIN_GAP+3;
-   return !this.agents.some(a=>a!==agent&&a.connectorId===null&&a.edgeId===edgeId&&a.s<limit);
+   return !this.agents.some(a=>a!==agent&&a.id!==this.manual?.agentId&&
+     !this.freeParkedAgents.has(a.id)&&a.connectorId===null&&a.edgeId===edgeId&&a.s<limit);
  }
  step(dt=NH012_SIMULATION_DT){
    if(Math.abs(dt-NH012_SIMULATION_DT)>1e-8)throw Error("NH012 requires a 20Hz deterministic step");
@@ -352,7 +440,8 @@ export class NH012TrafficSimulator {
    // explicitly overrides traffic signals, spacing, reservation and stop AI.
    this.stepManual(dt);
    const laneCars=new Map<string,NH012Agent[]>();
-   for(const a of this.agents)if(a.connectorId===null){
+   for(const a of this.agents)if(a.connectorId===null&&
+     a.id!==this.manual?.agentId&&!this.freeParkedAgents.has(a.id)){
      const list=laneCars.get(a.edgeId)??[];list.push(a);laneCars.set(a.edgeId,list);
    }
    for(const list of laneCars.values())list.sort((a,b)=>b.s-a.s||a.id.localeCompare(b.id));
@@ -367,7 +456,7 @@ export class NH012TrafficSimulator {
    }
    // Each reserved connector remains exclusive until its occupant exits.
    for(const agent of this.agents){
-     if(this.manual?.agentId===agent.id)continue;
+     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id))continue;
      if(!agent.connectorId)continue;
      const c=this.graph.connectors.get(agent.connectorId)!;
      const remaining=c.length-agent.s;
@@ -398,7 +487,7 @@ export class NH012TrafficSimulator {
    }
    // Advance ordinary lanes; a virtual stop-line leader enforces full stops.
    for(const agent of this.agents){
-     if(this.manual?.agentId===agent.id)continue;
+     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id))continue;
      if(agent.connectorId)continue;
      const edge=this.graph.edges.get(agent.edgeId)!;
      const available=safe(leaderGaps.get(agent.id)??Infinity);
@@ -438,7 +527,8 @@ export class NH012TrafficSimulator {
    // Deterministic all-way-stop priority, exclusive across conflicting turns.
    const queues=new Map<string,NH012Agent[]>();
    for(const agent of this.agents)if(!agent.connectorId&&agent.waitTicks>=4
-     &&this.driverBrakeId!==agent.id&&this.manual?.agentId!==agent.id){
+     &&this.driverBrakeId!==agent.id&&this.manual?.agentId!==agent.id
+     &&!this.freeParkedAgents.has(agent.id)){
      const junction=this.graph.edges.get(agent.edgeId)!.to;
      const queue=queues.get(junction)??[];queue.push(agent);queues.set(junction,queue);
    }
@@ -475,7 +565,9 @@ export class NH012TrafficSimulator {
      if(!Number.isFinite(a.x)||!Number.isFinite(a.z)||a.speed<0)errors.push(a.id+":non-finite pose");
      if(a.connectorId&&!this.graph.connectors.has(a.connectorId))errors.push(a.id+":invalid connector");
      if(!this.graph.edges.has(a.edgeId))errors.push(a.id+":invalid lane");
-     if(!a.connectorId){const list=lane.get(a.edgeId)??[];list.push(a);lane.set(a.edgeId,list);}
+     if(!a.connectorId&&this.manual?.agentId!==a.id&&!this.freeParkedAgents.has(a.id)){
+       const list=lane.get(a.edgeId)??[];list.push(a);lane.set(a.edgeId,list);
+     }
    }
    for(const [id,list] of lane){
      list.sort((a,b)=>a.s-b.s);
