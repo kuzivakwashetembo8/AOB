@@ -159,7 +159,7 @@ function NorthHeightsPreview(){
     lifecycle:ready?(paused?"paused":"running"):"bootstrapping",
     context:vehicle?"driving":"walking",location,
     objective:sedanPassenger?
-      "Stage 5 · W/Up forward (+30%) · S/Down brake then reverse · Left/Right within 8m · P toggles autopilot"
+      "Stage 6 · W/Up forward · S/Down brake/reverse · hold Left/Right to steer anywhere · walls solid · P autopilot"
       :"Explore North Heights on foot or in flight",
     health:100,reputation:0,heat:0,speed:vehicleSpeed,vehicle,
     meridianTime:clock,meridianMinuteOfDay:Math.floor(meridianMinute),
@@ -190,7 +190,7 @@ function NorthHeightsPreview(){
       {ready&&sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
         className="absolute left-1/2 top-24 z-10 flex max-w-[92vw] -translate-x-1/2 items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
         <span>{sedanManual
-          ?"MANUAL · ↑ / W FORWARD +30% · ↓ / S BRAKE / REVERSE · ← → TURN WITHIN 8m · PASS-THROUGH TRAFFIC"
+          ?"STAGE 6 FREE DRIVE · ↑ FORWARD +30% · ↓ BRAKE / REVERSE · HOLD ← → TO STEER · WALLS SOLID · TRAFFIC PASS-THROUGH"
           :"AUTOPILOT · FIRST PEDAL OR TURN TAKES MANUAL CONTROL"}
           {" · "}{vehicleSpeed>.25?"STOP TO EXIT":"F / VEHICLE TO EXIT"}</span>
         <button type="button" data-testid="nh-opt2-stage5-toggle-autopilot"
