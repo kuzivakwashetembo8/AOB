@@ -53,6 +53,19 @@ export class NH012TrafficSimulator {
  readonly population:number;
  private readonly rng:()=>number;
  private readonly reservations=new Map<string,string>();
+ /** SDN-001 Stage 2: one rider can request braking for ONE original traffic
+  * agent. No separate car transform, chassis physics or replacement renderer. */
+ private driverBrakeId:string|null=null;
+ /** A release (or leaving the Sedan) relinquishes control to NH-012's AI.
+  * Invalid agent identities cannot acquire control. */
+ setDriverBrake(agentId:string|null,pressed:boolean):void{
+   if(!pressed||agentId===null){this.driverBrakeId=null;return;}
+   if(!this.agents.some(a=>a.id===agentId))
+     throw Error("NH012 manual brake target is not a live traffic agent: "+agentId);
+   this.driverBrakeId=agentId;
+ }
+ isDriverBraking(agentId:string):boolean{return this.driverBrakeId===agentId;}
+
  private readonly destinationNodes:readonly string[];
  tick=0;
  constructor(population=125,seed=120125,graph=buildNorthHeightsTrafficGraph012()){
@@ -123,7 +136,11 @@ export class NH012TrafficSimulator {
      if(!agent.connectorId)continue;
      const c=this.graph.connectors.get(agent.connectorId)!;
      const remaining=c.length-agent.s;
-     let v=Math.min(4,agent.speed+ACCEL*dt);
+     // Hold the junction reservation while braking in a connector: a stopped
+     // chassis must not release the crossing to another conflicting vehicle.
+     const braking=this.driverBrakeId===agent.id;
+     let v=braking?Math.max(0,agent.speed-BRAKE*dt)
+       :Math.min(4,agent.speed+ACCEL*dt);
      let ds=Math.min(remaining,v*dt);
      if(remaining<=.001&&!this.hasExitSpace(c.outgoing,agent)){v=0;ds=0;}
      agent.s+=ds;agent.speed=v;
@@ -131,8 +148,8 @@ export class NH012TrafficSimulator {
      const front=nh012PointOnConnector(c,Math.min(c.length,agent.s+.12));
      const back=nh012PointOnConnector(c,Math.max(0,agent.s-.12));
      agent.x=pose.x;agent.z=pose.z;agent.heading=nh012HeadingBetween(back,front);
-     agent.state="turning";
-     if(agent.s>=c.length-1e-4&&this.hasExitSpace(c.outgoing,agent)){
+     agent.state=braking?(v<.12?"stopped":"braking"):"turning";
+     if(agent.s>=c.length-1e-4&&this.hasExitSpace(c.outgoing)){
        agent.edgeId=c.outgoing;agent.connectorId=null;agent.s=0;
        agent.speed=Math.min(v,4);agent.arrivalTick=-1;agent.waitTicks=0;
        agent.plannedConnectorId=null;
@@ -153,14 +170,19 @@ export class NH012TrafficSimulator {
      const safeFollowSpeed=Number.isFinite(available)
        ?Math.sqrt(2*BRAKE*Math.max(0,available)):Infinity;
      const allowed=Math.min(MAX_SPEED,safeStopSpeed,safeFollowSpeed);
-     const v=allowed<agent.speed
+     // Preserve the exact legacy path when no rider is braking. For the
+     // selected agent, a pressed Down key requests a gradual BRAKE-only stop;
+     // no reverse, teleport or new manual acceleration logic is introduced.
+     const aiV=allowed<agent.speed
        ?Math.max(allowed,agent.speed-BRAKE*dt):Math.min(allowed,agent.speed+ACCEL*dt);
+     const braking=this.driverBrakeId===agent.id;
+     const v=braking?Math.min(aiV,Math.max(0,agent.speed-BRAKE*dt)):aiV;
      const ds=Math.max(0,Math.min(v*dt,available,toStop));
      agent.s+=ds;agent.speed=v;
      const pose=nh012PointOnEdge(edge,agent.s);
      agent.x=pose.x;agent.z=pose.z;
      agent.heading=nh012HeadingBetween(edge.start,edge.end);
-     agent.state=v<.12?"stopped":v<MAX_SPEED*.65?"braking":"moving";
+     agent.state=v<.12?"stopped":braking||v<MAX_SPEED*.65?"braking":"moving";
      if(toStop<2)agent.state=v<.12?"stopped":"braking";
      if(edge.length-agent.s<=.06&&v<.5){
        agent.s=edge.length;agent.speed=0;agent.state="stopped";
@@ -170,7 +192,8 @@ export class NH012TrafficSimulator {
    }
    // Deterministic all-way-stop priority, exclusive across conflicting turns.
    const queues=new Map<string,NH012Agent[]>();
-   for(const agent of this.agents)if(!agent.connectorId&&agent.waitTicks>=4){
+   for(const agent of this.agents)if(!agent.connectorId&&agent.waitTicks>=4
+     &&this.driverBrakeId!==agent.id){
      const junction=this.graph.edges.get(agent.edgeId)!.to;
      const queue=queues.get(junction)??[];queue.push(agent);queues.set(junction,queue);
    }
