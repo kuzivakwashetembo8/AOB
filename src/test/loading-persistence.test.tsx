@@ -79,7 +79,10 @@ const firstRuntime = () => {
   if (!runtime) throw new Error("Runtime did not mount");
   return runtime;
 };
-const ready = () => screen.findByRole("button", { name: "Pause menu" });
+// Cold CI can spend >1s initialising the retained Babylon session while
+// running all suites on two cores; the lifecycle contract is unchanged.
+const ready = () => screen.findByRole("button", { name: "Pause menu" },
+  undefined,{timeout:8000});
 
 describe("Loading Persistence — actual session surface and bridge", () => {
   it("loads lazily and retains exactly one canvas/runtime across repeated GTD route exits", async () => {
