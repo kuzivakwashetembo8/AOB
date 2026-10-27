@@ -71,8 +71,8 @@ export function DrivingArrowControls({ send, haptics }: { send: Send; haptics: b
     </div>
   );
 }
-/** NH-OPT2 Stages 2/3: hold-only brake and accelerator for an autonomous
- * traffic Sedan. Both use the accepted multi-pointer DrivingArrowHolds helper.
+/** NH-OPT2 Stages 2/3/4: hold-only brake/accelerator and one-shot
+ * legal next-junction turning requests. Reuse multi-pointer holds.
  * On release, blur, or page-hide, no traffic pedal request remains active. */
 export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean}){
   const holds=useRef(new DrivingArrowHolds());
@@ -81,7 +81,7 @@ export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean})
     const next=holds.current.intent();
     // When two fingers hold Gas and Brake, Brake MUST win: the generic
     // arrow helper otherwise resolves opposite directions to neutral.
-    sendRef.current({type:"move",x:0,
+    sendRef.current({type:"move",x:next.x,
       y:holds.current.pressed("down")?1:next.y,source:"touch-arrows"});
   };
   useEffect(()=>{
@@ -103,7 +103,7 @@ export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean})
     holds.current.release(event.pointerId);
     sendPedals();
   };
-  const begin=(event:PointerEvent<HTMLButtonElement>,direction:"up"|"down")=>{
+  const begin=(event:PointerEvent<HTMLButtonElement>,direction:DrivingArrow)=>{
     event.preventDefault();event.stopPropagation();
     if(holds.current.has(event.pointerId))return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -112,7 +112,25 @@ export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean})
     if(haptics)navigator.vibrate?.(12);
   };
   return (
-    <div className="driving-arrow-pad" role="group" aria-label="Sedan assisted acceleration and braking">
+    <div className="driving-arrow-pad" role="group" aria-label="Sedan assisted road controls">
+      <div className="driving-arrows-steer" role="group" aria-label="Sedan next-junction turns">
+        <button type="button" className="driving-arrow-button" data-direction="left"
+          data-testid="nh-opt2-sedan-left-turn"
+          aria-label="Choose left turn at next legal junction"
+          onPointerDown={event=>begin(event,"left")}
+          onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}>
+          <ArrowLeft aria-hidden="true" size={30}/>
+          <span className="text-[10px]">LEFT</span>
+        </button>
+        <button type="button" className="driving-arrow-button" data-direction="right"
+          data-testid="nh-opt2-sedan-right-turn"
+          aria-label="Choose right turn at next legal junction"
+          onPointerDown={event=>begin(event,"right")}
+          onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}>
+          <ArrowRight aria-hidden="true" size={30}/>
+          <span className="text-[10px]">RIGHT</span>
+        </button>
+      </div>
       <div className="driving-arrows-throttle">
         <button type="button" className="driving-arrow-button"
           data-testid="nh-opt2-sedan-accelerator" data-direction="up"
