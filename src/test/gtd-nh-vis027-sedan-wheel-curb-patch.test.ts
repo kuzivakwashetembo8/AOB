@@ -32,8 +32,8 @@ describe("GTD-NH-VIS-027-001 source-native synchronized Sedan outer tyre shell",
    expect(source?.wheelsStatus).toBe("source");
    expect(source?.wheels&&Object.keys(source.wheels)).toHaveLength(4);
    for(const corner of ["frontLeft","frontRight","rearLeft","rearRight"] as const){
-     expect(source?.wheels?.[corner].tire.triangles).toBeGreaterThan(100);
-     expect(source?.wheels?.[corner].rim.triangles).toBeGreaterThan(100);
+     expect(source?.wheels?.[corner]?.tire?.triangles??0).toBeGreaterThan(100);
+     expect(source?.wheels?.[corner]?.rim?.triangles??0).toBeGreaterThan(100);
    }
  });
  it("rolls rim AND tyre backward when reversing and does not roll on lateral motion",()=>{
