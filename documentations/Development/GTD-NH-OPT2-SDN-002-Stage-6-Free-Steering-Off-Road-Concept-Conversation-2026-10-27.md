@@ -1,7 +1,7 @@
 # GTD-NH-OPT2-SDN-002 — Stage 6 Free Steering, Lane Departure and Off-Road Driving
 
 **Date:** 2026-10-27  
-**Status:** **CONVERSATION / REQUIREMENTS DISCOVERY ONLY — NOT APPROVED TO IMPLEMENT**  
+**Status:** **OWNER AUTHORIZED IMPLEMENTATION / STAGE 6 PREVIEW PENDING ACCEPTANCE**  
 **Predecessor:** GTD-NH-OPT2-SDN-001 Stage 5 — **completed and accepted**  
 **Working branch:** `feature/north-heights-optimization-2-20261027`  
 **Owner's controlling instruction:** “Document stage completion, stage 6 is still conversing stage.”
@@ -62,8 +62,27 @@ These are accepted **requirements and timing decisions**, **not authorization to
 6. **Controls and camera:** Desktop Arrow/WASD, mobile hold buttons, camera heading consistency, acceleration and steering during reverse, and the manual/autopilot toggle.
 7. **Acceptance proof:** Continuous free steering on a straight road, cross-lane/off-road traversal, reverse, terrain support, **impermeable buildings/walls at full manual speed**, third-person camera, unchanged 124 AI cars, accepted native materials/wheels, performance and test coverage. After Stage 6 implementation, verify six parked GLB assets are no longer requested/instantiated by North Heights.
 
+## Stage 6 — owner authorization and controlled implementation (2026-10-27)
+
+**Owner:** “Approved. Implement.” This follows the approved progressive speed-sensitive steering recommendation, confirmed solid building/wall physics, off-road freedom, permissive traffic/trees/lamps, and deferred removal of six parked GLB loads. Therefore the prior conversation-only implementation prohibition is superseded **only for Stage 6 on the feature branch**, not for production main.
+
+### Implementation design and acceptance tests
+
+- Player Sedan stays the **same NH-012 agent ID** with the original GEN-VEH-009 source-native body, glass, wheels, color and third-person camera. The Stage 6 controller now calculates independent continuous world-space `x`, `z`, heading and signed longitudinal velocity every NH-012 deterministic 20 Hz tick.
+- Speed-dependent gradual steering uses up to **0.52 rad steering-wheel pivot** smoothed at **3.2 normalized units/s**, **2.8 m wheelbase**, and decreases steering angle at higher speed. Left/Right can be held anywhere, regardless of lane or junction. Reverse uses signed velocity so reversing with the same steering input rotates the car the opposite direction.
+- Preserve Stage 5 limits: **2.6 m/s²** positive acceleration, **10.4 m/s** top forward speed, bounded reverse and natural coast when controls release.
+- Solid structural building obstacles are validated using whole-car oriented-rectangle SAT collision against the accepted building footprint boxes, and translational movement is swept in at most **10 cm segments**. Tree, lamp and car collision testing remains disabled. No duplicated Rapier traffic chassis, new GLB, or wheel mesh is introduced.
+- Terrain support and third-person view use the established `sampleTrafficVehicleRoadPose013` over `northHeightsGround`, so off-road vehicle body is placed according to the accepted wheel supports.
+- The one manual Sedan is excluded from road-following AI, gap checks and junction reservations, while the other 124 cars remain unchanged in their own NH-012 movement pipeline.
+- Autopilot only resumes if the actual free Sedan is near a **valid directed lane and facing its direction**. Unsupported off-road handback is refused rather than teleporting the car. Exiting a stopped Sedan off-road leaves it parked at its real location and available for subsequent boarding.
+- **No parked-six-car loading in North Heights:** `north-heights-city-8.ts` no longer imports `createMercerExtraParkedGLBs`, requests the six GLBs, or creates their driving physics instances. Existing parking areas are retained. Shared vehicle files and all 125 source-native moving Sedans remain.
+- Maintain documented original controls, safe exit/boarding, mobile Gas/Brake with simultaneous steering, third-person camera and settings parity.
+- Automated safety evidence: Stage 6 tests cover early steering away from lanes, speed-sensitive yaw, wall collision tunneling prevention, off-road autopilot handback refusal, fixed autonomous population and no six-GLB asset loading. The older accepted tests still run. Vercel preview required for owner visual acceptance.
+
+**Release gate:** Stage 6 authorized for implementation and preview, but not yet owner-accepted and never authorized for a main merge. The known rim/tyre visual observation remains open.
+
 ## Explicit nonauthorization
 
-This discussion file is **not** an approved technical implementation plan. No Stage 6 gameplay, collision changes, new actors, branch merges or deployments are authorized by the current owner message. Continue architecture conversation and obtain explicit implementation authorization later.
+Historical note: Stage 6 was initially conversation-only. On 2026-10-27, the owner subsequently explicitly authorized implementation (“Approved. Implement.”). **Only feature-branch Stage 6 implementation and preview deployment are permitted.** No `main` merge or production deployment is authorized. The stage remains subject to live preview acceptance.
 
-**Stage 5 accepted. Stage 6 unimplemented, exploratory.**
+**Stage 5 accepted. Stage 6 implementation authorized, not yet accepted.**
