@@ -56,6 +56,7 @@ export interface NorthHeightsInspection {
   reset: () => void;
   setTime: (time: NorthHeightsTime) => void;
   setMode: (mode: "walk" | "fly") => boolean;
+  toggleSedanAutopilot: () => void;
   dispose: () => void;
 }
 export async function createNorthHeightsCity8(
@@ -145,15 +146,31 @@ export async function createNorthHeightsCity8(
   const initialYaw = 0, initialPitch = 0;
   let dragPointer: number | null = null, lastX = 0, lastY = 0;
   let frames = 0;
+  const toggleSedanAutopilot=()=>{
+    if(!ridingSedanId||!traffic)return;
+    if(traffic.isManualDriving(ridingSedanId)){
+      traffic.endManualDriving();
+      onFeedback?.("Autopilot restored · traffic rules active");
+    }else{
+      traffic.beginManualDriving(ridingSedanId);
+      onFeedback?.("Manual in-lane driving · traffic permissions disabled");
+    }
+    const agent=ridingAgent();
+    if(agent)onVehicleChange?.(traffic.isManualDriving(agent.id)
+      ?"Sedan · Manual":"Sedan · Autopilot",agent.speed);
+  };
   const requestSedanTurn=(direction:"left"|"right")=>{
     if(!ridingSedanId||!traffic)return;
-    const result=traffic.setDriverTurn(ridingSedanId,direction);
-    onFeedback?.(result==="queued"
-      ?direction.toUpperCase()+" turn queued for next junction"
-      :result==="unavailable"
-        ?"No "+direction+" turn available at next junction"
-        :result==="locked"
-          ?"Already turning · choose a direction after this junction"
+    if(!traffic.isManualDriving(ridingSedanId))
+      traffic.beginManualDriving(ridingSedanId);
+    const result=traffic.requestManualTurn(ridingSedanId,direction);
+    onFeedback?.(result==="turning"
+      ?direction.toUpperCase()+" at this junction · proceeding without AI stop"
+      :result==="too-early"
+        ?"Too early to turn · steer within 8m of intersection"
+        :result==="unavailable"
+          ?"No legal "+direction+" turn at this junction"
+          :result==="locked"?"Complete current junction curve before turning"
           :"Sedan unavailable");
   };
   const keyDown = (event: KeyboardEvent) => {
@@ -168,6 +185,10 @@ export async function createNorthHeightsCity8(
       if(!event.repeat)controller.setMode(mode==="walk"?"fly":"walk");
       return;
     }
+    if(event.code==="KeyP"&&ridingSedanId){
+      if(!event.repeat)toggleSedanAutopilot();
+      return;
+    }
     if(ridingSedanId&&!event.repeat){
       if(event.code==="ArrowLeft"||event.code==="KeyA")requestSedanTurn("left");
       else if(event.code==="ArrowRight"||event.code==="KeyD")requestSedanTurn("right");
@@ -180,6 +201,7 @@ export async function createNorthHeightsCity8(
     // Lost focus, pause, and exit must clear ALL manual pedal requests.
     traffic?.setDriverBrake(null,false);
     traffic?.setDriverThrottle(null,0);
+    if(ridingSedanId)traffic?.setManualPedals(ridingSedanId,0,0);
   };
   const pointerDown = (event: PointerEvent) => {
     if(paused||dragPointer !== null) return;
@@ -263,9 +285,9 @@ export async function createNorthHeightsCity8(
   scene.onBeforeRenderObservable.add(() => {
     const dt=Math.min(.05,engine.getDeltaTime()/1000);
     if(paused)return;
-    // Stages 2 and 3: passenger pedals feed the original NH-012 traffic solver
-    // BEFORE its fixed 20Hz step. Braking overrides acceleration; steering and
-    // reverse stay unimplemented until separate approvals.
+    // Stage 5: the existing NH-012 agent accepts continuous signed manual
+    // pedal authority. First movement input engages manual mode; release
+    // coasts to a stop instead of reverting to AI. Press P to restore AI.
     const gamepad=typeof navigator.getGamepads==="function"?navigator.getGamepads()[0]:null;
     const gamepadForward=Math.max(0,-(gamepad?.axes[1]??0));
     const gamepadBrake=Math.max(0,gamepad?.axes[1]??0);
@@ -276,8 +298,17 @@ export async function createNorthHeightsCity8(
       Number(keys.has("ArrowUp")||keys.has("KeyW")||held.has("forward")),
       Math.max(0,-analog.y),gamepadForward,
     ):0;
-    traffic?.setDriverBrake(ridingSedanId,passengerBrake);
-    traffic?.setDriverThrottle(ridingSedanId,passengerThrottle);
+    if(ridingSedanId&&traffic&&(passengerBrake||passengerThrottle>0)&&
+       !traffic.isManualDriving(ridingSedanId))
+      traffic.beginManualDriving(ridingSedanId);
+    if(ridingSedanId&&traffic?.isManualDriving(ridingSedanId)){
+      traffic.setManualPedals(ridingSedanId,passengerThrottle,Number(passengerBrake));
+      traffic.setDriverBrake(null,false);
+      traffic.setDriverThrottle(null,0);
+    }else{
+      traffic?.setDriverBrake(ridingSedanId,passengerBrake);
+      traffic?.setDriverThrottle(ridingSedanId,passengerThrottle);
+    }
     if(traffic&&traffic3D){
       trafficAccumulator=Math.min(.15,trafficAccumulator+dt);
       let steps=0;
@@ -402,9 +433,8 @@ export async function createNorthHeightsCity8(
       else if(ridingSedanId){
         const agent=ridingAgent();
         if(agent){
-          const nextTurn=traffic?.pendingDriverTurn(agent.id);
-          onVehicleChange?.("Sedan · Autopilot"+(nextTurn
-            ?" · "+nextTurn.toUpperCase()+" queued":""),agent.speed);
+          onVehicleChange?.(traffic?.isManualDriving(agent.id)
+            ?"Sedan · Manual":"Sedan · Autopilot",agent.speed);
         }
       }
       const near=!driving&&!ridingSedanId&&mode==="walk"&&walk
@@ -428,9 +458,9 @@ export async function createNorthHeightsCity8(
         " MOVING GLB "+visibleAuthenticCars+" DOTS 0 SIM "+(traffic?.tick??0)+
         " · GEN-VEH-009 125 SOURCE SEDANS · "+
         (ridingSedanId?" RIDING "+ridingSedanId+" "+(
-          traffic?.isDriverBraking(ridingSedanId)?"BRAKING":
-          (traffic?.driverThrottleFor(ridingSedanId)??0)>0?"THROTTLE":"AUTOPILOT")+
-          " TURN "+(traffic?.pendingDriverTurn(ridingSedanId)??"AI")+" · ":"")+
+          traffic?.isManualDriving(ridingSedanId)
+            ?"MANUAL V "+traffic.manualSignedSpeed(ridingSedanId).toFixed(2)
+            :"AUTOPILOT")+" · ":"")+
         (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
         "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
     }
@@ -487,6 +517,7 @@ export async function createNorthHeightsCity8(
       // Restore the one accepted player capsule at the current Sedan's stop.
       walk.physics.setPlayerPosition(exit);
       walk.physics.setPlayerCollisionEnabled(true);
+      if(traffic?.isManualDriving(ridingSedanId))traffic.endManualDriving();
       traffic?.clearDriverTurn(ridingSedanId);
       ridingSedanId=null;
       mode="walk";
@@ -601,6 +632,7 @@ export async function createNorthHeightsCity8(
     reset() {
       if(driving)toggleVehicle();
       if(ridingSedanId){
+        if(traffic?.isManualDriving(ridingSedanId))traffic.endManualDriving();
         traffic?.clearDriverTurn(ridingSedanId);
         ridingSedanId=null;
         walk?.physics.setPlayerCollisionEnabled(true);
@@ -612,6 +644,7 @@ export async function createNorthHeightsCity8(
       updateLocation(true);
       physicsAccumulator=0;clearKeys();
     },
+    toggleSedanAutopilot,
     setTime(time) { sky.setTime(time); },
     setMode(next){
       if(driving||ridingSedanId)return false;
@@ -635,6 +668,7 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("resize", resize);
       for(const car of cars.values())car.dispose();
       cars.clear();
+      traffic?.endManualDriving();
       traffic3D?.dispose();traffic3D=null;
       traffic=null;
       fleet?.dispose();
