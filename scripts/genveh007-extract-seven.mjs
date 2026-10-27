@@ -98,11 +98,9 @@ function rimOrTire(name,material){
 }
 function knownWheel(model,seg){
  const n=seg.name,mat=seg.mat;
- if(model.id==="sedan")return
-   // The original tread shell uses "Siped tread blocks[.001-.003]" WITHOUT
-   // the "107 reused" prefix. Leaving it in body/trim caused visually
-   // stationary external rubber while rims and tyre carcasses spun.
-   /^Siped tread blocks(?:\\.\\d+)?$/i.test(n)||
+ // Outer "Siped tread blocks" nodes lack the "107 reused" prefix.
+ // Those four source meshes must roll WITH the original four tyre carcasses.
+ if(model.id==="sedan")return /^Siped tread blocks(?:\.\d+)?$/i.test(n)||
    /107 reused (Sculpted_tyre|Alloy_five_spoke_rim|Center_cap|Lug_|Valve_stem)/i.test(n);
  if(model.id==="hatchback")return /Ford_Rim|Wheel_Tires_/i.test(n)||/M_Wheel_(Rim|Tire)/i.test(mat);
  if(model.id==="taxi")return /^Object_(7|33|35|37)$/.test(n);
