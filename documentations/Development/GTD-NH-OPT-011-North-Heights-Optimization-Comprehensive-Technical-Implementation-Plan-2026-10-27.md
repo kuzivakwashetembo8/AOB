@@ -1,7 +1,9 @@
 # GTD-NH-OPT-011 — North Heights Optimization: Comprehensive Technical Implementation Plan
 
+> **SUPERSEDED — PROCEDURE DDD (2026-10-27).** Owner rejected the NH-OPT-011 implementation after visual and audio evaluation and instructed immediate branch decommissioning. **DO NOT implement, merge, redeploy, or resume this plan without a new explicit owner directive.** Read `documentations/DDD/GTD-NH-OPT-011-North-Heights-Optimization-Decommission-2026-10-27.md` for the four critical failures and two partial successes. This plan is retained exclusively as historical planning evidence.
+
 **Date:** 2026-10-27  
-**Status:** DOCUMENTATION ONLY — AWAITING OWNER SCAN AND EXPLICIT APPROVAL  
+**Status:** **SUPERSEDED — DDD REJECTED / DECOMMISSIONED 2026-10-27**  
 **Repository:** `interlinkglobal/GTD`  
 **Inspected canonical baseline:** `main` at `f03b2ba9355cb907cc3865623f699935be71770f` (2026-10-26, OPT-010 merged).  
 **Proposed implementation branch AFTER approval:** `feature/gtd-north-heights-optimization-011-20261027` (create from a freshly reverified main head, not blindly from the historical SHA above).  
