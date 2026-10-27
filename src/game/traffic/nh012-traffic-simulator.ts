@@ -56,6 +56,26 @@ export class NH012TrafficSimulator {
  /** SDN-001 Stage 2: one rider can request braking for ONE original traffic
   * agent. No separate car transform, chassis physics or replacement renderer. */
  private driverBrakeId:string|null=null;
+ /** Stage 3: a separate bounded throttle request. The traffic simulator still
+  * owns the one actual route, pose, speed and intersection reservation.
+  * A fractional throttle (touch/gamepad) requests fractional ACCEL, never
+  * faster than the original AI 2 m/s² or 8 m/s speed cap. */
+ private driverThrottleId:string|null=null;
+ private driverThrottleAmount=0;
+ setDriverThrottle(agentId:string|null,amount:number):void{
+   if(agentId===null||!Number.isFinite(amount)||amount<=0){
+     this.driverThrottleId=null;
+     this.driverThrottleAmount=0;
+     return;
+   }
+   if(!this.agents.some(a=>a.id===agentId))
+     throw Error("NH012 manual throttle target is not a live traffic agent: "+agentId);
+   this.driverThrottleId=agentId;
+   this.driverThrottleAmount=Math.min(1,Math.max(0,amount));
+ }
+ driverThrottleFor(agentId:string):number{
+   return this.driverThrottleId===agentId?this.driverThrottleAmount:0;
+ }
  /** A release (or leaving the Sedan) relinquishes control to NH-012's AI.
   * Invalid agent identities cannot acquire control. */
  setDriverBrake(agentId:string|null,pressed:boolean):void{
@@ -139,8 +159,9 @@ export class NH012TrafficSimulator {
      // Hold the junction reservation while braking in a connector: a stopped
      // chassis must not release the crossing to another conflicting vehicle.
      const braking=this.driverBrakeId===agent.id;
+     const throttle=this.driverThrottleFor(agent.id);
      let v=braking?Math.max(0,agent.speed-BRAKE*dt)
-       :Math.min(4,agent.speed+ACCEL*dt);
+       :Math.min(4,agent.speed+ACCEL*dt*(throttle>0?throttle:1));
      let ds=Math.min(remaining,v*dt);
      if(remaining<=.001&&!this.hasExitSpace(c.outgoing,agent)){v=0;ds=0;}
      agent.s+=ds;agent.speed=v;
@@ -176,7 +197,15 @@ export class NH012TrafficSimulator {
      const aiV=allowed<agent.speed
        ?Math.max(allowed,agent.speed-BRAKE*dt):Math.min(allowed,agent.speed+ACCEL*dt);
      const braking=this.driverBrakeId===agent.id;
-     const v=braking?Math.min(aiV,Math.max(0,agent.speed-BRAKE*dt)):aiV;
+     const throttle=this.driverThrottleFor(agent.id);
+     // Applied ONLY when accelerating. If traffic safety demands slowing,
+     // its original BRAKE deceleration and stop-line limits retain priority.
+     // Full throttle equals the existing AI acceleration limit; partial
+     // throttle produces a genuinely lower driver-selected acceleration.
+     const v=braking?Math.min(aiV,Math.max(0,agent.speed-BRAKE*dt))
+       :throttle>0&&allowed>=agent.speed
+         ?Math.min(allowed,agent.speed+ACCEL*dt*throttle)
+         :aiV;
      const ds=Math.max(0,Math.min(v*dt,available,toStop));
      agent.s+=ds;agent.speed=v;
      const pose=nh012PointOnEdge(edge,agent.s);
