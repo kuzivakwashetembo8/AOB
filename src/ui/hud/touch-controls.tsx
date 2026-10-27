@@ -71,10 +71,10 @@ export function DrivingArrowControls({ send, haptics }: { send: Send; haptics: b
     </div>
   );
 }
-/** NH-OPT2 Stage 2: a single brake button for an autonomous passenger.
- * Its pointer-capture and blur/visibility-release lifecycle matches the
- * accepted touch arrow controller; no accelerator/reverse/steering yet. */
-export function SedanPassengerBrake({send,haptics}:{send:Send;haptics:boolean}){
+/** NH-OPT2 Stages 2/3: hold-only brake and accelerator for an autonomous
+ * traffic Sedan. Both use the accepted multi-pointer DrivingArrowHolds helper.
+ * On release, blur, or page-hide, no traffic pedal request remains active. */
+export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean}){
   const holds=useRef(new DrivingArrowHolds());
   const sendRef=useRef(send);sendRef.current=send;
   useEffect(()=>{
@@ -95,21 +95,29 @@ export function SedanPassengerBrake({send,haptics}:{send:Send;haptics:boolean}){
     event.preventDefault();
     sendRef.current({type:"move",...holds.current.release(event.pointerId),source:"touch-arrows"});
   };
+  const begin=(event:PointerEvent<HTMLButtonElement>,direction:"up"|"down")=>{
+    event.preventDefault();event.stopPropagation();
+    if(holds.current.has(event.pointerId))return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    sendRef.current({type:"move",...holds.current.press(event.pointerId,direction),source:"touch-arrows"});
+    if(haptics)navigator.vibrate?.(12);
+  };
   return (
-    <div className="driving-arrow-pad" role="group" aria-label="Sedan autopilot braking">
+    <div className="driving-arrow-pad" role="group" aria-label="Sedan assisted acceleration and braking">
       <div className="driving-arrows-throttle">
         <button type="button" className="driving-arrow-button"
+          data-testid="nh-opt2-sedan-accelerator" data-direction="up"
+          aria-label="Hold to accelerate Sedan, release for autopilot"
+          onPointerDown={event=>begin(event,"up")}
+          onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}>
+          <ArrowUp aria-hidden="true" size={30}/>
+          <span className="text-[10px]">GAS</span>
+        </button>
+        <button type="button" className="driving-arrow-button"
           data-testid="nh-opt2-sedan-brake" data-direction="down"
-          aria-label="Hold to brake Sedan, release to resume autopilot"
-          onPointerDown={(event)=>{
-            event.preventDefault();event.stopPropagation();
-            if(holds.current.has(event.pointerId))return;
-            event.currentTarget.setPointerCapture?.(event.pointerId);
-            sendRef.current({type:"move",...holds.current.press(event.pointerId,"down"),source:"touch-arrows"});
-            if(haptics)navigator.vibrate?.(12);
-          }}
-          onPointerUp={release} onPointerCancel={release}
-          onLostPointerCapture={release}>
+          aria-label="Hold to brake Sedan, release for autopilot"
+          onPointerDown={event=>begin(event,"down")}
+          onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}>
           <ArrowDown aria-hidden="true" size={30}/>
           <span className="text-[10px]">BRAKE</span>
         </button>
@@ -225,7 +233,7 @@ export function TouchControls({
       className={`touch-controls ${arrowMode ? "driving-arrow-mode" : ""} ${driving ? "gtd-driving" : flying ? "gtd-flying" : "gtd-walking"} positions-${settings.position.toLowerCase()} ${!arrowMode && settings.handedness === "Left-handed" ? "left-handed" : ""}`}
       style={style}
     >
-      {passenger ? <SedanPassengerBrake send={send} haptics={settings.haptics}/> : arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
+      {passenger ? <SedanPassengerPedals send={send} haptics={settings.haptics}/> : arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
       <div className="touch-actions">
         {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).map(({ action, label, icon: Icon }) => (
           <Button
