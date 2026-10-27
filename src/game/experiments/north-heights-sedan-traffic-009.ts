@@ -167,8 +167,10 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
         continue;
       }
       lastCounts.full++;
-      const steer=a.connectorId?
-        Math.max(-.8,Math.min(.8,trafficTurnSteering013(a,graph,wheelbase)*1.6)):0;
+      const steer=typeof a.manualSteer==="number"
+        ?a.manualSteer*.52/(1+Math.abs(a.speed)*.095)
+        :a.connectorId
+          ?Math.max(-.8,Math.min(.8,trafficTurnSteering013(a,graph,wheelbase)*1.6)):0;
       for(const corner of corners){
         const fit=sourceWheelFit007(NH009_SEDAN_MODEL,corner);
         const turn=corner.startsWith("front")?steer:0;

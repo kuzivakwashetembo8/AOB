@@ -74,21 +74,35 @@ export function DesktopControls({
   send,
   onAction,
   driving = false, flying = false, canEnterVehicle = false, canExitVehicle = true,
+  passenger = false,
 }: {
   send: Send;
   onAction: (action: GameAction) => void;
   driving?: boolean; flying?: boolean; canEnterVehicle?: boolean; canExitVehicle?: boolean;
+  passenger?: boolean;
 }) {
   return (
     <div className="desktop-controls" aria-label="Desktop game controls">
-      <div className="desktop-movement-pad" aria-label="Movement controls">
+      {passenger&&<div className="desktop-movement-pad" aria-label="Manual Sedan free driving controls">
+        <div/>
+        <MovementButton x={0} y={-1} label="Hold to accelerate Sedan" keyHint="↑ / W"
+          icon={ArrowUp} send={send}/>
+        <div/>
+        <MovementButton x={-1} y={0} label="Steer Sedan left anywhere" keyHint="← / A"
+          icon={ArrowLeft} send={send}/>
+        <MovementButton x={0} y={1} label="Hold to brake Sedan then reverse" keyHint="↓ / S"
+          icon={ArrowDown} send={send}/>
+        <MovementButton x={1} y={0} label="Steer Sedan right anywhere" keyHint="→ / D"
+          icon={ArrowRight} send={send}/>
+      </div>}
+      {!passenger&&<div className="desktop-movement-pad" aria-label="Movement controls">
         <div />
         <MovementButton x={0} y={-1} label="Move forward" keyHint="↑ / W" icon={ArrowUp} send={send} />
         <div />
         <MovementButton x={-1} y={0} label="Move left" keyHint="← / A" icon={ArrowLeft} send={send} />
         <MovementButton x={0} y={1} label="Move back" keyHint="↓ / S" icon={ArrowDown} send={send} />
         <MovementButton x={1} y={0} label="Move right" keyHint="→ / D" icon={ArrowRight} send={send} />
-      </div>
+      </div>}
 
       <div className="desktop-action-pad" aria-label="Action controls">
         {actionSpecs.filter(({action}) =>

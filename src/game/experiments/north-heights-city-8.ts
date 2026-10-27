@@ -19,13 +19,15 @@ import {northHeightsActionControl007,northHeightsUnavailableAction007} from "./n
 import { createNorthHeightsWalk005,northHeightsBuildingCollision005, type NorthHeightsWalk005 } from "./north-heights-physics-005";
 import {resolveNorthHeightsThirdPersonCamera,clampNorthHeightsPitch,clampNorthHeightsActorXZ,type CameraBox} from "@/game/camera/third-person-camera-constraints";
 import {northHeightsLocationAt} from "@/game/world-generation/north-heights-location-009";
-import {MERCER_EXTRA_GLB_SPECS,createMercerExtraParkedGLBs} from "@/game/vehicles/mercer-additional-parked-glbs-006";
-import {FirstDriveTrial} from "@/game/vehicles/first-drive-trial";
-import {FERRARI_WHEEL_MAPPING} from "@/game/vehicles/street-vehicle-wheels";
-import {nearestAccessibleCar,currentVehicleDisembark} from "@/game/vehicles/local-boarding";
-import {extraDriveName,extraDriveProfile,prepareNativeFleetWheelRig} from "@/game/vehicles/ambient-fleet-driving-011";
-import {RANGE_ROVER_STREET_PROFILE,prepareRangeRoverWheelRig} from "@/game/vehicles/range-rover-drive-007";
-import {validateNorthHeightsParking010} from "./north-heights-spatial-plan-010";
+import {
+  nearestBoardableVehicle,sedanExitCandidates,overlapsAnotherTrafficSedan,
+  insideBuildingFootprint,trafficSedanCanExit,trafficHeadingDelta,
+} from "@/game/vehicles/nh-opt2-sedan-riding";
+import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
+import {sourceWheelFit007} from "@/game/vehicles/native-seven-vehicle-007";
+import type {NH012Agent} from "@/game/traffic/nh012-traffic-simulator";
+import {stage6BuildingBlockers,stage6SolidBuildingCheck}
+  from "@/game/vehicles/nh-opt2-sedan-free-steering-stage6";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
 import {createNorthHeightsSedanTraffic009,type NH009SedanTraffic} from "./north-heights-sedan-traffic-009";
@@ -49,6 +51,7 @@ export interface NorthHeightsInspection {
   reset: () => void;
   setTime: (time: NorthHeightsTime) => void;
   setMode: (mode: "walk" | "fly") => boolean;
+  toggleSedanAutopilot: () => void;
   dispose: () => void;
 }
 export async function createNorthHeightsCity8(
@@ -97,14 +100,25 @@ export async function createNorthHeightsCity8(
   let treeHandle: {dispose:()=>void} | null = null;
   let walk:NorthHeightsWalk005|null=null;
   let cameraBlockers:CameraBox[]=[];
-  let fleet:ReturnType<typeof createMercerExtraParkedGLBs>|null=null;
   let traffic:NH012TrafficSimulator|null=null;
   let traffic3D:NH009SedanTraffic|null=null;
   let trafficAccumulator=0,visibleTrafficCars=0,visibleAuthenticCars=0;
-  const cars=new Map<string,FirstDriveTrial>();
-  const carNames=new Map<string,string>();
-  let driving:FirstDriveTrial|null=null;
-  let activeCarName:string|null=null;
+  /** SDN-001: passenger association with an EXISTING NH-012 agent, not a car actor. */
+  let ridingSedanId:string|null=null;
+  let rideLastHeading=0;
+  let trafficWheelbase=2.8,trafficTrack=1.62;
+  const ridingAgent=()=>ridingSedanId
+    ?traffic?.agents.find(agent=>agent.id===ridingSedanId)??null:null;
+  const sedanRoadPosition=(agent:NH012Agent)=>{
+    const road=sampleTrafficVehicleRoadPose013({
+      x:agent.x,z:agent.z,heading:agent.heading,
+      wheelbase:trafficWheelbase,track:trafficTrack,ground:northHeightsGround,
+    });
+    return {x:agent.x,y:road.y,z:agent.z};
+  };
+  const movingCandidates=()=>traffic?.agents.map(agent=>({
+    id:agent.id,pose:sedanRoadPosition(agent),
+  }))??[];
   let interiorId:string|null=null;
   let buildingInteriors:readonly {id:string;position:{x:number;z:number};
     overrides?:{width?:number;depth?:number;floors?:number;floorHeight?:number}}[]=[];
@@ -122,6 +136,24 @@ export async function createNorthHeightsCity8(
   const initialYaw = 0, initialPitch = 0;
   let dragPointer: number | null = null, lastX = 0, lastY = 0;
   let frames = 0;
+  const toggleSedanAutopilot=()=>{
+    if(!ridingSedanId||!traffic)return;
+    if(traffic.isManualDriving(ridingSedanId)){
+      if(!traffic.endManualDriving()){
+        onFeedback?.("Return to a forward-facing road lane before engaging autopilot");
+        return;
+      }
+      onFeedback?.("Autopilot restored · traffic rules active");
+    }else{
+      traffic.beginManualDriving(ridingSedanId);
+      onFeedback?.("Free steering · off-road enabled · buildings remain solid");
+    }
+    const agent=ridingAgent();
+    if(agent)onVehicleChange?.(traffic.isManualDriving(agent.id)
+      ?"Sedan · Manual":"Sedan · Autopilot",agent.speed);
+  };
+  // Stage 6: directional input is continuous rather than junction-gated.
+  // Steering is computed at 20Hz using actual signed velocity.
   const keyDown = (event: KeyboardEvent) => {
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
     if(paused)return;
@@ -134,10 +166,20 @@ export async function createNorthHeightsCity8(
       if(!event.repeat)controller.setMode(mode==="walk"?"fly":"walk");
       return;
     }
+    if(event.code==="KeyP"&&ridingSedanId){
+      if(!event.repeat)toggleSedanAutopilot();
+      return;
+    }
     keys.add(event.code);
   };
   const keyUp = (event: KeyboardEvent) => { keys.delete(event.code); };
-  const clearKeys = () => { keys.clear();held.clear();analog={x:0,y:0};dragPointer=null; };
+  const clearKeys = () => {
+    keys.clear();held.clear();analog={x:0,y:0};dragPointer=null;
+    // Lost focus, pause, and exit must clear ALL manual pedal requests.
+    traffic?.setDriverBrake(null,false);
+    traffic?.setDriverThrottle(null,0);
+    if(ridingSedanId)traffic?.setManualPedals(ridingSedanId,0,0);
+  };
   const pointerDown = (event: PointerEvent) => {
     if(paused||dragPointer !== null) return;
     dragPointer = event.pointerId; lastX = event.clientX; lastY = event.clientY;
@@ -173,9 +215,10 @@ export async function createNorthHeightsCity8(
   const resize=()=>{applyGraphics();};
   const updateLocation=(force=false)=>{
     if(!walk)return;
-    const player=driving?.pose??walk.physics.playerPosition();
+    const passenger=ridingAgent();
+    const player=passenger?sedanRoadPosition(passenger):walk.physics.playerPosition();
     onPoseChange?.({x:player.x,z:player.z});
-    const inside= !driving&&mode==="walk"
+    const inside= !ridingSedanId&&mode==="walk"
       ?buildingInteriors.find(lot=>{
         const w=lot.overrides?.width??12,d=lot.overrides?.depth??12;
         return Math.abs(player.x-lot.position.x)<w/2-.35&&
@@ -219,6 +262,35 @@ export async function createNorthHeightsCity8(
   scene.onBeforeRenderObservable.add(() => {
     const dt=Math.min(.05,engine.getDeltaTime()/1000);
     if(paused)return;
+    // Stage 5: the existing NH-012 agent accepts continuous signed manual
+    // pedal authority. First movement input engages manual mode; release
+    // coasts to a stop instead of reverting to AI. Press P to restore AI.
+    const gamepad=typeof navigator.getGamepads==="function"?navigator.getGamepads()[0]:null;
+    const gamepadForward=Math.max(0,-(gamepad?.axes[1]??0));
+    const gamepadBrake=Math.max(0,gamepad?.axes[1]??0);
+    const passengerBrake=!!ridingSedanId&&(
+      keys.has("ArrowDown")||keys.has("KeyS")||held.has("back")||analog.y>.45||gamepadBrake>.45
+    );
+    const passengerThrottle=ridingSedanId?Math.max(
+      Number(keys.has("ArrowUp")||keys.has("KeyW")||held.has("forward")),
+      Math.max(0,-analog.y),gamepadForward,
+    ):0;
+    const steerRequest=Math.max(-1,Math.min(1,
+      Number(keys.has("ArrowRight")||keys.has("KeyD")||held.has("right"))-
+      Number(keys.has("ArrowLeft")||keys.has("KeyA")||held.has("left"))+
+      analog.x+(Math.abs(gamepad?.axes[0]??0)>.18?(gamepad?.axes[0]??0):0)));
+    if(ridingSedanId&&traffic&&(passengerBrake||passengerThrottle>0||Math.abs(steerRequest)>.12)&&
+       !traffic.isManualDriving(ridingSedanId))
+      traffic.beginManualDriving(ridingSedanId);
+    if(ridingSedanId&&traffic?.isManualDriving(ridingSedanId)){
+      traffic.setManualPedals(ridingSedanId,passengerThrottle,Number(passengerBrake));
+      traffic.setManualSteering(ridingSedanId,steerRequest);
+      traffic.setDriverBrake(null,false);
+      traffic.setDriverThrottle(null,0);
+    }else{
+      traffic?.setDriverBrake(ridingSedanId,passengerBrake);
+      traffic?.setDriverThrottle(ridingSedanId,passengerThrottle);
+    }
     if(traffic&&traffic3D){
       trafficAccumulator=Math.min(.15,trafficAccumulator+dt);
       let steps=0;
@@ -242,22 +314,16 @@ export async function createNorthHeightsCity8(
     const fast=active("fast")||key("ShiftLeft")||key("ShiftRight");
     const heading=new Vector3(Math.sin(yaw),0,Math.cos(yaw));
     const side=new Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-    if(driving&&walk){
-      physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
-      while(physicsAccumulator>=1/60){
-        const previousYaw=driving.headingYaw;
-        driving.prepare(1/60,x,-z);
-        walk.physics.movePlayer({x:0,y:0,z:0});
-        driving.finish(1/60);
-        // Keep camera behind the actual car using the existing third-person
-        // terrain-clamp helper; dragging the view is still possible.
-        if(!dragPointer)yaw+=Math.atan2(
-          Math.sin(driving.headingYaw-previousYaw),
-          Math.cos(driving.headingYaw-previousYaw));
-        physicsAccumulator-=1/60;
+    if(ridingSedanId&&walk){
+      // Accepted Stage 1 passenger view with Stage 2 braking and Stage 3
+      // throttle routed to NH-012. No second Sedan actor or replacement wheels.
+      const agent=ridingAgent();
+      if(agent){
+        if(dragPointer===null)yaw+=trafficHeadingDelta(rideLastHeading,agent.heading);
+        rideLastHeading=agent.heading;
+        const p=sedanRoadPosition(agent);
+        setCameraAt({x:p.x,y:p.y+1.0,z:p.z});
       }
-      const pose=driving.pose;
-      setCameraAt({x:pose.x,y:pose.y,z:pose.z});
     }else if(mode==="walk"&&walk&&actor&&humanoid){
       // A fixed-step Rapier simulation, not naive camera clipping.
       physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
@@ -329,8 +395,17 @@ export async function createNorthHeightsCity8(
     locationTick+=dt;
     if(locationTick>=.33){
       locationTick=0;updateLocation();
-      if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
-      onNearbyVehicleChange?.(!driving&&mode==="walk"&&!!walk&&!!nearestAccessibleCar(walk.physics.playerPosition(),[...cars].map(([id,car])=>({id,pose:car.pose})),cameraBlockers));
+      if(ridingSedanId){
+        const agent=ridingAgent();
+        if(agent){
+          onVehicleChange?.(traffic?.isManualDriving(agent.id)
+            ?"Sedan · Manual":"Sedan · Autopilot",agent.speed);
+        }
+      }
+      const near=!ridingSedanId&&mode==="walk"&&walk
+        ?nearestBoardableVehicle(walk.physics.playerPosition(),
+            [],movingCandidates(),cameraBlockers):null;
+      onNearbyVehicleChange?.(!!near);
     }
     // GEN-VEH-001: all traffic generated, zero source-GLB proximity swaps.
     // OPT-02: render LOD after camera and actor have moved in this very frame,
@@ -346,6 +421,10 @@ export async function createNorthHeightsCity8(
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
         " MOVING GLB "+visibleAuthenticCars+" DOTS 0 SIM "+(traffic?.tick??0)+
         " · GEN-VEH-009 125 SOURCE SEDANS · "+
+        (ridingSedanId?" RIDING "+ridingSedanId+" "+(
+          traffic?.isManualDriving(ridingSedanId)
+            ?"MANUAL V "+traffic.manualSignedSpeed(ridingSedanId).toFixed(2)
+            :"AUTOPILOT")+" · ":"")+
         (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
         "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
     }
@@ -359,7 +438,7 @@ export async function createNorthHeightsCity8(
   });
   const setActiveCharacter=(enabled:boolean)=>{
     if(!actor||!humanoid||!walk)return;
-    if(driving){
+    if(ridingSedanId){
       actor.anchor.setEnabled(false);
       humanoid.root.setEnabled(false);
       return;
@@ -379,43 +458,79 @@ export async function createNorthHeightsCity8(
   };
   const toggleVehicle=()=>{
     if(!walk||!actor||!humanoid)return;
-    if(driving){
-      if(Math.abs(driving.speedMps)>.25){
-        onFeedback?.("Stop the "+activeCarName+" before exiting");return;
+    if(ridingSedanId){
+      const agent=ridingAgent();
+      if(!agent||!trafficSedanCanExit(agent.speed)){
+        onFeedback?.("Wait until the Sedan stops before exiting");return;
       }
-      const exit=currentVehicleDisembark(driving);
-      if(!exit){onFeedback?.("No safe exit beside this vehicle");return;}
+      const footprints=walk.physics.vehicleNoStepFootprintsNear(
+        {x:agent.x,y:sedanRoadPosition(agent).y,z:agent.z},7);
+      let exit:{x:number;y:number;z:number}|null=null;
+      for(const candidate of sedanExitCandidates(agent)){
+        if(overlapsAnotherTrafficSedan(candidate,agent.id,traffic?.agents??[]))continue;
+        if(insideBuildingFootprint(candidate,footprints))continue;
+        const support=walk.physics.probeGround({
+          x:candidate.x,y:northHeightsGround(candidate.x,candidate.z)+2.8,z:candidate.z,
+        },3.5);
+        if(!support||support.normal.y<.65)continue;
+        const p={x:candidate.x,y:support.y+.94,z:candidate.z};
+        if(!walk.physics.isPlayerPositionClear(p))continue;
+        exit=p;break;
+      }
+      if(!exit){onFeedback?.("No safe exit beside this Sedan");return;}
+      // Restore the one accepted player capsule at the current Sedan's stop.
       walk.physics.setPlayerPosition(exit);
-      driving=null;
-      activeCarName=null;
+      walk.physics.setPlayerCollisionEnabled(true);
+      if(traffic?.isManualDriving(ridingSedanId)){
+        if(!traffic.endManualDriving())traffic.parkManualOffRoad(ridingSedanId);
+      }
+      traffic?.clearDriverTurn(ridingSedanId);
+      ridingSedanId=null;
       mode="walk";
       setActiveCharacter(settings.enableCharacter);
+      clearKeys();physicsAccumulator=0;
       onModeChange?.("walk");
       onVehicleChange?.(null,0);
-      clearKeys();physicsAccumulator=0;
       updateLocation(true);
-      onFeedback?.("Exited vehicle");
+      onFeedback?.("Exited Sedan · autopilot continues");
       return;
     }
+    if(mode!=="walk"){onFeedback?.("Land before entering a vehicle");return;}
     const player=walk.physics.playerPosition();
-    const near=nearestAccessibleCar(player,[...cars].map(([id,car])=>({id,pose:car.pose})),cameraBlockers);
-    if(!near){onFeedback?.("Approach a parked vehicle to drive");return;}
-    const car=cars.get(near.id);
-    if(!car)return;
-    driving=car;
-    activeCarName=carNames.get(near.id)??"Vehicle";
-    actor.anchor.setEnabled(false);
-    humanoid.root.setEnabled(false);
-    mode="walk";
-    yaw=car.headingYaw;
-    physicsAccumulator=0;clearKeys();
-    onVehicleChange?.(activeCarName,0);
-    updateLocation(true);
-    onFeedback?.("Driving "+activeCarName+" · arrows to steer · F to exit");
+    const near=nearestBoardableVehicle(player,[],movingCandidates(),cameraBlockers);
+    if(!near){onFeedback?.("Approach a nearby vehicle to enter");return;}
+    if(near.kind==="traffic-sedan"){
+      const agent=traffic?.agents.find(a=>a.id===near.id);
+      if(!agent)return;
+      traffic?.clearDriverTurn();
+      ridingSedanId=agent.id;
+      rideLastHeading=agent.heading;
+      yaw=agent.heading;
+      mode="walk";
+      walk.physics.setPlayerCollisionEnabled(false);
+      actor.anchor.setEnabled(false);
+      humanoid.root.setEnabled(false);
+      clearKeys();physicsAccumulator=0;
+      onModeChange?.("walk");
+      onVehicleChange?.("Sedan · Autopilot",agent.speed);
+      onNearbyVehicleChange?.(false);
+      updateLocation(true);
+      onFeedback?.("Sedan autopilot · ride along · exit when stopped");
+      return;
+    }
   };
   const controller: NorthHeightsInspection = {
-    press(control,down){if(paused)return;if(down)held.add(control);else held.delete(control);},
-    move(x,y){if(paused)return;analog={x:Math.max(-1,Math.min(1,x)),y:Math.max(-1,Math.min(1,y))};},
+    press(control,down){
+      if(paused)return;
+      if(down)held.add(control);else held.delete(control);
+    },
+    move(x,y){
+      if(paused)return;
+      const nextX=Math.max(-1,Math.min(1,x));
+      const nextY=Math.max(-1,Math.min(1,y));
+      // Stage 6: continuous x-axis controls heading every fixed simulation tick.
+      analog={x:nextX,y:nextY};
+    },
     action(action,pressed){
       if(paused)return;
       if(pressed&&action==="vehicle"){
@@ -424,7 +539,7 @@ export async function createNorthHeightsCity8(
       const control=northHeightsActionControl007(action);
       if(control){controller.press(control,pressed);return;}
       if(action==="fly"){
-        if(pressed&&!driving)controller.setMode(mode==="walk"?"fly":"walk");
+        if(pressed&&!ridingSedanId)controller.setMode(mode==="walk"?"fly":"walk");
         return;
       }
       if(pressed)onFeedback?.(northHeightsUnavailableAction007(action));
@@ -441,15 +556,25 @@ export async function createNorthHeightsCity8(
       else {renderLast=0;trafficAccumulator=0;engine.resize();}
     },
     reset() {
-      if(driving)toggleVehicle();
+      if(ridingSedanId){
+        if(traffic?.isManualDriving(ridingSedanId)){
+          if(!traffic.endManualDriving())traffic.parkManualOffRoad(ridingSedanId);
+        }
+        traffic?.clearDriverTurn(ridingSedanId);
+        ridingSedanId=null;
+        walk?.physics.setPlayerCollisionEnabled(true);
+        onVehicleChange?.(null,0);
+        setActiveCharacter(settings.enableCharacter);
+      }
       walk?.reset(footSpawn.x,footSpawn.z);
       yaw=initialYaw;pitch=initialPitch;headingYaw=0;
       updateLocation(true);
       physicsAccumulator=0;clearKeys();
     },
+    toggleSedanAutopilot,
     setTime(time) { sky.setTime(time); },
     setMode(next){
-      if(driving)return false;
+      if(ridingSedanId)return false;
       if(next==="walk"&&(!walk||!actor||!humanoid))return false;
       mode=next;clearKeys();physicsAccumulator=0;
       // Preserve the capsule position and third-person orbit on mode changes.
@@ -468,11 +593,11 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearKeys);
       window.removeEventListener("resize", resize);
-      for(const car of cars.values())car.dispose();
-      cars.clear();
+      if(ridingSedanId&&traffic?.isManualDriving(ridingSedanId)){
+        if(!traffic.endManualDriving())traffic.parkManualOffRoad(ridingSedanId);
+      }
       traffic3D?.dispose();traffic3D=null;
       traffic=null;
-      fleet?.dispose();
       treeHandle?.dispose();
       actor?.dispose();
       humanoid?.disposeDriverContact();
@@ -513,12 +638,22 @@ export async function createNorthHeightsCity8(
     // moving traffic agent as the single owner-accepted sedan in varied paint.
     // Other car models remain review-only; no proximity GLB swapping.
     traffic=new NH012TrafficSimulator(125,120125);
+    // Stage 6: original moving Sedan, independent world-space steering,
+    // swept building-wall tests; trees/lamps/cars remain pass-through.
+    traffic.configureStage6FreeDriving(stage6SolidBuildingCheck(
+      stage6BuildingBlockers(world.lotSpecs)));
     const pilotIds=assignNH013SedanPilot(traffic,8);
     const hatchIds=assignNH013HatchbackPilot(traffic,12);
     const taxiIds=assignNH014TaxiPilot(traffic,NH014_TAXI_COUNT);
     const kangoIds=assignNH015KangoPilot(traffic,NH015_KANGO_COUNT);
     const circuit=verifyCompleteFleet016(traffic.snapshot());
     traffic3D=createNorthHeightsSedanTraffic009(scene,traffic.graph);
+    // Use the SAME measured source axles as GEN-VEH-009 for rider camera height.
+    const front=sourceWheelFit007("sedan","frontLeft");
+    const rear=sourceWheelFit007("sedan","rearLeft");
+    const other=sourceWheelFit007("sedan","frontRight");
+    trafficWheelbase=Math.abs((front.center[2]??0)-(rear.center[2]??0));
+    trafficTrack=Math.abs((front.center[0]??0)-(other.center[0]??0));
     console.info("[GEN-VEH-009] Accepted sedan-only 125-agent native traffic",{
        sedans:pilotIds.size,hatchbacks:hatchIds.size,taxis:taxiIds.size,kango:kangoIds.size,
        defaultVehicleModels:circuit.models,defaultVehicles:circuit.original,
@@ -529,28 +664,9 @@ export async function createNorthHeightsCity8(
       nodes:traffic.graph.nodes.size,directedLanes:traffic.graph.edges.size,
       turns:traffic.graph.connectors.size,agents:traffic.population,
     });
-    // NH-010: reserve NH-03-05 before buildings/trees. Genuine six GLBs
-    // are inside a dedicated empty 48m square with collision-checked bays.
-    validateNorthHeightsParking010(world.lotSpecs,
-      MERCER_EXTRA_GLB_SPECS.map(spec=>({width:spec.width,length:spec.length})));
-    const parking=world.parkingLots[0]!;
-    const nhParking=MERCER_EXTRA_GLB_SPECS.map((spec,index)=>({
-      ...spec,x:parking.stalls[index]!.x,z:parking.stalls[index]!.z,
-      yaw:parking.stalls[index]!.yaw,
-    }));
+    // Stage 6: the six parked GLBs are not imported, preloaded, instantiated
+    // or added to Rapier in North Heights. Parking pads may remain empty.
     buildingInteriors=world.lotSpecs;
-    fleet=createMercerExtraParkedGLBs(scene,walk.physics,[],undefined,{
-      placements:nhParking,
-      heightAt:(x,z)=>northHeightsGround(x,z)+.075,
-      maxConcurrent:mobile?2:3,
-    });
-    // Let assets stream while Voight and UAL initialize. All models must
-    // be genuinely loaded before issuing the final physics-ready signal.
-    const fleetReady=fleet.ready.catch(error=>{
-      const message=error instanceof Error?error.message:String(error);
-      console.error("[NH-009] Six-car GLB load failed",error);
-      return message;
-    });
     status("Loading Voight's accepted walking animation and physics capsule");
     actor=createMercerStaticCharacter(scene);
     await actor.ready;
@@ -574,47 +690,10 @@ export async function createNorthHeightsCity8(
     const spawn=walk.physics.playerPosition();
     setCameraAt(spawn);
     updateLocation(true);
-    const vehicleError=await fleetReady;
-    if(closed)return controller;
-    if(vehicleError)onFeedback?.("Vehicle import issue: "+vehicleError);
-    // Reuse exactly South Ward's vehicle class + wheel mapping. A vehicle
-    // remains drivable even if its source has no four independent wheel
-    // meshes; the physical car still moves, missing wheel animation is
-    // correctly reported by the existing StreetVehicleWheelRig.
-    for(const parked of fleet?.instances??[]){
-      if(!parked.drivingDimensions||parked.spec.visualOnly)continue;
-      const rover=parked.spec.id==="gtd-veh006-mercer-range-rover";
-      const extra=rover?null:extraDriveName(parked.spec.id);
-      if(!rover&&!extra)continue;
-      try{
-        // Native wheel discovery may fail on a combined author GLB. It must
-        // not disable legitimate Rapier driving: physical steering/translation
-        // work without isolated wheel pivots (no fake tires are generated).
-        let wheelMapping=FERRARI_WHEEL_MAPPING;
-        try{
-          const wheel=rover?prepareRangeRoverWheelRig(parked.anchor):
-            prepareNativeFleetWheelRig(parked.anchor,extra!);
-          wheelMapping=wheel.mapping;
-        }catch(wheelIssue){
-          console.warn("[NH-010] Wheel mesh unavailable; driving without rig",
-            parked.spec.id,wheelIssue);
-        }
-        const car=new FirstDriveTrial(walk.physics,parked.anchor,
-          parked.drivingDimensions,
-          rover?RANGE_ROVER_STREET_PROFILE:extraDriveProfile(extra!),
-          wheelMapping,false,false);
-        parked.releaseStaticCollider();
-        cars.set(parked.spec.id,car);
-        carNames.set(parked.spec.id,rover?"Range Rover":extra!);
-      }catch(error){
-        console.error("[NH-010] Driving initialization failed",parked.spec.id,error);
-      }
-    }
-    const fleetCount=cars.size;
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 125 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · "+fleetCount+"/6 drivable native cars · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
+      treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 125 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · 0 parked GLB vehicle loads · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
     // Loading completes only after the initialized world actually draws.
     scene.onAfterRenderObservable.addOnce(()=>{if(!closed)onFirstPlayableFrame?.();});

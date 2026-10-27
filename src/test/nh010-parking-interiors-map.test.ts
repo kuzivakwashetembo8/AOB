@@ -60,6 +60,10 @@ describe("NH-010 parking, enterable interiors and map",()=>{
   expect(view).toContain("North Heights 2D map");
   const controls=read("src/game/experiments/north-heights-city-8.ts");
   expect(controls).toContain('event.code==="KeyF"');
-  expect(controls).toContain("driving.prepare(1/60,x,-z)");
+  // Stage 6: the six parked GLBs were intentionally decommissioned.
+  // Original moving Sedan manual steering is now a 20Hz NH012-owned input.
+  expect(controls).toContain("traffic.setManualSteering(ridingSedanId,steerRequest)");
+  expect(controls).not.toContain("driving.prepare(1/60,x,-z)");
+  expect(controls).not.toContain("createMercerExtraParkedGLBs");
  });
 });
