@@ -112,11 +112,11 @@ export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean})
     if(haptics)navigator.vibrate?.(12);
   };
   return (
-    <div className="driving-arrow-pad" role="group" aria-label="Sedan assisted road controls">
-      <div className="driving-arrows-steer" role="group" aria-label="Sedan next-junction turns">
+    <div className="driving-arrow-pad" role="group" aria-label="Sedan free steering and driving controls">
+      <div className="driving-arrows-steer" role="group" aria-label="Sedan continuous steering">
         <button type="button" className="driving-arrow-button" data-direction="left"
           data-testid="nh-opt2-sedan-left-turn"
-          aria-label="Choose left turn at next legal junction"
+          aria-label="Hold to steer Sedan left anywhere"
           onPointerDown={event=>begin(event,"left")}
           onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}>
           <ArrowLeft aria-hidden="true" size={30}/>
@@ -124,7 +124,7 @@ export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean})
         </button>
         <button type="button" className="driving-arrow-button" data-direction="right"
           data-testid="nh-opt2-sedan-right-turn"
-          aria-label="Choose right turn at next legal junction"
+          aria-label="Hold to steer Sedan right anywhere"
           onPointerDown={event=>begin(event,"right")}
           onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}>
           <ArrowRight aria-hidden="true" size={30}/>
@@ -134,7 +134,7 @@ export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean})
       <div className="driving-arrows-throttle">
         <button type="button" className="driving-arrow-button"
           data-testid="nh-opt2-sedan-accelerator" data-direction="up"
-          aria-label="Hold to accelerate Sedan, release for autopilot"
+          aria-label="Hold to accelerate Sedan forward"
           onPointerDown={event=>begin(event,"up")}
           onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}>
           <ArrowUp aria-hidden="true" size={30}/>
@@ -142,7 +142,7 @@ export function SedanPassengerPedals({send,haptics}:{send:Send;haptics:boolean})
         </button>
         <button type="button" className="driving-arrow-button"
           data-testid="nh-opt2-sedan-brake" data-direction="down"
-          aria-label="Hold to brake Sedan, release for autopilot"
+          aria-label="Hold to brake then reverse Sedan"
           onPointerDown={event=>begin(event,"down")}
           onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}>
           <ArrowDown aria-hidden="true" size={30}/>
