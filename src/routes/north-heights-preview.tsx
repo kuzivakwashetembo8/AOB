@@ -157,7 +157,7 @@ function NorthHeightsPreview(){
   const snapshot:GameSnapshot={
     lifecycle:ready?(paused?"paused":"running"):"bootstrapping",
     context:vehicle?"driving":"walking",location,
-    objective:sedanPassenger?"Sedan assisted driving · Up/W accelerate, Down/S brake, release for autopilot":"Explore North Heights on foot or in flight",
+    objective:sedanPassenger?"Sedan assisted driving · Up/Down pedals · tap Left/Right for next legal junction":"Explore North Heights on foot or in flight",
     health:100,reputation:0,heat:0,speed:vehicleSpeed,vehicle,
     meridianTime:clock,meridianMinuteOfDay:Math.floor(meridianMinute),
     meridianTimeScale:meridianSpeed,interiorState:inside?"inside":"outside",
@@ -186,7 +186,7 @@ function NorthHeightsPreview(){
         </div>}
       {ready&&sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
         className="pointer-events-none absolute left-1/2 top-24 z-10 -translate-x-1/2 rounded bg-black/65 px-3 py-1 text-center text-xs text-white">
-        SEDAN ASSISTED · ↑ / W GAS · ↓ / S BRAKE · RELEASE = AUTOPILOT · {vehicleSpeed>.25?"STOP TO EXIT":"F / VEHICLE TO EXIT"}
+        SEDAN ASSISTED · ← / A LEFT · → / D RIGHT (NEXT JUNCTION) · ↑ GAS · ↓ BRAKE · {vehicle?.includes(" LEFT queued")?"LEFT QUEUED · ":vehicle?.includes(" RIGHT queued")?"RIGHT QUEUED · ":""}{vehicleSpeed>.25?"STOP TO EXIT":"F / VEHICLE TO EXIT"}
       </div>}
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
       {!ready&&<BootstrapOverlay entries={initialStartupChecklist()}
