@@ -51,7 +51,8 @@ function NorthHeightsPreview(){
   const failed=/failed|failure|error/i.test(status);
   const touchVisible=coarse&&!(settings.autoHide&&inputMode==="keyboard");
   const desktopVisible=!coarse&&settings.desktopControls;
-  const sedanPassenger=vehicle?.startsWith("Sedan · Autopilot")??false;
+  const sedanPassenger=vehicle?.startsWith("Sedan · ")??false;
+  const sedanManual=vehicle?.startsWith("Sedan · Manual")??false;
   const send=(command:GameCommand)=>{
     if(command.type==="move")controller.current?.move(command.x,command.y);
     if(command.type==="action")controller.current?.action(command.action,command.pressed);
@@ -157,7 +158,9 @@ function NorthHeightsPreview(){
   const snapshot:GameSnapshot={
     lifecycle:ready?(paused?"paused":"running"):"bootstrapping",
     context:vehicle?"driving":"walking",location,
-    objective:sedanPassenger?"Sedan assisted driving · Up/Down pedals · tap Left/Right for next legal junction":"Explore North Heights on foot or in flight",
+    objective:sedanPassenger?
+      "Stage 5 · W/Up forward (+30%) · S/Down brake then reverse · Left/Right within 8m · P toggles autopilot"
+      :"Explore North Heights on foot or in flight",
     health:100,reputation:0,heat:0,speed:vehicleSpeed,vehicle,
     meridianTime:clock,meridianMinuteOfDay:Math.floor(meridianMinute),
     meridianTimeScale:meridianSpeed,interiorState:inside?"inside":"outside",
@@ -185,8 +188,17 @@ function NorthHeightsPreview(){
             : "SEDAN PILOT INITIALIZING"}
         </div>}
       {ready&&sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
-        className="pointer-events-none absolute left-1/2 top-24 z-10 -translate-x-1/2 rounded bg-black/65 px-3 py-1 text-center text-xs text-white">
-        SEDAN ASSISTED · ← / A LEFT · → / D RIGHT (NEXT JUNCTION) · ↑ GAS · ↓ BRAKE · {vehicle?.includes(" LEFT queued")?"LEFT QUEUED · ":vehicle?.includes(" RIGHT queued")?"RIGHT QUEUED · ":""}{vehicleSpeed>.25?"STOP TO EXIT":"F / VEHICLE TO EXIT"}
+        className="absolute left-1/2 top-24 z-10 flex max-w-[92vw] -translate-x-1/2 items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
+        <span>{sedanManual
+          ?"MANUAL · ↑ / W FORWARD +30% · ↓ / S BRAKE / REVERSE · ← → TURN WITHIN 8m · PASS-THROUGH TRAFFIC"
+          :"AUTOPILOT · FIRST PEDAL OR TURN TAKES MANUAL CONTROL"}
+          {" · "}{vehicleSpeed>.25?"STOP TO EXIT":"F / VEHICLE TO EXIT"}</span>
+        <button type="button" data-testid="nh-opt2-stage5-toggle-autopilot"
+          className="shrink-0 rounded border border-white/40 bg-white/15 px-2 py-1 font-semibold"
+          aria-label={sedanManual?"Switch Sedan to autopilot":"Switch Sedan to manual driving"}
+          onClick={()=>controller.current?.toggleSedanAutopilot()}>
+          {sedanManual?"AUTO (P)":"MANUAL (P)"}
+        </button>
       </div>}
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
       {!ready&&<BootstrapOverlay entries={initialStartupChecklist()}
