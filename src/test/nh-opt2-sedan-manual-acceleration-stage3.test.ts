@@ -71,10 +71,13 @@ describe("GTD-NH-OPT2-SDN-001 Stage 3 NH012 manual accelerator",()=>{
 
   it("obeys 4 m/s speed cap and reservation safety on an active junction connector",()=>{
     const sim=new NH012TrafficSimulator(125,120125);
-    let agent=sim.agents.find(a=>a.connectorId&&a.speed>=.5);
+    const eligible=(a:(typeof sim.agents)[number])=>
+      a.connectorId!==null&&a.speed>=.5&&
+      sim.graph.connectors.get(a.connectorId)!.length-a.s>5;
+    let agent=sim.agents.find(eligible);
     for(let i=0;!agent&&i<1500;i++){
       sim.step();
-      agent=sim.agents.find(a=>a.connectorId&&a.speed>=.5);
+      agent=sim.agents.find(eligible);
     }
     if(!agent)throw Error("No connector occupant available");
     const id=agent.id;
