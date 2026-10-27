@@ -7,6 +7,9 @@ import {
 } from "./nh012-lane-network";
 
 export type NH012MotionState="moving"|"braking"|"stopped"|"turning";
+/** A single tap queues the next legal relative turn, not freeform steering. */
+export type NH012DriverTurn="left"|"right";
+export type NH012TurnResult="queued"|"unavailable"|"locked"|"missing";
 export type NH012Agent= {
  readonly id:string;readonly modelId:string;readonly paintId:string;
  readonly length:number;readonly width:number;
@@ -62,6 +65,61 @@ export class NH012TrafficSimulator {
   * faster than the original AI 2 m/s² or 8 m/s speed cap. */
  private driverThrottleId:string|null=null;
  private driverThrottleAmount=0;
+ /** Stage 4: one next-junction choice scoped to one immutable traffic ID.
+  * This does not modify x, z, heading, yaw or any source wheel geometry. */
+ private driverTurn: {agentId:string;incoming:string;connectorId:string;direction:NH012DriverTurn}|null=null;
+ /** A new rider or vehicle exit clears any uncommitted manual turn.
+  * Committed connectors are NEVER changed or released by this action. */
+ clearDriverTurn(agentId:string|null=null):void{
+   const pending=this.driverTurn;
+   if(!pending||(agentId!==null&&pending.agentId!==agentId))return;
+   const agent=this.agents.find(a=>a.id===pending.agentId);
+   if(agent&&!agent.connectorId&&agent.edgeId===pending.incoming&&
+     agent.plannedConnectorId===pending.connectorId)
+     agent.plannedConnectorId=null;
+   this.driverTurn=null;
+ }
+ /** Relative heading evaluated from lane direction, not camera orientation.
+  * Deterministic and side-effect-free when requested turn is unavailable. */
+ legalDriverTurnConnector(agentId:string,direction:NH012DriverTurn):TrafficConnector012|null{
+   const agent=this.agents.find(a=>a.id===agentId);
+   if(!agent||agent.connectorId)return null;
+   const incoming=this.graph.edges.get(agent.edgeId);
+   if(!incoming)return null;
+   const legal=this.graph.turns.get(incoming.id)??[];
+   return legal.find(connector=>{
+     const outgoing=this.graph.edges.get(connector.outgoing);
+     if(!outgoing)return false;
+     // +Z forward turning toward -X is LEFT. Independent of camera orbit.
+     const cross=incoming.dx*outgoing.dz-incoming.dz*outgoing.dx;
+     return direction==="left"?cross>.5:cross<-.5;
+   })??null;
+ }
+ setDriverTurn(agentId:string,direction:NH012DriverTurn):NH012TurnResult{
+   const agent=this.agents.find(a=>a.id===agentId);
+   if(!agent)return "missing";
+   if(agent.connectorId)return "locked"; // Cannot change an occupied crossing.
+   const connector=this.legalDriverTurnConnector(agentId,direction);
+   if(!connector){
+     // An illegal request must never invalidate a previously legal request.
+     return "unavailable";
+   }
+   // One active rider. Replacing a queued turn also clears its earlier
+   // cached plannedConnectorId; no stale AI junction choice can survive.
+   this.clearDriverTurn();
+   this.driverTurn={agentId,incoming:agent.edgeId,
+     connectorId:connector.id,direction};
+   agent.plannedConnectorId=connector.id;
+   return "queued";
+ }
+ pendingDriverTurn(agentId:string):NH012DriverTurn|null{
+   const pending=this.driverTurn;
+   const agent=this.agents.find(a=>a.id===agentId);
+   return pending&&pending.agentId===agentId&&agent&&
+     agent.connectorId===null&&agent.edgeId===pending.incoming
+       ?pending.direction:null;
+ }
+
  setDriverThrottle(agentId:string|null,amount:number):void{
    if(agentId===null||!Number.isFinite(amount)||amount<=0){
      this.driverThrottleId=null;
@@ -235,6 +293,10 @@ export class NH012TrafficSimulator {
        const connector=this.chooseConnector(agent);
        if(!this.hasExitSpace(connector.outgoing,agent))continue;
        this.reservations.set(junction,agent.id);
+       // Turn intent is one-shot. Consume it ONLY upon successful junction
+       // reservation, never while the lane is merely waiting at a stop line.
+       if(this.driverTurn?.agentId===agent.id)
+         this.driverTurn=null;
        agent.connectorId=connector.id;agent.s=0;agent.speed=0;
        agent.waitTicks=0;agent.state="turning";
        agent.x=connector.p0.x;agent.z=connector.p0.z;
