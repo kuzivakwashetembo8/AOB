@@ -145,6 +145,17 @@ export async function createNorthHeightsCity8(
   const initialYaw = 0, initialPitch = 0;
   let dragPointer: number | null = null, lastX = 0, lastY = 0;
   let frames = 0;
+  const requestSedanTurn=(direction:"left"|"right")=>{
+    if(!ridingSedanId||!traffic)return;
+    const result=traffic.setDriverTurn(ridingSedanId,direction);
+    onFeedback?.(result==="queued"
+      ?direction.toUpperCase()+" turn queued for next junction"
+      :result==="unavailable"
+        ?"No "+direction+" turn available at next junction"
+        :result==="locked"
+          ?"Already turning · choose a direction after this junction"
+          :"Sedan unavailable");
+  };
   const keyDown = (event: KeyboardEvent) => {
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
     if(paused)return;
@@ -156,6 +167,10 @@ export async function createNorthHeightsCity8(
     if(event.code==="KeyG"){
       if(!event.repeat)controller.setMode(mode==="walk"?"fly":"walk");
       return;
+    }
+    if(ridingSedanId&&!event.repeat){
+      if(event.code==="ArrowLeft"||event.code==="KeyA")requestSedanTurn("left");
+      else if(event.code==="ArrowRight"||event.code==="KeyD")requestSedanTurn("right");
     }
     keys.add(event.code);
   };
@@ -386,7 +401,11 @@ export async function createNorthHeightsCity8(
       if(driving)onVehicleChange?.(activeCarName,Math.abs(driving.speedMps));
       else if(ridingSedanId){
         const agent=ridingAgent();
-        if(agent)onVehicleChange?.("Sedan · Autopilot",agent.speed);
+        if(agent){
+          const nextTurn=traffic?.pendingDriverTurn(agent.id);
+          onVehicleChange?.("Sedan · Autopilot"+(nextTurn
+            ?" · "+nextTurn.toUpperCase()+" queued":""),agent.speed);
+        }
       }
       const near=!driving&&!ridingSedanId&&mode==="walk"&&walk
         ?nearestBoardableVehicle(walk.physics.playerPosition(),
@@ -410,7 +429,8 @@ export async function createNorthHeightsCity8(
         " · GEN-VEH-009 125 SOURCE SEDANS · "+
         (ridingSedanId?" RIDING "+ridingSedanId+" "+(
           traffic?.isDriverBraking(ridingSedanId)?"BRAKING":
-          (traffic?.driverThrottleFor(ridingSedanId)??0)>0?"THROTTLE":"AUTOPILOT")+" · ":"")+
+          (traffic?.driverThrottleFor(ridingSedanId)??0)>0?"THROTTLE":"AUTOPILOT")+
+          " TURN "+(traffic?.pendingDriverTurn(ridingSedanId)??"AI")+" · ":"")+
         (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
         "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
     }
@@ -467,6 +487,7 @@ export async function createNorthHeightsCity8(
       // Restore the one accepted player capsule at the current Sedan's stop.
       walk.physics.setPlayerPosition(exit);
       walk.physics.setPlayerCollisionEnabled(true);
+      traffic?.clearDriverTurn(ridingSedanId);
       ridingSedanId=null;
       mode="walk";
       setActiveCharacter(settings.enableCharacter);
@@ -504,6 +525,7 @@ export async function createNorthHeightsCity8(
     if(near.kind==="traffic-sedan"){
       const agent=traffic?.agents.find(a=>a.id===near.id);
       if(!agent)return;
+      traffic?.clearDriverTurn();
       ridingSedanId=agent.id;
       rideLastHeading=agent.heading;
       yaw=agent.heading;
@@ -533,8 +555,25 @@ export async function createNorthHeightsCity8(
     onFeedback?.("Driving "+activeCarName+" · arrows to steer · F to exit");
   };
   const controller: NorthHeightsInspection = {
-    press(control,down){if(paused)return;if(down)held.add(control);else held.delete(control);},
-    move(x,y){if(paused)return;analog={x:Math.max(-1,Math.min(1,x)),y:Math.max(-1,Math.min(1,y))};},
+    press(control,down){
+      if(paused)return;
+      if(down&&!held.has(control)&&ridingSedanId){
+        if(control==="left"||control==="right")requestSedanTurn(control);
+      }
+      if(down)held.add(control);else held.delete(control);
+    },
+    move(x,y){
+      if(paused)return;
+      const nextX=Math.max(-1,Math.min(1,x));
+      const nextY=Math.max(-1,Math.min(1,y));
+      // Touch / desktop movement buttons: one rising-edge tap queues ONE
+      // connector. Continuing to hold must not queue repeated junctions.
+      if(ridingSedanId){
+        if(nextX<-.5&&analog.x>=-.5)requestSedanTurn("left");
+        else if(nextX>.5&&analog.x<=.5)requestSedanTurn("right");
+      }
+      analog={x:nextX,y:nextY};
+    },
     action(action,pressed){
       if(paused)return;
       if(pressed&&action==="vehicle"){
@@ -562,6 +601,7 @@ export async function createNorthHeightsCity8(
     reset() {
       if(driving)toggleVehicle();
       if(ridingSedanId){
+        traffic?.clearDriverTurn(ridingSedanId);
         ridingSedanId=null;
         walk?.physics.setPlayerCollisionEnabled(true);
         onVehicleChange?.(null,0);
