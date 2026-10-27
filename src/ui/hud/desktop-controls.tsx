@@ -83,6 +83,10 @@ export function DesktopControls({
 }) {
   return (
     <div className="desktop-controls" aria-label="Desktop game controls">
+      {passenger&&<div className="desktop-movement-pad" aria-label="Autonomous Sedan brake control">
+        <MovementButton x={0} y={1} label="Hold to brake Sedan" keyHint="↓ / S"
+          icon={ArrowDown} send={send}/>
+      </div>}
       {!passenger&&<div className="desktop-movement-pad" aria-label="Movement controls">
         <div />
         <MovementButton x={0} y={-1} label="Move forward" keyHint="↑ / W" icon={ArrowUp} send={send} />
