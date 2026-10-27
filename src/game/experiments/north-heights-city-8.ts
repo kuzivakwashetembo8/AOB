@@ -162,8 +162,9 @@ export async function createNorthHeightsCity8(
   const keyUp = (event: KeyboardEvent) => { keys.delete(event.code); };
   const clearKeys = () => {
     keys.clear();held.clear();analog={x:0,y:0};dragPointer=null;
-    // Lost focus, pause and exit must never leave a synthetic brake latched.
+    // Lost focus, pause, and exit must clear ALL manual pedal requests.
     traffic?.setDriverBrake(null,false);
+    traffic?.setDriverThrottle(null,0);
   };
   const pointerDown = (event: PointerEvent) => {
     if(paused||dragPointer !== null) return;
@@ -247,13 +248,21 @@ export async function createNorthHeightsCity8(
   scene.onBeforeRenderObservable.add(() => {
     const dt=Math.min(.05,engine.getDeltaTime()/1000);
     if(paused)return;
-    // Stage 2: accept only the existing Back/Down action from a rider.
-    // Stage 3 acceleration and Stage 4 steering are deliberately inactive.
-    // This request reaches NH-012 BEFORE its fixed 20Hz traffic step.
+    // Stages 2 and 3: passenger pedals feed the original NH-012 traffic solver
+    // BEFORE its fixed 20Hz step. Braking overrides acceleration; steering and
+    // reverse stay unimplemented until separate approvals.
+    const gamepad=typeof navigator.getGamepads==="function"?navigator.getGamepads()[0]:null;
+    const gamepadForward=Math.max(0,-(gamepad?.axes[1]??0));
+    const gamepadBrake=Math.max(0,gamepad?.axes[1]??0);
     const passengerBrake=!!ridingSedanId&&(
-      keys.has("ArrowDown")||keys.has("KeyS")||held.has("back")||analog.y>.45
+      keys.has("ArrowDown")||keys.has("KeyS")||held.has("back")||analog.y>.45||gamepadBrake>.45
     );
+    const passengerThrottle=ridingSedanId?Math.max(
+      Number(keys.has("ArrowUp")||keys.has("KeyW")||held.has("forward")),
+      Math.max(0,-analog.y),gamepadForward,
+    ):0;
     traffic?.setDriverBrake(ridingSedanId,passengerBrake);
+    traffic?.setDriverThrottle(ridingSedanId,passengerThrottle);
     if(traffic&&traffic3D){
       trafficAccumulator=Math.min(.15,trafficAccumulator+dt);
       let steps=0;
@@ -278,9 +287,8 @@ export async function createNorthHeightsCity8(
     const heading=new Vector3(Math.sin(yaw),0,Math.cos(yaw));
     const side=new Vector3(Math.cos(yaw),0,-Math.sin(yaw));
     if(ridingSedanId&&walk){
-      // Accepted Stage 1 passenger view and Stage 2 simulator-owned braking.
-      // No new Sedan wheel rig, Rapier body or replacement thin instance.
-      // creating an interactive wheel rig or touching its existing thin instance.
+      // Accepted Stage 1 passenger view with Stage 2 braking and Stage 3
+      // throttle routed to NH-012. No second Sedan actor or replacement wheels.
       const agent=ridingAgent();
       if(agent){
         if(dragPointer===null)yaw+=trafficHeadingDelta(rideLastHeading,agent.heading);
@@ -401,7 +409,8 @@ export async function createNorthHeightsCity8(
         " MOVING GLB "+visibleAuthenticCars+" DOTS 0 SIM "+(traffic?.tick??0)+
         " · GEN-VEH-009 125 SOURCE SEDANS · "+
         (ridingSedanId?" RIDING "+ridingSedanId+" "+(
-          traffic?.isDriverBraking(ridingSedanId)?"BRAKING":"AUTOPILOT")+" · ":"")+
+          traffic?.isDriverBraking(ridingSedanId)?"BRAKING":
+          (traffic?.driverThrottleFor(ridingSedanId)??0)>0?"THROTTLE":"AUTOPILOT")+" · ":"")+
         (mode==="walk"?"GROUNDED "+lastGrounded+" · SPEED "+lastTravelSpeed.toFixed(1)+" m/s · ":"")+
         "CAM "+camera.position.x.toFixed(1)+", "+camera.position.y.toFixed(1)+", "+camera.position.z.toFixed(1));
     }
