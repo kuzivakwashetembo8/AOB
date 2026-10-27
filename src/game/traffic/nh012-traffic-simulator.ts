@@ -10,6 +10,12 @@ export type NH012MotionState="moving"|"braking"|"stopped"|"turning";
 /** A single tap queues the next legal relative turn, not freeform steering. */
 export type NH012DriverTurn="left"|"right";
 export type NH012TurnResult="queued"|"unavailable"|"locked"|"missing";
+export type NH012ManualTurnResult="turning"|"too-early"|"unavailable"|"locked"|"missing"|"not-manual";
+export const NH012_MANUAL_ACCEL=2.6;
+export const NH012_MANUAL_MAX_SPEED=10.4;
+export const NH012_MANUAL_REVERSE_LIMIT=5.2;
+export const NH012_MANUAL_TURN_ZONE=8;
+const NH012_MANUAL_COAST=1.5;
 export type NH012Agent= {
  readonly id:string;readonly modelId:string;readonly paintId:string;
  readonly length:number;readonly width:number;
@@ -65,6 +71,153 @@ export class NH012TrafficSimulator {
   * faster than the original AI 2 m/s² or 8 m/s speed cap. */
  private driverThrottleId:string|null=null;
  private driverThrottleAmount=0;
+ /** Stage 5: a single signed-velocity driver on the ORIGINAL traffic agent.
+  * All other traffic agents use the identical accepted NH-012 AI solver. */
+ private manual: {
+   agentId:string;velocity:number;forward:number;reverse:number;
+   history:string[];
+ }|null=null;
+ isManualDriving(agentId:string):boolean{return this.manual?.agentId===agentId;}
+ manualSignedSpeed(agentId:string):number{return this.isManualDriving(agentId)?this.manual!.velocity:0;}
+ /** A manual takeover retains visual pose, paint, body, source hubs and AI ID. */
+ beginManualDriving(agentId:string):void{
+   const agent=this.agents.find(a=>a.id===agentId);
+   if(!agent)throw Error("NH012 unknown manual Sedan "+agentId);
+   if(this.manual?.agentId===agentId)return;
+   this.endManualDriving();
+   this.clearDriverTurn();
+   if(agent.connectorId){
+     const c=this.graph.connectors.get(agent.connectorId)!;
+     if(this.reservations.get(c.junction)===agent.id)this.reservations.delete(c.junction);
+   }
+   agent.plannedConnectorId=null;
+   this.manual={agentId,velocity:agent.speed,forward:0,reverse:0,history:[]};
+   this.setDriverBrake(null,false);this.setDriverThrottle(null,0);
+ }
+ endManualDriving():void{
+   if(!this.manual)return;
+   const agent=this.agents.find(a=>a.id===this.manual!.agentId);
+   if(agent){
+     // AI uses nonnegative velocity even after manual reverse. On an occupied
+     // curve, reacquire reservation when available. A conflicting reservation
+     // may continue to exist; overlapping at handoff is explicitly temporary.
+     agent.speed=Math.abs(this.manual.velocity);
+     if(agent.connectorId){
+       const c=this.graph.connectors.get(agent.connectorId)!;
+       if(!this.reservations.has(c.junction))
+         this.reservations.set(c.junction,agent.id);
+     }else{
+       agent.arrivalTick=-1;agent.waitTicks=0;agent.plannedConnectorId=null;
+     }
+   }
+   this.manual=null;
+ }
+ setManualPedals(agentId:string,forward:number,reverse:number):void{
+   if(!this.isManualDriving(agentId))return;
+   this.manual!.forward=Number.isFinite(forward)?Math.min(1,Math.max(0,forward)):0;
+   this.manual!.reverse=Number.isFinite(reverse)?Math.min(1,Math.max(0,reverse)):0;
+ }
+ /** The last 8m of a lane is the only valid turn input window. There is no
+  * deferred turning request, and existing traffic permissions are bypassed. */
+ requestManualTurn(agentId:string,direction:NH012DriverTurn):NH012ManualTurnResult{
+   const agent=this.agents.find(a=>a.id===agentId);
+   if(!agent)return "missing";
+   if(!this.isManualDriving(agentId))return "not-manual";
+   if(agent.connectorId)return "locked";
+   const edge=this.graph.edges.get(agent.edgeId)!;
+   if(edge.length-agent.s>NH012_MANUAL_TURN_ZONE)return "too-early";
+   const c=this.legalDriverTurnConnector(agentId,direction);
+   if(!c)return "unavailable";
+   agent.plannedConnectorId=c.id;
+   return "turning";
+ }
+ private manualEdgeChoice(agent:NH012Agent):TrafficConnector012|null{
+   const available=this.graph.turns.get(agent.edgeId)??[];
+   const selected=agent.plannedConnectorId
+     ?available.find(c=>c.id===agent.plannedConnectorId):null;
+   if(selected)return selected;
+   const edge=this.graph.edges.get(agent.edgeId)!;
+   // No input = proceed STRAIGHT whenever there is a legal straight route.
+   return available.find(c=>{
+     const to=this.graph.edges.get(c.outgoing)!;
+     return to.dx===edge.dx&&to.dz===edge.dz;
+   })??null;
+ }
+ private stepManual(dt:number):void{
+   if(!this.manual)return;
+   const m=this.manual,agent=this.agents.find(a=>a.id===m.agentId);
+   if(!agent){this.manual=null;return;}
+   // Driver direction and speed supersede ALL normal traffic stop permissions.
+   // Reverse first brakes forward at 3.5m/s²; then reverses at 2.6m/s².
+   if(m.reverse>0){
+     m.velocity=m.velocity>0?Math.max(0,m.velocity-BRAKE*dt*m.reverse)
+       :Math.max(-NH012_MANUAL_REVERSE_LIMIT,m.velocity-NH012_MANUAL_ACCEL*dt*m.reverse);
+   }else if(m.forward>0){
+     m.velocity=m.velocity<0?Math.min(0,m.velocity+BRAKE*dt*m.forward)
+       :Math.min(NH012_MANUAL_MAX_SPEED,m.velocity+NH012_MANUAL_ACCEL*dt*m.forward);
+   }else{
+     const d=NH012_MANUAL_COAST*dt;
+     m.velocity=m.velocity>0?Math.max(0,m.velocity-d):Math.min(0,m.velocity+d);
+   }
+   let distance=m.velocity*dt;
+   for(let iterations=0;iterations<8;iterations++){
+     if(agent.connectorId){
+       const c=this.graph.connectors.get(agent.connectorId)!;
+       const next=agent.s+distance;
+       if(distance>=0&&next>=c.length){
+         distance=next-c.length;
+         agent.edgeId=c.outgoing;agent.connectorId=null;agent.s=0;
+         agent.plannedConnectorId=null;
+         m.history.push(c.id);
+         if(m.history.length>32)m.history.shift();
+       }else if(distance<0&&next<=0){
+         distance=next;
+         agent.edgeId=c.incoming;agent.connectorId=null;
+         agent.s=this.graph.edges.get(c.incoming)!.length;
+         agent.plannedConnectorId=c.id;
+       }else{agent.s=next;distance=0;break;}
+     }else{
+       const e=this.graph.edges.get(agent.edgeId)!;
+       const next=agent.s+distance;
+       if(distance>0&&next>=e.length){
+         const c=this.manualEdgeChoice(agent);
+         if(!c){
+           agent.s=e.length;distance=0;m.velocity=0;break;
+         }
+         distance=next-e.length;
+         agent.connectorId=c.id;agent.s=0;agent.plannedConnectorId=c.id;
+         // No junction reservation, no stop, no other vehicle clearance.
+       }else if(distance<0&&next<=0){
+         const previous=m.history[m.history.length-1];
+         const c=previous?this.graph.connectors.get(previous):null;
+         if(c?.outgoing===agent.edgeId){
+           m.history.pop();agent.connectorId=c.id;
+           agent.edgeId=c.incoming;agent.s=c.length;
+           distance=next;
+         }else{
+           agent.s=0;distance=0;m.velocity=0;break;
+         }
+       }else{agent.s=next;distance=0;break;}
+     }
+     if(Math.abs(distance)<1e-9)break;
+   }
+   if(agent.connectorId){
+     const c=this.graph.connectors.get(agent.connectorId)!;
+     const p=nh012PointOnConnector(c,agent.s);
+     const ahead=nh012PointOnConnector(c,Math.min(c.length,agent.s+.12));
+     const behind=nh012PointOnConnector(c,Math.max(0,agent.s-.12));
+     agent.x=p.x;agent.z=p.z;agent.heading=nh012HeadingBetween(behind,ahead);
+   }else{
+     const e=this.graph.edges.get(agent.edgeId)!;
+     const p=nh012PointOnEdge(e,agent.s);
+     agent.x=p.x;agent.z=p.z;
+     agent.heading=nh012HeadingBetween(e.start,e.end);
+   }
+   agent.speed=Math.abs(m.velocity);
+   agent.arrivalTick=-1;agent.waitTicks=0;
+   agent.state=agent.connectorId?"turning":agent.speed<.12?"stopped":
+     m.reverse>0||m.forward<=0?"braking":"moving";
+ }
  /** Stage 4: one next-junction choice scoped to one immutable traffic ID.
   * This does not modify x, z, heading, yaw or any source wheel geometry. */
  private driverTurn: {agentId:string;incoming:string;connectorId:string;direction:NH012DriverTurn}|null=null;
@@ -195,6 +348,9 @@ export class NH012TrafficSimulator {
  step(dt=NH012_SIMULATION_DT){
    if(Math.abs(dt-NH012_SIMULATION_DT)>1e-8)throw Error("NH012 requires a 20Hz deterministic step");
    this.tick++;
+   // Manual car moves along the SAME lanes and connectors, but its driver
+   // explicitly overrides traffic signals, spacing, reservation and stop AI.
+   this.stepManual(dt);
    const laneCars=new Map<string,NH012Agent[]>();
    for(const a of this.agents)if(a.connectorId===null){
      const list=laneCars.get(a.edgeId)??[];list.push(a);laneCars.set(a.edgeId,list);
@@ -211,6 +367,7 @@ export class NH012TrafficSimulator {
    }
    // Each reserved connector remains exclusive until its occupant exits.
    for(const agent of this.agents){
+     if(this.manual?.agentId===agent.id)continue;
      if(!agent.connectorId)continue;
      const c=this.graph.connectors.get(agent.connectorId)!;
      const remaining=c.length-agent.s;
@@ -241,6 +398,7 @@ export class NH012TrafficSimulator {
    }
    // Advance ordinary lanes; a virtual stop-line leader enforces full stops.
    for(const agent of this.agents){
+     if(this.manual?.agentId===agent.id)continue;
      if(agent.connectorId)continue;
      const edge=this.graph.edges.get(agent.edgeId)!;
      const available=safe(leaderGaps.get(agent.id)??Infinity);
@@ -280,7 +438,7 @@ export class NH012TrafficSimulator {
    // Deterministic all-way-stop priority, exclusive across conflicting turns.
    const queues=new Map<string,NH012Agent[]>();
    for(const agent of this.agents)if(!agent.connectorId&&agent.waitTicks>=4
-     &&this.driverBrakeId!==agent.id){
+     &&this.driverBrakeId!==agent.id&&this.manual?.agentId!==agent.id){
      const junction=this.graph.edges.get(agent.edgeId)!.to;
      const queue=queues.get(junction)??[];queue.push(agent);queues.set(junction,queue);
    }
@@ -324,7 +482,8 @@ export class NH012TrafficSimulator {
      for(let i=1;i<list.length;i++){
        const a=list[i-1]!,b=list[i]!;
        const gap=b.s-a.s-(a.length+b.length)/2;
-       if(gap<-.0001)errors.push(id+":overlapping lane agents "+a.id+" "+b.id);
+       if(gap<-.0001&&this.manual?.agentId!==a.id&&this.manual?.agentId!==b.id)
+         errors.push(id+":overlapping lane agents "+a.id+" "+b.id);
      }
    }
    for(const [j,agentId] of this.reservations)
