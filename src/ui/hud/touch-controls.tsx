@@ -156,6 +156,7 @@ export function TouchControls({
   flying = false,
   canEnterVehicle = false,
   canExitVehicle = true,
+  passenger = false,
 }: {
   send: Send;
   settings: Settings;
@@ -164,19 +165,20 @@ export function TouchControls({
   flying?: boolean;
   canEnterVehicle?: boolean;
   canExitVehicle?: boolean;
+  passenger?: boolean;
 }) {
   const style = {
     "--control-opacity": settings.opacity / 100,
     "--control-scale": settings.scale / 100,
     "--joystick-size": `${settings.joystickSize}px`,
   } as CSSProperties;
-  const arrowMode = driving && settings.drivingTouchLayout === "arrows";
+  const arrowMode = driving && !passenger && settings.drivingTouchLayout === "arrows";
   return (
     <div
       className={`touch-controls ${arrowMode ? "driving-arrow-mode" : ""} ${driving ? "gtd-driving" : flying ? "gtd-flying" : "gtd-walking"} positions-${settings.position.toLowerCase()} ${!arrowMode && settings.handedness === "Left-handed" ? "left-handed" : ""}`}
       style={style}
     >
-      {arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
+      {passenger ? null : arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
       <div className="touch-actions">
         {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).map(({ action, label, icon: Icon }) => (
           <Button
