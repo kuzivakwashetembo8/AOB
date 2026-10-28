@@ -2009,7 +2009,7 @@ html[data-display="standalone"] body > * {
 
 /* OPT-010: keep the map and pause reachable while optional header metadata fades. */
 .gtd-map-always { position:absolute; top:max(8px,env(safe-area-inset-top)); left:max(12px,env(safe-area-inset-left)); z-index:16; pointer-events:auto; }
-.gtd-header-reveal { position:absolute; top:max(8px,env(safe-area-inset-top)); right:max(65px,env(safe-area-inset-right)); z-index:17; pointer-events:auto; border:1px solid #7c8795; border-radius:6px; background:#071522aa; color:white; padding:8px 12px; font:10px var(--font-mono); }
+.gtd-header-reveal { position:absolute; top:max(8px,env(safe-area-inset-top)); right:max(65px,env(safe-area-inset-right)); z-index:17; pointer-events:auto; }
 .gtd-pause-always { position:absolute; top:max(8px,env(safe-area-inset-top)); right:max(12px,env(safe-area-inset-right)); z-index:17; pointer-events:auto; }
 .gtd-auto-header { position:absolute; top:54px; right:max(12px,env(safe-area-inset-right)); left:max(140px,env(safe-area-inset-left)); z-index:15; transition:opacity .2s ease,transform .2s ease; justify-content:flex-end; pointer-events:auto; }
 .gtd-auto-header.is-hidden { opacity:0; transform:translateY(-8px); pointer-events:none; visibility:hidden; }

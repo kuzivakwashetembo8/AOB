@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Pause } from "lucide-react";
+import { Info, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameSnapshot, HudContext, InputMode } from "@/game/core/types";
 
@@ -48,10 +48,12 @@ export function GameHud({
   return (
     <div className={`hud ${mode === "touch" ? "touch" : ""}`}>
       {mapSlot && <div className="gtd-map-always">{mapSlot}</div>}
-      <button type="button" className="gtd-header-reveal" aria-label={headerVisible ? "Hide game metadata" : "Show game metadata"} aria-expanded={headerVisible}
+      <Button type="button" variant="control" className="gtd-header-reveal"
+        title="Game information" aria-label={headerVisible ? "Hide game metadata" : "Show game metadata"}
+        aria-expanded={headerVisible}
         onClick={() => { setHeaderVisible(value => !value); setTimeControlsOpen(false); }}>
-        {headerVisible ? "HIDE INFO" : "INFO"}
-      </button>
+        <Info size={18} aria-hidden="true" />
+      </Button>
       <div className={`hud-top gtd-auto-header ${headerVisible ? "is-visible" : "is-hidden"}`}>
 
         {showObjective ? <div className="objective"><span className="system-label text-primary">OBJECTIVE</span><p>{snapshot.objective}</p></div> : <div />}

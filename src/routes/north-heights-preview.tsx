@@ -43,7 +43,6 @@ function NorthHeightsPreview(){
   const [inside,setInside]=useState(false);
   const [mapOpen,setMapOpen]=useState(false);
   const [paused,setPaused]=useState(false);
-  const [pedestrianVisualMode,setPedestrianVisualMode]=useState<"characters"|"dots">("characters");
   const [panel,setPanel]=useState<"pause"|"settings"|"objectives"|"save">("pause");
   const [feedback,setFeedback]=useState("");
   const [coarse,setCoarse]=useState(false);
@@ -181,17 +180,6 @@ function NorthHeightsPreview(){
         setMeridianTimeScale={setMeridianSpeed}/>}
       {ready&&!settings.hud&&<button type="button" className="absolute top-5 right-5 z-20"
         aria-label="Pause menu" onClick={()=>{setPanel("pause");setPaused(true);}}>II</button>}
-      {ready&&!paused&&<button type="button"
-        data-testid="ped001-character-dot-toggle"
-        aria-label="Toggle optimized pedestrian models and diagnostic dots"
-        className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded border border-white/30 bg-black/75 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-white"
-        onClick={()=>{
-          const next=pedestrianVisualMode==="characters"?"dots":"characters";
-          setPedestrianVisualMode(next);
-          controller.current?.setPedestrianVisualMode(next);
-        }}>
-        PED 100 · {pedestrianVisualMode==="characters"?"10 OPTIMIZED APPEARANCES":"COLORED DOTS"} · SWITCH
-      </button>}
       {ready&&!paused&&stats.includes("SEDAN ")&&
         <div data-testid="nh013-sedan-telemetry" aria-label="NH-013 sedan pilot diagnostic"
           className="pointer-events-none absolute bottom-2 left-1/2 z-10 w-max max-w-[55vw] -translate-x-1/2 rounded border border-white/20 bg-black/80 px-2 py-1 text-center text-[10px] text-white/90">

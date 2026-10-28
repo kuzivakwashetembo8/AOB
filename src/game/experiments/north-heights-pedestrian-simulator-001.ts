@@ -76,7 +76,7 @@ export class NorthHeightsPedestrianSimulator001{
      const node=this.graph.nodes.get(this.graph.entrances.get(origin)!)!;
      const agent:PedAgent001={
        id:"PED-"+String(i+1).padStart(3,"0"),
-       appearanceId:i%10+1,origin,destination:origin,
+       appearanceId:i+1,origin,destination:origin,
        route:[],segment:0,progress:0,x:node.x,z:node.z,
        speed:1.05+((i*71%101)/101)*.65,
        heading:0,state:"inside",stateAge:0,
