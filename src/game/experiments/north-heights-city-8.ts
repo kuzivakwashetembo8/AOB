@@ -30,8 +30,7 @@ import {stage6BuildingBlockers,stage6SolidBuildingCheck}
   from "@/game/vehicles/nh-opt2-sedan-free-steering-stage6";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {NorthHeightsPedestrianSimulator001} from "./north-heights-pedestrian-simulator-001";
-import {createNorthHeightsPedestrianDots001} from "./north-heights-pedestrian-dots-001";
-import {loadNorthHeightsPedestrianCharacters001,pedestrianCharacterEligible001,type PedestrianCharacterRenderer001} from "./north-heights-pedestrian-characters-001";
+import {loadNorthHeightsPedestrianCharacters001,type PedestrianCharacterRenderer001} from "./north-heights-pedestrian-characters-001";
 import {PED002_NPC_TOTAL_BYTES} from "./north-heights-pedestrian-asset-manifest-002";
 import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
 import {createNorthHeightsSedanTraffic009,type NH009SedanTraffic} from "./north-heights-sedan-traffic-009";
@@ -56,7 +55,6 @@ export interface NorthHeightsInspection {
   setTime: (time: NorthHeightsTime) => void;
   setMode: (mode: "walk" | "fly") => boolean;
   toggleSedanAutopilot: () => void;
-  setPedestrianVisualMode: (mode:"characters"|"dots") => void;
   dispose: () => void;
 }
 export async function createNorthHeightsCity8(
@@ -109,10 +107,8 @@ export async function createNorthHeightsCity8(
   let traffic3D:NH009SedanTraffic|null=null;
   let trafficAccumulator=0,visibleTrafficCars=0,visibleAuthenticCars=0;
   let pedestrians:NorthHeightsPedestrianSimulator001|null=null;
-  let pedestrianDots:ReturnType<typeof createNorthHeightsPedestrianDots001>|null=null;
-  let pedestrianAccumulator=0,visiblePedestrianDots=0;
+  let pedestrianAccumulator=0;
   let pedestrianCharacters:PedestrianCharacterRenderer001|null=null;
-  let pedestrianVisualMode:"characters"|"dots"="characters";
   let pedestrianLoading=false,pedestrianLoadError="";
   /** SDN-001: passenger association with an EXISTING NH-012 agent, not a car actor. */
   let ridingSedanId:string|null=null;
@@ -434,28 +430,21 @@ export async function createNorthHeightsCity8(
       visibleAuthenticCars=0;
       visibleTrafficCars=views.vehicles3D;
     }
-    if(pedestrians&&pedestrianCharacters&&pedestrianVisualMode==="characters"){
+    // PED-002 checklist 01: characters only. Pending/failed GLBs stay absent.
+    if(pedestrians&&pedestrianCharacters){
       pedestrianCharacters.update(pedestrians,camera);
-    }
-    if(pedestrians&&pedestrianDots){
-      visiblePedestrianDots=(pedestrianVisualMode==="dots"||!pedestrianCharacters)
-        ?pedestrianDots.update(pedestrians,camera.position)
-        :pedestrianDots.update(pedestrians,camera.position,a=>
-           pedestrianCharacterEligible001(a,camera.position,false,mobile)
-           && !pedestrianCharacters?.hasModel(a.id));
     }
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
         " MOVING GLB "+visibleAuthenticCars+" DOTS 0 SIM "+(traffic?.tick??0)+
-        " · PED "+(pedestrians?.population??0)+" LOGICAL "+visiblePedestrianDots+
-        " DOTS · JOURNEYS "+(pedestrians?.completed??0)+" · ROUTE FAIL "+(pedestrians?.routeFailures??0)+
+        " · PED "+(pedestrians?.population??0)+" LOGICAL · JOURNEYS "+(pedestrians?.completed??0)+" · ROUTE FAIL "+(pedestrians?.routeFailures??0)+
         " · REROUTES "+(pedestrians?.reroutes??0)+" · STRANDED "+(pedestrians?.stranded??0)+
         " · PARK "+(pedestrians?.parkVisits??0)+" · CROSS "+(pedestrians?.crossingsTraversed??0)+
         " · NPC "+(pedestrianCharacters?.active??0)+" ACTIVE / "+(pedestrianCharacters?.pooled??0)+" POOLED / "+(pedestrianCharacters?.loadedAppearances??0)+" OPTIMIZED GLBs"+
         " · NPC PENDING "+(pedestrianCharacters?.pendingAppearances??0)+
         " FAILED "+(pedestrianCharacters?.failedAppearances??0)+
-        " · PED MODE "+(pedestrianVisualMode==="dots"?"DOTS":"CHARACTERS")+(pedestrianLoadError?" · NPC LOAD ERROR "+pedestrianLoadError:"")+
+        (pedestrianLoadError?" · NPC LOAD ERROR "+pedestrianLoadError:"")+
         " · GEN-VEH-009 125 SOURCE SEDANS · "+
         (ridingSedanId?" RIDING "+ridingSedanId+" "+(
           traffic?.isManualDriving(ridingSedanId)
@@ -617,10 +606,6 @@ export async function createNorthHeightsCity8(
       onModeChange?.(next);
       return true;
     },
-    setPedestrianVisualMode(next){
-       pedestrianVisualMode=next;
-       pedestrianCharacters?.setVisible(next==="characters");
-     },
     dispose() {
       if (closed) return;
       closed = true;
@@ -637,7 +622,7 @@ export async function createNorthHeightsCity8(
         if(!traffic.endManualDriving())traffic.parkManualOffRoad(ridingSedanId);
       }
       pedestrianCharacters?.dispose();pedestrianCharacters=null;
-      pedestrianDots?.dispose();pedestrianDots=null;pedestrians=null;
+      pedestrians=null;
       traffic3D?.dispose();traffic3D=null;
       traffic=null;
       treeHandle?.dispose();
@@ -706,11 +691,11 @@ export async function createNorthHeightsCity8(
       nodes:traffic.graph.nodes.size,directedLanes:traffic.graph.edges.size,
       turns:traffic.graph.connectors.size,agents:traffic.population,
     });
-    // PED-001 stages 1-2: independent pedestrian graph and 100 colored dots.
-    // Crossings are geometric-only in this preview; traffic yielding is stage 4.
+    // PED-002: preserve 100 logical agents and their original routes.
+    // No colored proxies; GLBs appear only when their unique asset is ready.
+    // Crossings remain geometric-only until the dedicated yielding stage.
     pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
-    pedestrianDots=createNorthHeightsPedestrianDots001(scene,pedestrians.population);
-    console.info("[PED-001] pedestrian graph / dot simulation initialized",{
+    console.info("[PED-002] pedestrian graph and independent simulator initialized",{
       agents:pedestrians.population,nodes:pedestrians.graph.nodes.size,
       doorways:pedestrians.graph.entrances.size,parks:pedestrians.graph.parks.length,
       crossings:pedestrians.graph.crossings,unreachable:pedestrians.graph.unreachable,
@@ -753,7 +738,7 @@ export async function createNorthHeightsCity8(
       if(closed)return;
       onFirstPlayableFrame?.();
       // Do not extend North Heights' critical first-playable load with 100 GLBs.
-      // Dot fallback remains available while optimized models load.
+      // Pedestrians without a loaded valid GLB remain visually absent.
       if(pedestrianLoading||pedestrianCharacters)return;
       pedestrianLoading=true;
       void loadNorthHeightsPedestrianCharacters001(scene,northHeightsGround,mobile,
@@ -761,7 +746,6 @@ export async function createNorthHeightsCity8(
         .then(renderer=>{
           if(closed){renderer.dispose();return;}
           pedestrianCharacters=renderer;
-          renderer.setVisible(pedestrianVisualMode==="characters");
           console.info("[PED-002] 100 logical agents each have a unique NPC appearance",{
             available:100,resident:renderer.loadedAppearances,pool:renderer.pooled,
             sourceBytes:PED002_NPC_TOTAL_BYTES,vehicleAgents:traffic?.population,
@@ -769,8 +753,8 @@ export async function createNorthHeightsCity8(
         }).catch(error=>{
           if(closed)return;
           pedestrianLoadError=error instanceof Error?error.message:String(error);
-          console.error("[PED-001] optimized NPC load failed; diagnostic dots retained",error);
-          onFeedback?.("Optimized pedestrian loading failed; dots remain available");
+          console.error("[PED-002] NPC renderer initialization failed",error);
+          onFeedback?.("Pedestrian models unavailable; no substitute visuals rendered");
         }).finally(()=>{pedestrianLoading=false;});
     });
   } catch (error) {

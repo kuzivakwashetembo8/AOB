@@ -2,7 +2,7 @@
 **Date:** 2026-10-28
 **Branch:** feature/ped-002-100-unique-npc-appearances-20261028
 **Baseline:** fd882f2cde039401f612170e6b0a998c2f360419
-**Status:** Preview only; pending owner visual and performance acceptance.
+**Status:** 100-model visual integration accepted; pre-merge checklist item 01 implemented on preview branch. Awaiting remaining owner checklist items.
 
 ## Objective
 Replace the 10 repeated models across the accepted PED-001 simulation with one unique GLB per each of 100 pedestrian IDs (PED-001 ⇄ GTD_NPC_001 through PED-100 ⇄ GTD_NPC_100).
@@ -13,8 +13,9 @@ Keep all 100 pedestrian positions, building origins, destinations, routes, anima
 - After first playable frame, use proximity-driven imports; bound to 1 mobile or 2 desktop imports concurrently.
 - Keep a 12-mobile/24-desktop inactive container LRU cache; never evict active pedestrians to meet a budget.
 - Instantiate at most one rig per frame, retain active/deactivation hysteresis and retain scene cleanup.
-- If a GLB is missing/invalid or pending, show a state-colored diagnostic dot until a valid skeleton with Idle and Walk loads.
-- Dot toggle hides/restores character instances. 13 assets exceeding the 1,000,000-byte target are deferred to a separate optimization branch.
+- **Pre-merge checklist 01 (2026-10-28):** no colored pedestrian dots, placeholders, or proxy meshes during asset loads, after failures, or during normal gameplay. Logical pedestrians remain independent; missing/invalid assets leave their NPC visually absent and log diagnostics.
+- Remove the in-game model/dot switch and retire pedestrian-dot rendering code. Preserve the 100 unique model mapping and accepted walking/road interactions.
+- 13 assets exceeding the 1,000,000-byte target remain deferred to a separate optimization branch.
 
 ## Preview acceptance
 Confirm 100 distinct appearances, preserved pedestrian continuity, no changes to positions and traffic, no loading regressions, safe fly/drive transitions, and acceptable FPS on mobile and desktop.

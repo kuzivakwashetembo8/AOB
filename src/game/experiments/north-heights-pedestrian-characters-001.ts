@@ -1,5 +1,5 @@
 /** PED-002: 100 independent pedestrians use 100 unique GLBs.
- * Nearby appearance streaming, inactive LRU caching, and dot fallback. */
+ * Nearby appearance streaming and inactive LRU caching; no proxy meshes. */
 import {AbstractMesh,AnimationGroup,AssetContainer,Camera,InstantiatedEntries,Scene,SceneLoader,TransformNode,Vector3} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import type {NorthHeightsPedestrianSimulator001,PedAgent001,PedState001} from "./north-heights-pedestrian-simulator-001";
@@ -34,8 +34,6 @@ export interface PedestrianCharacterRenderer001{
  readonly ready:boolean;readonly active:number;readonly pooled:number;
  readonly skeletons:number;readonly loadedAppearances:number;
  readonly failedAppearances:number;readonly pendingAppearances:number;
- hasModel:(id:string)=>boolean;
- setVisible:(visible:boolean)=>void;
  update:(sim:NorthHeightsPedestrianSimulator001,camera:Camera)=>void;
  dispose:()=>void;
 }
@@ -51,7 +49,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
  const lastUsed=new Map<number,number>();
  const maxInactiveAssets=mobile?12:24;
  const maxConcurrentLoads=mobile?1:2;
- let disposed=false,showCharacters=true,createdSkeletons=0,frame=0;
+ let disposed=false,createdSkeletons=0,frame=0;
  const cancelled=()=>disposed||!!isClosed?.();
  const release=(slot:Slot)=>{
    if(slot.assigned)assigned.delete(slot.assigned);
@@ -79,7 +77,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
  };
  const dispose=()=>{
    if(disposed)return;
-   disposed=true;showCharacters=false;
+   disposed=true;
    for(const slot of pool){
      slot.groups.forEach(g=>g.stop());
      slot.entries.dispose();slot.anchor.dispose(false,false);
@@ -166,7 +164,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
        pending.delete(appearance);
        if(cancelled())return;
        failed.add(appearance);
-       report?.("NPC "+String(appearance).padStart(3,"0")+" unavailable; showing diagnostic dot");
+       report?.("NPC "+String(appearance).padStart(3,"0")+" unavailable; model remains absent");
        console.warn("[PED-002] NPC appearance failed to load",appearance,error);
      });
  };
@@ -186,13 +184,8 @@ export async function loadNorthHeightsPedestrianCharacters001(
    get loadedAppearances(){return containers.size;},
    get failedAppearances(){return failed.size;},
    get pendingAppearances(){return pending.size;},
-   hasModel(id){return showCharacters&&assigned.has(id);},
-   setVisible(visible){
-     showCharacters=visible;
-     for(const slot of pool)slot.anchor.setEnabled(visible&&slot.assigned!==null);
-   },
    update(sim,camera){
-     if(cancelled()||!showCharacters)return;
+     if(cancelled())return;
      frame++;
      const supportY=(a:PedAgent001)=>groundSupport(sim,a);
      const point=camera.position;
@@ -217,7 +210,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
          try{slot=createSlot(a.appearanceId);createdThisFrame++;}
          catch(error){
            failed.add(a.appearanceId);
-           console.warn("[PED-002] GLB lacks valid rig/geometry; keeping dot",a.appearanceId,error);
+           console.warn("[PED-002] GLB lacks valid rig/geometry; NPC remains absent",a.appearanceId,error);
            discardAsset(a.appearanceId);continue;
          }
        }
