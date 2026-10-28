@@ -29,6 +29,8 @@ import type {NH012Agent} from "@/game/traffic/nh012-traffic-simulator";
 import {stage6BuildingBlockers,stage6SolidBuildingCheck}
   from "@/game/vehicles/nh-opt2-sedan-free-steering-stage6";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
+import {NorthHeightsPedestrianSimulator001} from "./north-heights-pedestrian-simulator-001";
+import {createNorthHeightsPedestrianDots001} from "./north-heights-pedestrian-dots-001";
 import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
 import {createNorthHeightsSedanTraffic009,type NH009SedanTraffic} from "./north-heights-sedan-traffic-009";
 import {verifyCompleteFleet016} from "@/game/traffic/nh016-fleet-manifest";
@@ -103,6 +105,9 @@ export async function createNorthHeightsCity8(
   let traffic:NH012TrafficSimulator|null=null;
   let traffic3D:NH009SedanTraffic|null=null;
   let trafficAccumulator=0,visibleTrafficCars=0,visibleAuthenticCars=0;
+  let pedestrians:NorthHeightsPedestrianSimulator001|null=null;
+  let pedestrianDots:ReturnType<typeof createNorthHeightsPedestrianDots001>|null=null;
+  let pedestrianAccumulator=0,visiblePedestrianDots=0;
   /** SDN-001: passenger association with an EXISTING NH-012 agent, not a car actor. */
   let ridingSedanId:string|null=null;
   let rideLastHeading=0;
@@ -300,6 +305,13 @@ export async function createNorthHeightsCity8(
         steps++;
       }
     }
+    if(pedestrians){
+      pedestrianAccumulator=Math.min(.15,pedestrianAccumulator+dt);
+      let pedSteps=0;
+      while(pedestrianAccumulator>=.05-1e-7&&pedSteps++<3){
+        pedestrians.step(.05);pedestrianAccumulator-=.05;
+      }
+    }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
     const stickX=pad&&Math.abs(pad.axes[0]??0)>.18?(pad.axes[0]??0):0;
@@ -416,10 +428,15 @@ export async function createNorthHeightsCity8(
       visibleAuthenticCars=0;
       visibleTrafficCars=views.vehicles3D;
     }
+    if(pedestrians&&pedestrianDots){
+      visiblePedestrianDots=pedestrianDots.update(pedestrians,camera);
+    }
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
         " MOVING GLB "+visibleAuthenticCars+" DOTS 0 SIM "+(traffic?.tick??0)+
+        " · PED "+(pedestrians?.population??0)+" LOGICAL "+visiblePedestrianDots+
+        " DOTS · JOURNEYS "+(pedestrians?.completed??0)+" · ROUTE FAIL "+(pedestrians?.routeFailures??0)+
         " · GEN-VEH-009 125 SOURCE SEDANS · "+
         (ridingSedanId?" RIDING "+ridingSedanId+" "+(
           traffic?.isManualDriving(ridingSedanId)
@@ -596,6 +613,7 @@ export async function createNorthHeightsCity8(
       if(ridingSedanId&&traffic?.isManualDriving(ridingSedanId)){
         if(!traffic.endManualDriving())traffic.parkManualOffRoad(ridingSedanId);
       }
+      pedestrianDots?.dispose();pedestrianDots=null;pedestrians=null;
       traffic3D?.dispose();traffic3D=null;
       traffic=null;
       treeHandle?.dispose();
@@ -664,6 +682,16 @@ export async function createNorthHeightsCity8(
       nodes:traffic.graph.nodes.size,directedLanes:traffic.graph.edges.size,
       turns:traffic.graph.connectors.size,agents:traffic.population,
     });
+    // PED-001 stages 1-2: independent pedestrian graph and 100 colored dots.
+    // Crossings are geometric-only in this preview; traffic yielding is stage 4.
+    pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
+    pedestrianDots=createNorthHeightsPedestrianDots001(scene,pedestrians.population);
+    console.info("[PED-001] pedestrian graph / dot simulation initialized",{
+      agents:pedestrians.population,nodes:pedestrians.graph.nodes.size,
+      doorways:pedestrians.graph.entrances.size,parks:pedestrians.graph.parks.length,
+      crossings:pedestrians.graph.crossings,unreachable:pedestrians.graph.unreachable,
+      characterGLBs:0,
+    });
     // Stage 6: the six parked GLBs are not imported, preloaded, instantiated
     // or added to Rapier in North Heights. Parking pads may remain empty.
     buildingInteriors=world.lotSpecs;
@@ -692,6 +720,7 @@ export async function createNorthHeightsCity8(
     updateLocation(true);
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
+      "PED-001 "+(pedestrians?.population??0)+" pedestrian dots · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
       treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 125 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · 0 parked GLB vehicle loads · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
