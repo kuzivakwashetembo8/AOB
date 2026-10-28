@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import {afterEach,act,cleanup,describe,expect,it} from "vitest";
-import {renderHook} from "@testing-library/react";
+import {afterEach,describe,expect,it} from "vitest";
+import {act,cleanup,renderHook} from "@testing-library/react";
 import {readFileSync} from "node:fs";
 import {defaults,useSettings} from "@/ui/menus/settings-state";
 afterEach(()=>{cleanup();localStorage.clear();});
