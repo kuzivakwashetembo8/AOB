@@ -112,7 +112,7 @@ export function DesktopControls({
         ).map(({ action, label, keyHint, icon: Icon }) => (
           <Button
             variant="control"
-            className={`desktop-control-button gtd-priority-action gtd-action-${action}`}
+            className={`desktop-control-button gtd-uniform-action gtd-action-${action}`}
             aria-label={`${label} (${keyHint})`}
             data-tooltip={`${label} · ${keyHint}`}
             key={action}
