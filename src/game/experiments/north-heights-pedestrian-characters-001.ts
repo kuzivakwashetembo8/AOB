@@ -170,7 +170,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
        console.warn("[PED-002] NPC appearance failed to load",appearance,error);
      });
  };
- const supportY=(sim:NorthHeightsPedestrianSimulator001,a:PedAgent001)=>{
+ const groundSupport=(sim:NorthHeightsPedestrianSimulator001,a:PedAgent001)=>{
    const start=sim.graph.nodes.get(a.route[0]??"");
    const end=sim.graph.nodes.get(a.route[a.route.length-1]??"");
    const door=start?.kind==="entrance"&&Math.hypot(a.x-start.x,a.z-start.z)<=1
@@ -194,6 +194,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
    update(sim,camera){
      if(cancelled()||!showCharacters)return;
      frame++;
+     const supportY=(a:PedAgent001)=>groundSupport(sim,a);
      const point=camera.position;
      const byId=new Map(sim.agents.map(a=>[a.id,a]));
      for(const [id,slot] of [...assigned]){
@@ -222,7 +223,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
        }
        lastUsed.set(a.appearanceId,frame);
        slot.assigned=a.id;assigned.set(a.id,slot);
-       slot.anchor.position.set(a.x,supportY(sim,a),a.z);
+       slot.anchor.position.set(a.x,supportY(a),a.z);
        slot.anchor.rotation.y=a.heading;
        slot.anchor.setEnabled(true);
        play(slot,pedestrianCharacterClip001(a.state));
@@ -231,7 +232,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
        const a=byId.get(id);
        if(!a)continue;
        lastUsed.set(slot.appearance,frame);
-       slot.anchor.position.set(a.x,supportY(sim,a),a.z);
+       slot.anchor.position.set(a.x,supportY(a),a.z);
        slot.anchor.rotation.y+=angleDelta(slot.anchor.rotation.y,a.heading)*.25;
        play(slot,pedestrianCharacterClip001(a.state));
      }
