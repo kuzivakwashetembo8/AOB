@@ -31,6 +31,7 @@ import {stage6BuildingBlockers,stage6SolidBuildingCheck}
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {NorthHeightsPedestrianSimulator001} from "./north-heights-pedestrian-simulator-001";
 import {createNorthHeightsPedestrianDots001} from "./north-heights-pedestrian-dots-001";
+import {loadNorthHeightsPedestrianCharacters001,type PedestrianCharacterRenderer001} from "./north-heights-pedestrian-characters-001";
 import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
 import {createNorthHeightsSedanTraffic009,type NH009SedanTraffic} from "./north-heights-sedan-traffic-009";
 import {verifyCompleteFleet016} from "@/game/traffic/nh016-fleet-manifest";
@@ -54,6 +55,7 @@ export interface NorthHeightsInspection {
   setTime: (time: NorthHeightsTime) => void;
   setMode: (mode: "walk" | "fly") => boolean;
   toggleSedanAutopilot: () => void;
+  setPedestrianVisualMode: (mode:"characters"|"dots") => void;
   dispose: () => void;
 }
 export async function createNorthHeightsCity8(
@@ -108,6 +110,9 @@ export async function createNorthHeightsCity8(
   let pedestrians:NorthHeightsPedestrianSimulator001|null=null;
   let pedestrianDots:ReturnType<typeof createNorthHeightsPedestrianDots001>|null=null;
   let pedestrianAccumulator=0,visiblePedestrianDots=0;
+  let pedestrianCharacters:PedestrianCharacterRenderer001|null=null;
+  let pedestrianVisualMode:"characters"|"dots"="characters";
+  let pedestrianLoading=false,pedestrianLoadError="";
   /** SDN-001: passenger association with an EXISTING NH-012 agent, not a car actor. */
   let ridingSedanId:string|null=null;
   let rideLastHeading=0;
@@ -428,8 +433,13 @@ export async function createNorthHeightsCity8(
       visibleAuthenticCars=0;
       visibleTrafficCars=views.vehicles3D;
     }
+    if(pedestrians&&pedestrianCharacters&&pedestrianVisualMode==="characters"){
+      pedestrianCharacters.update(pedestrians,camera);
+    }
     if(pedestrians&&pedestrianDots){
-      visiblePedestrianDots=pedestrianDots.update(pedestrians,camera.position);
+      visiblePedestrianDots=(pedestrianVisualMode==="dots"||!pedestrianCharacters)
+        ?pedestrianDots.update(pedestrians,camera.position)
+        :pedestrianDots.update(pedestrians,{x:1e8,z:1e8});
     }
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
@@ -439,6 +449,8 @@ export async function createNorthHeightsCity8(
         " DOTS · JOURNEYS "+(pedestrians?.completed??0)+" · ROUTE FAIL "+(pedestrians?.routeFailures??0)+
         " · REROUTES "+(pedestrians?.reroutes??0)+" · STRANDED "+(pedestrians?.stranded??0)+
         " · PARK "+(pedestrians?.parkVisits??0)+" · CROSS "+(pedestrians?.crossingsTraversed??0)+
+        " · NPC "+(pedestrianCharacters?.active??0)+" ACTIVE / "+(pedestrianCharacters?.pooled??0)+" POOLED / "+(pedestrianCharacters?.loadedAppearances??0)+" OPTIMIZED GLBs"+
+        " · PED MODE "+(pedestrianVisualMode==="dots"?"DOTS":"CHARACTERS")+(pedestrianLoadError?" · NPC LOAD ERROR "+pedestrianLoadError:"")+
         " · GEN-VEH-009 125 SOURCE SEDANS · "+
         (ridingSedanId?" RIDING "+ridingSedanId+" "+(
           traffic?.isManualDriving(ridingSedanId)
@@ -600,6 +612,7 @@ export async function createNorthHeightsCity8(
       onModeChange?.(next);
       return true;
     },
+    setPedestrianVisualMode(next){pedestrianVisualMode=next;},
     dispose() {
       if (closed) return;
       closed = true;
@@ -615,6 +628,7 @@ export async function createNorthHeightsCity8(
       if(ridingSedanId&&traffic?.isManualDriving(ridingSedanId)){
         if(!traffic.endManualDriving())traffic.parkManualOffRoad(ridingSedanId);
       }
+      pedestrianCharacters?.dispose();pedestrianCharacters=null;
       pedestrianDots?.dispose();pedestrianDots=null;pedestrians=null;
       traffic3D?.dispose();traffic3D=null;
       traffic=null;
@@ -722,12 +736,34 @@ export async function createNorthHeightsCity8(
     updateLocation(true);
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
-      "PED-001 "+(pedestrians?.population??0)+" pedestrian dots · "+
+      "PED-001 "+(pedestrians?.population??0)+" logical pedestrians · ten optimized appearances load after first frame · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
       treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 125 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · 0 parked GLB vehicle loads · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
     // Loading completes only after the initialized world actually draws.
-    scene.onAfterRenderObservable.addOnce(()=>{if(!closed)onFirstPlayableFrame?.();});
+    scene.onAfterRenderObservable.addOnce(()=>{
+      if(closed)return;
+      onFirstPlayableFrame?.();
+      // Do not extend North Heights' critical first-playable load with ten GLBs.
+      // Dot fallback remains available while optimized models load.
+      if(pedestrianLoading||pedestrianCharacters)return;
+      pedestrianLoading=true;
+      void loadNorthHeightsPedestrianCharacters001(scene,northHeightsGround,mobile,
+        message=>console.info("[PED-001 optimized]",message),()=>closed)
+        .then(renderer=>{
+          if(closed){renderer.dispose();return;}
+          pedestrianCharacters=renderer;
+          console.info("[PED-001] 100 logical agents share ten optimized Ara appearances",{
+            appearances:renderer.loadedAppearances,pool:renderer.pooled,
+            sourceBytes:7285620,vehicleAgents:traffic?.population,
+          });
+        }).catch(error=>{
+          if(closed)return;
+          pedestrianLoadError=error instanceof Error?error.message:String(error);
+          console.error("[PED-001] optimized NPC load failed; diagnostic dots retained",error);
+          onFeedback?.("Optimized pedestrian loading failed; dots remain available");
+        }).finally(()=>{pedestrianLoading=false;});
+    });
   } catch (error) {
     status("North Heights reconstruction failed: "+(error instanceof Error?error.message:String(error)));
     console.error("[NH-REBUILD-001] procedural generation failed",error);
