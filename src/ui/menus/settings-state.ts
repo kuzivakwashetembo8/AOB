@@ -50,7 +50,7 @@ export type Settings = {
   desktopControls: boolean;
 };
 export const defaults: Settings = {
-  enableCharacter: false,
+  enableCharacter: true,
   physicsDebug: false,
   physicsCapsuleDebug: false,
   footIKProbes: false,
@@ -96,13 +96,26 @@ export function useSettings(active = true) {
       const value = localStorage.getItem("gtd-interface-settings");
       if (value) {
         const stored = JSON.parse(value) as Partial<Settings>;
+        // The original "Enable Character: OFF" was a legacy default, not
+        // proof of an explicit UAL choice. Migrate once to Voight on existing
+        // devices. After migration, an explicitly saved OFF remains respected.
+        const charDefaultVersionKey = "gtd-voight-default-v1";
+        const alreadyMigrated = localStorage.getItem(charDefaultVersionKey) === "1";
+        const enableCharacter = alreadyMigrated
+          ? stored.enableCharacter !== false
+          : true;
+        if (!alreadyMigrated) {
+          localStorage.setItem(charDefaultVersionKey, "1");
+          localStorage.setItem("gtd-interface-settings",
+            JSON.stringify({ ...stored, enableCharacter }));
+        }
         // The old "resolution: Native" setting had no runtime effect. Do
         // not silently turn an old user's ignored choice into expensive
         // physical-DPR rendering during the first upgraded mobile session.
         setSettings({
           ...defaults,
           ...stored,
-          enableCharacter: stored.enableCharacter === true,
+          enableCharacter,
           physicsDebug: stored.physicsDebug === true,
           physicsCapsuleDebug: stored.physicsCapsuleDebug === true,
           footIKProbes: stored.footIKProbes === true,
@@ -123,6 +136,7 @@ export function useSettings(active = true) {
   const save = (value: Settings) => {
     setSettings(value);
     try {
+      localStorage.setItem("gtd-voight-default-v1", "1");
       localStorage.setItem("gtd-interface-settings", JSON.stringify(value));
     } catch {
       /* Settings still apply for this session. */

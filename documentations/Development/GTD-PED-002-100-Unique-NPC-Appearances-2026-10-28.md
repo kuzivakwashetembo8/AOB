@@ -20,3 +20,10 @@ Keep all 100 pedestrian positions, building origins, destinations, routes, anima
 ## Preview acceptance
 Confirm 100 distinct appearances, preserved pedestrian continuity, no changes to positions and traffic, no loading regressions, safe fly/drive transitions, and acceptable FPS on mobile and desktop.
 Do not merge to main without owner acceptance.
+
+## Pre-merge checklist 02 — default character and information control
+- Verified on GTD main at fd882f2cde039401f612170e6b0a998c2f360419: `settings-state.ts` still had `enableCharacter: false`, and `GameHud` still rendered `INFO`/`HIDE INFO` text with separate button styling; the requested accepted adjustments were **not** implemented on main.
+- Set shared default `enableCharacter: true` so Voight (`character.glb`) is the initial controllable avatar, with UAL still available as a manual setting.
+- One-time migration key `gtd-voight-default-v1` upgrades legacy saved OFF values to ON (legacy OFF was the default); subsequent explicit user selection of UAL OFF is saved and respected across refreshes. All districts share one persisted setting.
+- Replaced textual `INFO`/`HIDE INFO` with Lucide `Info` glyph and the same `Button variant="control"` design used by adjacent Pause; preserve header reveal and accessible labels.
+- No changes to PED-002 models/routes, driving, collisions or pedestrian asset streaming.
