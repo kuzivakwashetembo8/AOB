@@ -429,7 +429,7 @@ export async function createNorthHeightsCity8(
       visibleTrafficCars=views.vehicles3D;
     }
     if(pedestrians&&pedestrianDots){
-      visiblePedestrianDots=pedestrianDots.update(pedestrians,camera);
+      visiblePedestrianDots=pedestrianDots.update(pedestrians,camera.position);
     }
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
