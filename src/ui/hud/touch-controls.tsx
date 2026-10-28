@@ -265,7 +265,7 @@ export function TouchControls({
         {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).map(({ action, label, icon: Icon }) => (
           <Button
             variant="control"
-            className={`gtd-priority-action gtd-action-${action}`}
+            className={`gtd-uniform-action gtd-action-${action}`}
             aria-label={label}
             title={label}
             key={action}
