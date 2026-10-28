@@ -439,10 +439,8 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
   const city=new InstancedCity(scene);
   attachNorthHeightsGrass004(scene,city.mat("grass"));
   terrain(scene,city.mat("grass"));
-  // Curb surfaces intentionally use consistent unlit municipal material; corner
-  // faces must not darken because of ambiguous quad winding or per-face normals.
-  city.mat("curb").disableLighting=true;
-  city.mat("curb").backFaceCulling=false;
+  // Sidewalk top and fascia now share one lit concrete material and upward
+  // shading normals (NH003). No independent unlit curb tint is permitted.
   const roads=createNorthHeightsRoads003(scene,STREETS,northHeightsGround,{
     asphalt:city.mat("road"),pavement:city.mat("pavement"),
     curb:city.mat("curb"),crossing:city.mat("crosswalk"),marking:city.mat("lane"),

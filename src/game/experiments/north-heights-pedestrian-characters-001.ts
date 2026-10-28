@@ -4,6 +4,7 @@
 import {AbstractMesh,AnimationGroup,AssetContainer,Camera,InstantiatedEntries,Scene,SceneLoader,TransformNode,Vector3} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import type {NorthHeightsPedestrianSimulator001,PedAgent001,PedState001} from "./north-heights-pedestrian-simulator-001";
+import {northHeightsPedestrianSurfaceOffset001} from "./north-heights-pedestrian-surface-001";
 export const PED001_OPTIMIZED_FILES=[
  "GTD_NPC_001_S42027.glb","GTD_NPC_002_S49946.glb","GTD_NPC_003_S57865.glb",
  "GTD_NPC_004_S65784.glb","GTD_NPC_005_S73703.glb","GTD_NPC_006_S81622.glb",
@@ -155,6 +156,16 @@ export async function loadNorthHeightsPedestrianCharacters001(
        if(cancelled())return;
        const point=camera.position;
        const byId=new Map(sim.agents.map(a=>[a.id,a]));
+       const supportY=(a:PedAgent001)=>{
+         // Door nodes only matter during the first/last metre of a journey.
+         // Else the exact road-grid footprint distinguishes sidewalk, zebra,
+         // and park ground. All coordinates/route states remain unchanged.
+         const start=sim.graph.nodes.get(a.route[0]??"");
+         const end=sim.graph.nodes.get(a.route[a.route.length-1]??"");
+         const door=start?.kind==="entrance"&&Math.hypot(a.x-start.x,a.z-start.z)<=1
+           ?start:end?.kind==="entrance"&&Math.hypot(a.x-end.x,a.z-end.z)<=1?end:null;
+         return ground(a.x,a.z)+northHeightsPedestrianSurfaceOffset001(a.x,a.z,door);
+       };
        // Never release a visible character because another agent is closer.
        // Release only on doorway entry or beyond the large hysteresis envelope.
        for(const [id,slot] of [...assigned]){
@@ -178,7 +189,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
            createdThisFrame++;
          }
          slot.assigned=a.id;assigned.set(a.id,slot);
-         slot.anchor.position.set(a.x,ground(a.x,a.z),a.z);
+         slot.anchor.position.set(a.x,supportY(a),a.z);
          slot.anchor.rotation.y=a.heading;
          slot.anchor.setEnabled(true);
          play(slot,pedestrianCharacterClip001(a.state));
@@ -186,7 +197,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
        for(const [id,slot] of assigned){
          const a=byId.get(id);
          if(!a)continue;
-         slot.anchor.position.set(a.x,ground(a.x,a.z),a.z);
+         slot.anchor.position.set(a.x,supportY(a),a.z);
          slot.anchor.rotation.y+=angleDelta(slot.anchor.rotation.y,a.heading)*.25;
          play(slot,pedestrianCharacterClip001(a.state));
        }

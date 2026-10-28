@@ -1,0 +1,46 @@
+import {describe,it,expect} from "vitest";
+import {NullEngine,Scene,StandardMaterial,VertexBuffer} from "@babylonjs/core";
+import {createNorthHeightsRoads003} from "@/game/experiments/north-heights-roads-003";
+import {northHeightsPedestrianSurfaceOffset001} from "@/game/experiments/north-heights-pedestrian-surface-001";
+import {readFileSync} from "node:fs";
+
+describe("PED-001 VIS-004: animated pedestrian ground support",()=>{
+ it("uses real sidewalk, corner, crossing and park elevations",()=>{
+   expect(northHeightsPedestrianSurfaceOffset001(6,32)).toBeCloseTo(.20);
+   expect(northHeightsPedestrianSurfaceOffset001(6,6)).toBeCloseTo(.20);
+   expect(northHeightsPedestrianSurfaceOffset001(9.55,6)).toBeCloseTo(.20);
+   expect(northHeightsPedestrianSurfaceOffset001(9.55,0)).toBeCloseTo(.075);
+   expect(northHeightsPedestrianSurfaceOffset001(0,32)).toBeCloseTo(.075);
+   expect(northHeightsPedestrianSurfaceOffset001(32,32)).toBe(0);
+   expect(northHeightsPedestrianSurfaceOffset001(32,32,{x:32,z:32})).toBeCloseTo(.19);
+   expect(northHeightsPedestrianSurfaceOffset001(32,34,{x:32,z:32})).toBe(0);
+ });
+ it("both character assignment and ongoing updates use support Y",()=>{
+   const source=readFileSync("src/game/experiments/north-heights-pedestrian-characters-001.ts","utf8");
+   expect(source.match(/slot\.anchor\.position\.set\(a\.x,supportY\(a\),a\.z\)/g)).toHaveLength(2);
+   expect(source).not.toContain("slot.anchor.position.set(a.x,ground(a.x,a.z),a.z)");
+ });
+});
+describe("PED-001 VIS-004: curb fascia and pavement top have identical shading",()=>{
+ it("shares one material and upward normals while retaining five road batches",()=>{
+   const engine=new NullEngine(),scene=new Scene(engine);
+   try{
+     const mats=Object.fromEntries(["asphalt","pavement","curb","crossing","marking"].map(name=>
+       [name,new StandardMaterial(name,scene)])) as Record<
+         "asphalt"|"pavement"|"curb"|"crossing"|"marking",StandardMaterial>;
+     const result=createNorthHeightsRoads003(scene,[-64,0,64],()=>0,mats);
+     expect(result.surfaceMeshes).toBe(5);
+     const top=scene.getMeshByName("nh003-road:pavement")!;
+     const side=scene.getMeshByName("nh003-road:curb")!;
+     expect(side.material).toBe(top.material);
+     expect(side.material).toBe(mats.pavement);
+     expect(side.getTotalIndices()).toBeGreaterThan(800);
+     const normals=side.getVerticesData(VertexBuffer.NormalKind)!;
+     for(let i=0;i<normals.length;i+=3){
+       expect(normals[i]).toBe(0);
+       expect(normals[i+1]).toBe(1);
+       expect(normals[i+2]).toBe(0);
+     }
+   }finally{scene.dispose();engine.dispose();}
+ });
+});

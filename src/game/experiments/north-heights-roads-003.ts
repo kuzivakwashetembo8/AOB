@@ -27,8 +27,12 @@ export type NorthHeightsRoadResult = Readonly<{
 type Layer = "asphalt" | "pavement" | "curb" | "crossing" | "marking";
 type Builder = { p:number[];uv:number[];indices:number[] };
 type Point = Readonly<{x:number;y:number;z:number}>;
-const WIDTH=8, HALF=WIDTH/2, WALK=3.75, OUTER=HALF+WALK;
-const CURB_TOP=.20, WALK_TOP=.20, ASPHALT_TOP=.075;
+export const NORTH_HEIGHTS_ROAD_HALF_WIDTH_003=4;
+export const NORTH_HEIGHTS_SIDEWALK_OUTER_003=7.75;
+export const NORTH_HEIGHTS_SIDEWALK_ELEVATION_003=.20;
+export const NORTH_HEIGHTS_ASPHALT_ELEVATION_003=.075;
+const WIDTH=8, HALF=NORTH_HEIGHTS_ROAD_HALF_WIDTH_003, WALK=3.75, OUTER=NORTH_HEIGHTS_SIDEWALK_OUTER_003;
+const CURB_TOP=NORTH_HEIGHTS_SIDEWALK_ELEVATION_003, WALK_TOP=NORTH_HEIGHTS_SIDEWALK_ELEVATION_003, ASPHALT_TOP=NORTH_HEIGHTS_ASPHALT_ELEVATION_003;
 const STEP=6; // metres between grade samples
 
 function empty():Builder{return {p:[],uv:[],indices:[]};}
@@ -118,7 +122,9 @@ function materialMesh(scene:Scene,name:string,data:Builder,material:StandardMate
   if(name!=="curb")ensureWalkableFacesPointUp(data);
   const normal:number[]=[];
   VertexData.ComputeNormals(data.p,data.indices,normal);
-  if(name!=="curb"){
+  {
+    // Match sky-facing pavement-top normals on curb fascia as well: a
+    // vertical geometric normal would darken the identical shared concrete.
     // Both Babylon left/right-handed imported winding and the batch's
     // internal ribbon direction can invert computed lighting normals.
     // Carriageway, paving, and painted marks are walkable top surfaces,
@@ -222,7 +228,8 @@ export function createNorthHeightsRoads003(
   }
   const materials:Record<Layer,StandardMaterial>={
     asphalt:material.asphalt,pavement:material.pavement,
-    curb:material.curb,crossing:material.crossing,marking:material.marking,
+    // Fascia and top MUST use the identical material, not merely similar hexes.
+    curb:material.pavement,crossing:material.crossing,marking:material.marking,
   };
   let surfaceMeshes=0;
   for(const name of ["asphalt","pavement","curb","crossing","marking"] as const)
