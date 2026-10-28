@@ -1,4 +1,6 @@
-/** PED-001 dot-stage logical population. No render, asset or physics dependency. */
+/** PED-001 Stage 3: deterministic building-to-building journey lifecycle.
+ * Logical simulation only: no Babylon, GLB, Rapier, or vehicle coupling.
+ * Walking-distance distribution is intentionally NOT decided here. */
 import {buildPedestrianGraph001,pedestrianRoute001,type PedGraph001,type PedEdgeKind001} from "./north-heights-pedestrian-graph-001";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {TreeLocation} from "./north-heights-trees-004";
@@ -7,85 +9,220 @@ export type PedState001="depart"|"walk"|"park"|"wait"|"cross"|"arrive"|"inside";
 export type PedAgent001={
  id:string;appearanceId:number;origin:string;destination:string;
  route:string[];segment:number;progress:number;x:number;z:number;
- speed:number;state:PedState001;stateAge:number;insideSeconds:number;
+ speed:number;heading:number;state:PedState001;stateAge:number;insideSeconds:number;
+ seed:number;journeysCompleted:number;departures:number;parkVisits:number;
+ crossingsTraversed:number;distanceTraveled:number;reroutes:number;
+ lastArrival:string|null;stranded:boolean;
 };
 export const PED001_POPULATION=100;
-const rng=(seed:number)=>{
- let s=seed>>>0;return ()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
+const EPS=1e-5;
+const nextRandom=(a:PedAgent001)=>{
+ a.seed=(Math.imul(a.seed,1664525)+1013904223)>>>0;
+ return a.seed/4294967296;
 };
+function connectedComponents(graph:PedGraph001){
+ const component=new Map<string,number>();
+ let count=0;
+ for(const id of graph.nodes.keys()){
+   if(component.has(id))continue;
+   const pending=[id];component.set(id,count);
+   while(pending.length){
+     const current=pending.pop()!;
+     for(const edge of graph.links.get(current)??[]){
+       if(!component.has(edge.to)){
+         component.set(edge.to,count);pending.push(edge.to);
+       }
+     }
+   }
+   count++;
+ }
+ return {component,count};
+}
 export class NorthHeightsPedestrianSimulator001{
  readonly graph:PedGraph001;
  readonly agents:PedAgent001[]=[];
  readonly population=PED001_POPULATION;
+ readonly connectedComponents:number;
+ readonly unreachableBuildings:readonly string[];
  tick=0;
  completed=0;
  routeFailures=0;
- private readonly random=rng(2801001);
- private readonly buildingIds:string[];
+ reroutes=0;
+ parkVisits=0;
+ crossingsTraversed=0;
+ stranded=0;
+ private readonly destinations=new Map<string,readonly string[]>();
+ private readonly eligibleBuildings:string[];
+ private readonly routeCache=new Map<string,readonly string[]>();
  constructor(buildings:readonly BuildingSpec[],trees:readonly TreeLocation[]=[]){
    this.graph=buildPedestrianGraph001(buildings,trees);
-   this.buildingIds=[...this.graph.entrances.keys()];
-   if(this.buildingIds.length<2)throw new Error("PED-001 requires >=2 reachable building entrances");
+   const {component,count}=connectedComponents(this.graph);
+   this.connectedComponents=count;
+   const buildingIds=[...this.graph.entrances.keys()];
+   const groups=new Map<number,string[]>();
+   for(const id of buildingIds){
+     const componentId=component.get(this.graph.entrances.get(id)!)!;
+     const group=groups.get(componentId)??[];
+     group.push(id);groups.set(componentId,group);
+   }
+   for(const group of groups.values())for(const id of group)
+     this.destinations.set(id,group.filter(other=>other!==id));
+   this.eligibleBuildings=buildingIds.filter(id=>(this.destinations.get(id)?.length??0)>0);
+   this.unreachableBuildings=buildingIds.filter(id=>!this.eligibleBuildings.includes(id));
+   if(this.eligibleBuildings.length<2)
+     throw new Error("PED-001 requires >=2 mutually reachable building entrances");
    for(let i=0;i<PED001_POPULATION;i++){
-     const origin=this.buildingIds[i%this.buildingIds.length]!;
+     const origin=this.eligibleBuildings[i%this.eligibleBuildings.length]!;
      const node=this.graph.nodes.get(this.graph.entrances.get(origin)!)!;
      const agent:PedAgent001={
        id:"PED-"+String(i+1).padStart(3,"0"),
        appearanceId:i%10+1,origin,destination:origin,
        route:[],segment:0,progress:0,x:node.x,z:node.z,
-       speed:1.05+this.random()*.65,
-       state:"inside",stateAge:0,insideSeconds:this.random()*6,
+       speed:1.05+((i*71%101)/101)*.65,
+       heading:0,state:"inside",stateAge:0,
+       insideSeconds:((i*37%101)/101)*6,
+       seed:(2801001+Math.imul(i+1,747796405))>>>0,
+       journeysCompleted:0,departures:0,parkVisits:0,crossingsTraversed:0,
+       distanceTraveled:0,reroutes:0,lastArrival:null,stranded:false,
      };
      this.agents.push(agent);
    }
  }
- private depart(a:PedAgent001){
-   const start=this.graph.entrances.get(a.origin)!;
-   // Uniform destination sampling is a provisional diagnostic strategy, NOT
-   // the owner's future walking-distance variation policy.
-   for(let attempt=0;attempt<20;attempt++){
-     const destination=this.buildingIds[Math.floor(this.random()*this.buildingIds.length)]!;
-     if(destination===a.origin)continue;
-     const route=pedestrianRoute001(this.graph,start,this.graph.entrances.get(destination)!);
-     if(route.length<2)continue;
-     a.destination=destination;a.route=route;a.segment=0;a.progress=0;
-     a.state="depart";a.stateAge=0;a.insideSeconds=0;return;
+ /** Cache successful graph routes, bounded independently of agent count. */
+ private route(from:string,to:string){
+   const key=from+"\u0000"+to;
+   const cached=this.routeCache.get(key);
+   if(cached)return [...cached];
+   const route=pedestrianRoute001(this.graph,from,to);
+   if(route.length>=2){
+     if(this.routeCache.size>=256)
+       this.routeCache.delete(this.routeCache.keys().next().value!);
+     this.routeCache.set(key,route);
    }
-   this.routeFailures++;
-   a.insideSeconds=3+this.random()*5;
+   return route;
+ }
+ private setState(a:PedAgent001,state:PedState001){
+   if(a.state===state)return;
+   a.state=state;a.stateAge=0;
+   if(state==="park"){a.parkVisits++;this.parkVisits++;}
+   if(state==="cross"){a.crossingsTraversed++;this.crossingsTraversed++;}
+ }
+ private pickDestination(a:PedAgent001,from:string,preferred?:string){
+   const candidates=this.destinations.get(a.origin)??[];
+   // Destination selection is uniform among connected entrances as a temporary
+   // diagnostic baseline. No minimum/maximum walking distance is imposed.
+   const options=preferred?[preferred,...candidates.filter(id=>id!==preferred)]:candidates;
+   if(!options.length)return null;
+   const first=preferred?0:Math.floor(nextRandom(a)*options.length);
+   // Bounded route attempts followed by deterministic exhaustive fallback.
+   for(let i=0;i<Math.min(options.length,12);i++){
+     const id=options[(first+i)%options.length]!;
+     const to=this.graph.entrances.get(id);
+     if(!to||to===from)continue;
+     const route=this.route(from,to);
+     if(route.length>=2)return {id,route};
+   }
+   for(const id of options){
+     const to=this.graph.entrances.get(id);
+     if(!to||to===from)continue;
+     const route=this.route(from,to);
+     if(route.length>=2)return {id,route};
+   }
+   return null;
+ }
+ private beginJourney(a:PedAgent001){
+   const from=this.graph.entrances.get(a.origin)!;
+   const result=this.pickDestination(a,from);
+   if(!result){
+     this.routeFailures++;a.stranded=true;this.stranded++;
+     a.insideSeconds=3+nextRandom(a)*5;
+     return;
+   }
+   if(a.stranded){a.stranded=false;this.stranded--;}
+   a.destination=result.id;a.route=result.route;
+   a.segment=0;a.progress=0;a.departures++;
+   a.insideSeconds=0;this.setState(a,"depart");
+ }
+ private arrive(a:PedAgent001){
+   const entranceId=this.graph.entrances.get(a.destination);
+   const target=entranceId?this.graph.nodes.get(entranceId):undefined;
+   if(!target||Math.hypot(a.x-target.x,a.z-target.z)>.001){
+     // A missing endpoint must not silently complete a journey or teleport.
+     this.routeFailures++;
+     return;
+   }
+   a.lastArrival=a.destination;a.origin=a.destination;
+   a.journeysCompleted++;this.completed++;
+   a.route=[];a.segment=0;a.progress=0;
+   a.insideSeconds=2+nextRandom(a)*7;
+   this.setState(a,"inside");
+ }
+ /** Repair a stale remaining route at its current waypoint without changing
+  * world position. If already mid-edge, finish that edge before replanning. */
+ reroute(a:PedAgent001):boolean{
+   if(a.state==="inside")return false;
+   const from=a.route[a.segment];
+   const next=a.route[a.segment+1];
+   if(!from||!next)return false;
+   const midEdge=a.progress>EPS;
+   const anchor=midEdge?next:from;
+   const chosen=this.pickDestination(a,anchor,a.destination);
+   if(!chosen){
+     this.routeFailures++;
+     return false;
+   }
+   if(midEdge){
+     // Retain the active edge and its exact progress, append a fresh suffix.
+     a.route=[from,...chosen.route];
+   }else{
+     a.route=chosen.route;a.progress=0;
+   }
+   a.segment=0;a.destination=chosen.id;
+   a.reroutes++;this.reroutes++;
+   return true;
  }
  step(dt:number){
    const delta=Math.max(0,Math.min(.1,dt));
+   if(delta<=0)return;
    this.tick++;
    for(const a of this.agents){
      a.stateAge+=delta;
      if(a.state==="inside"){
        a.insideSeconds-=delta;
-       if(a.insideSeconds<=0)this.depart(a);
+       if(a.insideSeconds<=0)this.beginJourney(a);
        continue;
      }
      let remaining=a.speed*delta,iterations=0;
-     while(remaining>1e-6&&iterations++<6){
+     while(remaining>EPS&&iterations++<8){
        if(a.segment>=a.route.length-1){
-         a.state="inside";a.stateAge=0;
-         a.origin=a.destination;a.insideSeconds=2+this.random()*7;
-         a.route=[];a.segment=0;a.progress=0;this.completed++;
+         this.arrive(a);
          break;
        }
-       const p=this.graph.nodes.get(a.route[a.segment]!)!;
-       const q=this.graph.nodes.get(a.route[a.segment+1]!)!;
-       const length=Math.hypot(q.x-p.x,q.z-p.z);
-       if(length<1e-6){a.segment++;a.progress=0;continue;}
-       const travel=Math.min(remaining,length-a.progress);
+       const p=this.graph.nodes.get(a.route[a.segment]!);
+       const q=this.graph.nodes.get(a.route[a.segment+1]!);
+       if(!p||!q){this.routeFailures++;break;}
+       const link=this.graph.links.get(p.id)?.find(e=>e.to===q.id);
+       if(!link){
+         if(!this.reroute(a))break;
+         continue;
+       }
+       const length=link.length;
+       if(length<EPS){a.segment++;a.progress=0;continue;}
+       const travel=Math.min(remaining,Math.max(0,length-a.progress));
        a.progress+=travel;remaining-=travel;
        const t=Math.min(1,a.progress/length);
        a.x=p.x+(q.x-p.x)*t;a.z=p.z+(q.z-p.z)*t;
-       const link=this.graph.links.get(p.id)?.find(e=>e.to===q.id);
-       const kind:PedEdgeKind001=link?.kind??"sidewalk";
-       const next:PedState001=kind==="park"?"park":kind==="crossing"?"cross":
+       a.heading=Math.atan2(q.x-p.x,q.z-p.z);
+       a.distanceTraveled+=travel;
+       const kind:PedEdgeKind001=link.kind;
+       const nextState:PedState001=kind==="park"?"park":kind==="crossing"?"cross":
          kind==="entrance"?(a.segment===0?"depart":"arrive"):"walk";
-       if(next!==a.state){a.state=next;a.stateAge=0;}
-       if(a.progress>=length-1e-5){a.segment++;a.progress=0;}
+       this.setState(a,nextState);
+       if(a.progress>=length-EPS){
+         a.x=q.x;a.z=q.z;
+         a.segment++;a.progress=0;
+         if(a.segment===a.route.length-1){this.arrive(a);break;}
+       }
      }
    }
  }
