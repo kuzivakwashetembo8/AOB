@@ -190,7 +190,7 @@ function NorthHeightsPreview(){
           setPedestrianVisualMode(next);
           controller.current?.setPedestrianVisualMode(next);
         }}>
-        PED 100 · {pedestrianVisualMode==="characters"?"10 OPTIMIZED APPEARANCES":"COLORED DOTS"} · SWITCH
+        PED 100 · {pedestrianVisualMode==="characters"?"100 UNIQUE APPEARANCES":"COLORED DOTS"} · SWITCH
       </button>}
       {ready&&!paused&&stats.includes("SEDAN ")&&
         <div data-testid="nh013-sedan-telemetry" aria-label="NH-013 sedan pilot diagnostic"

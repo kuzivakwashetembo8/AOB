@@ -31,7 +31,8 @@ import {stage6BuildingBlockers,stage6SolidBuildingCheck}
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {NorthHeightsPedestrianSimulator001} from "./north-heights-pedestrian-simulator-001";
 import {createNorthHeightsPedestrianDots001} from "./north-heights-pedestrian-dots-001";
-import {loadNorthHeightsPedestrianCharacters001,type PedestrianCharacterRenderer001} from "./north-heights-pedestrian-characters-001";
+import {loadNorthHeightsPedestrianCharacters001,pedestrianCharacterEligible001,type PedestrianCharacterRenderer001} from "./north-heights-pedestrian-characters-001";
+import {PED002_NPC_TOTAL_BYTES} from "./north-heights-pedestrian-asset-manifest-002";
 import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
 import {createNorthHeightsSedanTraffic009,type NH009SedanTraffic} from "./north-heights-sedan-traffic-009";
 import {verifyCompleteFleet016} from "@/game/traffic/nh016-fleet-manifest";
@@ -439,7 +440,9 @@ export async function createNorthHeightsCity8(
     if(pedestrians&&pedestrianDots){
       visiblePedestrianDots=(pedestrianVisualMode==="dots"||!pedestrianCharacters)
         ?pedestrianDots.update(pedestrians,camera.position)
-        :pedestrianDots.update(pedestrians,{x:1e8,z:1e8});
+        :pedestrianDots.update(pedestrians,camera.position,a=>
+           pedestrianCharacterEligible001(a,camera.position,false,mobile)
+           && !pedestrianCharacters?.hasModel(a.id));
     }
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
@@ -450,6 +453,8 @@ export async function createNorthHeightsCity8(
         " · REROUTES "+(pedestrians?.reroutes??0)+" · STRANDED "+(pedestrians?.stranded??0)+
         " · PARK "+(pedestrians?.parkVisits??0)+" · CROSS "+(pedestrians?.crossingsTraversed??0)+
         " · NPC "+(pedestrianCharacters?.active??0)+" ACTIVE / "+(pedestrianCharacters?.pooled??0)+" POOLED / "+(pedestrianCharacters?.loadedAppearances??0)+" OPTIMIZED GLBs"+
+        " · NPC PENDING "+(pedestrianCharacters?.pendingAppearances??0)+
+        " FAILED "+(pedestrianCharacters?.failedAppearances??0)+
         " · PED MODE "+(pedestrianVisualMode==="dots"?"DOTS":"CHARACTERS")+(pedestrianLoadError?" · NPC LOAD ERROR "+pedestrianLoadError:"")+
         " · GEN-VEH-009 125 SOURCE SEDANS · "+
         (ridingSedanId?" RIDING "+ridingSedanId+" "+(
@@ -612,7 +617,10 @@ export async function createNorthHeightsCity8(
       onModeChange?.(next);
       return true;
     },
-    setPedestrianVisualMode(next){pedestrianVisualMode=next;},
+    setPedestrianVisualMode(next){
+       pedestrianVisualMode=next;
+       pedestrianCharacters?.setVisible(next==="characters");
+     },
     dispose() {
       if (closed) return;
       closed = true;
@@ -736,7 +744,7 @@ export async function createNorthHeightsCity8(
     updateLocation(true);
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
-      "PED-001 "+(pedestrians?.population??0)+" logical pedestrians · ten optimized appearances load after first frame · "+
+      "PED-001 "+(pedestrians?.population??0)+" logical pedestrians · 100 unique NPC appearances stream after first frame · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
       treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 125 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · 0 parked GLB vehicle loads · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
@@ -744,7 +752,7 @@ export async function createNorthHeightsCity8(
     scene.onAfterRenderObservable.addOnce(()=>{
       if(closed)return;
       onFirstPlayableFrame?.();
-      // Do not extend North Heights' critical first-playable load with ten GLBs.
+      // Do not extend North Heights' critical first-playable load with 100 GLBs.
       // Dot fallback remains available while optimized models load.
       if(pedestrianLoading||pedestrianCharacters)return;
       pedestrianLoading=true;
@@ -753,9 +761,10 @@ export async function createNorthHeightsCity8(
         .then(renderer=>{
           if(closed){renderer.dispose();return;}
           pedestrianCharacters=renderer;
-          console.info("[PED-001] 100 logical agents share ten optimized Ara appearances",{
-            appearances:renderer.loadedAppearances,pool:renderer.pooled,
-            sourceBytes:7285620,vehicleAgents:traffic?.population,
+          renderer.setVisible(pedestrianVisualMode==="characters");
+          console.info("[PED-002] 100 logical agents each have a unique NPC appearance",{
+            available:100,resident:renderer.loadedAppearances,pool:renderer.pooled,
+            sourceBytes:PED002_NPC_TOTAL_BYTES,vehicleAgents:traffic?.population,
           });
         }).catch(error=>{
           if(closed)return;

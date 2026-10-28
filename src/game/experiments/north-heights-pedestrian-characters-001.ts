@@ -1,20 +1,14 @@
-/** PED-001 character representation: 100 stable pedestrian identities reuse ten
- * owner-optimized Ara GLBs. Rendering never owns or modifies logical routes.
- * Crosswalk vehicle yielding and schedule policy remain separate future stages. */
+/** PED-002: 100 independent pedestrians use 100 unique GLBs.
+ * Nearby appearance streaming, inactive LRU caching, and dot fallback. */
 import {AbstractMesh,AnimationGroup,AssetContainer,Camera,InstantiatedEntries,Scene,SceneLoader,TransformNode,Vector3} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import type {NorthHeightsPedestrianSimulator001,PedAgent001,PedState001} from "./north-heights-pedestrian-simulator-001";
 import {northHeightsPedestrianSurfaceOffset001} from "./north-heights-pedestrian-surface-001";
-export const PED001_OPTIMIZED_FILES=[
- "GTD_NPC_001_S42027.glb","GTD_NPC_002_S49946.glb","GTD_NPC_003_S57865.glb",
- "GTD_NPC_004_S65784.glb","GTD_NPC_005_S73703.glb","GTD_NPC_006_S81622.glb",
- "GTD_NPC_007_S89541.glb","GTD_NPC_008_S97460.glb","GTD_NPC_009_S105379.glb",
- "GTD_NPC_010_S113298.glb",
-] as const;
-export const PED001_OPTIMIZED_SOURCE_BYTES=[
- 799876,628712,498212,994700,574520,574144,606272,911992,806744,890448,
-] as const;
-export const PED001_OPTIMIZED_TOTAL_BYTES=PED001_OPTIMIZED_SOURCE_BYTES.reduce((n,b)=>n+b,0);
+import {PED002_NPC_FILES,PED002_NPC_BYTES,PED002_NPC_TOTAL_BYTES,ped002FileForAppearance} from "./north-heights-pedestrian-asset-manifest-002";
+// Preserve existing exports for diagnostics and regression tests.
+export const PED001_OPTIMIZED_FILES=PED002_NPC_FILES;
+export const PED001_OPTIMIZED_SOURCE_BYTES=PED002_NPC_BYTES;
+export const PED001_OPTIMIZED_TOTAL_BYTES=PED002_NPC_TOTAL_BYTES;
 type Clip="idle"|"walk"|"run";
 type Slot={
  appearance:number;anchor:TransformNode;model:TransformNode;
@@ -39,6 +33,9 @@ export function pedestrianCharacterClip001(state:PedState001):Clip{
 export interface PedestrianCharacterRenderer001{
  readonly ready:boolean;readonly active:number;readonly pooled:number;
  readonly skeletons:number;readonly loadedAppearances:number;
+ readonly failedAppearances:number;readonly pendingAppearances:number;
+ hasModel:(id:string)=>boolean;
+ setVisible:(visible:boolean)=>void;
  update:(sim:NorthHeightsPedestrianSimulator001,camera:Camera)=>void;
  dispose:()=>void;
 }
@@ -46,33 +43,53 @@ export async function loadNorthHeightsPedestrianCharacters001(
  scene:Scene,ground:(x:number,z:number)=>number,mobile:boolean,
  report?:(message:string)=>void,isClosed?:()=>boolean,
 ):Promise<PedestrianCharacterRenderer001>{
- const containers:AssetContainer[]=[];
+ const containers=new Map<number,AssetContainer>();
  const pool:Slot[]=[];
  const assigned=new Map<string,Slot>();
- let disposed=false,loadedAppearances=0,createdSkeletons=0;
- let pendingCreate=0;
+ const pending=new Set<number>();
+ const failed=new Set<number>();
+ const lastUsed=new Map<number,number>();
+ const maxInactiveAssets=mobile?12:24;
+ const maxConcurrentLoads=mobile?1:2;
+ let disposed=false,showCharacters=true,createdSkeletons=0,frame=0;
  const cancelled=()=>disposed||!!isClosed?.();
  const release=(slot:Slot)=>{
    if(slot.assigned)assigned.delete(slot.assigned);
    slot.assigned=null;
    slot.groups.forEach(g=>g.stop());
-   slot.clip=null;
-   slot.anchor.setEnabled(false);
+   slot.clip=null;slot.anchor.setEnabled(false);
+ };
+ const discardAsset=(id:number)=>{
+   // Never evict an appearance whose character remains visible.
+   if(pool.some(p=>p.appearance===id&&p.assigned!==null))return;
+   for(let i=pool.length-1;i>=0;i--){
+     const slot=pool[i]!;
+     if(slot.appearance!==id)continue;
+     createdSkeletons=Math.max(0,createdSkeletons-slot.entries.skeletons.length);
+     slot.groups.forEach(g=>g.stop());
+     slot.entries.dispose();slot.anchor.dispose(false,false);
+     pool.splice(i,1);
+   }
+   containers.get(id)?.dispose();containers.delete(id);lastUsed.delete(id);
+ };
+ const prune=()=>{
+   const inactive=[...containers.keys()].filter(id=>!pool.some(p=>p.appearance===id&&p.assigned!==null));
+   inactive.sort((a,b)=>(lastUsed.get(a)??0)-(lastUsed.get(b)??0));
+   for(let i=0;i<inactive.length-maxInactiveAssets;i++)discardAsset(inactive[i]!);
  };
  const dispose=()=>{
    if(disposed)return;
-   disposed=true;
+   disposed=true;showCharacters=false;
    for(const slot of pool){
      slot.groups.forEach(g=>g.stop());
-     slot.entries.dispose();
-     slot.anchor.dispose(false,false);
+     slot.entries.dispose();slot.anchor.dispose(false,false);
    }
    pool.length=0;assigned.clear();
-   for(const container of containers)container.dispose();
-   containers.length=0;
+   for(const container of containers.values())container.dispose();
+   containers.clear();lastUsed.clear();pending.clear();failed.clear();
  };
  const createSlot=(appearance:number):Slot=>{
-   const container=containers[appearance-1];
+   const container=containers.get(appearance);
    if(!container)throw Error("PED-001 missing optimized appearance "+appearance);
    const entries=container.instantiateModelsToScene(
      name=>"ped001-"+appearance+"-"+name,false,{doNotInstantiate:true});
@@ -130,79 +147,96 @@ export async function loadNorthHeightsPedestrianCharacters001(
    }
    slot.clip=clip;
  };
- try{
-   // Loading is intentionally invoked only AFTER the first playable frame.
-   // All ten optimized files are fetched once; no unoptimized file is touched.
-   for(let i=0;i<PED001_OPTIMIZED_FILES.length;i++){
-     if(cancelled())throw Error("PED-001 character loading cancelled");
-     await new Promise<void>(resolve=>setTimeout(resolve,60));
-     if(cancelled())throw Error("PED-001 character loading cancelled");
-     const file=PED001_OPTIMIZED_FILES[i]!;
-     report?.("Loading optimized pedestrian appearance "+(i+1)+"/10");
-     const container=await SceneLoader.LoadAssetContainerAsync("/GLBs/Characters/",file,scene);
-     if(cancelled()){container.dispose();throw Error("PED-001 character loading cancelled");}
-     containers.push(container);loadedAppearances++;
-   }
-   // Validate all rigs before activating the character renderer.
-   for(let i=0;i<10;i++)createSlot(i+1);
-   report?.("Ten optimized pedestrian appearances ready · 100 logical identities");
-   return{
-     get ready(){return !disposed&&loadedAppearances===10;},
-     get active(){return assigned.size;},
-     get pooled(){return pool.length;},
-     get skeletons(){return createdSkeletons;},
-     get loadedAppearances(){return loadedAppearances;},
-     update(sim,camera){
+ const requestAsset=(appearance:number)=>{
+   if(cancelled()||containers.has(appearance)||pending.has(appearance)||failed.has(appearance)||
+      pending.size>=maxConcurrentLoads)return;
+   const file=ped002FileForAppearance(appearance);
+   if(!file){failed.add(appearance);return;}
+   pending.add(appearance);
+   // Never block the render loop; report failed assets without altering routes.
+   void SceneLoader.LoadAssetContainerAsync("/GLBs/Characters/",file,scene)
+     .then(container=>{
+       pending.delete(appearance);
+       if(cancelled()){container.dispose();return;}
+       containers.set(appearance,container);
+       lastUsed.set(appearance,frame);
+       prune();
+     })
+     .catch(error=>{
+       pending.delete(appearance);
        if(cancelled())return;
-       const point=camera.position;
-       const byId=new Map(sim.agents.map(a=>[a.id,a]));
-       const supportY=(a:PedAgent001)=>{
-         // Door nodes only matter during the first/last metre of a journey.
-         // Else the exact road-grid footprint distinguishes sidewalk, zebra,
-         // and park ground. All coordinates/route states remain unchanged.
-         const start=sim.graph.nodes.get(a.route[0]??"");
-         const end=sim.graph.nodes.get(a.route[a.route.length-1]??"");
-         const door=start?.kind==="entrance"&&Math.hypot(a.x-start.x,a.z-start.z)<=1
-           ?start:end?.kind==="entrance"&&Math.hypot(a.x-end.x,a.z-end.z)<=1?end:null;
-         return ground(a.x,a.z)+northHeightsPedestrianSurfaceOffset001(a.x,a.z,door);
-       };
-       // Never release a visible character because another agent is closer.
-       // Release only on doorway entry or beyond the large hysteresis envelope.
-       for(const [id,slot] of [...assigned]){
-         const agent=byId.get(id);
-         if(!agent||!pedestrianCharacterEligible001(agent,point,true,mobile))
-           release(slot);
+       failed.add(appearance);
+       report?.("NPC "+String(appearance).padStart(3,"0")+" unavailable; showing diagnostic dot");
+       console.warn("[PED-002] NPC appearance failed to load",appearance,error);
+     });
+ };
+ const supportY=(sim:NorthHeightsPedestrianSimulator001,a:PedAgent001)=>{
+   const start=sim.graph.nodes.get(a.route[0]??"");
+   const end=sim.graph.nodes.get(a.route[a.route.length-1]??"");
+   const door=start?.kind==="entrance"&&Math.hypot(a.x-start.x,a.z-start.z)<=1
+     ?start:end?.kind==="entrance"&&Math.hypot(a.x-end.x,a.z-end.z)<=1?end:null;
+   return ground(a.x,a.z)+northHeightsPedestrianSurfaceOffset001(a.x,a.z,door);
+ };
+ report?.("100 unique NPC appearances available for proximity streaming");
+ return{
+   get ready(){return !disposed;},
+   get active(){return assigned.size;},
+   get pooled(){return pool.length;},
+   get skeletons(){return createdSkeletons;},
+   get loadedAppearances(){return containers.size;},
+   get failedAppearances(){return failed.size;},
+   get pendingAppearances(){return pending.size;},
+   hasModel(id){return showCharacters&&assigned.has(id);},
+   setVisible(visible){
+     showCharacters=visible;
+     for(const slot of pool)slot.anchor.setEnabled(visible&&slot.assigned!==null);
+   },
+   update(sim,camera){
+     if(cancelled()||!showCharacters)return;
+     frame++;
+     const point=camera.position;
+     const byId=new Map(sim.agents.map(a=>[a.id,a]));
+     for(const [id,slot] of [...assigned]){
+       const agent=byId.get(id);
+       if(!agent||!pedestrianCharacterEligible001(agent,point,true,mobile))release(slot);
+     }
+     const candidates=sim.agents.filter(a=>
+       !assigned.has(a.id)&&pedestrianCharacterEligible001(a,point,false,mobile));
+     candidates.sort((a,b)=>
+       ((a.x-point.x)**2+(a.z-point.z)**2)-
+       ((b.x-point.x)**2+(b.z-point.z)**2));
+     let createdThisFrame=0;
+     for(const a of candidates){
+       if(!containers.has(a.appearanceId)){
+         requestAsset(a.appearanceId);continue;
        }
-       const candidates=sim.agents.filter(a=>
-         !assigned.has(a.id)&&pedestrianCharacterEligible001(a,point,false,mobile));
-       candidates.sort((a,b)=>
-         ((a.x-point.x)**2+(a.z-point.z)**2)-
-         ((b.x-point.x)**2+(b.z-point.z)**2));
-       // Reuse inactive rigs. Create at most one new rig per update frame;
-       // this spreads costly skeleton creation over time.
-       let createdThisFrame=0;
-       for(const a of candidates){
-         let slot=pool.find(p=>p.assigned===null&&p.appearance===a.appearanceId);
-         if(!slot){
-           if(createdThisFrame>=1)continue;
-           slot=createSlot(a.appearanceId);
-           createdThisFrame++;
+       let slot=pool.find(p=>p.assigned===null&&p.appearance===a.appearanceId);
+       if(!slot){
+         if(createdThisFrame>=1)continue;
+         try{slot=createSlot(a.appearanceId);createdThisFrame++;}
+         catch(error){
+           failed.add(a.appearanceId);
+           console.warn("[PED-002] GLB lacks valid rig/geometry; keeping dot",a.appearanceId,error);
+           discardAsset(a.appearanceId);continue;
          }
-         slot.assigned=a.id;assigned.set(a.id,slot);
-         slot.anchor.position.set(a.x,supportY(a),a.z);
-         slot.anchor.rotation.y=a.heading;
-         slot.anchor.setEnabled(true);
-         play(slot,pedestrianCharacterClip001(a.state));
        }
-       for(const [id,slot] of assigned){
-         const a=byId.get(id);
-         if(!a)continue;
-         slot.anchor.position.set(a.x,supportY(a),a.z);
-         slot.anchor.rotation.y+=angleDelta(slot.anchor.rotation.y,a.heading)*.25;
-         play(slot,pedestrianCharacterClip001(a.state));
-       }
-     },
-     dispose,
-   };
- }catch(error){dispose();throw error;}
+       lastUsed.set(a.appearanceId,frame);
+       slot.assigned=a.id;assigned.set(a.id,slot);
+       slot.anchor.position.set(a.x,supportY(sim,a),a.z);
+       slot.anchor.rotation.y=a.heading;
+       slot.anchor.setEnabled(true);
+       play(slot,pedestrianCharacterClip001(a.state));
+     }
+     for(const [id,slot] of assigned){
+       const a=byId.get(id);
+       if(!a)continue;
+       lastUsed.set(slot.appearance,frame);
+       slot.anchor.position.set(a.x,supportY(sim,a),a.z);
+       slot.anchor.rotation.y+=angleDelta(slot.anchor.rotation.y,a.heading)*.25;
+       play(slot,pedestrianCharacterClip001(a.state));
+     }
+     if(frame%90===0)prune();
+   },
+   dispose,
+ };
 }
