@@ -46,7 +46,7 @@ describe("PED-001 Stage 3 building journey lifecycle",()=>{
    expect(maxDisplacement).toBeGreaterThan(0);
  });
  it("plans only reachable destinations even with disconnected doorway components",()=>{
-   const isolated=building("ISOLATED",400,-288);
+   const isolated=building("ISOLATED",400,400);
    const sim=new NorthHeightsPedestrianSimulator001([...close,isolated]);
    expect(sim.unreachableBuildings).toContain("ISOLATED");
    expect(sim.agents.every(a=>a.origin!=="ISOLATED")).toBe(true);

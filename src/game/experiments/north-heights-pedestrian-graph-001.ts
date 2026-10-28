@@ -34,6 +34,7 @@ export function buildPedestrianGraph001(
  const links=new Map<string,PedLink001[]>();
  const extras=new Map<string,string[]>();
  const entrances=new Map<string,string>();
+ const rejectedEntrances:string[]=[];
  const parks:string[]=[];
  const addNode=(id:string,x:number,z:number,kind:PedNode001["kind"])=>{
    if(nodes.has(id))throw new Error("PED-001 duplicate graph node: "+id);
@@ -85,7 +86,7 @@ export function buildPedestrianGraph001(
    const north=clamp(Math.ceil((b.position.z+320)/64),1,10);
    const col=clamp(Math.floor((door.x+320)/64),0,9);
    const accessZ=STREETS[north]!-WALK_CENTER;
-   if(door.z>accessZ+0.1)continue; // reject blocked or non-accessible geometry
+   if(door.z>accessZ+0.1){rejectedEntrances.push(b.id);continue;} // reject inaccessible geometry
    const id=addNode("door:"+b.id,door.x,door.z,"entrance");
    const sidewalk=addNode("access:"+b.id,door.x,accessZ,"sidewalk");
    connect(id,sidewalk,"entrance");
@@ -127,7 +128,7 @@ export function buildPedestrianGraph001(
        .sort((u,v)=>nodes.get(u)!.z-nodes.get(v)!.z);
      for(let k=1;k<ids.length;k++)connect(ids[k-1]!,ids[k]!,"sidewalk");
    }
- const unreachable=[...entrances.entries()].filter(([,id])=>!(links.get(id)?.length)).map(([id])=>id);
+ const unreachable=[...rejectedEntrances,...[...entrances.entries()].filter(([,id])=>!(links.get(id)?.length)).map(([id])=>id)];
  return {nodes,links,entrances,parks,crossings,unreachable};
 }
 

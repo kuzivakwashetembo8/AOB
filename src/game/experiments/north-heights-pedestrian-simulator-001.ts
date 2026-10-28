@@ -68,7 +68,7 @@ export class NorthHeightsPedestrianSimulator001{
    for(const group of groups.values())for(const id of group)
      this.destinations.set(id,group.filter(other=>other!==id));
    this.eligibleBuildings=buildingIds.filter(id=>(this.destinations.get(id)?.length??0)>0);
-   this.unreachableBuildings=buildingIds.filter(id=>!this.eligibleBuildings.includes(id));
+   this.unreachableBuildings=[...new Set([...this.graph.unreachable,...buildingIds.filter(id=>!this.eligibleBuildings.includes(id))])];
    if(this.eligibleBuildings.length<2)
      throw new Error("PED-001 requires >=2 mutually reachable building entrances");
    for(let i=0;i<PED001_POPULATION;i++){
@@ -92,7 +92,11 @@ export class NorthHeightsPedestrianSimulator001{
  private route(from:string,to:string){
    const key=from+"\u0000"+to;
    const cached=this.routeCache.get(key);
-   if(cached)return [...cached];
+   if(cached){
+     const valid=cached.every((id,i)=>i===0||this.graph.links.get(cached[i-1]!)?.some(edge=>edge.to===id));
+     if(valid)return [...cached];
+     this.routeCache.delete(key);
+   }
    const route=pedestrianRoute001(this.graph,from,to);
    if(route.length>=2){
      if(this.routeCache.size>=256)
