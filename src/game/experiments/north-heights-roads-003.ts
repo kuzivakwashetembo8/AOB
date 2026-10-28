@@ -7,6 +7,7 @@
  * corner pavements, build curb faces, and add measured crossings. Trial-only.
  */
 import { Mesh, Scene, StandardMaterial, VertexData } from "@babylonjs/core";
+import {northHeightsPedestrianZebra001} from "./north-heights-pedestrian-crossings-001";
 
 export type NorthHeightsRoadMaterials = Readonly<{
   asphalt: StandardMaterial;
@@ -206,17 +207,17 @@ export function createNorthHeightsRoads003(
       sidewalkCount++;
     }
     // Every third junction gets explicit pedestrian zebra crossing approaches.
-    if(ix>0&&ix<streets.length-1&&iz>0&&iz<streets.length-1&&(ix+iz)%3===0){
+    if(ix<streets.length-1&&iz<streets.length-1&&northHeightsPedestrianZebra001(ix,iz)){
       const stop=HALF+WALK+1.8;
       // Rectangular painted road bars, with no overlap against sidewalk tops.
       for(let k=0;k<5;k++){
         const delta=(k-2)*.78;
-        pad(batch.crossing,x-3.35,z+stop+delta-.22,
+        if(ix>0)pad(batch.crossing,x-3.35,z+stop+delta-.22,
           x+3.35,z+stop+delta+.22,ASPHALT_TOP+.003,at);
-        pad(batch.crossing,x+stop+delta-.22,z-3.35,
+        if(iz>0)pad(batch.crossing,x+stop+delta-.22,z-3.35,
           x+stop+delta+.22,z+3.35,ASPHALT_TOP+.003,at);
       }
-      crossings+=2;
+      crossings+=Number(ix>0)+Number(iz>0);
     }
   }
   const materials:Record<Layer,StandardMaterial>={

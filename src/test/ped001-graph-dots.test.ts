@@ -20,7 +20,7 @@ describe("PED-001 navigation and dot-only population",()=>{
      expect(graph.nodes.get(id)!.z).toBeCloseTo(b.position.z+15);
      expect(graph.links.get(id)?.[0]?.kind).toBe("entrance");
    }
-   expect(graph.crossings).toBeGreaterThan(20);
+   expect(graph.crossings).toBeGreaterThan(90);
    expect(graph.parks.length).toBeGreaterThan(0);
  });
  it("routes between building entrances through designated graph edges",()=>{

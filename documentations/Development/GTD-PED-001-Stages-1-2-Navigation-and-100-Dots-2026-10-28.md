@@ -8,7 +8,7 @@
 - Pavement centerline at ±6 m from road center (existing paving from 4 to 7.75 m).
 - Building +Z doorway connectors using NH-010 entrance metadata.
 - Park paths through unbuilt park blocks, with centre candidates chosen for tree clearance.
-- Zebra crossing edges located at the actual NH-003 painted crossing offset.
+- Zebra crossing edges located at the actual NH-003 painted crossing offset. Added 26 deterministic junctions (preserving the 27 existing ones) and co-generated matching road paint so the 100-block pedestrian graph is connected. A disconnected initial graph was detected by tests and corrected before preview.
 - 100 stable logical identities, independent walking speeds, randomized building destinations, 20 Hz simulation.
 - Colored Babylon thin-instance dots with state palette: white departure, green sidewalk, blue park, yellow waiting (reserved), red crossing, purple arrival, gray inside (HUD-only).
 - Existing 125 native Sedan traffic, Voight, controls and physics unchanged.

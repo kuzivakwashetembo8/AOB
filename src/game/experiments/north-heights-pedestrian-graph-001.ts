@@ -5,6 +5,7 @@ import {NORTH_HEIGHTS_COORDS} from "@/game/world-generation/north-heights-locati
 import {NORTH_HEIGHTS_MAP_BLOCKS_010} from "./north-heights-map-data-010";
 import {northHeightsDoorway010} from "./north-heights-spatial-plan-010";
 import type {TreeLocation} from "./north-heights-trees-004";
+import {northHeightsPedestrianZebra001} from "./north-heights-pedestrian-crossings-001";
 
 export type PedPoint001={x:number;z:number};
 export type PedNode001=PedPoint001&{id:string;kind:"corner"|"sidewalk"|"entrance"|"park"};
@@ -24,7 +25,7 @@ const CROSSING_OFFSET=8+3.75+1.8-4; // 9.55m: same as NH-REBUILD-003 painted zeb
 const corner=(ix:number,iz:number,sx:number,sz:number)=>"c:"+ix+":"+iz+":"+sx+":"+sz;
 const lane=(axis:"x"|"z",ix:number,iz:number,side:number)=>axis+":"+ix+":"+iz+":"+side;
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
-const isZebra=(ix:number,iz:number)=>ix>0&&ix<10&&iz>0&&iz<10&&(ix+iz)%3===0;
+const isZebra=northHeightsPedestrianZebra001;
 
 export function buildPedestrianGraph001(
  buildings:readonly BuildingSpec[],trees:readonly TreeLocation[]=[],
@@ -59,19 +60,23 @@ export function buildPedestrianGraph001(
      addNode(corner(ix,iz,sx,sz),STREETS[ix]!+sx*WALK_CENTER,
        STREETS[iz]!+sz*WALK_CENTER,"corner");
  let crossings=0;
- for(let iz=1;iz<10;iz++)for(let ix=1;ix<10;ix++){
+ for(let iz=0;iz<10;iz++)for(let ix=0;ix<10;ix++){
    if(!isZebra(ix,iz))continue;
    const x=STREETS[ix]!,z=STREETS[iz]!;
-   const eastPlus=addNode("zebra:e:"+ix+":"+iz+":+",x+CROSSING_OFFSET,z+WALK_CENTER,"sidewalk");
-   const eastMinus=addNode("zebra:e:"+ix+":"+iz+":-",x+CROSSING_OFFSET,z-WALK_CENTER,"sidewalk");
-   extra(lane("x",ix,iz,1),eastPlus);
-   extra(lane("x",ix,iz,-1),eastMinus);
-   connect(eastPlus,eastMinus,"crossing");crossings++;
-   const northPlus=addNode("zebra:n:"+ix+":"+iz+":+",x+WALK_CENTER,z+CROSSING_OFFSET,"sidewalk");
-   const northMinus=addNode("zebra:n:"+ix+":"+iz+":-",x-WALK_CENTER,z+CROSSING_OFFSET,"sidewalk");
-   extra(lane("z",ix,iz,1),northPlus);
-   extra(lane("z",ix,iz,-1),northMinus);
-   connect(northPlus,northMinus,"crossing");crossings++;
+   if(iz>0){
+     const eastPlus=addNode("zebra:e:"+ix+":"+iz+":+",x+CROSSING_OFFSET,z+WALK_CENTER,"sidewalk");
+     const eastMinus=addNode("zebra:e:"+ix+":"+iz+":-",x+CROSSING_OFFSET,z-WALK_CENTER,"sidewalk");
+     extra(lane("x",ix,iz,1),eastPlus);
+     extra(lane("x",ix,iz,-1),eastMinus);
+     connect(eastPlus,eastMinus,"crossing");crossings++;
+   }
+   if(ix>0){
+     const northPlus=addNode("zebra:n:"+ix+":"+iz+":+",x+WALK_CENTER,z+CROSSING_OFFSET,"sidewalk");
+     const northMinus=addNode("zebra:n:"+ix+":"+iz+":-",x-WALK_CENTER,z+CROSSING_OFFSET,"sidewalk");
+     extra(lane("z",ix,iz,1),northPlus);
+     extra(lane("z",ix,iz,-1),northMinus);
+     connect(northPlus,northMinus,"crossing");crossings++;
+   }
  }
  // Actual door opening is centered on +Z wall; approach northwards through
  // building setback to the nearest pavement, not through a wall.
