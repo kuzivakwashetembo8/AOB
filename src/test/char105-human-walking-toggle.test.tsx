@@ -7,8 +7,8 @@ import {posturePoint105,humanVisualYaw105} from "../game/character/human-walking
 import {stepTravelHeading,DEFAULT_TRAVEL_HEADING} from "../game/character/locomotion/travel-heading";
 afterEach(cleanup);
 describe("CHAR-105 imported-human walking gate",()=>{
- it("keeps the accepted humanoid as the safe default",()=>{
-   expect(defaults.enableCharacter).toBe(false);
+ it("loads the accepted Voight character by default",()=>{
+   expect(defaults.enableCharacter).toBe(true);
    expect(normalizeDrivingTouchLayout("arrows")).toBe("arrows");
  });
  it("exposes Enable Character in Controls, with Apply not an immediate switch",()=>{
@@ -16,11 +16,11 @@ describe("CHAR-105 imported-human walking gate",()=>{
    render(<SettingsEditor initialSettings={defaults} onApply={apply} inGame/>);
    fireEvent.click(screen.getByRole("button",{name:/^Controls$/i}));
    const toggle=screen.getByRole("checkbox",{name:"Enable Character"});
-   expect((toggle as HTMLInputElement).checked).toBe(false);
+   expect((toggle as HTMLInputElement).checked).toBe(true);
    fireEvent.click(toggle);
    expect(apply).not.toHaveBeenCalled();
    fireEvent.click(screen.getByRole("button",{name:/APPLY & RESUME/}));
-   expect(apply).toHaveBeenCalledWith(expect.objectContaining({enableCharacter:true}));
+   expect(apply).toHaveBeenCalledWith(expect.objectContaining({enableCharacter:false}));
  });
  it("never reshapes upper-arm, shoulders, jacket or hands by x/y heuristics",()=>{
    const bounds={cx:0,bottom:0,height:2};
