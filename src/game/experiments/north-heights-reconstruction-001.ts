@@ -424,17 +424,8 @@ function addTwoLaneMarkings005(city:InstancedCity){
   }
   return count;
 }
-function addStreetFurniture(city: InstancedCity) {
-  let lights=0;
-  for(const x of STREETS) for(let i=0;i<STREETS.length;i+=2) {
-    const z=STREETS[i]!+28, poleX=x+7.25, y=northHeightsGround(poleX,z);
-    city.box("metal",poleX,y+4.2,z,.20,8.4,.20);
-    city.box("metal",poleX-1.2,y+8.35,z,2.4,.14,.18);
-    city.box("lamp",poleX-2.36,y+8.2,z,.65,.14,.45);
-    lights++;
-  }
-  return lights;
-}
+// NH-LAMP-012: generated box streetlights retired. Owner GLBs are streamed
+// and thin-instanced after the first playable frame, outside scene build.
 export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):NorthHeightsGenerated {
   const city=new InstancedCity(scene);
   attachNorthHeightsGrass004(scene,city.mat("grass"));
@@ -488,7 +479,7 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
     }
   }
   const laneDashes=roads.markings;
-  const lamps=addStreetFurniture(city);
+  const lamps=0; // Live owner-sourced GLBs attach after the first playable frame.
   const instances=city.commit();
   const treeLocations=parkPlan;
   const trees=treeLocations.length;

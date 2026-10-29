@@ -1,5 +1,15 @@
 export const districts = [
   {
+    name: "North Heights",
+    code: "05",
+    identity: "A DIFFERENT VIEW OF THE CITY",
+    description:
+      "Above the noise, winding streets climb toward quiet estates. Distance does not mean safety.",
+    sector: "UPLAND",
+    terrain: "Hillside residential",
+    landmark: "Overlook Drive",
+  },
+  {
     name: "Meridian Central",
     code: "01",
     identity: "THE CITY NEVER STANDS STILL",
@@ -38,16 +48,6 @@ export const districts = [
     sector: "WATERFRONT",
     terrain: "Port and industrial",
     landmark: "Pier 09",
-  },
-  {
-    name: "North Heights",
-    code: "05",
-    identity: "A DIFFERENT VIEW OF THE CITY",
-    description:
-      "Above the noise, winding streets climb toward quiet estates. Distance does not mean safety.",
-    sector: "UPLAND",
-    terrain: "Hillside residential",
-    landmark: "Overlook Drive",
   },
   {
     name: "East Market",
@@ -120,3 +120,9 @@ export const districts = [
     landmark: "Ring Road Interchange",
   },
 ] as const;
+
+/** Only North Heights is currently open for play; retired districts retain their profiles. */
+export const PLAYABLE_DISTRICT_CODE = "05" as const;
+export function playableDistrictRoute(code: string): "/north-heights-preview" | null {
+  return code === PLAYABLE_DISTRICT_CODE ? "/north-heights-preview" : null;
+}

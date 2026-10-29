@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BackLink, PageShell } from "@/ui/menus/shell";
 import { pageHead } from "@/lib/page-head";
-import { districts } from "@/game/world/districts";
+import { districts, playableDistrictRoute } from "@/game/world/districts";
 export const Route = createFileRoute("/world")({
   head: () =>
     pageHead(
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/world")({
 function World() {
   const [selected, setSelected] = useState(0);
   const district = districts[selected] ?? districts[0];
-  const playableRoute = district.code === "02" ? "/game" : district.code === "05" ? "/north-heights-preview" : null;
+  const playableRoute = playableDistrictRoute(district.code);
   return (
     <PageShell>
       <section className="page-content">
@@ -45,8 +45,8 @@ function World() {
               >
                 <span className="district-code">{item.code}</span>
                 {item.name}
-                {item.code !== "02" && item.code !== "05" && <span className="ml-auto text-[9px] uppercase tracking-wider text-slate-400" aria-label="Coming soon">SOON</span>}
-                {selected === index && (item.code === "02" || item.code === "05") && <ArrowRight className="ml-auto" size={13} />}
+                {!playableDistrictRoute(item.code) && <span className="ml-auto text-[9px] uppercase tracking-wider text-slate-400" aria-label="Coming soon">SOON</span>}
+                {selected === index && playableDistrictRoute(item.code) && <ArrowRight className="ml-auto" size={13} />}
               </Button>
             ))}
           </nav>
