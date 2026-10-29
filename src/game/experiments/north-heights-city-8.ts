@@ -11,6 +11,7 @@ import "@babylonjs/loaders/glTF";
 import { configureLocalGameDecoders } from "@/game/core/local-decoders";
 import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-heights-reconstruction-001";
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
+import {loadNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
 import { createMercerStaticCharacter } from "@/game/world/mercer-static-character-103";
 import {loadMeridiaCharacterTrial,type LoadedMeridiaCharacter} from "@/game/character/voight-humanoid-trial";
@@ -101,6 +102,8 @@ export async function createNorthHeightsCity8(
   let renderLast=0;
   let yaw = 0, pitch = 0, closed = false;
   let treeHandle: {dispose:()=>void} | null = null;
+  let lampHandle:NorthHeightsLampRenderer012|null=null;
+  let lampTime:NorthHeightsTime="dusk";
   let walk:NorthHeightsWalk005|null=null;
   let cameraBlockers:CameraBox[]=[];
   let traffic:NH012TrafficSimulator|null=null;
@@ -434,6 +437,8 @@ export async function createNorthHeightsCity8(
     if(pedestrians&&pedestrianCharacters){
       pedestrianCharacters.update(pedestrians,camera);
     }
+    // Culling only; no per-frame GLB imports, meshes or physical actors.
+    lampHandle?.update(camera.position,dt);
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
@@ -597,7 +602,7 @@ export async function createNorthHeightsCity8(
       physicsAccumulator=0;clearKeys();
     },
     toggleSedanAutopilot,
-    setTime(time) { sky.setTime(time); },
+    setTime(time) { lampTime=time;sky.setTime(time);lampHandle?.setTime(time); },
     setMode(next){
       if(ridingSedanId)return false;
       if(next==="walk"&&(!walk||!actor||!humanoid))return false;
@@ -625,6 +630,7 @@ export async function createNorthHeightsCity8(
       pedestrians=null;
       traffic3D?.dispose();traffic3D=null;
       traffic=null;
+      lampHandle?.dispose();lampHandle=null;
       treeHandle?.dispose();
       actor?.dispose();
       humanoid?.disposeDriverContact();
@@ -737,6 +743,22 @@ export async function createNorthHeightsCity8(
     scene.onAfterRenderObservable.addOnce(()=>{
       if(closed)return;
       onFirstPlayableFrame?.();
+      // Never hold the gameplay-ready signal for either GLB. The accepted
+      // mobile/desktop simulation starts independently of lighting assets.
+      void loadNorthHeightsStreetLamps012(scene,northHeightsGround,mobile,world.treeLocations)
+        .then(renderer=>{
+          if(closed){renderer.dispose();return;}
+          lampHandle=renderer;
+          renderer.setTime(lampTime);
+          renderer.update(camera.position,1);
+          console.info("[NH-LAMP-012] Owner GLB streetlight grid active",{
+            planned:renderer.total,sourceMeshes:renderer.sources,
+            geometryLoading:"complete",instances:"distance culled",
+            individualGLBImports:2,physicsActors:0,
+          });
+        }).catch(error=>{
+          if(!closed)console.error("[NH-LAMP-012] Owner GLB streetlights unavailable",error);
+        });
       // Do not extend North Heights' critical first-playable load with 100 GLBs.
       // Pedestrians without a loaded valid GLB remain visually absent.
       if(pedestrianLoading||pedestrianCharacters)return;
