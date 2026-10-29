@@ -1,12 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { pageHead } from "@/lib/page-head";
 
 export const Route = createFileRoute("/game")({
   head: () =>
     pageHead(
-      "Meridian viewport",
-      "The GTD game viewport: mission objectives, contextual HUD, touch controls, and a clean future 3D runtime boundary.",
+      "South Ward retired",
+      "South Ward is coming soon. North Heights is the only playable Meridian district.",
     ),
-  // The root owns the live game surface so navigation cannot destroy it.
+  // Legacy South Ward deep links must never bootstrap the retired runtime.
+  beforeLoad: () => { throw redirect({ to: "/world", replace: true }); },
   component: () => null,
 });
