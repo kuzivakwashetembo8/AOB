@@ -57,7 +57,8 @@ export function planNorthHeightsStreetLamps012(
     const startZ=segmentZ+(lane===0?18:46);
     const nominalSide=(xi+zi+lane)%2===0?1:-1;
     const candidates=[] as {x:number;z:number;side:number;tree:number}[];
-    for(const side of [nominalSide,-nominalSide]){
+    const allowedSides=xi===0?[1]:xi===10?[-1]:[nominalSide,-nominalSide];
+    for(const side of allowedSides){
       for(const shift of [0,-5,5,-8,8]){
         const x=streetX+side*9.3,z=startZ+shift;
         candidates.push({x,z,side,tree:closestTreeSquared(x,z)});
@@ -74,7 +75,8 @@ export function planNorthHeightsStreetLamps012(
   for(let zi=0;zi<11;zi++)for(let xi=0;xi<10;xi++){
     const x=AXES[xi]!+32,streetZ=AXES[zi]!;
     const nominal=(xi+zi)%2===0?1:-1;
-    const options=[nominal,-nominal].flatMap(side=>
+    const allowedSides=zi===0?[1]:zi===10?[-1]:[nominal,-nominal];
+    const options=allowedSides.flatMap(side=>
       [0,-6,6].map(shift=>({x:x+shift,z:streetZ+side*9.3,side})));
     const choice=options.find(c=>closestTreeSquared(c.x,c.z)>=3.5**2)??options[0]!;
     add("NH-L-E"+zi+"-"+xi,zi>=3&&zi<=7?"modern":"medellin",
@@ -185,6 +187,7 @@ async function sourceGroup(scene:Scene,kind:NorthHeightsLampKind012,
     mesh.isPickable=false;
     mesh.receiveShadows=false;
     mesh.thinInstanceSetBuffer("matrix",new Float32Array(0),16,true);
+    mesh.setEnabled(false); // No stray template at the world origin before first cull.
   }
   // Determine arm orientation from the real top-vs-foot vertices; useful for
   // models authored with unconventional Sketchfab rotations.
@@ -221,6 +224,7 @@ export async function loadNorthHeightsStreetLamps012(
   bulb.material=glowMaterial;
   bulb.isPickable=false;
   bulb.thinInstanceSetBuffer("matrix",new Float32Array(0),16,true);
+  bulb.setEnabled(false);
   const activeLights=Array.from({length:mobile?2:3},(_,i)=>{
     const light=new PointLight("nh012-local-streetlight-"+i,Vector3.Zero(),scene);
     light.diffuse=new Color3(1,.75,.43);
@@ -254,6 +258,7 @@ export async function loadNorthHeightsStreetLamps012(
       for(const mesh of group.templates){
         mesh.thinInstanceSetBuffer("matrix",buffer,16,true);
         mesh.thinInstanceRefreshBoundingInfo();
+        mesh.setEnabled(buffer.length>0);
       }
     }
     const lighted=time!=="day";
@@ -266,6 +271,7 @@ export async function loadNorthHeightsStreetLamps012(
     }
     bulb.thinInstanceSetBuffer("matrix",new Float32Array(bulbs),16,true);
     bulb.thinInstanceRefreshBoundingInfo();
+    bulb.setEnabled(bulbs.length>0);
     visible.sort((a,b)=>a.distance-b.distance);
     for(let i=0;i<activeLights.length;i++){
       const light=activeLights[i]!,p=visible[i];
