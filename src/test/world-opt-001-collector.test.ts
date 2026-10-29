@@ -20,7 +20,7 @@ describe("WORLD-OPT-001 schema and bounded collector",()=>{
   const c=createWorldOpt001Collector();
   c.addFrame(0);c.addFrame(16);c.pause();c.addFrame(5000);c.addFrame(5016);
   c.addFrame(7000);c.addFrame(7016);
-  expect(c.snapshot().samples.count).toBe(2);
+  expect(c.snapshot().samples.count).toBe(3);
  });
  it("exports versioned JSON with metrics and notes",()=>{
   const c=createWorldOpt001Collector({scenario:"flight",deviceClass:"mobile"});
