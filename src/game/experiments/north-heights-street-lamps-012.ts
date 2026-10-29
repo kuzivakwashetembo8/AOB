@@ -84,14 +84,19 @@ export function planNorthHeightsStreetLamps012(
   // with poles set beyond BOTH pavement edges; no pole sits on zebra paint.
   for(let zi=0;zi<11;zi++){
     const z=AXES[zi]!+(zi===10?-9.3:9.3);
-    const x=9.3;
-    add("NH-L-J"+zi,"modern",x,z,-1,0,"junction");
+    const options=[9.3,-9.3].flatMap(x=>[z,
+      AXES[zi]!+(zi===0?9.3:-9.3)].map(zCandidate=>({x,z:zCandidate})));
+    const selected=options.find(p=>!placements.some(other=>
+      (other.x-p.x)**2+(other.z-p.z)**2<8.5**2));
+    if(!selected)throw Error("NH-LAMP-012 junction lacks clearance "+zi);
+    add("NH-L-J"+zi,"modern",selected.x,selected.z,
+      selected.x>0?-1:1,0,"junction");
   }
   // Three additional lights per parking lot, on its boundary rather than
   // in the traffic drive aisle or an occupied parking stall.
   for(let i=0;i<NORTH_HEIGHTS_PARKING_LOTS_010.length;i++){
     const lot=NORTH_HEIGHTS_PARKING_LOTS_010[i]!;
-    const offsets=[[-23,-18],[-23,18],[22,18]] as const;
+    const offsets=[[-18,-22],[-18,22],[20,-5]] as const;
     for(let j=0;j<offsets.length;j++){
       const [dx,dz]=offsets[j]!;
       add("NH-L-P"+i+"-"+j,"modern",lot.x+dx,lot.z+dz,
@@ -112,8 +117,8 @@ export function planNorthHeightsStreetLamps012(
   for(let i=0;i<6;i++)for(let j=0;j<2;j++){
     const park=parks[i]!;
     const candidates=(j===0
-      ?[[-18,-12],[-17,12],[-14,-18],[-12,18]]
-      :[[18,12],[17,-12],[14,18],[12,-18]]);
+      ?[[-12,-12],[-12,12],[-10,-15],[-10,15]]
+      :[[12,12],[12,-12],[10,15],[10,-15]]);
     const option=candidates.map(([dx,dz])=>({
       x:park.x+dx!,z:park.z+dz!,distance:closestTreeSquared(park.x+dx!,park.z+dz!),
     })).sort((a,b)=>b.distance-a.distance)[0]!;
@@ -142,7 +147,7 @@ async function sourceGroup(scene:Scene,kind:NorthHeightsLampKind012,
   const templates=result.meshes.filter(m=>m instanceof Mesh&&m.getTotalVertices()>0) as Mesh[];
   if(!templates.length)throw Error("NH-LAMP-012 GLB has no source geometry: "+SOURCE[kind]);
   let minY=Infinity,maxY=-Infinity;
-  const vertices:{mesh:Mesh;data:FloatArray|number[]}[]=[];
+  const vertices:{mesh:Mesh;data:ArrayLike<number>}[]=[];
   for(const mesh of templates){
     const world=mesh.computeWorldMatrix(true).clone();
     mesh.bakeTransformIntoVertices(world);
