@@ -31,7 +31,7 @@ const HEIGHT:Record<NorthHeightsLampKind012,number> = {
   modern:8.5, medellin:7.4,
 };
 const NO_TREES:readonly Tree[] = [];
-/** Placement count: 220 NS + 110 EW + 11 corner + 6 parking + 12 park = 359. */
+/** Placement count: 220 NS + 110 EW + 11 corner + 8 parking + 10 park = 359. */
 export function planNorthHeightsStreetLamps012(
   trees:readonly Tree[] = NO_TREES,
 ):readonly NorthHeightsLampPlacement012[] {
@@ -92,18 +92,18 @@ export function planNorthHeightsStreetLamps012(
     add("NH-L-J"+zi,"modern",selected.x,selected.z,
       selected.x>0?-1:1,0,"junction");
   }
-  // Three additional lights per parking lot, on its boundary rather than
+  // Four additional lights per parking lot, on its boundary rather than
   // in the traffic drive aisle or an occupied parking stall.
   for(let i=0;i<NORTH_HEIGHTS_PARKING_LOTS_010.length;i++){
     const lot=NORTH_HEIGHTS_PARKING_LOTS_010[i]!;
-    const offsets=[[-18,-22],[-18,22],[20,-5]] as const;
+    const offsets=[[-18,-22],[-18,22],[20,-5],[12,22]] as const;
     for(let j=0;j<offsets.length;j++){
       const [dx,dz]=offsets[j]!;
       add("NH-L-P"+i+"-"+j,"modern",lot.x+dx,lot.z+dz,
         dx>0?-1:1,0,"parking");
     }
   }
-  // Six spatially spread open-park parcels, with two perimeter lamps each.
+  // Five spatially spread open-park parcels, with two perimeter lamps each.
   // Same deterministic vacant-block formula as the real reconstruction.
   const parks:{x:number;z:number}[]=[];
   for(let zi=0;zi<10;zi++)for(let xi=0;xi<10;xi++){
@@ -113,8 +113,8 @@ export function planNorthHeightsStreetLamps012(
         parks.push({x,z});
     }
   }
-  if(parks.length<6)throw Error("NH-LAMP-012 missing park parcels");
-  for(let i=0;i<6;i++)for(let j=0;j<2;j++){
+  if(parks.length<5)throw Error("NH-LAMP-012 missing park parcels");
+  for(let i=0;i<5;i++)for(let j=0;j<2;j++){
     const park=parks[i]!;
     const candidates=(j===0
       ?[[-12,-12],[-12,12],[-10,-15],[-10,15]]
