@@ -15,6 +15,8 @@ import {useInputMode} from "@/game/input/use-input-mode";
 import {BootstrapOverlay} from "@/ui/menus/bootstrap";
 import {initialStartupChecklist} from "@/game/core/loading-checklist";
 import {RealLoadingLedger} from "@/lib/real-loading-ledger";
+import {startWorldOpt001BrowserSession,type WorldOpt001BrowserSession} from "@/game/performance/world-opt-001-browser";
+import type {WorldOpt001Snapshot} from "@/game/performance/world-opt-001-collector";
 
 export const Route=createFileRoute("/north-heights-preview")({
   head:()=>pageHead("North Heights · Procedural Reconstruction",
@@ -32,6 +34,8 @@ function NorthHeightsPreview(){
   const [loadingSnapshot,setLoadingSnapshot]=useState(()=>loader.current!.snapshot());
   const [loadingSeconds,setLoadingSeconds]=useState(0);
   const [stats,setStats]=useState("");
+  const perfSession=useRef<WorldOpt001BrowserSession|null>(null);
+  const [perfSnapshot,setPerfSnapshot]=useState<WorldOpt001Snapshot|null>(null);
   const [meridianMinute,setMeridianMinute]=useState(14*60+53);
   const [meridianSpeed,setMeridianSpeed]=useState(2);
   const [mode,setMode]=useState<"walk"|"fly">("walk");
@@ -72,6 +76,19 @@ function NorthHeightsPreview(){
       setLoadingSeconds(Math.floor(snapshot.elapsedMs/1000));
     },1000);
     return()=>window.clearInterval(id);
+  },[]);
+  useEffect(()=>{
+    const session=startWorldOpt001BrowserSession({
+      search:window.location.search,scenario:"north-heights-preview",
+      metrics:()=>({
+        "npc.population":100,"traffic.population":125,
+        "game.ready":controller.current?1:0,
+        "loading.elapsedMs":loader.current?.snapshot().elapsedMs??null
+      }),
+      onSnapshot:setPerfSnapshot
+    });
+    perfSession.current=session;
+    return()=>{session?.stop();if(perfSession.current===session)perfSession.current=null;};
   },[]);
   useEffect(()=>{controller.current?.applySettings(settings);},[settings]);
   useEffect(()=>{controller.current?.setPaused(paused);},[paused]);
@@ -170,6 +187,21 @@ function NorthHeightsPreview(){
     <main className={"game-shell game-viewport relative h-[100dvh] w-full overflow-hidden bg-[#07111c] text-white"+
       (settings.reducedMotion?" motion-reduced":"")+(settings.contrast?" high-contrast":"")+
       (settings.textSize==="Large"?" large-interface":"")}>
+      {perfSnapshot&&<aside data-testid="world-opt-001-panel"
+        className="absolute bottom-16 left-2 z-30 max-w-[min(90vw,300px)] rounded border border-cyan-300/50 bg-black/85 p-2 text-[11px] text-white"
+        aria-label="World performance diagnostics">
+        <div className="font-semibold">WORLD-OPT-001 · DEVELOPMENT</div>
+        <div>Frames: {perfSnapshot.samples.count} · p50: {perfSnapshot.samples.medianMs?.toFixed(1)??"—"} ms</div>
+        <div>p95: {perfSnapshot.samples.p95Ms?.toFixed(1)??"—"} ms · p99: {perfSnapshot.samples.p99Ms?.toFixed(1)??"—"} ms</div>
+        <div>&gt;50ms: {perfSnapshot.samples.over50ms} · NPC: 100 · Sedan: 125</div>
+        <button type="button" className="mt-1 rounded border border-white/50 px-2 py-1"
+          onClick={()=>{
+            const data=perfSession.current?.exportJson();if(!data)return;
+            const url=URL.createObjectURL(new Blob([data],{type:"application/json"}));
+            const a=document.createElement("a");a.href=url;a.download="gtd-world-opt-001.json";a.click();
+            window.setTimeout(()=>URL.revokeObjectURL(url),3000);
+          }}>Export JSON</button>
+      </aside>}
       <canvas ref={canvas} aria-label="North Heights interactive city"
         className="absolute inset-0 h-full w-full" style={{touchAction:"none"}}/>
       {ready&&settings.hud&&<GameHud snapshot={snapshot}
