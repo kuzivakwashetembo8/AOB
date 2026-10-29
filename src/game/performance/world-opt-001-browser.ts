@@ -18,7 +18,7 @@ export function startWorldOpt001BrowserSession(options:{
   const w=options.windowObject??window;
   const d=options.documentObject??document;
   const collector=createWorldOpt001Collector({
-    scenario:options.scenario,
+    ...(options.scenario===undefined?{}:{scenario:options.scenario}),
     deviceClass:typeof navigator!=="undefined"&&/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)?"mobile":"desktop"
   });
   let active=true,frameId=0;
