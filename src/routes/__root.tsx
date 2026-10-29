@@ -4,7 +4,6 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
-  useRouterState,
   HeadContent,
   Scripts,
   type ErrorComponentProps,
@@ -15,7 +14,6 @@ import appCss from "../styles.css?url";
 import { LandscapeBoundary } from "@/ui/menus/shell";
 import { registerShellWorker } from "@/lib/pwa";
 import { captureInstallPrompt, useStandalone } from "@/lib/standalone";
-import { PersistentGameSession } from "@/game/bridge/persistent-game-session";
 
 function NotFoundComponent() {
   return (
@@ -125,7 +123,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const gameActive = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") === "/game" });
   useStandalone();
   useEffect(() => {
     captureInstallPrompt();
@@ -138,7 +135,6 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <LandscapeBoundary>
-        <PersistentGameSession active={gameActive} />
         <Outlet />
       </LandscapeBoundary>
     </QueryClientProvider>
