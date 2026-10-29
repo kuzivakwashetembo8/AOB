@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ export const Route = createFileRoute("/first-light-comparison")({
       "First Light comparison",
       "Pre-main comparison of the authored First Light scene and the generated Meridian city system.",
     ),
+  // The historical South Ward comparison may not expose a second world runtime.
+  beforeLoad: () => { throw redirect({ to: "/world", replace: true }); },
   component: FirstLightComparisonPage,
 });
 
