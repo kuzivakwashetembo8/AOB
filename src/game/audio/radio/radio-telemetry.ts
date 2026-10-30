@@ -4,7 +4,7 @@ const sessionId=()=>{if(typeof crypto!=="undefined"&&typeof crypto.randomUUID===
 export class RadioTelemetry {
  private readonly session=sessionId();
  private sent=0;
- record(eventType:RadioEventType,details:{stationId?:string|null;reason?:string;errorName?:string;audio?:HTMLAudioElement|null}={}){
+ record(eventType:RadioEventType,details:{stationId?:string|null|undefined;reason?:string|undefined;errorName?:string|undefined;audio?:HTMLAudioElement|null}={}){
   if(!this.session||this.sent>=80||typeof window==="undefined")return;
   this.sent++;
   const audio=details.audio;
