@@ -1,6 +1,8 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
+import {RadioController} from "@/game/audio/radio/radio-controller";
+import {RADIO_STATIONS} from "@/game/audio/radio/radio-stations";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
 import type {GameCommand} from "@/game/core/types";
 import {pageHead} from "@/lib/page-head";
@@ -25,6 +27,11 @@ export const Route=createFileRoute("/north-heights-preview")({
 });
 function NorthHeightsPreview(){
   const canvas=useRef<HTMLCanvasElement>(null),controller=useRef<NorthHeightsInspection|null>(null);
+  const radio=useRef<RadioController|null>(null);
+  if(!radio.current)radio.current=new RadioController();
+  const [radioState,setRadioState]=useState(()=>radio.current!.getSnapshot());
+  useEffect(()=>radio.current!.subscribe(()=>setRadioState(radio.current!.getSnapshot())),[]);
+  useEffect(()=>()=>{radio.current?.dispose();radio.current=null;},[]);
   const {settings,save}=useSettings();
   const currentSettings=useRef(settings);currentSettings.current=settings;
   const [status,setStatus]=useState("Preparing North Heights");
@@ -42,6 +49,9 @@ function NorthHeightsPreview(){
   const [location,setLocation]=useState("NORTH HEIGHTS // MERIDIAN CITY");
   const [position,setPosition]=useState({x:0,z:-31});
   const [vehicle,setVehicle]=useState<string|null>(null);
+  useEffect(()=>{if(vehicle)radio.current?.enterVehicle();else radio.current?.exitVehicle();},[vehicle===null]);
+  useEffect(()=>{radio.current?.setPaused(paused);},[paused]);
+  useEffect(()=>{const visibility=()=>radio.current?.setHidden(document.hidden);document.addEventListener("visibilitychange",visibility);return()=>document.removeEventListener("visibilitychange",visibility);},[]);
   const [vehicleSpeed,setVehicleSpeed]=useState(0);
   const [canEnterVehicle,setCanEnterVehicle]=useState(false);
   const [inside,setInside]=useState(false);
@@ -212,6 +222,12 @@ function NorthHeightsPreview(){
         setMeridianTimeScale={setMeridianSpeed}/>}
       {ready&&!settings.hud&&<button type="button" className="absolute top-5 right-5 z-20"
         aria-label="Pause menu" onClick={()=>{setPanel("pause");setPaused(true);}}>II</button>}
+      {ready&&vehicle&&!paused&&<div data-testid="gtd-radio-controls" aria-label="Vehicle radio" className="absolute right-3 top-28 z-20 flex items-center gap-2 rounded-lg border border-white/30 bg-black/80 px-3 py-2 text-xs text-white">
+        <span aria-live="polite">{radioState.station?.name??"RADIO"} · {RADIO_STATIONS.length===0?"STATIONS PENDING":radioState.status.toUpperCase()}</span>
+        <button type="button" aria-label="Previous radio station" disabled={!RADIO_STATIONS.length} onClick={()=>{const index=RADIO_STATIONS.findIndex(s=>s.id===radioState.station?.id);void radio.current?.tune(RADIO_STATIONS[(index-1+RADIO_STATIONS.length)%RADIO_STATIONS.length]);}}>◀</button>
+        <button type="button" aria-label={radioState.preferences.enabled?"Turn radio off":"Turn radio on"} onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button>
+        <button type="button" aria-label="Next radio station" disabled={!RADIO_STATIONS.length} onClick={()=>{const index=RADIO_STATIONS.findIndex(s=>s.id===radioState.station?.id);void radio.current?.tune(RADIO_STATIONS[(index+1)%RADIO_STATIONS.length]);}}>▶</button>
+      </div>}
       {ready&&!paused&&stats.includes("SEDAN ")&&
         <div data-testid="nh013-sedan-telemetry" aria-label="NH-013 sedan pilot diagnostic"
           className="pointer-events-none absolute bottom-2 left-1/2 z-10 w-max max-w-[55vw] -translate-x-1/2 rounded border border-white/20 bg-black/80 px-2 py-1 text-center text-[10px] text-white/90">
