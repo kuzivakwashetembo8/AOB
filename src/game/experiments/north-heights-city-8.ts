@@ -101,7 +101,7 @@ export async function createNorthHeightsCity8(
   let paused=false,analog={x:0,y:0},keyboardUsed=false;
   let renderLast=0;
   let yaw = 0, pitch = 0, closed = false;
-  let treeHandle: {dispose:()=>void} | null = null;
+  let treeHandle: {dispose:()=>void;update:(camera:Vector3,dt:number)=>void} | null = null;
   let lampHandle:NorthHeightsLampRenderer012|null=null;
   let lampTime:NorthHeightsTime="dusk";
   let walk:NorthHeightsWalk005|null=null;
@@ -439,6 +439,7 @@ export async function createNorthHeightsCity8(
     }
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
+    treeHandle?.update(camera.position,dt);
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
@@ -651,7 +652,7 @@ export async function createNorthHeightsCity8(
     status("North Heights roads joined · loading original owner-committed tree GLB");
     let treeCount=0, treeInstances=0, treeError="";
     try {
-      const realized=await placeNorthHeightsTrees004(scene,world.treeLocations);
+      const realized=await placeNorthHeightsTrees004(scene,world.treeLocations,mobile);
       if(closed){ realized.dispose(); return controller; }
       treeHandle=realized;
       treeCount=realized.trees;
@@ -732,6 +733,7 @@ export async function createNorthHeightsCity8(
     yaw=initialYaw;pitch=initialPitch;
     const spawn=walk.physics.playerPosition();
     setCameraAt(spawn);
+    treeHandle?.update(camera.position,1);
     updateLocation(true);
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+

@@ -10,6 +10,7 @@ import "@babylonjs/loaders/glTF";
 import { NORTH_HEIGHTS_COORDS } from "@/game/world-generation/north-heights-location-009";
 import { NORTH_HEIGHTS_PARKING_LOTS_010 } from "./north-heights-spatial-plan-010";
 import type { NorthHeightsTime } from "./north-heights-sky-002";
+import {createNorthHeightsVisibilityGate015} from "./north-heights-visibility-gate-015";
 
 export type NorthHeightsLampKind012 = "modern" | "medellin";
 export interface NorthHeightsLampPlacement012 {
@@ -234,10 +235,11 @@ export async function loadNorthHeightsStreetLamps012(
     light.setEnabled(false);
     return light;
   });
-  let time:NorthHeightsTime="dusk",elapsed=999,disposed=false;
+  let time:NorthHeightsTime="dusk",disposed=false;
+  const visibilityGate=createNorthHeightsVisibilityGate015();
   const maxRadius=mobile?128:172;
   const refresh=(camera:Vector3)=>{
-    if(disposed)return;
+    if(disposed||!visibilityGate.shouldRefresh(camera))return;
     const maxSquared=maxRadius**2;
     const visible:{pose:NorthHeightsLampPlacement012;height:number;distance:number}[]=[];
     for(const group of groups){
@@ -282,13 +284,8 @@ export async function loadNorthHeightsStreetLamps012(
   return {
     total:locations.length,
     sources:groups.reduce((n,g)=>n+g.templates.length,0),
-    update(camera,dt){
-      elapsed+=dt;
-      if(elapsed<.38)return;
-      elapsed=0;
-      refresh(camera);
-    },
-    setTime(next){time=next;elapsed=999;},
+    update(camera,_dt){refresh(camera);},
+    setTime(next){time=next;visibilityGate.invalidate();},
     dispose(){
       if(disposed)return;
       disposed=true;

@@ -1,7 +1,8 @@
-/** NH-008: park lawns and building-lot paving follow the existing terrain.
- * Draw one batched mesh per material, avoiding 100 standalone mesh calls.
- * Only designated parks and actual tree wells receive South Ward grass.
- * Every occupied urban block is flat-looking concrete, not a black void.
+/** NH-008 / NH-YARD-013: block surfaces follow the existing hill terrain.
+ * All park and building-yard parcels share the same South Ward grass material.
+ * The `occupied` parameter means parcels reserved for concrete SURFACING
+ * (currently only the two genuine parking pads), not building occupancy.
+ * Draw one batched mesh per material, never 100 independent grass meshes.
  */
 import {Mesh,Scene,StandardMaterial,VertexData} from "@babylonjs/core";
 import type {TreeLocation} from "./north-heights-trees-004";

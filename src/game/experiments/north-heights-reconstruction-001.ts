@@ -14,6 +14,7 @@ import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
 import { attachNorthHeightsGrass004, planNorthHeightsTrees004, type TreeLocation } from "./north-heights-trees-004";
 import {createNorthHeightsBlockSurfaces008} from "./north-heights-block-surfaces-008";
+import {planNorthHeightsYardTrees014} from "./north-heights-yard-trees-014";
 import {NORTH_HEIGHTS_PARKING_LOTS_010,NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010,
  NORTH_HEIGHTS_PORTAL_WIDTH_010,NORTH_HEIGHTS_PORTAL_HEIGHT_010} from "./north-heights-spatial-plan-010";
 
@@ -460,12 +461,25 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
   const occupied=new Set([...lots.map(l=>l.block),...NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010]);
   // NH-009: reserve the compact curbside forecourt beside Meridian Boulevard
   // for the genuine six-car fleet. No road, window or main glass material edits.
-  const parkPlan=planNorthHeightsTrees004(MIDPOINTS,occupied,northHeightsGround,mobile)
+  const establishedTrees=planNorthHeightsTrees004(MIDPOINTS,occupied,northHeightsGround,mobile)
     .filter(tree=>!NORTH_HEIGHTS_PARKING_LOTS_010.some(lot=>
       Math.abs(tree.x-lot.x)<=lot.width/2+1.5&&
       Math.abs(tree.z-lot.z)<=lot.depth/2+1.5));
+  // NH-YARD-014: supplement existing park/road trees with smaller clusters in
+  // the new grass setbacks. The candidate planner respects building footprints,
+  // open door approaches, original trees, both parking pads and all 359 lamps.
+  const addedYardTrees=planNorthHeightsYardTrees014(
+    lotSpecs,establishedTrees,northHeightsGround,mobile);
+  const parkPlan=[...establishedTrees,...addedYardTrees];
+  // NH-YARD-013: keep the two actual parking pads paved, but landscape all
+  // occupied building blocks with the EXACT same grass batch/material as parks.
+  // Do not pass the broader `occupied` set here: that set is for deciding
+  // where trees/buildings may spawn, not for choosing land-surface material.
+  // Block caps end at 7.85m from each road axis, leaving the 7.75m sidewalks
+  // and existing concrete curbs unaltered. Shared grass geometry remains batched.
   createNorthHeightsBlockSurfaces008(scene,{
-    middle:MIDPOINTS,occupied,ground:northHeightsGround,trees:parkPlan,
+    middle:MIDPOINTS,occupied:NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010,
+    ground:northHeightsGround,trees:parkPlan,
     grass:city.mat("grass"),concrete:city.mat("concrete"),
   });
   // Economical shared lines denote six park bays, with a broad empty drive
@@ -484,7 +498,8 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
   const treeLocations=parkPlan;
   const trees=treeLocations.length;
   console.info("[NH-REBUILD-004] owner tree positions planned",{
-    trees,asset:"tree_low_poly_lowpoly.glb",generatedCanopyCards:0,
+    trees,existing:establishedTrees.length,yardAndParkAdditions:addedYardTrees.length,
+    asset:"tree_low_poly_lowpoly.glb",generatedCanopyCards:0,
   });
   console.info("[NH-REBUILD-001] procedural world",{
     buildings:lots.length,trees,lamps,laneDashes,instances,modelsFromRejectedPack:0,
