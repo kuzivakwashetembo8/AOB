@@ -50,13 +50,13 @@ function NorthHeightsPreview(){
   const [position,setPosition]=useState({x:0,z:-31});
   const [vehicle,setVehicle]=useState<string|null>(null);
   useEffect(()=>{if(vehicle)radio.current?.enterVehicle();else radio.current?.exitVehicle();},[vehicle===null]);
-  useEffect(()=>{radio.current?.setPaused(paused);},[paused]);
   useEffect(()=>{const visibility=()=>radio.current?.setHidden(document.hidden);document.addEventListener("visibilitychange",visibility);return()=>document.removeEventListener("visibilitychange",visibility);},[]);
   const [vehicleSpeed,setVehicleSpeed]=useState(0);
   const [canEnterVehicle,setCanEnterVehicle]=useState(false);
   const [inside,setInside]=useState(false);
   const [mapOpen,setMapOpen]=useState(false);
   const [paused,setPaused]=useState(false);
+  useEffect(()=>{radio.current?.setPaused(paused);},[paused]);
   const [panel,setPanel]=useState<"pause"|"settings"|"objectives"|"save">("pause");
   const [feedback,setFeedback]=useState("");
   const [coarse,setCoarse]=useState(false);
