@@ -1,3 +1,5 @@
+import {RadioTelemetry} from "./radio-telemetry";
+import {RADIO_STATIONS} from "./radio-stations";
 import type {RadioStation} from "./radio-stations";
 export type RadioStatus = "off" | "connecting" | "playing" | "buffering" | "error";
 export interface RadioPreferences { enabled: boolean; selectedStationId: string | null; volume: number; }
@@ -5,6 +7,7 @@ const KEY = "gtd.radio.preferences.v1";
 const defaults: RadioPreferences = {enabled:true,selectedStationId:null,volume:0.5};
 export class RadioController {
   private audio: HTMLAudioElement | null = null;
+  private readonly telemetry = new RadioTelemetry();
   private generation = 0;
   private inVehicle = false;
   private paused = false;
@@ -22,12 +25,12 @@ export class RadioController {
   getSnapshot() { return {status:this.status,station:this.station,preferences:{...this.prefs}}; }
   private notify() { for(const listener of this.listeners) listener(); }
   private persist() { try { localStorage.setItem(KEY,JSON.stringify(this.prefs)); } catch { /* storage optional */ } this.notify(); }
-  private ensureAudio() { if(!this.audio) { this.audio = new Audio(); this.audio.preload = "none"; this.audio.addEventListener("waiting",()=>{if(this.status==="playing"){this.status="buffering";this.notify();}}); this.audio.addEventListener("playing",()=>{if(this.inVehicle&&!this.paused&&!this.hidden){this.status="playing";this.notify();}}); this.audio.addEventListener("error",()=>{if(this.inVehicle){this.status="error";this.notify();}}); } return this.audio; }
-  private stop() { this.generation++; if(this.audio){this.audio.pause();this.audio.removeAttribute("src");this.audio.load();} this.status="off";this.notify(); }
-  async tune(station:RadioStation) { if(!station.streamUrl.startsWith("https://")) return; this.station=station;this.prefs.selectedStationId=station.id;this.persist();await this.play(); }
-  private async play() { if(!this.station||!this.prefs.enabled||!this.inVehicle||this.paused||this.hidden)return;const audio=this.ensureAudio();const generation=++this.generation;audio.pause();audio.src=this.station.streamUrl;audio.volume=this.prefs.volume;this.status="connecting";this.notify();try {await audio.play();if(generation!==this.generation||!this.inVehicle||this.paused||this.hidden){audio.pause();return;}this.status="playing";this.notify();}catch {if(generation===this.generation){this.status="error";this.notify();}} }
-  enterVehicle(){this.inVehicle=true;void this.play();}
-  exitVehicle(){this.inVehicle=false;this.stop();}
+  private ensureAudio() { if(!this.audio) { this.audio = new Audio(); this.audio.preload = "none"; this.audio.addEventListener("waiting",()=>{if(this.status==="playing"){this.status="buffering";this.telemetry.record("buffering",{stationId:this.station?.id,audio:this.audio});this.notify();}}); this.audio.addEventListener("playing",()=>{if(this.inVehicle&&!this.paused&&!this.hidden){this.status="playing";this.telemetry.record("playing",{stationId:this.station?.id,audio:this.audio});this.notify();}}); this.audio.addEventListener("error",()=>{if(this.inVehicle){this.status="error";this.telemetry.record("media_error",{stationId:this.station?.id,audio:this.audio});this.notify();}}); } return this.audio; }
+  private stop() { this.generation++; if(this.audio){this.audio.pause();this.audio.removeAttribute("src");this.audio.load();} this.status="off";this.telemetry.record("stopped",{stationId:this.station?.id});this.notify(); }
+  async tune(station:RadioStation) { if(!station.streamUrl.startsWith("https://")) return; this.station=station;this.telemetry.record("station_selected",{stationId:station.id});this.prefs.selectedStationId=station.id;this.persist();await this.play(); }
+  private async play() { if(!this.prefs.enabled||!this.inVehicle||this.paused||this.hidden)return;if(RADIO_STATIONS.length===0){this.telemetry.record("no_stations",{reason:"registry_empty"});return;}if(!this.station){this.telemetry.record("no_station_selected",{reason:"station_not_selected"});return;}const audio=this.ensureAudio();const generation=++this.generation;audio.pause();audio.src=this.station.streamUrl;audio.volume=this.prefs.volume;this.status="connecting";this.telemetry.record("play_requested",{stationId:this.station.id,audio});this.notify();try {await audio.play();if(generation!==this.generation||!this.inVehicle||this.paused||this.hidden){audio.pause();return;}this.status="playing";this.notify();}catch(error) {if(generation===this.generation){this.status="error";this.telemetry.record("play_rejected",{stationId:this.station?.id,errorName:error instanceof Error?error.name:"unknown",audio});this.notify();}} }
+  enterVehicle(){if(this.inVehicle)return;this.inVehicle=true;this.telemetry.record("vehicle_enter");void this.play();}
+  exitVehicle(){if(!this.inVehicle)return;this.inVehicle=false;this.telemetry.record("vehicle_exit");this.stop();}
   setPaused(value:boolean){this.paused=value;if(value)this.stop();else void this.play();}
   setHidden(value:boolean){this.hidden=value;if(value)this.stop();else void this.play();}
   setEnabled(value:boolean){this.prefs.enabled=value;this.persist();if(!value)this.stop();else void this.play();}
