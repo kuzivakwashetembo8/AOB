@@ -21,6 +21,7 @@ export function GameHud({
   pause,
   showObjective,
   mapSlot,
+  metadataSlot,
   setMeridianTime,
   setMeridianTimeScale,
 }: {
@@ -31,6 +32,7 @@ export function GameHud({
   pause: () => void;
   showObjective: boolean;
   mapSlot?: ReactNode;
+  metadataSlot?: ReactNode;
   setMeridianTime: (minuteOfDay: number) => void;
   setMeridianTimeScale: (scale: number) => void;
 }) {
@@ -54,6 +56,7 @@ export function GameHud({
         onClick={() => { setHeaderVisible(value => !value); setTimeControlsOpen(false); }}>
         <Info size={18} aria-hidden="true" />
       </Button>
+      {headerVisible && metadataSlot && <div className="absolute right-24 top-20 z-30 max-w-[min(85vw,360px)]">{metadataSlot}</div>}
       <div className={`hud-top gtd-auto-header ${headerVisible ? "is-visible" : "is-hidden"}`}>
 
         {showObjective ? <div className="objective"><span className="system-label text-primary">OBJECTIVE</span><p>{snapshot.objective}</p></div> : <div />}
