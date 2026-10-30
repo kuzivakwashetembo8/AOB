@@ -224,9 +224,9 @@ function NorthHeightsPreview(){
         aria-label="Pause menu" onClick={()=>{setPanel("pause");setPaused(true);}}>II</button>}
       {ready&&vehicle&&!paused&&<div data-testid="gtd-radio-controls" aria-label="Vehicle radio" className="absolute right-3 top-28 z-20 flex items-center gap-2 rounded-lg border border-white/30 bg-black/80 px-3 py-2 text-xs text-white">
         <span aria-live="polite">{radioState.station?.name??"RADIO"} · {RADIO_STATIONS.length===0?"STATIONS PENDING":radioState.status.toUpperCase()}</span>
-        <button type="button" aria-label="Previous radio station" disabled={!RADIO_STATIONS.length} onClick={()=>{const index=RADIO_STATIONS.findIndex(s=>s.id===radioState.station?.id);void radio.current?.tune(RADIO_STATIONS[(index-1+RADIO_STATIONS.length)%RADIO_STATIONS.length]);}}>◀</button>
+        <button type="button" aria-label="Previous radio station" disabled={!RADIO_STATIONS.length} onClick={()=>{const index=RADIO_STATIONS.findIndex(s=>s.id===radioState.station?.id);const station=RADIO_STATIONS[(index-1+RADIO_STATIONS.length)%RADIO_STATIONS.length];if(station)void radio.current?.tune(station);}}>◀</button>
         <button type="button" aria-label={radioState.preferences.enabled?"Turn radio off":"Turn radio on"} onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button>
-        <button type="button" aria-label="Next radio station" disabled={!RADIO_STATIONS.length} onClick={()=>{const index=RADIO_STATIONS.findIndex(s=>s.id===radioState.station?.id);void radio.current?.tune(RADIO_STATIONS[(index+1)%RADIO_STATIONS.length]);}}>▶</button>
+        <button type="button" aria-label="Next radio station" disabled={!RADIO_STATIONS.length} onClick={()=>{const index=RADIO_STATIONS.findIndex(s=>s.id===radioState.station?.id);const station=RADIO_STATIONS[(index+1)%RADIO_STATIONS.length];if(station)void radio.current?.tune(station);}}>▶</button>
       </div>}
       {ready&&!paused&&stats.includes("SEDAN ")&&
         <div data-testid="nh013-sedan-telemetry" aria-label="NH-013 sedan pilot diagnostic"
