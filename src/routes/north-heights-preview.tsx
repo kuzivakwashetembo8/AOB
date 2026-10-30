@@ -2,7 +2,6 @@ import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
 import {RadioController} from "@/game/audio/radio/radio-controller";
-import {RADIO_STATIONS} from "@/game/audio/radio/radio-stations";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
 import type {GameCommand} from "@/game/core/types";
 import {pageHead} from "@/lib/page-head";
@@ -217,12 +216,7 @@ function NorthHeightsPreview(){
       {ready&&settings.hud&&<GameHud snapshot={snapshot}
         context={vehicle?"driving":"walking"}
         mapSlot={<NorthHeightsMiniMap position={position} onExpand={()=>setMapOpen(true)}/>}
-        metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div data-testid="gtd-radio-controls" aria-label="Vehicle radio" className="flex items-center gap-2 rounded-lg border border-white/30 bg-black/80 px-3 py-2 text-xs text-white">
-        <span aria-live="polite">{radioState.station?.name??"RADIO"} · {RADIO_STATIONS.length===0?"STATIONS PENDING":radioState.status.toUpperCase()}</span>
-        <button type="button" aria-label="Previous radio station" disabled={!RADIO_STATIONS.length} onClick={()=>{const index=RADIO_STATIONS.findIndex(s=>s.id===radioState.station?.id);const station=RADIO_STATIONS[(index-1+RADIO_STATIONS.length)%RADIO_STATIONS.length];if(station)void radio.current?.tune(station);}}>◀</button>
-        <button type="button" aria-label={radioState.preferences.enabled?"Turn radio off":"Turn radio on"} onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button>
-        <button type="button" aria-label="Next radio station" disabled={!RADIO_STATIONS.length} onClick={()=>{const index=RADIO_STATIONS.findIndex(s=>s.id===radioState.station?.id);const station=RADIO_STATIONS[(index+1)%RADIO_STATIONS.length];if(station)void radio.current?.tune(station);}}>▶</button>
-      </div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
+        metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div className="flex items-center gap-2 rounded bg-black/75 px-3 py-2 text-xs text-white" aria-label="Vehicle music"><span>VEHICLE MUSIC · {radioState.status.toUpperCase()}</span><button type="button" onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button></div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
         className="flex max-w-[min(85vw,360px)] flex-wrap items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
         <span>{sedanManual
           ?"STAGE 6 FREE DRIVE · ↑ FORWARD +30% · ↓ BRAKE / REVERSE · HOLD ← → TO STEER · WALLS SOLID · TRAFFIC PASS-THROUGH"
