@@ -345,7 +345,10 @@ export class NH012TrafficSimulator {
      agent.heading=Math.atan2(Math.sin(moved.pose.heading),Math.cos(moved.pose.heading));
      if(moved.blocked){
        const response=this.applyContactImpulse(agent,moved.contactPose??moved.pose,m.velocity);
-       m.velocity=response??0; // walls and poles are static; vehicle contact transfers momentum
+       // Infinite-mass wall/trunk/pole: small coefficient of restitution.
+       // At crawling speed, settle without vibrating against the obstacle.
+       m.velocity=response??(Math.abs(m.velocity)>1.8?
+         -Math.sign(m.velocity)*Math.min(1.2,Math.abs(m.velocity)*.10):0);
      }
      agent.speed=Math.abs(m.velocity);
      agent.arrivalTick=-1;agent.waitTicks=0;
@@ -569,7 +572,11 @@ export class NH012TrafficSimulator {
        const p=at(lo);a.x=p.x;a.z=p.z;a.heading=p.heading;
        a.arrivalTick=-1;a.waitTicks=0;
      }else Object.assign(a,old);
-     a.speed=0;a.state="stopped";
+     // Autonomous contacts use the same two-body impulse as manual crashes.
+     // Static obstacles instead absorb momentum without phantom displacement.
+     const collisionSpeed=this.applyContactImpulse(a,at(hi),target.speed);
+     a.speed=Math.max(0,collisionSpeed??0);
+     a.state=a.speed>.08?"braking":"stopped";
      return;
    }
  }
