@@ -5,12 +5,12 @@ import {createNorthHeightsSolidField017} from "@/game/vehicles/nh-solid-vehicle-
 /** Traffic is allowed to queue behind a real obstruction, but ordinary
  * contact MUST NOT permanently convert an AI Sedan into a parked vehicle. */
 describe("NH-TRAFFIC-019 unintended congestion recovery",()=>{
-  function scenario(){
+  function scenario(speed=5){
     const sim=new NH012TrafficSimulator(2,120125);
     const target=sim.agents[1]!,driver=sim.agents[0]!;
     const sin=Math.sin(target.heading),cos=Math.cos(target.heading);
     driver.x=target.x-sin*4.85;driver.z=target.z-cos*4.85;
-    driver.heading=target.heading;driver.speed=5;
+    driver.heading=target.heading;driver.speed=speed;
     target.speed=0;target.state="stopped";
     const field=createNorthHeightsSolidField017({
       buildings:[],trees:[],lamps:[],cars:()=>sim.agents,
@@ -34,10 +34,7 @@ describe("NH-TRAFFIC-019 unintended congestion recovery",()=>{
     expect(Number.isFinite(target.x)&&Number.isFinite(target.z)).toBe(true);
   });
   it("low-speed bumper queues remain ordinary yielding, not crash recovery",()=>{
-    const {sim,driver,target}=scenario();
-    driver.speed=.7;
-    sim.beginManualDriving(driver.id);
-    sim.setManualPedals(driver.id,1,0);
+    const {sim,target}=scenario(.65);
     sim.step();
     expect(sim.recoveringTrafficCount).toBe(0);
     expect(sim.isStage6FreeParked(target.id)).toBe(false);
