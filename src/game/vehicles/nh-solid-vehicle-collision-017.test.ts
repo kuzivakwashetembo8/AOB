@@ -60,12 +60,14 @@ describe("NH-SOLID-017 physical contacts",()=>{
     physics.commitSolidTrafficPositions();
     try{
       physics.setPlayerPosition({x:0,y:.92,z:-5});
+      physics.commitSolidTrafficPositions();
       const blocked=physics.movePlayer({x:0,y:0,z:5});
       expect(blocked.movement.z).toBeLessThan(3.5);
       // With no car collider the same player movement remains legal.
       hull.dispose();
       physics.commitSolidTrafficPositions();
       physics.setPlayerPosition({x:0,y:.92,z:-5});
+      physics.commitSolidTrafficPositions();
       const clear=physics.movePlayer({x:0,y:0,z:5});
       expect(clear.movement.z).toBeGreaterThan(blocked.movement.z+1);
     }finally{
