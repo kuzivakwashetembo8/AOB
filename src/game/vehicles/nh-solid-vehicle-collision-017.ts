@@ -47,7 +47,14 @@ export function createNorthHeightsSolidField017(args:{
   // Trunks, not canopies; poles, not light cones.
   for(const tree of args.trees)register({x:tree.x,z:tree.z,
     radius:Math.max(.20,Math.min(.43,tree.size*.31))});
-  for(const lamp of args.lamps)register({x:lamp.x,z:lamp.z,radius:.20});
+  let lampPolesActive=false;
+  // Lighting assets load after the first playable frame. Do not install
+  // invisible vehicle barriers for poles whose GLBs failed to load.
+  function activateLampPoles(){
+    if(lampPolesActive)return;
+    lampPolesActive=true;
+    for(const lamp of args.lamps)register({x:lamp.x,z:lamp.z,radius:.20});
+  }
   function isCarClear(pose:SedanStage6Pose,length:number,width:number,excludeId:string):boolean{
     if(!buildingClear(pose,length,width))return false;
     const extent=Math.hypot(length/2,width/2)+.6;
@@ -81,5 +88,6 @@ export function createNorthHeightsSolidField017(args:{
     }
     return true;
   }
-  return {isCarClear,personClear,staticCount:args.trees.length+args.lamps.length};
+  return {isCarClear,personClear,activateLampPoles,
+    get staticCount(){return args.trees.length+(lampPolesActive?args.lamps.length:0);}};
 }
