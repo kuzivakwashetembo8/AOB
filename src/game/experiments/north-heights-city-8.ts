@@ -699,7 +699,16 @@ export async function createNorthHeightsCity8(
       solidField.isCarClear(pose,length,width,id));
     traffic.configureSolidTraffic((agent,pose)=>
       solidField.isCarClear(pose,agent.length,agent.width,agent.id));
+    const pilotIds=assignNH013SedanPilot(traffic,8);
+    const hatchIds=assignNH013HatchbackPilot(traffic,12);
+    const taxiIds=assignNH014TaxiPilot(traffic,NH014_TAXI_COUNT);
+    const kangoIds=assignNH015KangoPilot(traffic,NH015_KANGO_COUNT);
+    const circuit=verifyCompleteFleet016(traffic.snapshot());
+    // Historical model identity overlay pilots replace agent IDs and geometry
+    // tags. Register physical hulls only AFTER identity assignment completes.
     for(const agent of traffic.agents){
+      agent.length=NH017_SEDAN_LENGTH;
+      agent.width=NH017_SEDAN_WIDTH;
       const p=sedanRoadPosition(agent);
       solidVehicleHandles.set(agent.id,walk.physics.addSolidTrafficVehicle(
         {x:p.x,y:p.y,z:p.z,heading:agent.heading},
@@ -709,11 +718,6 @@ export async function createNorthHeightsCity8(
       hulls:solidVehicleHandles.size,staticContacts:solidField.staticCount,
       simulationOwner:"NH012",visualOwner:"GEN-VEH-009",
     });
-    const pilotIds=assignNH013SedanPilot(traffic,8);
-    const hatchIds=assignNH013HatchbackPilot(traffic,12);
-    const taxiIds=assignNH014TaxiPilot(traffic,NH014_TAXI_COUNT);
-    const kangoIds=assignNH015KangoPilot(traffic,NH015_KANGO_COUNT);
-    const circuit=verifyCompleteFleet016(traffic.snapshot());
     traffic3D=createNorthHeightsSedanTraffic009(scene,traffic.graph);
     // Use the SAME measured source axles as GEN-VEH-009 for rider camera height.
     const front=sourceWheelFit007("sedan","frontLeft");
