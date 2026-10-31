@@ -91,6 +91,92 @@ export class NH012TrafficSimulator {
  configureSolidTraffic(admission:(agent:NH012Agent,p:SedanStage6Pose)=>boolean):void{
    this.solidAdmission=admission;
  }
+ /** Contact impulse simulation is activated only for impact participants.
+  * The remaining traffic retains its accepted 20 Hz route solver. */
+ private contactTarget:((mover:NH012Agent,probe:SedanStage6Pose)=>
+   {id:string;nx:number;nz:number}|null)|null=null;
+ private readonly impactMotion=new Map<string,{vx:number;vz:number;ttl:number}>();
+ private readonly impactCooldown=new Map<string,number>();
+ configureContactImpulses(lookup:(mover:NH012Agent,probe:SedanStage6Pose)=>
+   {id:string;nx:number;nz:number}|null):void{this.contactTarget=lookup;}
+ private applyContactImpulse(mover:NH012Agent,probe:SedanStage6Pose,
+   signedSpeed:number):number|null{
+   const contact=this.contactTarget?.(mover,probe);
+   if(!contact)return null;
+   const other=this.agents.find(a=>a.id===contact.id);
+   if(!other)return null;
+   const key=mover.id+"|"+other.id;
+   if(this.tick-(this.impactCooldown.get(key)??-100)<5)return 0;
+   const {nx,nz}=contact;
+   const mx=Math.sin(mover.heading),mz=Math.cos(mover.heading);
+   const tx=Math.sin(other.heading),tz=Math.cos(other.heading);
+   const targetImpact=this.impactMotion.get(other.id);
+   const ovx=targetImpact?.vx??tx*other.speed;
+   const ovz=targetImpact?.vz??tz*other.speed;
+   const vx=mx*signedSpeed,vz=mz*signedSpeed;
+   const closing=(vx-ovx)*nx+(vz-ovz)*nz;
+   if(closing<=.25)return 0;
+   // Pair of equal-mass 1,450 kg Sedans, restitution 0.14. The normal impulse
+   // conserves total momentum and reverses relative normal speed. Ground
+   // friction then removes the imparted energy over time.
+   const massKg=1450,restitution=.14;
+   const impulse=(1+restitution)*closing/(2/massKg);
+   const dv=impulse/massKg;
+   const afterMover={x:vx-dv*nx,z:vz-dv*nz};
+   const afterOther={x:ovx+dv*nx,z:ovz+dv*nz};
+   this.impactCooldown.set(key,this.tick);
+   if(this.manual?.agentId===other.id){
+     this.manual.velocity=afterOther.x*tx+afterOther.z*tz;
+   }else{
+     const old=this.impactMotion.get(other.id);
+     this.impactMotion.set(other.id,{
+       vx:afterOther.x,vz:afterOther.z,ttl:Math.max(old?.ttl??0,1.3),
+     });
+     // A crashed NPC exits strict lane ownership; it must not teleport back
+     // to its pre-impact waypoint or pass through the incoming bumper.
+     if(other.connectorId){
+       const junction=this.graph.connectors.get(other.connectorId)?.junction;
+       if(junction&&this.reservations.get(junction)===other.id)
+         this.reservations.delete(junction);
+     }
+     other.connectorId=null;other.plannedConnectorId=null;
+     other.arrivalTick=-1;other.waitTicks=0;
+   }
+   return afterMover.x*mx+afterMover.z*mz;
+ }
+ private stepImpactBodies(dt:number):void{
+   for(const [id,motion] of this.impactMotion){
+     const car=this.agents.find(a=>a.id===id);
+     if(!car){this.impactMotion.delete(id);continue;}
+     const speed=Math.hypot(motion.vx,motion.vz);
+     if(speed>.05&&this.solidAdmission){
+       const distance=speed*dt;
+       // Integrate the two-dimensional post-impact velocity directly:
+       // a side impact can slide a car laterally without rotating its wheels.
+       const steps=Math.max(1,Math.ceil(distance/.05));
+       let x=car.x,z=car.z,blocked=false;
+       for(let i=0;i<steps;i++){
+         const proposed={x:x+motion.vx*dt/steps,
+           z:z+motion.vz*dt/steps,heading:car.heading};
+         if(!this.solidAdmission(car,proposed)){blocked=true;break;}
+         x=proposed.x;z=proposed.z;
+       }
+       car.x=x;car.z=z;
+       if(blocked){motion.vx=0;motion.vz=0;}
+     }
+     const speedNow=Math.hypot(motion.vx,motion.vz);
+     const slowed=Math.max(0,speedNow-4.2*dt);
+     const factor=speedNow>0?slowed/speedNow:0;
+     motion.vx*=factor;motion.vz*=factor;motion.ttl-=dt;
+     car.speed=slowed;
+     car.state=slowed>.08?"braking":"stopped";
+     if(slowed<.08||motion.ttl<=0){
+       car.speed=0;car.state="stopped";
+       this.impactMotion.delete(id);
+       this.freeParkedAgents.add(id);
+     }
+   }
+ }
  private readonly freeParkedAgents=new Set<string>();
  configureStage6FreeDriving(
    admission:(p:SedanStage6Pose,length:number,width:number,id:string)=>boolean,
@@ -151,6 +237,7 @@ export class NH012TrafficSimulator {
    }
    agent.plannedConnectorId=null;
    this.freeParkedAgents.delete(agentId);
+   this.impactMotion.delete(agentId);
    this.manual={agentId,velocity:agent.speed,forward:0,reverse:0,history:[],
      steering:0,steeringRequest:0,free:!!this.freeDrivingAdmission};
    this.setDriverBrake(null,false);this.setDriverThrottle(null,0);
@@ -256,7 +343,10 @@ export class NH012TrafficSimulator {
      );
      agent.x=moved.pose.x;agent.z=moved.pose.z;
      agent.heading=Math.atan2(Math.sin(moved.pose.heading),Math.cos(moved.pose.heading));
-     if(moved.blocked)m.velocity=0; // impact on solid building/wall
+     if(moved.blocked){
+       const response=this.applyContactImpulse(agent,moved.contactPose??moved.pose,m.velocity);
+       m.velocity=response??0; // walls and poles are static; vehicle contact transfers momentum
+     }
      agent.speed=Math.abs(m.velocity);
      agent.arrivalTick=-1;agent.waitTicks=0;
      agent.connectorId=null;agent.plannedConnectorId=null;
@@ -477,9 +567,10 @@ export class NH012TrafficSimulator {
    // Manual car moves along the SAME lanes and connectors, but its driver
    // explicitly overrides traffic signals, spacing, reservation and stop AI.
    this.stepManual(dt);
+   this.stepImpactBodies(dt);
    const laneCars=new Map<string,NH012Agent[]>();
    for(const a of this.agents)if(a.connectorId===null&&
-     a.id!==this.manual?.agentId&&!this.freeParkedAgents.has(a.id)){
+     a.id!==this.manual?.agentId&&!this.freeParkedAgents.has(a.id)&&!this.impactMotion.has(a.id)){
      const list=laneCars.get(a.edgeId)??[];list.push(a);laneCars.set(a.edgeId,list);
    }
    for(const list of laneCars.values())list.sort((a,b)=>b.s-a.s||a.id.localeCompare(b.id));
@@ -494,7 +585,7 @@ export class NH012TrafficSimulator {
    }
    // Each reserved connector remains exclusive until its occupant exits.
    for(const agent of this.agents){
-     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id))continue;
+     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id)||this.impactMotion.has(agent.id))continue;
      if(!agent.connectorId)continue;
      const c=this.graph.connectors.get(agent.connectorId)!;
      const before={...agent};
@@ -527,7 +618,7 @@ export class NH012TrafficSimulator {
    }
    // Advance ordinary lanes; a virtual stop-line leader enforces full stops.
    for(const agent of this.agents){
-     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id))continue;
+     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id)||this.impactMotion.has(agent.id))continue;
      if(agent.connectorId)continue;
      const edge=this.graph.edges.get(agent.edgeId)!;
      const before={...agent};
