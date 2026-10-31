@@ -219,7 +219,7 @@ function NorthHeightsPreview(){
         metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div className="flex items-center gap-2 rounded bg-black/75 px-3 py-2 text-xs text-white" aria-label="Vehicle music"><span>VEHICLE MUSIC · {radioState.status.toUpperCase()}</span><button type="button" onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button></div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
         className="flex max-w-[min(85vw,360px)] flex-wrap items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
         <span>{sedanManual
-          ?"STAGE 6 FREE DRIVE · ↑ FORWARD +30% · ↓ BRAKE / REVERSE · HOLD ← → TO STEER · WALLS SOLID · TRAFFIC PASS-THROUGH"
+          ?"STAGE 6 FREE DRIVE · ↑ FORWARD +30% · ↓ BRAKE / REVERSE · HOLD ← → TO STEER · BUILDINGS / TRAFFIC / TREES / LAMPS SOLID"
           :"AUTOPILOT · FIRST PEDAL OR TURN TAKES MANUAL CONTROL"}
           {" · "}{vehicleSpeed>.25?"STOP TO EXIT":"F / VEHICLE TO EXIT"}</span>
         <button type="button" data-testid="nh-opt2-stage5-toggle-autopilot"
