@@ -690,7 +690,7 @@ export async function createNorthHeightsCity8(
     // NH-SOLID-017: the same hull for every accepted source Sedan, regardless
     // of original fleet tags, proximity, camera LOD or driver ownership.
     const solidField=createNorthHeightsSolidField017({
-      buildings:world.lotSpecs,trees:world.treeLocations,
+      buildings:world.lotSpecs,trees:treeHandle?world.treeLocations:[],
       lamps:planNorthHeightsStreetLamps012(world.treeLocations),
       cars:()=>traffic?.agents??[],
       people:()=>pedestrians?.agents??[],
@@ -789,6 +789,7 @@ export async function createNorthHeightsCity8(
         .then(renderer=>{
           if(closed){renderer.dispose();return;}
           lampHandle=renderer;
+          solidField.activateLampPoles();
           renderer.setTime(lampTime);
           renderer.update(camera.position,1);
           console.info("[NH-LAMP-012] Owner GLB streetlight grid active",{
