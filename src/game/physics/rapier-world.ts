@@ -216,6 +216,13 @@ export class MeridianPhysics {
     };
   }
 
+  /** Make newly installed/moved kinematic car hulls visible to Rapier scene
+   * queries before the next character-controller sweep. The broad phase is
+   * committed once per traffic tick, not once per each of the 125 cars. */
+  commitSolidTrafficPositions():void{
+    this.world.step();
+  }
+
   movePlayer(desired: Vec3): { movement: Vec3; grounded: boolean } {
     this.controller.computeColliderMovement(this.playerCollider, desired);
     const corrected = this.controller.computedMovement();
