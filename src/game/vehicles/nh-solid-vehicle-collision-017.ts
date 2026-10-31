@@ -3,7 +3,7 @@
  * The contact solver is independent of the render LOD and Rapier character bodies.
  */
 import {
-  stage6BuildingBlockers,stage6RectanglesOverlap,stage6SolidBuildingCheck,
+  stage6BuildingBlockers,stage6SolidBuildingCheck,
   type SedanStage6Pose,
 } from "./nh-opt2-sedan-free-steering-stage6";
 import type {BuildingSpec} from "@/game/world-generation/schema";
@@ -139,13 +139,34 @@ export function createNorthHeightsSolidField017(args:{
     }
     return true;
   }
+  /** Minimum-penetration separating axis; points from the moving car toward
+   * the struck car. Enables a mass/restitution impulse, not a visual shake. */
+  function impactNormal(a:readonly NH017Point[],b:readonly NH017Point[],
+    dx:number,dz:number):{nx:number;nz:number}{
+    let depth=Infinity,nx=0,nz=1;
+    for(const polygon of [a,b])for(let i=0;i<polygon.length;i++){
+      const p=polygon[i]!,q=polygon[(i+1)%polygon.length]!;
+      const ex=q.x-p.x,ez=q.z-p.z,l=Math.hypot(ex,ez)||1;
+      const tx=-ez/l,tz=ex/l;
+      let amin=Infinity,amax=-Infinity,bmin=Infinity,bmax=-Infinity;
+      for(const v of a){const d=v.x*tx+v.z*tz;amin=Math.min(amin,d);amax=Math.max(amax,d);}
+      for(const v of b){const d=v.x*tx+v.z*tz;bmin=Math.min(bmin,d);bmax=Math.max(bmax,d);}
+      const overlap=Math.min(amax,bmax)-Math.max(amin,bmin);
+      if(overlap<depth){depth=overlap;const sign=tx*dx+tz*dz>=0?1:-1;nx=tx*sign;nz=tz*sign;}
+    }
+    return {nx,nz};
+  }
   /** Identify impacted traffic, leaving tree, lamp and wall contact static. */
-  function carImpactAt(pose:SedanStage6Pose,excludeId:string):NH017Car|null{
+  function carImpactAt(pose:SedanStage6Pose,excludeId:string):(NH017Car&{nx:number;nz:number})|null{
     const outline=carWorld(pose);
     for(const other of args.cars()){
       if(other.id===excludeId)continue;
       if(Math.hypot(other.x-pose.x,other.z-pose.z)>actualRadius*2)continue;
-      if(nh018PolygonsOverlap(outline,carWorld(other)))return other;
+      const otherHull=carWorld(other);
+      if(nh018PolygonsOverlap(outline,otherHull)){
+        const normal=impactNormal(outline,otherHull,other.x-pose.x,other.z-pose.z);
+        return {...other,...normal};
+      }
     }
     return null;
   }
