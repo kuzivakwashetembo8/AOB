@@ -25,7 +25,7 @@ import {
   insideBuildingFootprint,trafficSedanCanExit,trafficHeadingDelta,
 } from "@/game/vehicles/nh-opt2-sedan-riding";
 import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
-import {sourceWheelFit007} from "@/game/vehicles/native-seven-vehicle-007";
+import {sourceWheelFit007,sedanNativeContactHull007} from "@/game/vehicles/native-seven-vehicle-007";
 import type {NH012Agent} from "@/game/traffic/nh012-traffic-simulator";
 import {createNorthHeightsSolidField017,NH017_SEDAN_LENGTH,NH017_SEDAN_WIDTH}
   from "@/game/vehicles/nh-solid-vehicle-collision-017";
@@ -690,7 +690,11 @@ export async function createNorthHeightsCity8(
     traffic=new NH012TrafficSimulator(125,120125);
     // NH-SOLID-017: the same hull for every accepted source Sedan, regardless
     // of original fleet tags, proximity, camera LOD or driver ownership.
+    const measuredSedanHull=sedanNativeContactHull007();
+    const solidWidth=Math.max(...measuredSedanHull.map(p=>p.x))-Math.min(...measuredSedanHull.map(p=>p.x));
+    const solidLength=Math.max(...measuredSedanHull.map(p=>p.z))-Math.min(...measuredSedanHull.map(p=>p.z));
     const solidField=createNorthHeightsSolidField017({
+      sedanHull:measuredSedanHull,
       buildings:world.lotSpecs,trees:treeHandle?world.treeLocations:[],
       lamps:planNorthHeightsStreetLamps012(world.treeLocations),
       cars:()=>traffic?.agents??[],
@@ -712,16 +716,17 @@ export async function createNorthHeightsCity8(
       const original=traffic.agents[i]!;
       // Dimensions are immutable on each traffic agent: replace its record
       // after visual-ID pilot assignments, retaining its final stable ID.
-      const agent={...original,length:NH017_SEDAN_LENGTH,width:NH017_SEDAN_WIDTH};
+      const agent={...original,length:solidLength,width:solidWidth};
       traffic.agents[i]=agent;
       const p=sedanRoadPosition(agent);
       solidVehicleHandles.set(agent.id,walk.physics.addSolidTrafficVehicle(
         {x:p.x,y:p.y,z:p.z,heading:agent.heading},
-        NH017_SEDAN_LENGTH,NH017_SEDAN_WIDTH));
+        solidLength,solidWidth));
     }
     walk.physics.commitSolidTrafficPositions();
     console.info("[NH-SOLID-017] solid fleet created",{
       hulls:solidVehicleHandles.size,staticContacts:solidField.staticCount,
+      calibratedBody:{length:solidLength,width:solidWidth,hullVertices:measuredSedanHull.length},
       simulationOwner:"NH012",visualOwner:"GEN-VEH-009",
     });
     traffic3D=createNorthHeightsSedanTraffic009(scene,traffic.graph);
