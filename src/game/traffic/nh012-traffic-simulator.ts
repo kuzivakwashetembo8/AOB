@@ -785,7 +785,11 @@ export class NH012TrafficSimulator {
      if(!Number.isFinite(a.x)||!Number.isFinite(a.z)||a.speed<0)errors.push(a.id+":non-finite pose");
      if(a.connectorId&&!this.graph.connectors.has(a.connectorId))errors.push(a.id+":invalid connector");
      if(!this.graph.edges.has(a.edgeId))errors.push(a.id+":invalid lane");
-     if(!a.connectorId&&this.manual?.agentId!==a.id&&!this.freeParkedAgents.has(a.id)){
+     // An impact-displaced car is temporarily off its route; its stale s
+     // must not be interpreted as an overlapping lane coordinate.
+     if(!a.connectorId&&this.manual?.agentId!==a.id&&
+       !this.freeParkedAgents.has(a.id)&&!this.impactMotion.has(a.id)&&
+       !this.impactRecovery.has(a.id)){
        const list=lane.get(a.edgeId)??[];list.push(a);lane.set(a.edgeId,list);
      }
    }
