@@ -5,6 +5,7 @@ import {
  nh012HeadingBetween, NH012_SIMULATION_DT,
  type TrafficGraph012,type TrafficConnector012,
 } from "./nh012-lane-network";
+import {NH017_SEDAN_LENGTH,NH017_SEDAN_WIDTH} from "@/game/vehicles/nh-solid-vehicle-collision-017";
 import {
  stage6SteerStep,stage6SweepSedan,STAGE6_WHEELBASE_METERS,
  type SedanStage6Pose,
@@ -85,10 +86,14 @@ export class NH012TrafficSimulator {
  }|null=null;
  /** Only one original traffic sedan may leave the NH012 route graph. The
   * other 124 agents retain their exact AI movement and reservation model. */
- private freeDrivingAdmission:((p:SedanStage6Pose,length:number,width:number)=>boolean)|null=null;
+ private freeDrivingAdmission:((p:SedanStage6Pose,length:number,width:number,id:string)=>boolean)|null=null;
+ private solidAdmission:((agent:NH012Agent,p:SedanStage6Pose)=>boolean)|null=null;
+ configureSolidTraffic(admission:(agent:NH012Agent,p:SedanStage6Pose)=>boolean):void{
+   this.solidAdmission=admission;
+ }
  private readonly freeParkedAgents=new Set<string>();
  configureStage6FreeDriving(
-   admission:(p:SedanStage6Pose,length:number,width:number)=>boolean,
+   admission:(p:SedanStage6Pose,length:number,width:number,id:string)=>boolean,
  ):void{this.freeDrivingAdmission=admission;}
  isStage6FreeDriving(agentId:string):boolean{
    return this.manual?.agentId===agentId&&this.manual.free;
@@ -239,7 +244,7 @@ export class NH012TrafficSimulator {
      const moved=stage6SweepSedan(
        {x:agent.x,z:agent.z,heading:agent.heading},
        nextHeading,m.velocity*dt,agent.length,agent.width,
-       this.freeDrivingAdmission,
+       (pose,length,width)=>this.freeDrivingAdmission!(pose,length,width,agent.id),
      );
      agent.x=moved.pose.x;agent.z=moved.pose.z;
      agent.heading=Math.atan2(Math.sin(moved.pose.heading),Math.cos(moved.pose.heading));
@@ -406,7 +411,7 @@ export class NH012TrafficSimulator {
      const s=9+this.rng()*24;
      const pose=nh012PointOnEdge(edge,s);
      const destination=this.destinationNodes[Math.floor(this.rng()*this.destinationNodes.length)]!;
-     this.agents.push({...asset,edgeId:edge.id,connectorId:null,s,
+     this.agents.push({...asset,length:NH017_SEDAN_LENGTH,width:NH017_SEDAN_WIDTH,edgeId:edge.id,connectorId:null,s,
        speed:1.5+this.rng()*2.5,plannedConnectorId:null,x:pose.x,z:pose.z,
        heading:nh012HeadingBetween(edge.start,edge.end),state:"moving",
        destination,arrivalTick:-1,waitTicks:0});
@@ -438,6 +443,26 @@ export class NH012TrafficSimulator {
    return !this.agents.some(a=>a!==agent&&a.id!==this.manual?.agentId&&
      !this.freeParkedAgents.has(a.id)&&a.connectorId===null&&a.edgeId===edgeId&&a.s<limit);
  }
+ /** Enforce swept solid contact for every autonomous lane/connector movement.
+  * Roll back blocked movement without creating a second vehicle state owner. */
+ private keepSolidMove(a:NH012Agent,old:NH012Agent):void{
+   if(!this.solidAdmission)return;
+   const dx=a.x-old.x,dz=a.z-old.z;
+   const headingDelta=Math.atan2(Math.sin(a.heading-old.heading),Math.cos(a.heading-old.heading));
+   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.10));
+   for(let i=1;i<=count;i++){
+     const t=i/count;
+     const p={x:old.x+dx*t,z:old.z+dz*t,heading:old.heading+headingDelta*t};
+     if(this.solidAdmission(a,p))continue;
+     if(old.connectorId&&!a.connectorId){
+       const c=this.graph.connectors.get(old.connectorId);
+       if(c)this.reservations.set(c.junction,a.id);
+     }
+     Object.assign(a,old);
+     a.speed=0;a.state="stopped";
+     return;
+   }
+ }
  step(dt=NH012_SIMULATION_DT){
    if(Math.abs(dt-NH012_SIMULATION_DT)>1e-8)throw Error("NH012 requires a 20Hz deterministic step");
    this.tick++;
@@ -464,7 +489,8 @@ export class NH012TrafficSimulator {
      if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id))continue;
      if(!agent.connectorId)continue;
      const c=this.graph.connectors.get(agent.connectorId)!;
-     const remaining=c.length-agent.s;
+     const before={...agent};
+   const remaining=c.length-agent.s;
      // Hold the junction reservation while braking in a connector: a stopped
      // chassis must not release the crossing to another conflicting vehicle.
      const braking=this.driverBrakeId===agent.id;
@@ -489,12 +515,14 @@ export class NH012TrafficSimulator {
        agent.state="moving";
        this.reservations.delete(c.junction);
      }
+     this.keepSolidMove(agent,before);
    }
    // Advance ordinary lanes; a virtual stop-line leader enforces full stops.
    for(const agent of this.agents){
      if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id))continue;
      if(agent.connectorId)continue;
      const edge=this.graph.edges.get(agent.edgeId)!;
+     const before={...agent};
      const available=safe(leaderGaps.get(agent.id)??Infinity);
      const toStop=safe(edge.length-agent.s);
      const safeStopSpeed=Math.sqrt(2*BRAKE*toStop);
@@ -528,6 +556,7 @@ export class NH012TrafficSimulator {
        if(agent.arrivalTick<0)agent.arrivalTick=this.tick;
        agent.waitTicks++;
      }
+     this.keepSolidMove(agent,before);
    }
    // Deterministic all-way-stop priority, exclusive across conflicting turns.
    const queues=new Map<string,NH012Agent[]>();
@@ -545,6 +574,7 @@ export class NH012TrafficSimulator {
      for(const agent of queue){
        const connector=this.chooseConnector(agent);
        if(!this.hasExitSpace(connector.outgoing,agent))continue;
+       if(this.solidAdmission&&!this.solidAdmission(agent,{x:connector.p0.x,z:connector.p0.z,heading:agent.heading}))continue;
        this.reservations.set(junction,agent.id);
        // Turn intent is one-shot. Consume it ONLY upon successful junction
        // reservation, never while the lane is merely waiting at a stop line.
