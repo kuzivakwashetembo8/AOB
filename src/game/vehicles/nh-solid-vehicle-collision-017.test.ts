@@ -44,6 +44,15 @@ describe("NH-SOLID-017 physical contacts",()=>{
     expect(nh017CircleOverlapsCar({x:0,z:0},.3,sedan("moving",0,0))).toBe(true);
   });
 
+  it("stops a moving car before its chassis reaches standing Voight",()=>{
+    const field=createNorthHeightsSolidField017({
+      buildings:[],trees:[],lamps:[],cars:()=>[],
+      player:()=>({x:0,z:0}),
+    });
+    expect(field.isCarClear(sedan("car",0,2.5),4.75,1.85,"car")).toBe(false);
+    expect(field.isCarClear(sedan("car",0,6),4.75,1.85,"car")).toBe(true);
+  });
+
   it("uses a solid Rapier hull to stop Voight without modifying the player",async()=>{
     const physics=await MeridianPhysics.create();
     const hull=physics.addSolidTrafficVehicle(
