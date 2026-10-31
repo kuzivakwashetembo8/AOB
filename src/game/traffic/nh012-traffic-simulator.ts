@@ -96,6 +96,8 @@ export class NH012TrafficSimulator {
  private contactTarget:((mover:NH012Agent,probe:SedanStage6Pose)=>
    {id:string;nx:number;nz:number}|null)|null=null;
  private readonly impactMotion=new Map<string,{vx:number;vz:number;ttl:number}>();
+ /** Impacted civilian traffic is RECOVERING, never intentionally parked. */
+ private readonly impactRecovery=new Map<string,{blockedSeconds:number}>();
  private readonly impactCooldown=new Map<string,number>();
  configureContactImpulses(lookup:(mover:NH012Agent,probe:SedanStage6Pose)=>
    {id:string;nx:number;nz:number}|null):void{this.contactTarget=lookup;}
@@ -115,7 +117,8 @@ export class NH012TrafficSimulator {
    const ovz=targetImpact?.vz??tz*other.speed;
    const vx=mx*signedSpeed,vz=mz*signedSpeed;
    const closing=(vx-ovx)*nx+(vz-ovz)*nz;
-   if(closing<=.25)return 0;
+   // Bumper-to-bumper crawling must not be classified as a crash.
+   if(closing<1.8)return 0;
    // Pair of equal-mass 1,450 kg Sedans, restitution 0.14. The normal impulse
    // conserves total momentum and reverses relative normal speed. Ground
    // friction then removes the imparted energy over time.
@@ -132,15 +135,11 @@ export class NH012TrafficSimulator {
      this.impactMotion.set(other.id,{
        vx:afterOther.x,vz:afterOther.z,ttl:Math.max(old?.ttl??0,1.3),
      });
-     // A crashed NPC exits strict lane ownership; it must not teleport back
-     // to its pre-impact waypoint or pass through the incoming bumper.
-     if(other.connectorId){
-       const junction=this.graph.connectors.get(other.connectorId)?.junction;
-       if(junction&&this.reservations.get(junction)===other.id)
-         this.reservations.delete(junction);
-     }
-     other.connectorId=null;other.plannedConnectorId=null;
-     other.arrivalTick=-1;other.waitTicks=0;
+     // Preserve lane/connector identity and any intersection reservation.
+     // The impulse displaces the car; route recovery later restores its lane
+     // through verified physical motion, never a teleport or parked flag.
+     this.impactRecovery.delete(other.id);
+     other.waitTicks=0;
    }
    return afterMover.x*mx+afterMover.z*mz;
  }
@@ -173,7 +172,61 @@ export class NH012TrafficSimulator {
      if(slowed<.08||motion.ttl<=0){
        car.speed=0;car.state="stopped";
        this.impactMotion.delete(id);
-       this.freeParkedAgents.add(id);
+       this.impactRecovery.set(id,{blockedSeconds:0});
+     }
+   }
+ }
+ /** Move an impact-displaced NPC back to its route using checked motion.
+  * Never snap, despawn, become intangible, or stay parked in an active lane. */
+ private stepImpactRecovery(dt:number):void{
+   for(const [id,recovery] of this.impactRecovery){
+     const a=this.agents.find(v=>v.id===id);
+     if(!a){this.impactRecovery.delete(id);continue;}
+     if(this.manual?.agentId===id){
+       this.impactRecovery.delete(id);continue;
+     }
+     const connector=a.connectorId?this.graph.connectors.get(a.connectorId):null;
+     const edge=this.graph.edges.get(a.edgeId);
+     if(!edge){this.impactRecovery.delete(id);continue;}
+     const routeLength=connector?.length??edge.length;
+     const routeAt=(v:number)=>connector?
+       nh012PointOnConnector(connector,Math.max(0,Math.min(routeLength,v))):
+       nh012PointOnEdge(edge,Math.max(0,Math.min(routeLength,v)));
+     // Search only the local route segment; prefer a nearby forward re-entry
+     // point so an impact never teleports back to its former wheel position.
+     const start=Math.max(0,a.s-3),end=Math.min(routeLength,a.s+6);
+     let closest=start,best=Infinity;
+     for(let i=0;i<=30;i++){
+       const candidate=start+(end-start)*i/30;
+       const p=routeAt(candidate);
+       const distance=(a.x-p.x)**2+(a.z-p.z)**2;
+       if(distance<best){best=distance;closest=candidate;}
+     }
+     const destination=routeAt(closest);
+     const ahead=routeAt(Math.min(routeLength,closest+.15));
+     const behind=routeAt(Math.max(0,closest-.15));
+     const heading=nh012HeadingBetween(behind,ahead);
+     const dx=destination.x-a.x,dz=destination.z-a.z;
+     const dist=Math.hypot(dx,dz);
+     const delta=Math.atan2(Math.sin(heading-a.heading),
+       Math.cos(heading-a.heading));
+     if(dist<.065&&Math.abs(delta)<.065){
+       a.s=closest; // current pose differs from route by < 6.5 cm
+       a.speed=0;a.state="stopped";
+       this.impactRecovery.delete(id);
+       continue;
+     }
+     const step=Math.min(dist,1.2*dt);
+     const turn=Math.max(-.10,Math.min(.10,delta));
+     const proposal={x:a.x+(dist>0?dx/dist*step:0),
+       z:a.z+(dist>0?dz/dist*step:0),heading:a.heading+turn};
+     if(this.solidAdmission?.(a,proposal)??true){
+       a.x=proposal.x;a.z=proposal.z;a.heading=proposal.heading;
+       a.speed=step/dt;a.state="braking";
+       recovery.blockedSeconds=0;
+     }else{
+       a.speed=0;a.state="stopped";
+       recovery.blockedSeconds+=dt; // wait until a real physical exit clears
      }
    }
  }
@@ -238,6 +291,7 @@ export class NH012TrafficSimulator {
    agent.plannedConnectorId=null;
    this.freeParkedAgents.delete(agentId);
    this.impactMotion.delete(agentId);
+   this.impactRecovery.delete(agentId);
    this.manual={agentId,velocity:agent.speed,forward:0,reverse:0,history:[],
      steering:0,steeringRequest:0,free:!!this.freeDrivingAdmission};
    this.setDriverBrake(null,false);this.setDriverThrottle(null,0);
@@ -542,7 +596,9 @@ export class NH012TrafficSimulator {
  private hasExitSpace(edgeId:string,agent:NH012Agent):boolean{
    const limit=agent.length+MIN_GAP+3;
    return !this.agents.some(a=>a!==agent&&a.id!==this.manual?.agentId&&
-     !this.freeParkedAgents.has(a.id)&&a.connectorId===null&&a.edgeId===edgeId&&a.s<limit);
+     !this.freeParkedAgents.has(a.id)&&!this.impactMotion.has(a.id)&&
+     !this.impactRecovery.has(a.id)&&a.connectorId===null&&
+     a.edgeId===edgeId&&a.s<limit);
  }
  /** Preserve the exact contact point instead of rolling back a whole
   * 20 Hz autonomous frame (which created the conspicuous air gap). */
@@ -587,9 +643,11 @@ export class NH012TrafficSimulator {
    // explicitly overrides traffic signals, spacing, reservation and stop AI.
    this.stepManual(dt);
    this.stepImpactBodies(dt);
+   this.stepImpactRecovery(dt);
    const laneCars=new Map<string,NH012Agent[]>();
    for(const a of this.agents)if(a.connectorId===null&&
-     a.id!==this.manual?.agentId&&!this.freeParkedAgents.has(a.id)&&!this.impactMotion.has(a.id)){
+     a.id!==this.manual?.agentId&&!this.freeParkedAgents.has(a.id)&&!this.impactMotion.has(a.id)&&
+     !this.impactRecovery.has(a.id)){
      const list=laneCars.get(a.edgeId)??[];list.push(a);laneCars.set(a.edgeId,list);
    }
    for(const list of laneCars.values())list.sort((a,b)=>b.s-a.s||a.id.localeCompare(b.id));
@@ -604,7 +662,8 @@ export class NH012TrafficSimulator {
    }
    // Each reserved connector remains exclusive until its occupant exits.
    for(const agent of this.agents){
-     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id)||this.impactMotion.has(agent.id))continue;
+     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id)||this.impactMotion.has(agent.id)||
+       this.impactRecovery.has(agent.id))continue;
      if(!agent.connectorId)continue;
      const c=this.graph.connectors.get(agent.connectorId)!;
      const before={...agent};
@@ -637,7 +696,8 @@ export class NH012TrafficSimulator {
    }
    // Advance ordinary lanes; a virtual stop-line leader enforces full stops.
    for(const agent of this.agents){
-     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id)||this.impactMotion.has(agent.id))continue;
+     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id)||this.impactMotion.has(agent.id)||
+       this.impactRecovery.has(agent.id))continue;
      if(agent.connectorId)continue;
      const edge=this.graph.edges.get(agent.edgeId)!;
      const before={...agent};
@@ -680,7 +740,8 @@ export class NH012TrafficSimulator {
    const queues=new Map<string,NH012Agent[]>();
    for(const agent of this.agents)if(!agent.connectorId&&agent.waitTicks>=4
      &&this.driverBrakeId!==agent.id&&this.manual?.agentId!==agent.id
-     &&!this.freeParkedAgents.has(agent.id)){
+     &&!this.freeParkedAgents.has(agent.id)&&
+       !this.impactMotion.has(agent.id)&&!this.impactRecovery.has(agent.id)){
      const junction=this.graph.edges.get(agent.edgeId)!.to;
      const queue=queues.get(junction)??[];queue.push(agent);queues.set(junction,queue);
    }
