@@ -650,9 +650,10 @@ export class NH012TrafficSimulator {
    this.stepImpactBodies(dt);
    this.stepImpactRecovery(dt);
    const laneCars=new Map<string,NH012Agent[]>();
+   // Recovering cars are still tangible lane leaders. Followers must retain
+   // normal braking headways instead of accelerating into a temporary crash.
    for(const a of this.agents)if(a.connectorId===null&&
-     a.id!==this.manual?.agentId&&!this.freeParkedAgents.has(a.id)&&!this.impactMotion.has(a.id)&&
-     !this.impactRecovery.has(a.id)){
+     a.id!==this.manual?.agentId&&!this.freeParkedAgents.has(a.id)){
      const list=laneCars.get(a.edgeId)??[];list.push(a);laneCars.set(a.edgeId,list);
    }
    for(const list of laneCars.values())list.sort((a,b)=>b.s-a.s||a.id.localeCompare(b.id));
