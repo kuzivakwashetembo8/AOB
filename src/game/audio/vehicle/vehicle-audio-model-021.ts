@@ -43,7 +43,8 @@ export function acousticStep021(
   const rawRpm=clamp(AUDIO021_IDLE_RPM+
     speed*ratio+throttle*(speed<.3?900:550),AUDIO021_IDLE_RPM,AUDIO021_MAX_RPM);
   const targetRpm=previous&&gear!==previous.gear?rawRpm*.86:rawRpm;
-  const smoothing=1-Math.exp(-dt/(targetRpm>(previous?.rpm??AUDIO021_IDLE_RPM)?.105:.22));
+  const tau=targetRpm>(previous?.rpm??AUDIO021_IDLE_RPM)?0.105:0.22;
+  const smoothing=1-Math.exp(-dt/tau);
   const rpm=previous?previous.rpm+(targetRpm-previous.rpm)*smoothing:targetRpm;
   const roadLevel=clamp((speed-.15)/11,0,1);
   return {rpm:clamp(rpm,AUDIO021_IDLE_RPM,AUDIO021_MAX_RPM),
