@@ -693,6 +693,7 @@ export async function createNorthHeightsCity8(
       buildings:world.lotSpecs,trees:world.treeLocations,
       lamps:planNorthHeightsStreetLamps012(world.treeLocations),
       cars:()=>traffic?.agents??[],
+      people:()=>pedestrians?.agents??[],
     });
     traffic.configureStage6FreeDriving((pose,length,width,id)=>
       solidField.isCarClear(pose,length,width,id));
