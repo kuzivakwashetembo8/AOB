@@ -5,6 +5,8 @@ import {
 } from "./nh-solid-vehicle-collision-017";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {MeridianPhysics} from "@/game/physics/rapier-world";
+import {sedanNativeContactHull007} from "./native-seven-vehicle-007";
+import {nh018PolygonsOverlap,nh018WorldHull} from "./nh-solid-vehicle-collision-017";
 
 const sedan=(id:string,x:number,z:number,heading=0)=>({id,x,z,heading});
 
@@ -74,6 +76,39 @@ describe("NH-SOLID-017 physical contacts",()=>{
       hull.dispose();
       physics.destroy();
     }
+  });
+
+  it("derives the real body contact polygon from the accepted Sedan mesh",()=>{
+    const hull=sedanNativeContactHull007();
+    expect(hull.length).toBeGreaterThanOrEqual(4);
+    expect(hull.length).toBeLessThanOrEqual(24);
+    const length=Math.max(...hull.map(p=>p.z))-Math.min(...hull.map(p=>p.z));
+    const width=Math.max(...hull.map(p=>p.x))-Math.min(...hull.map(p=>p.x));
+    expect(length).toBeGreaterThan(3.5);
+    expect(width).toBeGreaterThan(1.3);
+    expect(nh018PolygonsOverlap(nh018WorldHull(hull,sedan("a",0,0)),
+      nh018WorldHull(hull,sedan("b",0,length+.02)))).toBe(false);
+  });
+
+  it("transfers a 2-D momentum impulse into a struck Sedan instead of freezing both",()=>{
+    const sim=new NH012TrafficSimulator(2);
+    const driver=sim.agents[0]!,target=sim.agents[1]!;
+    driver.x=0;driver.z=4.82;driver.heading=Math.PI;driver.speed=5;
+    target.x=0;target.z=0;target.heading=0;target.speed=0;
+    const field=createNorthHeightsSolidField017({
+      buildings:[],trees:[],lamps:[],cars:()=>sim.agents,
+    });
+    sim.configureStage6FreeDriving((p,l,w,id)=>field.isCarClear(p,l,w,id));
+    sim.configureSolidTraffic((a,p)=>field.isCarClear(p,a.length,a.width,a.id));
+    sim.configureContactImpulses((a,p)=>field.carImpactAt(p,a.id));
+    sim.beginManualDriving(driver.id);
+    sim.setManualPedals(driver.id,1,0);
+    sim.step();
+    expect(target.z).toBeLessThan(0);
+    expect(driver.z).toBeGreaterThan(target.z);
+    expect(sim.manualSignedSpeed(driver.id)).toBeLessThan(5);
+    sim.step();
+    expect(target.z).toBeLessThan(0);
   });
 
   it("does not allow a scripted AI agent to move when contact is denied",()=>{
