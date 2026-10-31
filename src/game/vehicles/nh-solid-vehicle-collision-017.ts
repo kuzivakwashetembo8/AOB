@@ -37,6 +37,7 @@ export function createNorthHeightsSolidField017(args:{
   lamps:readonly {x:number;z:number}[];
   cars:()=>readonly NH017Car[];
   people?:()=>readonly {x:number;z:number;state:string}[];
+  player?:()=>NH017Point|null;
 }){
   const buildingClear=stage6SolidBuildingCheck(stage6BuildingBlockers(args.buildings));
   const staticGrid=new Map<string,NH017Pole[]>();
@@ -72,6 +73,11 @@ export function createNorthHeightsSolidField017(args:{
       if(stage6RectanglesOverlap(car,{x:other.x,z:other.z,
         hw:NH017_SEDAN_WIDTH/2,hl:NH017_SEDAN_LENGTH/2,heading:other.heading}))return false;
     }
+    // The same solid chassis must not be driven ONTO a stationary Voight.
+    // Kinematic Rapier actors alone cannot push two kinematic bodies apart.
+    const player=args.player?.();
+    if(player&&Math.hypot(player.x-pose.x,player.z-pose.z)<extent+.5&&
+      nh017CircleOverlapsCar(player,.38,pose,length,width))return false;
     // Pedestrians standing at crosswalks occupy real space too. A vehicle
     // must not move onto an NPC whose scripted route has yielded.
     for(const person of args.people?.()??[]){
