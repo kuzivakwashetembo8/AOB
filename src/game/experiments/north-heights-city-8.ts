@@ -706,9 +706,12 @@ export async function createNorthHeightsCity8(
     const circuit=verifyCompleteFleet016(traffic.snapshot());
     // Historical model identity overlay pilots replace agent IDs and geometry
     // tags. Register physical hulls only AFTER identity assignment completes.
-    for(const agent of traffic.agents){
-      agent.length=NH017_SEDAN_LENGTH;
-      agent.width=NH017_SEDAN_WIDTH;
+    for(let i=0;i<traffic.agents.length;i++){
+      const original=traffic.agents[i]!;
+      // Dimensions are immutable on each traffic agent: replace its record
+      // after visual-ID pilot assignments, retaining its final stable ID.
+      const agent={...original,length:NH017_SEDAN_LENGTH,width:NH017_SEDAN_WIDTH};
+      traffic.agents[i]=agent;
       const p=sedanRoadPosition(agent);
       solidVehicleHandles.set(agent.id,walk.physics.addSolidTrafficVehicle(
         {x:p.x,y:p.y,z:p.z,heading:agent.heading},
