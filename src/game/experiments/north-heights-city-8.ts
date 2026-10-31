@@ -44,6 +44,7 @@ import {normalizeThirdPersonCameraDistance} from "@/ui/menus/settings-state";
 import {northHeightsHardwareScale006,northHeightsFrameLimit006} from "./north-heights-presentation-006";
 import {touchCameraRadiansPerPixel} from "@/game/input/touch-camera-sensitivity";
 import {defaults,type Settings} from "@/ui/menus/settings-state";
+import {ProceduralVehicleAudio021} from "@/game/audio/vehicle/procedural-vehicle-audio-021";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
@@ -75,6 +76,10 @@ export async function createNorthHeightsCity8(
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
   const scene = new Scene(engine);
   const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  // The engine is a lightweight controller until a real input gesture.
+  // No AudioContext or audio asset is created during critical world loading.
+  const vehicleAudio=new ProceduralVehicleAudio021(mobile);
+  let audioAccumulator=0;
   scene.clearColor = new Color4(0.68, 0.78, 0.86, 1);
   scene.fogMode = Scene.FOGMODE_EXP2;
   scene.fogDensity = 0.00115;
@@ -171,6 +176,8 @@ export async function createNorthHeightsCity8(
   const keyDown = (event: KeyboardEvent) => {
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
     if(paused)return;
+    // Invoke resume() in keyboard gesture context (browser autoplay policy).
+    vehicleAudio.unlockFromGesture();
     keyboardUsed=true;
     if(event.code==="KeyF"){
       if(!event.repeat)toggleVehicle();
@@ -196,6 +203,7 @@ export async function createNorthHeightsCity8(
   };
   const pointerDown = (event: PointerEvent) => {
     if(paused||dragPointer !== null) return;
+    vehicleAudio.unlockFromGesture();
     dragPointer = event.pointerId; lastX = event.clientX; lastY = event.clientY;
     canvas.setPointerCapture(event.pointerId);
   };
@@ -273,6 +281,9 @@ export async function createNorthHeightsCity8(
   window.addEventListener("keyup", keyUp);
   window.addEventListener("blur", clearKeys);
   window.addEventListener("resize", resize);
+  const soundVisibility=()=>vehicleAudio.setHidden(document.hidden);
+  document.addEventListener("visibilitychange",soundVisibility);
+  soundVisibility();
   scene.onBeforeRenderObservable.add(() => {
     const dt=Math.min(.05,engine.getDeltaTime()/1000);
     if(paused)return;
@@ -454,6 +465,30 @@ export async function createNorthHeightsCity8(
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
     treeHandle?.update(camera.position,dt);
+    // 20Hz sound telemetry, gated behind the actual unlocked AudioContext.
+    // Query NH012's authoritative positions; never infer engine load from
+    // Babylon wheel animation or spawn another car for positional audio.
+    if(traffic&&vehicleAudio.isUnlocked){
+      audioAccumulator=Math.min(.15,audioAccumulator+dt);
+      if(audioAccumulator>=.05){
+        const soundDt=audioAccumulator;audioAccumulator=0;
+        const forward=camera.getForwardRay().direction;
+        vehicleAudio.sync(traffic.agents.map(agent=>{
+          const isPlayer=agent.id===ridingSedanId;
+          return {id:agent.id,x:agent.x,
+            y:northHeightsGround(agent.x,agent.z),z:agent.z,
+            heading:agent.heading,
+            signedSpeedMps:isPlayer&&traffic!.isManualDriving(agent.id)
+              ?traffic!.manualSignedSpeed(agent.id):agent.speed,
+            throttle:isPlayer?passengerThrottle:0,
+            braking:isPlayer&&passengerBrake?1:0,
+            isPlayer};
+        }),{
+          x:camera.position.x,y:camera.position.y,z:camera.position.z,
+          forwardX:forward.x,forwardY:forward.y,forwardZ:forward.z,
+        },soundDt);
+      }
+    }
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
@@ -465,7 +500,8 @@ export async function createNorthHeightsCity8(
         " · NPC PENDING "+(pedestrianCharacters?.pendingAppearances??0)+
         " FAILED "+(pedestrianCharacters?.failedAppearances??0)+
         (pedestrianLoadError?" · NPC LOAD ERROR "+pedestrianLoadError:"")+
-        " · GEN-VEH-009 125 SOURCE SEDANS · "+
+        " · AUDIO-021 "+vehicleAudio.statistics.active+"/"+vehicleAudio.statistics.budget+
+        " "+vehicleAudio.statistics.context+" · GEN-VEH-009 125 SOURCE SEDANS · "+
         (ridingSedanId?" RIDING "+ridingSedanId+" "+(
           traffic?.isManualDriving(ridingSedanId)
             ?"MANUAL V "+traffic.manualSignedSpeed(ridingSedanId).toFixed(2)
@@ -567,10 +603,12 @@ export async function createNorthHeightsCity8(
   const controller: NorthHeightsInspection = {
     press(control,down){
       if(paused)return;
-      if(down)held.add(control);else held.delete(control);
+      if(down){vehicleAudio.unlockFromGesture();held.add(control);}
+      else held.delete(control);
     },
     move(x,y){
       if(paused)return;
+      if(Math.abs(x)+Math.abs(y)>.1)vehicleAudio.unlockFromGesture();
       const nextX=Math.max(-1,Math.min(1,x));
       const nextY=Math.max(-1,Math.min(1,y));
       // Stage 6: continuous x-axis controls heading every fixed simulation tick.
@@ -578,6 +616,7 @@ export async function createNorthHeightsCity8(
     },
     action(action,pressed){
       if(paused)return;
+      if(pressed)vehicleAudio.unlockFromGesture();
       if(pressed&&action==="vehicle"){
         toggleVehicle();return;
       }
@@ -592,11 +631,13 @@ export async function createNorthHeightsCity8(
     applySettings(next){
       const characterChanged=settings.enableCharacter!==next.enableCharacter;
       settings=next;
+      vehicleAudio.setSettings(next);
       if(characterChanged)setActiveCharacter(next.enableCharacter);
       applyGraphics();
     },
     setPaused(value){
       paused=value;
+      vehicleAudio.setPaused(value);
       if(value){clearKeys();trafficAccumulator=0;}
       else {renderLast=0;trafficAccumulator=0;engine.resize();}
     },
@@ -638,6 +679,8 @@ export async function createNorthHeightsCity8(
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearKeys);
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange",soundVisibility);
+      vehicleAudio.dispose();
       if(ridingSedanId&&traffic?.isManualDriving(ridingSedanId)){
         if(!traffic.endManualDriving())traffic.parkManualOffRoad(ridingSedanId);
       }
