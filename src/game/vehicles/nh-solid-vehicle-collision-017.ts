@@ -13,6 +13,48 @@ export const NH017_SEDAN_WIDTH=1.85;
 export type NH017Car=Readonly<{id:string;x:number;z:number;heading:number}>;
 export type NH017Pole=Readonly<{x:number;z:number;radius:number}>;
 export type NH017Point=Readonly<{x:number;z:number}>;
+/** Narrow-phase SAT uses the actual local Sedan silhouette. Unlike a simple
+ * box, its corners follow the bumper, bonnet and rear body outline. */
+const rectangularHull=(length:number,width:number):readonly NH017Point[]=>[
+ {x:-width/2,z:-length/2},{x:width/2,z:-length/2},
+ {x:width/2,z:length/2},{x:-width/2,z:length/2},
+];
+export function nh018WorldHull(localHull:readonly NH017Point[],p:SedanStage6Pose):NH017Point[]{
+ const c=Math.cos(p.heading),s=Math.sin(p.heading);
+ return localHull.map(q=>({x:p.x+c*q.x+s*q.z,z:p.z-s*q.x+c*q.z}));
+}
+export function nh018PolygonsOverlap(a:readonly NH017Point[],b:readonly NH017Point[]):boolean{
+ for(const polygon of [a,b]){
+   for(let i=0;i<polygon.length;i++){
+     const p=polygon[i]!,q=polygon[(i+1)%polygon.length]!;
+     const nx=-(q.z-p.z),nz=q.x-p.x;
+     let amin=Infinity,amax=-Infinity,bmin=Infinity,bmax=-Infinity;
+     for(const v of a){const dot=v.x*nx+v.z*nz;amin=Math.min(amin,dot);amax=Math.max(amax,dot);}
+     for(const v of b){const dot=v.x*nx+v.z*nz;bmin=Math.min(bmin,dot);bmax=Math.max(bmax,dot);}
+     if(amax<=bmin||bmax<=amin)return false;
+   }
+ }
+ return true;
+}
+export function nh018CircleOverlapsHull(
+ p:NH017Point,radius:number,polygon:readonly NH017Point[],
+):boolean{
+ // Ray casting for the interior, edge-distance for the curved contact surface.
+ let inside=false;
+ for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
+   const a=polygon[j]!,b=polygon[i]!;
+   if((a.z>p.z)!==(b.z>p.z)&&
+     p.x<(b.x-a.x)*(p.z-a.z)/(b.z-a.z)+a.x)inside=!inside;
+ }
+ if(inside)return true;
+ for(let i=0;i<polygon.length;i++){
+   const a=polygon[i]!,b=polygon[(i+1)%polygon.length]!;
+   const dx=b.x-a.x,dz=b.z-a.z;
+   const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.z-a.z)*dz)/(dx*dx+dz*dz||1)));
+   if(Math.hypot(p.x-(a.x+dx*t),p.z-(a.z+dz*t))<radius)return true;
+ }
+ return false;
+}
 const CELL=12;
 const key=(x:number,z:number)=>Math.floor(x/CELL)+":"+Math.floor(z/CELL);
 const local=(p:NH017Point,pose:SedanStage6Pose)=>{
@@ -38,8 +80,12 @@ export function createNorthHeightsSolidField017(args:{
   cars:()=>readonly NH017Car[];
   people?:()=>readonly {x:number;z:number;state:string}[];
   player?:()=>NH017Point|null;
+  sedanHull?:readonly NH017Point[];
 }){
   const buildingClear=stage6SolidBuildingCheck(stage6BuildingBlockers(args.buildings));
+  const carHull=args.sedanHull??rectangularHull(NH017_SEDAN_LENGTH,NH017_SEDAN_WIDTH);
+  const actualRadius=Math.max(...carHull.map(p=>Math.hypot(p.x,p.z)));
+  const carWorld=(p:SedanStage6Pose)=>nh018WorldHull(carHull,p);
   const staticGrid=new Map<string,NH017Pole[]>();
   const register=(p:NH017Pole)=>{
     const bucket=staticGrid.get(key(p.x,p.z))??[];
@@ -58,42 +104,51 @@ export function createNorthHeightsSolidField017(args:{
   }
   function isCarClear(pose:SedanStage6Pose,length:number,width:number,excludeId:string):boolean{
     if(!buildingClear(pose,length,width))return false;
-    const extent=Math.hypot(length/2,width/2)+.6;
+    const outline=carWorld(pose);
+    const extent=Math.max(Math.hypot(length/2,width/2),actualRadius)+.6;
     const lowX=Math.floor((pose.x-extent)/CELL),highX=Math.floor((pose.x+extent)/CELL);
     const lowZ=Math.floor((pose.z-extent)/CELL),highZ=Math.floor((pose.z+extent)/CELL);
     for(let ix=lowX;ix<=highX;ix++)for(let iz=lowZ;iz<=highZ;iz++){
       for(const obstacle of staticGrid.get(ix+":"+iz)??[]){
-        if(nh017CircleOverlapsCar(obstacle,obstacle.radius,pose,length,width))return false;
+        if(nh018CircleOverlapsHull(obstacle,obstacle.radius,outline))return false;
       }
     }
-    const car={x:pose.x,z:pose.z,hw:width/2,hl:length/2,heading:pose.heading};
     for(const other of args.cars()){
       if(other.id===excludeId)continue;
-      if(Math.hypot(other.x-pose.x,other.z-pose.z)>extent+3)continue;
-      if(stage6RectanglesOverlap(car,{x:other.x,z:other.z,
-        hw:NH017_SEDAN_WIDTH/2,hl:NH017_SEDAN_LENGTH/2,heading:other.heading}))return false;
+      if(Math.hypot(other.x-pose.x,other.z-pose.z)>extent+actualRadius)continue;
+      if(nh018PolygonsOverlap(outline,carWorld(other)))return false;
     }
     // The same solid chassis must not be driven ONTO a stationary Voight.
     // Kinematic Rapier actors alone cannot push two kinematic bodies apart.
     const player=args.player?.();
     if(player&&Math.hypot(player.x-pose.x,player.z-pose.z)<extent+.5&&
-      nh017CircleOverlapsCar(player,.38,pose,length,width))return false;
+      nh018CircleOverlapsHull(player,.38,outline))return false;
     // Pedestrians standing at crosswalks occupy real space too. A vehicle
     // must not move onto an NPC whose scripted route has yielded.
     for(const person of args.people?.()??[]){
       if(person.state==="inside")continue;
       if(Math.hypot(person.x-pose.x,person.z-pose.z)>extent+.5)continue;
-      if(nh017CircleOverlapsCar(person,.34,pose,length,width))return false;
+      if(nh018CircleOverlapsHull(person,.34,outline))return false;
     }
     return true;
   }
   function personClear(p:NH017Point,radius=.35):boolean{
     for(const car of args.cars()){
       if(Math.hypot(car.x-p.x,car.z-p.z)>NH017_SEDAN_LENGTH/2+radius+1)continue;
-      if(nh017PersonInsideCar(p,car,radius))return false;
+      if(nh018CircleOverlapsHull(p,radius,carWorld(car)))return false;
     }
     return true;
   }
-  return {isCarClear,personClear,activateLampPoles,
+  /** Identify impacted traffic, leaving tree, lamp and wall contact static. */
+  function carImpactAt(pose:SedanStage6Pose,excludeId:string):NH017Car|null{
+    const outline=carWorld(pose);
+    for(const other of args.cars()){
+      if(other.id===excludeId)continue;
+      if(Math.hypot(other.x-pose.x,other.z-pose.z)>actualRadius*2)continue;
+      if(nh018PolygonsOverlap(outline,carWorld(other)))return other;
+    }
+    return null;
+  }
+  return {isCarClear,carImpactAt,personClear,activateLampPoles,
     get staticCount(){return args.trees.length+(lampPolesActive?args.lamps.length:0);}};
 }
