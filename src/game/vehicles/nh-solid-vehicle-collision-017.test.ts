@@ -4,6 +4,7 @@ import {
   NH017_SEDAN_LENGTH,NH017_SEDAN_WIDTH,
 } from "./nh-solid-vehicle-collision-017";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
+import {MeridianPhysics} from "@/game/physics/rapier-world";
 
 const sedan=(id:string,x:number,z:number,heading=0)=>({id,x,z,heading});
 
@@ -39,6 +40,25 @@ describe("NH-SOLID-017 physical contacts",()=>{
     expect(field.personClear({x:3,z:0})).toBe(true);
     expect(field.isCarClear(sedan("other",0,5),4.75,1.85,"other")).toBe(false);
     expect(nh017CircleOverlapsCar({x:0,z:0},.3,sedan("moving",0,0))).toBe(true);
+  });
+
+  it("uses a solid Rapier hull to stop Voight without modifying the player",async()=>{
+    const physics=await MeridianPhysics.create();
+    const hull=physics.addSolidTrafficVehicle(
+      {x:0,y:0,z:0,heading:0},NH017_SEDAN_LENGTH,NH017_SEDAN_WIDTH);
+    try{
+      physics.setPlayerPosition({x:0,y:.92,z:-5});
+      const blocked=physics.movePlayer({x:0,y:0,z:5});
+      expect(blocked.movement.z).toBeLessThan(3.5);
+      // With no car collider the same player movement remains legal.
+      hull.dispose();
+      physics.setPlayerPosition({x:0,y:.92,z:-5});
+      const clear=physics.movePlayer({x:0,y:0,z:5});
+      expect(clear.movement.z).toBeGreaterThan(blocked.movement.z+1);
+    }finally{
+      hull.dispose();
+      physics.destroy();
+    }
   });
 
   it("does not allow a scripted AI agent to move when contact is denied",()=>{
