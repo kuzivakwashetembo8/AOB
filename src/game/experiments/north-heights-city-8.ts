@@ -694,6 +694,7 @@ export async function createNorthHeightsCity8(
       lamps:planNorthHeightsStreetLamps012(world.treeLocations),
       cars:()=>traffic?.agents??[],
       people:()=>pedestrians?.agents??[],
+      player:()=>!ridingSedanId&&mode==="walk"&&walk?walk.physics.playerPosition():null,
     });
     traffic.configureStage6FreeDriving((pose,length,width,id)=>
       solidField.isCarClear(pose,length,width,id));
