@@ -26,6 +26,8 @@ describe("NH-SOLID-017 physical contacts",()=>{
       lamps:[{x:20,z:0}],cars:()=>[],
     });
     expect(field.isCarClear(sedan("car",0,2.5),4.75,1.85,"car")).toBe(false);
+    expect(field.isCarClear(sedan("car",20,2.5),4.75,1.85,"car")).toBe(true);
+    field.activateLampPoles();
     expect(field.isCarClear(sedan("car",20,2.5),4.75,1.85,"car")).toBe(false);
     expect(field.isCarClear(sedan("car",0,6),4.75,1.85,"car")).toBe(true);
   });
