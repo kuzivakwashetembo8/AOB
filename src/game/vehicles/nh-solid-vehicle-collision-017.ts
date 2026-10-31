@@ -36,6 +36,7 @@ export function createNorthHeightsSolidField017(args:{
   trees:readonly {x:number;z:number;size:number}[];
   lamps:readonly {x:number;z:number}[];
   cars:()=>readonly NH017Car[];
+  people?:()=>readonly {x:number;z:number;state:string}[];
 }){
   const buildingClear=stage6SolidBuildingCheck(stage6BuildingBlockers(args.buildings));
   const staticGrid=new Map<string,NH017Pole[]>();
@@ -63,6 +64,13 @@ export function createNorthHeightsSolidField017(args:{
       if(Math.hypot(other.x-pose.x,other.z-pose.z)>extent+3)continue;
       if(stage6RectanglesOverlap(car,{x:other.x,z:other.z,
         hw:NH017_SEDAN_WIDTH/2,hl:NH017_SEDAN_LENGTH/2,heading:other.heading}))return false;
+    }
+    // Pedestrians standing at crosswalks occupy real space too. A vehicle
+    // must not move onto an NPC whose scripted route has yielded.
+    for(const person of args.people?.()??[]){
+      if(person.state==="inside")continue;
+      if(Math.hypot(person.x-pose.x,person.z-pose.z)>extent+.5)continue;
+      if(nh017CircleOverlapsCar(person,.34,pose,length,width))return false;
     }
     return true;
   }
