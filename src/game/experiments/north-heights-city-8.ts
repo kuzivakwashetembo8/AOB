@@ -27,7 +27,7 @@ import {
 import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
 import {sourceWheelFit007,sedanNativeContactHull007} from "@/game/vehicles/native-seven-vehicle-007";
 import type {NH012Agent} from "@/game/traffic/nh012-traffic-simulator";
-import {createNorthHeightsSolidField017,NH017_SEDAN_LENGTH,NH017_SEDAN_WIDTH}
+import {createNorthHeightsSolidField017}
   from "@/game/vehicles/nh-solid-vehicle-collision-017";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {NorthHeightsPedestrianSimulator001} from "./north-heights-pedestrian-simulator-001";
@@ -705,6 +705,8 @@ export async function createNorthHeightsCity8(
       solidField.isCarClear(pose,length,width,id));
     traffic.configureSolidTraffic((agent,pose)=>
       solidField.isCarClear(pose,agent.length,agent.width,agent.id));
+    traffic.configureContactImpulses((agent,pose)=>
+      solidField.carImpactAt(pose,agent.id));
     const pilotIds=assignNH013SedanPilot(traffic,8);
     const hatchIds=assignNH013HatchbackPilot(traffic,12);
     const taxiIds=assignNH014TaxiPilot(traffic,NH014_TAXI_COUNT);
