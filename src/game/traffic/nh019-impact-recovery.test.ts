@@ -31,6 +31,9 @@ describe("NH-TRAFFIC-019 unintended congestion recovery",()=>{
     sim.setManualPedals(driver.id,0,1);
     for(let i=0;i<180;i++)sim.step(NH012_SIMULATION_DT);
     expect(sim.isStage6FreeParked(target.id)).toBe(false);
+    // With the struck vehicle physically clear, the temporary recovery state
+    // must finish. This would fail if a crashed AI stayed frozen forever.
+    expect(sim.recoveringTrafficCount).toBe(0);
     expect(sim.agents).toHaveLength(2);
     expect(Number.isFinite(target.x)&&Number.isFinite(target.z)).toBe(true);
   });
