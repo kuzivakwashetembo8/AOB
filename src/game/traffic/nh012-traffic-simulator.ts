@@ -238,6 +238,10 @@ export class NH012TrafficSimulator {
    return this.manual?.agentId===agentId&&this.manual.free;
  }
  isStage6FreeParked(agentId:string):boolean{return this.freeParkedAgents.has(agentId);}
+ /** Dynamic impact recovery is not player parking or scheduled congestion. */
+ get recoveringTrafficCount():number{
+   return this.impactMotion.size+this.impactRecovery.size;
+ }
  setManualSteering(agentId:string,amount:number):void{
    if(!this.isStage6FreeDriving(agentId))return;
    this.manual!.steeringRequest=Number.isFinite(amount)
@@ -595,9 +599,10 @@ export class NH012TrafficSimulator {
  }
  private hasExitSpace(edgeId:string,agent:NH012Agent):boolean{
    const limit=agent.length+MIN_GAP+3;
+   // Impacted cars continue to occupy their lane physically. Never ignore
+   // them for intersection exit safety while they are recovering.
    return !this.agents.some(a=>a!==agent&&a.id!==this.manual?.agentId&&
-     !this.freeParkedAgents.has(a.id)&&!this.impactMotion.has(a.id)&&
-     !this.impactRecovery.has(a.id)&&a.connectorId===null&&
+     !this.freeParkedAgents.has(a.id)&&a.connectorId===null&&
      a.edgeId===edgeId&&a.s<limit);
  }
  /** Preserve the exact contact point instead of rolling back a whole
