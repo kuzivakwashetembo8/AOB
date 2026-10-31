@@ -44,7 +44,7 @@ describe("NH-YARD-014 safe additional street trees",()=>{
       const a=desktop[i]!,b=desktop[j]!;
       expect((a.x-b.x)**2+(a.z-b.z)**2).toBeGreaterThanOrEqual(7.4**2);
     }
-  });
+  },15000); // Heavy all-parcels assertions on shared two-core CI; do not relax coverage.
   it("uses existing GLB thin instances without touching traffic/physics",()=>{
     const src=(name:string)=>readFileSync(resolve(process.cwd(),name),"utf8");
     const trees=src("src/game/experiments/north-heights-trees-004.ts");

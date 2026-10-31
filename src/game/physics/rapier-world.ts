@@ -172,6 +172,57 @@ export class MeridianPhysics {
     };
   }
 
+  /** Lightweight moving SOLID chassis: Rapier collision proxy for Voight.
+   * The 125 physical hulls are kinematic query blockers, not dynamic vehicle
+   * simulations; NH012 remains the only source of car position and velocity.
+   * Use the same hull for pedestrians regardless of graphics LOD. */
+  addSolidTrafficVehicle(pose:{x:number;y:number;z:number;heading:number},
+    length:number,width:number):{
+    update:(next:{x:number;y:number;z:number;heading:number})=>void;
+    dispose:()=>void;
+  }{
+    const yaw=(angle:number)=>({x:0,y:Math.sin(angle/2),z:0,w:Math.cos(angle/2)});
+    const chassisY=(p:typeof pose)=>p.y+.86;
+    const body=this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.kinematicPositionBased()
+        .setTranslation(pose.x,chassisY(pose),pose.z)
+        .setRotation(yaw(pose.heading)),
+    );
+    try{
+      this.world.createCollider(
+        RAPIER.ColliderDesc.cuboid(width/2,.80,length/2).setFriction(.5),
+        body,
+      );
+    }catch(error){
+      this.world.removeRigidBody(body);
+      throw error;
+    }
+    let disposed=false;
+    return {
+      update:(p)=>{
+        if(disposed)return;
+        const next={x:p.x,y:chassisY(p),z:p.z};
+        // Character-controller queries must see the current pose BEFORE its
+        // next move. A next-only kinematic target would be one step stale.
+        body.setTranslation(next,true);
+        body.setRotation(yaw(p.heading),true);
+        body.setNextKinematicTranslation(next);
+        body.setNextKinematicRotation(yaw(p.heading));
+      },
+      dispose:()=>{
+        if(disposed)return;disposed=true;
+        this.world.removeRigidBody(body);
+      },
+    };
+  }
+
+  /** Make newly installed/moved kinematic car hulls visible to Rapier scene
+   * queries before the next character-controller sweep. The broad phase is
+   * committed once per traffic tick, not once per each of the 125 cars. */
+  commitSolidTrafficPositions():void{
+    this.world.step();
+  }
+
   movePlayer(desired: Vec3): { movement: Vec3; grounded: boolean } {
     this.controller.computeColliderMovement(this.playerCollider, desired);
     const corrected = this.controller.computedMovement();

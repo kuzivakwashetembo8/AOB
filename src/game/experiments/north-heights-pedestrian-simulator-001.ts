@@ -54,6 +54,11 @@ export class NorthHeightsPedestrianSimulator001{
  private readonly destinations=new Map<string,readonly string[]>();
  private readonly eligibleBuildings:string[];
  private readonly routeCache=new Map<string,readonly string[]>();
+ private canOccupyVehicleFreeSpace:((x:number,z:number)=>boolean)|null=null;
+ /** NPC routes remain logical, but may never advance into a solid Sedan. */
+ setVehicleOccupancy(clear:(x:number,z:number)=>boolean):void{
+   this.canOccupyVehicleFreeSpace=clear;
+ }
  constructor(buildings:readonly BuildingSpec[],trees:readonly TreeLocation[]=[]){
    this.graph=buildPedestrianGraph001(buildings,trees);
    const {component,count}=connectedComponents(this.graph);
@@ -213,9 +218,15 @@ export class NorthHeightsPedestrianSimulator001{
        const length=link.length;
        if(length<EPS){a.segment++;a.progress=0;continue;}
        const travel=Math.min(remaining,Math.max(0,length-a.progress));
-       a.progress+=travel;remaining-=travel;
-       const t=Math.min(1,a.progress/length);
-       a.x=p.x+(q.x-p.x)*t;a.z=p.z+(q.z-p.z)*t;
+       const nextProgress=a.progress+travel;
+       const t=Math.min(1,nextProgress/length);
+       const nextX=p.x+(q.x-p.x)*t,nextZ=p.z+(q.z-p.z)*t;
+       if(this.canOccupyVehicleFreeSpace&&!this.canOccupyVehicleFreeSpace(nextX,nextZ)){
+         // Yield in place, do not consume distance or advance the route.
+         this.setState(a,"wait");break;
+       }
+       a.progress=nextProgress;remaining-=travel;
+       a.x=nextX;a.z=nextZ;
        a.heading=Math.atan2(q.x-p.x,q.z-p.z);
        a.distanceTraveled+=travel;
        const kind:PedEdgeKind001=link.kind;

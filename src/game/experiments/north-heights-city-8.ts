@@ -11,7 +11,7 @@ import "@babylonjs/loaders/glTF";
 import { configureLocalGameDecoders } from "@/game/core/local-decoders";
 import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-heights-reconstruction-001";
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
-import {loadNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
+import {loadNorthHeightsStreetLamps012,planNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
 import { createMercerStaticCharacter } from "@/game/world/mercer-static-character-103";
 import {loadMeridiaCharacterTrial,type LoadedMeridiaCharacter} from "@/game/character/voight-humanoid-trial";
@@ -25,10 +25,10 @@ import {
   insideBuildingFootprint,trafficSedanCanExit,trafficHeadingDelta,
 } from "@/game/vehicles/nh-opt2-sedan-riding";
 import {sampleTrafficVehicleRoadPose013} from "@/game/vehicles/nh013-road-grade-contact";
-import {sourceWheelFit007} from "@/game/vehicles/native-seven-vehicle-007";
+import {sourceWheelFit007,sedanNativeContactHull007} from "@/game/vehicles/native-seven-vehicle-007";
 import type {NH012Agent} from "@/game/traffic/nh012-traffic-simulator";
-import {stage6BuildingBlockers,stage6SolidBuildingCheck}
-  from "@/game/vehicles/nh-opt2-sedan-free-steering-stage6";
+import {createNorthHeightsSolidField017}
+  from "@/game/vehicles/nh-solid-vehicle-collision-017";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
 import {NorthHeightsPedestrianSimulator001} from "./north-heights-pedestrian-simulator-001";
 import {loadNorthHeightsPedestrianCharacters001,type PedestrianCharacterRenderer001} from "./north-heights-pedestrian-characters-001";
@@ -109,6 +109,10 @@ export async function createNorthHeightsCity8(
   let traffic:NH012TrafficSimulator|null=null;
   let traffic3D:NH009SedanTraffic|null=null;
   let trafficAccumulator=0,visibleTrafficCars=0,visibleAuthenticCars=0;
+  const solidVehicleHandles=new Map<string,{
+    update:(pose:{x:number;y:number;z:number;heading:number})=>void;
+    dispose:()=>void;
+  }>();
   let pedestrians:NorthHeightsPedestrianSimulator001|null=null;
   let pedestrianAccumulator=0;
   let pedestrianCharacters:PedestrianCharacterRenderer001|null=null;
@@ -308,6 +312,16 @@ export async function createNorthHeightsCity8(
         traffic.step();
         trafficAccumulator-=NH012_SIMULATION_DT;
         steps++;
+      }
+      if(steps&&solidVehicleHandles.size){
+        // Physics blockers follow the SAME simulation pose as the LOD meshes.
+        for(const agent of traffic.agents){
+          const hull=solidVehicleHandles.get(agent.id);
+          if(!hull)continue;
+          const p=sedanRoadPosition(agent);
+          hull.update({x:p.x,y:p.y,z:p.z,heading:agent.heading});
+        }
+        walk?.physics.commitSolidTrafficPositions();
       }
     }
     if(pedestrians){
@@ -630,6 +644,8 @@ export async function createNorthHeightsCity8(
       pedestrianCharacters?.dispose();pedestrianCharacters=null;
       pedestrians=null;
       traffic3D?.dispose();traffic3D=null;
+      for(const hull of solidVehicleHandles.values())hull.dispose();
+      solidVehicleHandles.clear();
       traffic=null;
       lampHandle?.dispose();lampHandle=null;
       treeHandle?.dispose();
@@ -672,15 +688,49 @@ export async function createNorthHeightsCity8(
     // moving traffic agent as the single owner-accepted sedan in varied paint.
     // Other car models remain review-only; no proximity GLB swapping.
     traffic=new NH012TrafficSimulator(125,120125);
-    // Stage 6: original moving Sedan, independent world-space steering,
-    // swept building-wall tests; trees/lamps/cars remain pass-through.
-    traffic.configureStage6FreeDriving(stage6SolidBuildingCheck(
-      stage6BuildingBlockers(world.lotSpecs)));
+    // NH-SOLID-017: the same hull for every accepted source Sedan, regardless
+    // of original fleet tags, proximity, camera LOD or driver ownership.
+    const measuredSedanHull=sedanNativeContactHull007();
+    const solidWidth=Math.max(...measuredSedanHull.map(p=>p.x))-Math.min(...measuredSedanHull.map(p=>p.x));
+    const solidLength=Math.max(...measuredSedanHull.map(p=>p.z))-Math.min(...measuredSedanHull.map(p=>p.z));
+    const solidField=createNorthHeightsSolidField017({
+      sedanHull:measuredSedanHull,
+      buildings:world.lotSpecs,trees:treeHandle?world.treeLocations:[],
+      lamps:planNorthHeightsStreetLamps012(world.treeLocations),
+      cars:()=>traffic?.agents??[],
+      people:()=>pedestrians?.agents??[],
+      player:()=>!ridingSedanId&&mode==="walk"&&walk?walk.physics.playerPosition():null,
+    });
+    traffic.configureStage6FreeDriving((pose,length,width,id)=>
+      solidField.isCarClear(pose,length,width,id));
+    traffic.configureSolidTraffic((agent,pose)=>
+      solidField.isCarClear(pose,agent.length,agent.width,agent.id));
+    traffic.configureContactImpulses((agent,pose)=>
+      solidField.carImpactAt(pose,agent.id));
     const pilotIds=assignNH013SedanPilot(traffic,8);
     const hatchIds=assignNH013HatchbackPilot(traffic,12);
     const taxiIds=assignNH014TaxiPilot(traffic,NH014_TAXI_COUNT);
     const kangoIds=assignNH015KangoPilot(traffic,NH015_KANGO_COUNT);
     const circuit=verifyCompleteFleet016(traffic.snapshot());
+    // Historical model identity overlay pilots replace agent IDs and geometry
+    // tags. Register physical hulls only AFTER identity assignment completes.
+    for(let i=0;i<traffic.agents.length;i++){
+      const original=traffic.agents[i]!;
+      // Dimensions are immutable on each traffic agent: replace its record
+      // after visual-ID pilot assignments, retaining its final stable ID.
+      const agent={...original,length:solidLength,width:solidWidth};
+      traffic.agents[i]=agent;
+      const p=sedanRoadPosition(agent);
+      solidVehicleHandles.set(agent.id,walk.physics.addSolidTrafficVehicle(
+        {x:p.x,y:p.y,z:p.z,heading:agent.heading},
+        solidLength,solidWidth));
+    }
+    walk.physics.commitSolidTrafficPositions();
+    console.info("[NH-SOLID-017] solid fleet created",{
+      hulls:solidVehicleHandles.size,staticContacts:solidField.staticCount,
+      calibratedBody:{length:solidLength,width:solidWidth,hullVertices:measuredSedanHull.length},
+      simulationOwner:"NH012",visualOwner:"GEN-VEH-009",
+    });
     traffic3D=createNorthHeightsSedanTraffic009(scene,traffic.graph);
     // Use the SAME measured source axles as GEN-VEH-009 for rider camera height.
     const front=sourceWheelFit007("sedan","frontLeft");
@@ -702,6 +752,7 @@ export async function createNorthHeightsCity8(
     // No colored proxies; GLBs appear only when their unique asset is ready.
     // Crossings remain geometric-only until the dedicated yielding stage.
     pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
+    pedestrians.setVehicleOccupancy((x,z)=>solidField.personClear({x,z}));
     console.info("[PED-002] pedestrian graph and independent simulator initialized",{
       agents:pedestrians.population,nodes:pedestrians.graph.nodes.size,
       doorways:pedestrians.graph.entrances.size,parks:pedestrians.graph.parks.length,
@@ -751,6 +802,7 @@ export async function createNorthHeightsCity8(
         .then(renderer=>{
           if(closed){renderer.dispose();return;}
           lampHandle=renderer;
+          solidField.activateLampPoles();
           renderer.setTime(lampTime);
           renderer.update(camera.position,1);
           console.info("[NH-LAMP-012] Owner GLB streetlight grid active",{

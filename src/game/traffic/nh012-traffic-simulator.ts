@@ -5,6 +5,7 @@ import {
  nh012HeadingBetween, NH012_SIMULATION_DT,
  type TrafficGraph012,type TrafficConnector012,
 } from "./nh012-lane-network";
+import {NH017_SEDAN_LENGTH,NH017_SEDAN_WIDTH} from "@/game/vehicles/nh-solid-vehicle-collision-017";
 import {
  stage6SteerStep,stage6SweepSedan,STAGE6_WHEELBASE_METERS,
  type SedanStage6Pose,
@@ -85,15 +86,162 @@ export class NH012TrafficSimulator {
  }|null=null;
  /** Only one original traffic sedan may leave the NH012 route graph. The
   * other 124 agents retain their exact AI movement and reservation model. */
- private freeDrivingAdmission:((p:SedanStage6Pose,length:number,width:number)=>boolean)|null=null;
+ private freeDrivingAdmission:((p:SedanStage6Pose,length:number,width:number,id:string)=>boolean)|null=null;
+ private solidAdmission:((agent:NH012Agent,p:SedanStage6Pose)=>boolean)|null=null;
+ configureSolidTraffic(admission:(agent:NH012Agent,p:SedanStage6Pose)=>boolean):void{
+   this.solidAdmission=admission;
+ }
+ /** Contact impulse simulation is activated only for impact participants.
+  * The remaining traffic retains its accepted 20 Hz route solver. */
+ private contactTarget:((mover:NH012Agent,probe:SedanStage6Pose)=>
+   {id:string;nx:number;nz:number}|null)|null=null;
+ private readonly impactMotion=new Map<string,{vx:number;vz:number;ttl:number}>();
+ /** Impacted civilian traffic is RECOVERING, never intentionally parked. */
+ private readonly impactRecovery=new Map<string,{blockedSeconds:number}>();
+ private readonly impactCooldown=new Map<string,number>();
+ configureContactImpulses(lookup:(mover:NH012Agent,probe:SedanStage6Pose)=>
+   {id:string;nx:number;nz:number}|null):void{this.contactTarget=lookup;}
+ private applyContactImpulse(mover:NH012Agent,probe:SedanStage6Pose,
+   signedSpeed:number):number|null{
+   const contact=this.contactTarget?.(mover,probe);
+   if(!contact)return null;
+   const other=this.agents.find(a=>a.id===contact.id);
+   if(!other)return null;
+   const key=mover.id+"|"+other.id;
+   if(this.tick-(this.impactCooldown.get(key)??-100)<5)return 0;
+   const {nx,nz}=contact;
+   const mx=Math.sin(mover.heading),mz=Math.cos(mover.heading);
+   const tx=Math.sin(other.heading),tz=Math.cos(other.heading);
+   const targetImpact=this.impactMotion.get(other.id);
+   const ovx=targetImpact?.vx??tx*other.speed;
+   const ovz=targetImpact?.vz??tz*other.speed;
+   const vx=mx*signedSpeed,vz=mz*signedSpeed;
+   const closing=(vx-ovx)*nx+(vz-ovz)*nz;
+   // Bumper-to-bumper crawling must not be classified as a crash.
+   if(closing<1.8)return 0;
+   // Pair of equal-mass 1,450 kg Sedans, restitution 0.14. The normal impulse
+   // conserves total momentum and reverses relative normal speed. Ground
+   // friction then removes the imparted energy over time.
+   const massKg=1450,restitution=.14;
+   const impulse=(1+restitution)*closing/(2/massKg);
+   const dv=impulse/massKg;
+   const afterMover={x:vx-dv*nx,z:vz-dv*nz};
+   const afterOther={x:ovx+dv*nx,z:ovz+dv*nz};
+   this.impactCooldown.set(key,this.tick);
+   if(this.manual?.agentId===other.id){
+     this.manual.velocity=afterOther.x*tx+afterOther.z*tz;
+   }else{
+     const old=this.impactMotion.get(other.id);
+     this.impactMotion.set(other.id,{
+       vx:afterOther.x,vz:afterOther.z,ttl:Math.max(old?.ttl??0,1.3),
+     });
+     // Preserve lane/connector identity and any intersection reservation.
+     // The impulse displaces the car; route recovery later restores its lane
+     // through verified physical motion, never a teleport or parked flag.
+     this.impactRecovery.delete(other.id);
+     other.waitTicks=0;
+   }
+   return afterMover.x*mx+afterMover.z*mz;
+ }
+ private stepImpactBodies(dt:number):void{
+   for(const [id,motion] of this.impactMotion){
+     const car=this.agents.find(a=>a.id===id);
+     if(!car){this.impactMotion.delete(id);continue;}
+     const speed=Math.hypot(motion.vx,motion.vz);
+     if(speed>.05&&this.solidAdmission){
+       const distance=speed*dt;
+       // Integrate the two-dimensional post-impact velocity directly:
+       // a side impact can slide a car laterally without rotating its wheels.
+       const steps=Math.max(1,Math.ceil(distance/.05));
+       let x=car.x,z=car.z,blocked=false;
+       for(let i=0;i<steps;i++){
+         const proposed={x:x+motion.vx*dt/steps,
+           z:z+motion.vz*dt/steps,heading:car.heading};
+         if(!this.solidAdmission(car,proposed)){blocked=true;break;}
+         x=proposed.x;z=proposed.z;
+       }
+       car.x=x;car.z=z;
+       if(blocked){motion.vx=0;motion.vz=0;}
+     }
+     const speedNow=Math.hypot(motion.vx,motion.vz);
+     const slowed=Math.max(0,speedNow-4.2*dt);
+     const factor=speedNow>0?slowed/speedNow:0;
+     motion.vx*=factor;motion.vz*=factor;motion.ttl-=dt;
+     car.speed=slowed;
+     car.state=slowed>.08?"braking":"stopped";
+     if(slowed<.08||motion.ttl<=0){
+       car.speed=0;car.state="stopped";
+       this.impactMotion.delete(id);
+       this.impactRecovery.set(id,{blockedSeconds:0});
+     }
+   }
+ }
+ /** Move an impact-displaced NPC back to its route using checked motion.
+  * Never snap, despawn, become intangible, or stay parked in an active lane. */
+ private stepImpactRecovery(dt:number):void{
+   for(const [id,recovery] of this.impactRecovery){
+     const a=this.agents.find(v=>v.id===id);
+     if(!a){this.impactRecovery.delete(id);continue;}
+     if(this.manual?.agentId===id){
+       this.impactRecovery.delete(id);continue;
+     }
+     const connector=a.connectorId?this.graph.connectors.get(a.connectorId):null;
+     const edge=this.graph.edges.get(a.edgeId);
+     if(!edge){this.impactRecovery.delete(id);continue;}
+     const routeLength=connector?.length??edge.length;
+     const routeAt=(v:number)=>connector?
+       nh012PointOnConnector(connector,Math.max(0,Math.min(routeLength,v))):
+       nh012PointOnEdge(edge,Math.max(0,Math.min(routeLength,v)));
+     // Search only the local route segment; prefer a nearby forward re-entry
+     // point so an impact never teleports back to its former wheel position.
+     const start=Math.max(0,a.s-3),end=Math.min(routeLength,a.s+6);
+     let closest=start,best=Infinity;
+     for(let i=0;i<=30;i++){
+       const candidate=start+(end-start)*i/30;
+       const p=routeAt(candidate);
+       const distance=(a.x-p.x)**2+(a.z-p.z)**2;
+       if(distance<best){best=distance;closest=candidate;}
+     }
+     const destination=routeAt(closest);
+     const ahead=routeAt(Math.min(routeLength,closest+.15));
+     const behind=routeAt(Math.max(0,closest-.15));
+     const heading=nh012HeadingBetween(behind,ahead);
+     const dx=destination.x-a.x,dz=destination.z-a.z;
+     const dist=Math.hypot(dx,dz);
+     const delta=Math.atan2(Math.sin(heading-a.heading),
+       Math.cos(heading-a.heading));
+     if(dist<.065&&Math.abs(delta)<.065){
+       a.s=closest; // current pose differs from route by < 6.5 cm
+       a.speed=0;a.state="stopped";
+       this.impactRecovery.delete(id);
+       continue;
+     }
+     const step=Math.min(dist,1.2*dt);
+     const turn=Math.max(-.10,Math.min(.10,delta));
+     const proposal={x:a.x+(dist>0?dx/dist*step:0),
+       z:a.z+(dist>0?dz/dist*step:0),heading:a.heading+turn};
+     if(this.solidAdmission?.(a,proposal)??true){
+       a.x=proposal.x;a.z=proposal.z;a.heading=proposal.heading;
+       a.speed=step/dt;a.state="braking";
+       recovery.blockedSeconds=0;
+     }else{
+       a.speed=0;a.state="stopped";
+       recovery.blockedSeconds+=dt; // wait until a real physical exit clears
+     }
+   }
+ }
  private readonly freeParkedAgents=new Set<string>();
  configureStage6FreeDriving(
-   admission:(p:SedanStage6Pose,length:number,width:number)=>boolean,
+   admission:(p:SedanStage6Pose,length:number,width:number,id:string)=>boolean,
  ):void{this.freeDrivingAdmission=admission;}
  isStage6FreeDriving(agentId:string):boolean{
    return this.manual?.agentId===agentId&&this.manual.free;
  }
  isStage6FreeParked(agentId:string):boolean{return this.freeParkedAgents.has(agentId);}
+ /** Dynamic impact recovery is not player parking or scheduled congestion. */
+ get recoveringTrafficCount():number{
+   return this.impactMotion.size+this.impactRecovery.size;
+ }
  setManualSteering(agentId:string,amount:number):void{
    if(!this.isStage6FreeDriving(agentId))return;
    this.manual!.steeringRequest=Number.isFinite(amount)
@@ -146,6 +294,8 @@ export class NH012TrafficSimulator {
    }
    agent.plannedConnectorId=null;
    this.freeParkedAgents.delete(agentId);
+   this.impactMotion.delete(agentId);
+   this.impactRecovery.delete(agentId);
    this.manual={agentId,velocity:agent.speed,forward:0,reverse:0,history:[],
      steering:0,steeringRequest:0,free:!!this.freeDrivingAdmission};
    this.setDriverBrake(null,false);this.setDriverThrottle(null,0);
@@ -157,6 +307,14 @@ export class NH012TrafficSimulator {
    // direction. Do not snap/teleport it to the closest traffic position.
    const rejoin=agent&&this.manual.free?this.nearestFreeLane(agent):null;
    if(agent&&this.manual.free&&!rejoin)return false;
+   if(agent&&rejoin&&this.solidAdmission){
+     const lane=this.graph.edges.get(rejoin.edgeId)!;
+     const p=nh012PointOnEdge(lane,rejoin.s);
+     const heading=nh012HeadingBetween(lane.start,lane.end);
+     // Handing control back to AI must not snap the Sedan into an occupied
+     // car, pedestrian, building, tree or lamp. Keep manual ownership instead.
+     if(!this.solidAdmission(agent,{x:p.x,z:p.z,heading}))return false;
+   }
    if(agent){
      // AI uses nonnegative velocity even after manual reverse. On an occupied
      // curve, reacquire reservation when available. A conflicting reservation
@@ -239,11 +397,17 @@ export class NH012TrafficSimulator {
      const moved=stage6SweepSedan(
        {x:agent.x,z:agent.z,heading:agent.heading},
        nextHeading,m.velocity*dt,agent.length,agent.width,
-       this.freeDrivingAdmission,
+       (pose,length,width)=>this.freeDrivingAdmission!(pose,length,width,agent.id),
      );
      agent.x=moved.pose.x;agent.z=moved.pose.z;
      agent.heading=Math.atan2(Math.sin(moved.pose.heading),Math.cos(moved.pose.heading));
-     if(moved.blocked)m.velocity=0; // impact on solid building/wall
+     if(moved.blocked){
+       const response=this.applyContactImpulse(agent,moved.contactPose??moved.pose,m.velocity);
+       // Infinite-mass wall/trunk/pole: small coefficient of restitution.
+       // At crawling speed, settle without vibrating against the obstacle.
+       m.velocity=response??(Math.abs(m.velocity)>1.8?
+         -Math.sign(m.velocity)*Math.min(1.2,Math.abs(m.velocity)*.10):0);
+     }
      agent.speed=Math.abs(m.velocity);
      agent.arrivalTick=-1;agent.waitTicks=0;
      agent.connectorId=null;agent.plannedConnectorId=null;
@@ -406,7 +570,7 @@ export class NH012TrafficSimulator {
      const s=9+this.rng()*24;
      const pose=nh012PointOnEdge(edge,s);
      const destination=this.destinationNodes[Math.floor(this.rng()*this.destinationNodes.length)]!;
-     this.agents.push({...asset,edgeId:edge.id,connectorId:null,s,
+     this.agents.push({...asset,length:NH017_SEDAN_LENGTH,width:NH017_SEDAN_WIDTH,edgeId:edge.id,connectorId:null,s,
        speed:1.5+this.rng()*2.5,plannedConnectorId:null,x:pose.x,z:pose.z,
        heading:nh012HeadingBetween(edge.start,edge.end),state:"moving",
        destination,arrivalTick:-1,waitTicks:0});
@@ -435,8 +599,47 @@ export class NH012TrafficSimulator {
  }
  private hasExitSpace(edgeId:string,agent:NH012Agent):boolean{
    const limit=agent.length+MIN_GAP+3;
+   // Impacted cars continue to occupy their lane physically. Never ignore
+   // them for intersection exit safety while they are recovering.
    return !this.agents.some(a=>a!==agent&&a.id!==this.manual?.agentId&&
-     !this.freeParkedAgents.has(a.id)&&a.connectorId===null&&a.edgeId===edgeId&&a.s<limit);
+     !this.freeParkedAgents.has(a.id)&&a.connectorId===null&&
+     a.edgeId===edgeId&&a.s<limit);
+ }
+ /** Preserve the exact contact point instead of rolling back a whole
+  * 20 Hz autonomous frame (which created the conspicuous air gap). */
+ private keepSolidMove(a:NH012Agent,old:NH012Agent):void{
+   if(!this.solidAdmission)return;
+   const target={...a},dx=target.x-old.x,dz=target.z-old.z;
+   const headingDelta=Math.atan2(Math.sin(target.heading-old.heading),
+     Math.cos(target.heading-old.heading));
+   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.05));
+   let validFraction=0;
+   const at=(t:number)=>({x:old.x+dx*t,z:old.z+dz*t,
+     heading:old.heading+headingDelta*t});
+   for(let i=1;i<=count;i++){
+     const t=i/count;
+     if(this.solidAdmission(a,at(t))){validFraction=t;continue;}
+     let lo=validFraction,hi=t;
+     for(let j=0;j<11;j++){
+       const mid=(lo+hi)/2;
+       if(this.solidAdmission(a,at(mid)))lo=mid;else hi=mid;
+     }
+     if(old.connectorId&&!target.connectorId){
+       const c=this.graph.connectors.get(old.connectorId);
+       if(c)this.reservations.set(c.junction,a.id);
+     }
+     if(old.edgeId===target.edgeId&&old.connectorId===target.connectorId){
+       a.s=old.s+(target.s-old.s)*lo;
+       const p=at(lo);a.x=p.x;a.z=p.z;a.heading=p.heading;
+       a.arrivalTick=-1;a.waitTicks=0;
+     }else Object.assign(a,old);
+     // Autonomous contacts use the same two-body impulse as manual crashes.
+     // Static obstacles instead absorb momentum without phantom displacement.
+     const collisionSpeed=this.applyContactImpulse(a,at(hi),target.speed);
+     a.speed=Math.max(0,collisionSpeed??0);
+     a.state=a.speed>.08?"braking":"stopped";
+     return;
+   }
  }
  step(dt=NH012_SIMULATION_DT){
    if(Math.abs(dt-NH012_SIMULATION_DT)>1e-8)throw Error("NH012 requires a 20Hz deterministic step");
@@ -444,7 +647,11 @@ export class NH012TrafficSimulator {
    // Manual car moves along the SAME lanes and connectors, but its driver
    // explicitly overrides traffic signals, spacing, reservation and stop AI.
    this.stepManual(dt);
+   this.stepImpactBodies(dt);
+   this.stepImpactRecovery(dt);
    const laneCars=new Map<string,NH012Agent[]>();
+   // Recovering cars are still tangible lane leaders. Followers must retain
+   // normal braking headways instead of accelerating into a temporary crash.
    for(const a of this.agents)if(a.connectorId===null&&
      a.id!==this.manual?.agentId&&!this.freeParkedAgents.has(a.id)){
      const list=laneCars.get(a.edgeId)??[];list.push(a);laneCars.set(a.edgeId,list);
@@ -461,10 +668,12 @@ export class NH012TrafficSimulator {
    }
    // Each reserved connector remains exclusive until its occupant exits.
    for(const agent of this.agents){
-     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id))continue;
+     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id)||this.impactMotion.has(agent.id)||
+       this.impactRecovery.has(agent.id))continue;
      if(!agent.connectorId)continue;
      const c=this.graph.connectors.get(agent.connectorId)!;
-     const remaining=c.length-agent.s;
+     const before={...agent};
+   const remaining=c.length-agent.s;
      // Hold the junction reservation while braking in a connector: a stopped
      // chassis must not release the crossing to another conflicting vehicle.
      const braking=this.driverBrakeId===agent.id;
@@ -489,12 +698,15 @@ export class NH012TrafficSimulator {
        agent.state="moving";
        this.reservations.delete(c.junction);
      }
+     this.keepSolidMove(agent,before);
    }
    // Advance ordinary lanes; a virtual stop-line leader enforces full stops.
    for(const agent of this.agents){
-     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id))continue;
+     if(this.manual?.agentId===agent.id||this.freeParkedAgents.has(agent.id)||this.impactMotion.has(agent.id)||
+       this.impactRecovery.has(agent.id))continue;
      if(agent.connectorId)continue;
      const edge=this.graph.edges.get(agent.edgeId)!;
+     const before={...agent};
      const available=safe(leaderGaps.get(agent.id)??Infinity);
      const toStop=safe(edge.length-agent.s);
      const safeStopSpeed=Math.sqrt(2*BRAKE*toStop);
@@ -528,12 +740,14 @@ export class NH012TrafficSimulator {
        if(agent.arrivalTick<0)agent.arrivalTick=this.tick;
        agent.waitTicks++;
      }
+     this.keepSolidMove(agent,before);
    }
    // Deterministic all-way-stop priority, exclusive across conflicting turns.
    const queues=new Map<string,NH012Agent[]>();
    for(const agent of this.agents)if(!agent.connectorId&&agent.waitTicks>=4
      &&this.driverBrakeId!==agent.id&&this.manual?.agentId!==agent.id
-     &&!this.freeParkedAgents.has(agent.id)){
+     &&!this.freeParkedAgents.has(agent.id)&&
+       !this.impactMotion.has(agent.id)&&!this.impactRecovery.has(agent.id)){
      const junction=this.graph.edges.get(agent.edgeId)!.to;
      const queue=queues.get(junction)??[];queue.push(agent);queues.set(junction,queue);
    }
@@ -545,6 +759,7 @@ export class NH012TrafficSimulator {
      for(const agent of queue){
        const connector=this.chooseConnector(agent);
        if(!this.hasExitSpace(connector.outgoing,agent))continue;
+       if(this.solidAdmission&&!this.solidAdmission(agent,{x:connector.p0.x,z:connector.p0.z,heading:agent.heading}))continue;
        this.reservations.set(junction,agent.id);
        // Turn intent is one-shot. Consume it ONLY upon successful junction
        // reservation, never while the lane is merely waiting at a stop line.
@@ -570,7 +785,11 @@ export class NH012TrafficSimulator {
      if(!Number.isFinite(a.x)||!Number.isFinite(a.z)||a.speed<0)errors.push(a.id+":non-finite pose");
      if(a.connectorId&&!this.graph.connectors.has(a.connectorId))errors.push(a.id+":invalid connector");
      if(!this.graph.edges.has(a.edgeId))errors.push(a.id+":invalid lane");
-     if(!a.connectorId&&this.manual?.agentId!==a.id&&!this.freeParkedAgents.has(a.id)){
+     // An impact-displaced car is temporarily off its route; its stale s
+     // must not be interpreted as an overlapping lane coordinate.
+     if(!a.connectorId&&this.manual?.agentId!==a.id&&
+       !this.freeParkedAgents.has(a.id)&&!this.impactMotion.has(a.id)&&
+       !this.impactRecovery.has(a.id)){
        const list=lane.get(a.edgeId)??[];list.push(a);lane.set(a.edgeId,list);
      }
    }
