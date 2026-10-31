@@ -168,7 +168,9 @@ export class ProceduralVehicleAudio021 {
         comp.connect(ctx.destination);
         const frames=Math.round(ctx.sampleRate*1.15);
         const buffer=ctx.createBuffer(1,frames,ctx.sampleRate);
-        buffer.copyToChannel(generateAudioNoise021(frames),0);
+        // TS typed-array generics differ between ArrayBuffer and
+        // SharedArrayBuffer; getChannelData().set accepts an ArrayLike safely.
+        buffer.getChannelData(0).set(generateAudioNoise021(frames));
         this.noise=buffer;
         this.applyVolume();
       }
