@@ -541,22 +541,34 @@ export class NH012TrafficSimulator {
    return !this.agents.some(a=>a!==agent&&a.id!==this.manual?.agentId&&
      !this.freeParkedAgents.has(a.id)&&a.connectorId===null&&a.edgeId===edgeId&&a.s<limit);
  }
- /** Enforce swept solid contact for every autonomous lane/connector movement.
-  * Roll back blocked movement without creating a second vehicle state owner. */
+ /** Preserve the exact contact point instead of rolling back a whole
+  * 20 Hz autonomous frame (which created the conspicuous air gap). */
  private keepSolidMove(a:NH012Agent,old:NH012Agent):void{
    if(!this.solidAdmission)return;
-   const dx=a.x-old.x,dz=a.z-old.z;
-   const headingDelta=Math.atan2(Math.sin(a.heading-old.heading),Math.cos(a.heading-old.heading));
-   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.10));
+   const target={...a},dx=target.x-old.x,dz=target.z-old.z;
+   const headingDelta=Math.atan2(Math.sin(target.heading-old.heading),
+     Math.cos(target.heading-old.heading));
+   const count=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.05));
+   let validFraction=0;
+   const at=(t:number)=>({x:old.x+dx*t,z:old.z+dz*t,
+     heading:old.heading+headingDelta*t});
    for(let i=1;i<=count;i++){
      const t=i/count;
-     const p={x:old.x+dx*t,z:old.z+dz*t,heading:old.heading+headingDelta*t};
-     if(this.solidAdmission(a,p))continue;
-     if(old.connectorId&&!a.connectorId){
+     if(this.solidAdmission(a,at(t))){validFraction=t;continue;}
+     let lo=validFraction,hi=t;
+     for(let j=0;j<11;j++){
+       const mid=(lo+hi)/2;
+       if(this.solidAdmission(a,at(mid)))lo=mid;else hi=mid;
+     }
+     if(old.connectorId&&!target.connectorId){
        const c=this.graph.connectors.get(old.connectorId);
        if(c)this.reservations.set(c.junction,a.id);
      }
-     Object.assign(a,old);
+     if(old.edgeId===target.edgeId&&old.connectorId===target.connectorId){
+       a.s=old.s+(target.s-old.s)*lo;
+       const p=at(lo);a.x=p.x;a.z=p.z;a.heading=p.heading;
+       a.arrivalTick=-1;a.waitTicks=0;
+     }else Object.assign(a,old);
      a.speed=0;a.state="stopped";
      return;
    }
