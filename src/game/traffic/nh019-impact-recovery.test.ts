@@ -1,5 +1,6 @@
 import {describe,expect,it} from "vitest";
-import {NH012TrafficSimulator,NH012_SIMULATION_DT} from "./nh012-traffic-simulator";
+import {NH012TrafficSimulator} from "./nh012-traffic-simulator";
+import {NH012_SIMULATION_DT} from "./nh012-lane-network";
 import {createNorthHeightsSolidField017} from "@/game/vehicles/nh-solid-vehicle-collision-017";
 
 /** Traffic is allowed to queue behind a real obstruction, but ordinary
