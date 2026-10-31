@@ -321,6 +321,7 @@ export async function createNorthHeightsCity8(
           const p=sedanRoadPosition(agent);
           hull.update({x:p.x,y:p.y,z:p.z,heading:agent.heading});
         }
+        walk?.physics.commitSolidTrafficPositions();
       }
     }
     if(pedestrians){
@@ -718,6 +719,7 @@ export async function createNorthHeightsCity8(
         {x:p.x,y:p.y,z:p.z,heading:agent.heading},
         NH017_SEDAN_LENGTH,NH017_SEDAN_WIDTH));
     }
+    walk.physics.commitSolidTrafficPositions();
     console.info("[NH-SOLID-017] solid fleet created",{
       hulls:solidVehicleHandles.size,staticContacts:solidField.staticCount,
       simulationOwner:"NH012",visualOwner:"GEN-VEH-009",
