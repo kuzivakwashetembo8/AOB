@@ -75,7 +75,7 @@ export function stage6SteerStep(
 export function stage6SweepSedan(
   before:SedanStage6Pose,nextHeading:number,distance:number,
   length:number,width:number,admitted:(p:SedanStage6Pose,length:number,width:number)=>boolean,
-):{pose:SedanStage6Pose;blocked:boolean}{
+):{pose:SedanStage6Pose;blocked:boolean;contactPose?:SedanStage6Pose}{
   const count=Math.max(1,Math.ceil(Math.abs(distance)/STAGE6_SEGMENT_METERS));
   let result={...before};
   for(let i=1;i<=count;i++){
@@ -85,8 +85,21 @@ export function stage6SweepSedan(
     const next={x:result.x+Math.sin(heading)*step,
       z:result.z+Math.cos(heading)*step,heading};
     if(!admitted(next,length,width)){
-      // A solid wall must not be penetrated even when approaching diagonally.
-      return {pose:result,blocked:true};
+      // Advance to within roughly 0.1 mm of first contact rather than
+      // returning a whole 10 cm segment before the visible bumper.
+      const accepted={...result},rejected=next;
+      let lo=0,hi=1,at=accepted;
+      for(let j=0;j<11;j++){
+        const t=(lo+hi)/2;
+        const mid={x:accepted.x+(rejected.x-accepted.x)*t,
+          z:accepted.z+(rejected.z-accepted.z)*t,
+          heading:accepted.heading+
+            Math.atan2(Math.sin(rejected.heading-accepted.heading),
+              Math.cos(rejected.heading-accepted.heading))*t};
+        if(admitted(mid,length,width)){at=mid;lo=t;}
+        else hi=t;
+      }
+      return {pose:at,blocked:true,contactPose:next};
     }
     result=next;
   }
