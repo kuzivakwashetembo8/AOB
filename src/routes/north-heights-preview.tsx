@@ -1,6 +1,7 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
+import {RadioController} from "@/game/audio/radio/radio-controller";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
 import type {GameCommand} from "@/game/core/types";
 import {pageHead} from "@/lib/page-head";
@@ -25,6 +26,11 @@ export const Route=createFileRoute("/north-heights-preview")({
 });
 function NorthHeightsPreview(){
   const canvas=useRef<HTMLCanvasElement>(null),controller=useRef<NorthHeightsInspection|null>(null);
+  const radio=useRef<RadioController|null>(null);
+  if(!radio.current)radio.current=new RadioController();
+  const [radioState,setRadioState]=useState(()=>radio.current!.getSnapshot());
+  useEffect(()=>radio.current!.subscribe(()=>setRadioState(radio.current!.getSnapshot())),[]);
+  useEffect(()=>()=>{radio.current?.dispose();radio.current=null;},[]);
   const {settings,save}=useSettings();
   const currentSettings=useRef(settings);currentSettings.current=settings;
   const [status,setStatus]=useState("Preparing North Heights");
@@ -42,11 +48,14 @@ function NorthHeightsPreview(){
   const [location,setLocation]=useState("NORTH HEIGHTS // MERIDIAN CITY");
   const [position,setPosition]=useState({x:0,z:-31});
   const [vehicle,setVehicle]=useState<string|null>(null);
+  useEffect(()=>{if(vehicle)radio.current?.enterVehicle();else radio.current?.exitVehicle();},[vehicle===null]);
+  useEffect(()=>{const visibility=()=>radio.current?.setHidden(document.hidden);document.addEventListener("visibilitychange",visibility);return()=>document.removeEventListener("visibilitychange",visibility);},[]);
   const [vehicleSpeed,setVehicleSpeed]=useState(0);
   const [canEnterVehicle,setCanEnterVehicle]=useState(false);
   const [inside,setInside]=useState(false);
   const [mapOpen,setMapOpen]=useState(false);
   const [paused,setPaused]=useState(false);
+  useEffect(()=>{radio.current?.setPaused(paused);},[paused]);
   const [panel,setPanel]=useState<"pause"|"settings"|"objectives"|"save">("pause");
   const [feedback,setFeedback]=useState("");
   const [coarse,setCoarse]=useState(false);
@@ -207,6 +216,19 @@ function NorthHeightsPreview(){
       {ready&&settings.hud&&<GameHud snapshot={snapshot}
         context={vehicle?"driving":"walking"}
         mapSlot={<NorthHeightsMiniMap position={position} onExpand={()=>setMapOpen(true)}/>}
+        metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div className="flex items-center gap-2 rounded bg-black/75 px-3 py-2 text-xs text-white" aria-label="Vehicle music"><span>VEHICLE MUSIC · {radioState.status.toUpperCase()}</span><button type="button" onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button></div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
+        className="flex max-w-[min(85vw,360px)] flex-wrap items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
+        <span>{sedanManual
+          ?"STAGE 6 FREE DRIVE · ↑ FORWARD +30% · ↓ BRAKE / REVERSE · HOLD ← → TO STEER · WALLS SOLID · TRAFFIC PASS-THROUGH"
+          :"AUTOPILOT · FIRST PEDAL OR TURN TAKES MANUAL CONTROL"}
+          {" · "}{vehicleSpeed>.25?"STOP TO EXIT":"F / VEHICLE TO EXIT"}</span>
+        <button type="button" data-testid="nh-opt2-stage5-toggle-autopilot"
+          className="shrink-0 rounded border border-white/40 bg-white/15 px-2 py-1 font-semibold"
+          aria-label={sedanManual?"Switch Sedan to autopilot":"Switch Sedan to manual driving"}
+          onClick={()=>controller.current?.toggleSedanAutopilot()}>
+          {sedanManual?"AUTO (P)":"MANUAL (P)"}
+        </button>
+      </div>}</div>}
         mode={inputMode} interaction={feedback} pause={()=>{setPanel("pause");setPaused(true);}}
         showObjective={settings.objective} setMeridianTime={setMeridianMinute}
         setMeridianTimeScale={setMeridianSpeed}/>}
@@ -219,19 +241,6 @@ function NorthHeightsPreview(){
             ? "SEDAN "+stats.split("SEDAN ")[1]?.split(" · ")[0]
             : "SEDAN PILOT INITIALIZING"}
         </div>}
-      {ready&&sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
-        className="absolute left-1/2 top-24 z-10 flex max-w-[92vw] -translate-x-1/2 items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
-        <span>{sedanManual
-          ?"STAGE 6 FREE DRIVE · ↑ FORWARD +30% · ↓ BRAKE / REVERSE · HOLD ← → TO STEER · WALLS SOLID · TRAFFIC PASS-THROUGH"
-          :"AUTOPILOT · FIRST PEDAL OR TURN TAKES MANUAL CONTROL"}
-          {" · "}{vehicleSpeed>.25?"STOP TO EXIT":"F / VEHICLE TO EXIT"}</span>
-        <button type="button" data-testid="nh-opt2-stage5-toggle-autopilot"
-          className="shrink-0 rounded border border-white/40 bg-white/15 px-2 py-1 font-semibold"
-          aria-label={sedanManual?"Switch Sedan to autopilot":"Switch Sedan to manual driving"}
-          onClick={()=>controller.current?.toggleSedanAutopilot()}>
-          {sedanManual?"AUTO (P)":"MANUAL (P)"}
-        </button>
-      </div>}
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
       {!ready&&<BootstrapOverlay entries={initialStartupChecklist()}
         measured={loadingSnapshot} elapsedSeconds={loadingSeconds}

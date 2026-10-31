@@ -13,6 +13,7 @@ import {
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import {sampleSouthWardGrassPixel} from "@/game/world-generation/ground-land-surface";
+import {createNorthHeightsVisibilityGate015} from "./north-heights-visibility-gate-015";
 
 export const NORTH_HEIGHTS_TREE_URI="/GLBs/Infrastructure/tree_low_poly_lowpoly.glb";
 export type TreeLocation={x:number;y:number;z:number;size:number;angle:number};
@@ -49,71 +50,88 @@ export function planNorthHeightsTrees004(
   }
   return placements;
 }
+/** Batched owner-GLB trees. Two source meshes, each drawn via one culled
+ * thin-instance buffer, regardless of how many urban planting positions exist.
+ */
 export async function placeNorthHeightsTrees004(
-  scene:Scene, placements:readonly TreeLocation[],
-):Promise<{trees:number;meshInstances:number;sourceMeshes:number;dispose:()=>void}>{
+  scene:Scene, placements:readonly TreeLocation[],mobile=false,
+):Promise<{trees:number;meshInstances:number;sourceMeshes:number;
+  update:(camera:Vector3,dt:number)=>void;dispose:()=>void}>{
   const imported=await SceneLoader.ImportMeshAsync("","/GLBs/Infrastructure/","tree_low_poly_lowpoly.glb",scene);
-  const meshes=imported.meshes.filter((m):m is Mesh=>m instanceof Mesh && m.getTotalVertices()>0 && m.isEnabled());
-  if(!meshes.length)throw new Error("Owner tree GLB has no renderable mesh geometry");
+  const meshes=imported.meshes.filter((m):m is Mesh=>m instanceof Mesh&&m.getTotalVertices()>0&&m.isEnabled());
+  if(!meshes.length)throw new Error("Owner tree GLB has no renderable geometry");
   const min=new Vector3(Infinity,Infinity,Infinity),max=new Vector3(-Infinity,-Infinity,-Infinity);
-  // Snapshot BEFORE hiding source. We keep Babylon's glTF hierarchy matrices
-  // intact when spawning each individual imported mesh, unlike flattening
-  // skeleton/pivot relationships into origin-aligned boxes.
-  const originals: {mesh:Mesh; world:Matrix}[]=[];
+  const originalWorld=new Map<Mesh,Matrix>();
   for(const mesh of meshes){
     const world=mesh.computeWorldMatrix(true).clone();
     const bounds=mesh.getBoundingInfo().boundingBox;
     min.minimizeInPlace(bounds.minimumWorld);
     max.maximizeInPlace(bounds.maximumWorld);
-    originals.push({mesh,world});
+    originalWorld.set(mesh,world);
   }
   const physicalHeight=max.y-min.y;
   if(!Number.isFinite(physicalHeight)||physicalHeight<.00001){
-    for(const root of imported.meshes)root.dispose();
-    throw new Error("Tree GLB bounds invalid; cannot safely normalize height");
+    for(const mesh of imported.meshes)mesh.dispose();
+    throw new Error("Tree GLB bounds invalid; cannot normalize height");
   }
-  // Actual trees are normalized only by height, NOT rebuilt or retessellated.
-  const targetHeight=7.3;
-  const normalizedScale=targetHeight/physicalHeight;
+  const normalizedScale=7.3/physicalHeight;
   const midX=(min.x+max.x)*.5,midZ=(min.z+max.z)*.5;
-  let instanceCount=0;
-  const instances:AbstractMesh[]=[];
-  for(const {mesh,world} of originals){
-    // Instances are rendered separately from hidden glTF source meshes. The
-    // source remains allocated as the Babylon instancing master geometry.
-    mesh.isVisible=false;
+  // Baking source parent transforms makes every thin instance independent of
+  // Sketchfab's glTF hierarchy. Geometry/materials remain from the real GLB.
+  for(const mesh of meshes){
+    mesh.bakeTransformIntoVertices(originalWorld.get(mesh)!);
+    mesh.parent=null;
+    mesh.position.set(0,0,0);
+    mesh.rotationQuaternion=null;
+    mesh.rotation.set(0,0,0);
+    mesh.scaling.set(1,1,1);
+    mesh.isPickable=false;
+    mesh.receiveShadows=false;
+    mesh.thinInstanceSetBuffer("matrix",new Float32Array(0),16,true);
+    mesh.setEnabled(false);
+  }
+  const matrices=placements.map(place=>{
+    const angle=place.angle,scale=normalizedScale*place.size;
+    return Matrix.Compose(new Vector3(scale,scale,scale),
+      Quaternion.RotationAxis(Vector3.Up(),angle),
+      new Vector3(
+        place.x-(Math.cos(angle)*midX+Math.sin(angle)*midZ)*scale,
+        place.y-min.y*scale,
+        place.z-(-Math.sin(angle)*midX+Math.cos(angle)*midZ)*scale,
+      ));
+  });
+  const maxRadius=mobile?125:180;
+  const maxDistanceSq=maxRadius*maxRadius;
+  let disposed=false;
+  const visibilityGate=createNorthHeightsVisibilityGate015();
+  function refresh(camera:Vector3){
+    if(disposed||!visibilityGate.shouldRefresh(camera))return;
+    const data:number[]=[];
     for(let i=0;i<placements.length;i++){
-      const place=placements[i]!;
-      const angle=Quaternion.RotationAxis(Vector3.Up(),place.angle);
-      const scale=normalizedScale*place.size;
-      const norm=Matrix.Compose(new Vector3(scale,scale,scale),angle,
-        new Vector3(
-          place.x-(Math.cos(place.angle)*midX+Math.sin(place.angle)*midZ)*scale,
-          place.y-min.y*scale,
-          place.z-(-Math.sin(place.angle)*midX+Math.cos(place.angle)*midZ)*scale,
-        ));
-      const full=world.multiply(norm);
-      const s=new Vector3(),q=new Quaternion(),p=new Vector3();
-      if(!full.decompose(s,q,p))continue;
-      const instance=mesh.createInstance("nh004-tree-"+i+"-"+mesh.name);
-      // InstancedMesh may inherit the source GLB's transform parent; world
-      // transforms above are already fully resolved, so detach parent.
-      instance.parent=null;
-      instance.position.copyFrom(p);
-      instance.rotationQuaternion=q;
-      instance.scaling.copyFrom(s);
-      instance.isPickable=false;
-      instance.receiveShadows=false;
-      instances.push(instance);
-      instanceCount++;
+      const p=placements[i]!;
+      if((p.x-camera.x)**2+(p.z-camera.z)**2>maxDistanceSq)continue;
+      data.push(...matrices[i]!.toArray());
+    }
+    const buffer=new Float32Array(data);
+    for(const mesh of meshes){
+      mesh.thinInstanceSetBuffer("matrix",buffer,16,true);
+      mesh.thinInstanceRefreshBoundingInfo();
+      mesh.setEnabled(buffer.length>0);
     }
   }
+  // Only crossing a camera movement threshold triggers new GPU buffers;
+  // standing, turning and vertical-only flight never rebuild this static forest.
+  refresh(scene.activeCamera?.position??Vector3.Zero());
   return {
-    trees:placements.length,meshInstances:instanceCount,sourceMeshes:meshes.length,
+    trees:placements.length,
+    meshInstances:placements.length*meshes.length,
+    sourceMeshes:meshes.length,
+    update(camera,_dt){refresh(camera);},
     dispose(){
-      for(const item of instances)item.dispose();
-      for(const mesh of imported.meshes)mesh.dispose();
-      for(const transform of imported.transformNodes)transform.dispose();
+      if(disposed)return;
+      disposed=true;
+      for(const mesh of imported.meshes)mesh.dispose(false,true);
+      for(const node of imported.transformNodes)node.dispose();
     },
   };
 }
