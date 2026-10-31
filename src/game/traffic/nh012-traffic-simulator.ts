@@ -162,6 +162,14 @@ export class NH012TrafficSimulator {
    // direction. Do not snap/teleport it to the closest traffic position.
    const rejoin=agent&&this.manual.free?this.nearestFreeLane(agent):null;
    if(agent&&this.manual.free&&!rejoin)return false;
+   if(agent&&rejoin&&this.solidAdmission){
+     const lane=this.graph.edges.get(rejoin.edgeId)!;
+     const p=nh012PointOnEdge(lane,rejoin.s);
+     const heading=nh012HeadingBetween(lane.start,lane.end);
+     // Handing control back to AI must not snap the Sedan into an occupied
+     // car, pedestrian, building, tree or lamp. Keep manual ownership instead.
+     if(!this.solidAdmission(agent,{x:p.x,z:p.z,heading}))return false;
+   }
    if(agent){
      // AI uses nonnegative velocity even after manual reverse. On an occupied
      // curve, reacquire reservation when available. A conflicting reservation
