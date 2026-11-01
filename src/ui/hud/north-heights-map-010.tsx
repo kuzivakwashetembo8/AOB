@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from "react";
 import {X,Plus,Minus,MapPinned} from "lucide-react";
 import {
  NORTH_HEIGHTS_MAP_ROADS_010,NORTH_HEIGHTS_MAP_BLOCKS_010,
- NORTH_HEIGHTS_MAP_PARKING_010,northHeightsMapPoint010,
+ NORTH_HEIGHTS_MAP_PARKING_010,NORTH_HEIGHTS_MAP_FINCH_HQ_001,northHeightsMapPoint010,
 } from "@/game/experiments/north-heights-map-data-010";
 
 const regionColor:Record<string,string>={
@@ -49,6 +49,28 @@ function DistrictVector({x,z,labels=false}:{
       transform={`rotate(90 ${road.x+4} 13)`}>{road.northSouth}</text>
     <text x="8" y={road.z-5} fontSize="9" fill="#e4edf1">{road.eastWest}</text>
   </g>)}
+  {/* POI-002: static headquarters landmark, not a mission objective or player position. */}
+  <g aria-label="Finch headquarters location">
+    <title>Finch HQ · Harold Finch headquarters</title>
+    <rect x={NORTH_HEIGHTS_MAP_FINCH_HQ_001.x-(labels?10:17)}
+      y={NORTH_HEIGHTS_MAP_FINCH_HQ_001.y-(labels?10:17)}
+      width={labels?20:34} height={labels?20:34} rx="2"
+      transform={`rotate(45 ${NORTH_HEIGHTS_MAP_FINCH_HQ_001.x} ${NORTH_HEIGHTS_MAP_FINCH_HQ_001.y})`}
+      fill="#d9a64c" stroke="#182638" strokeWidth={labels?2:4}/>
+    <circle cx={NORTH_HEIGHTS_MAP_FINCH_HQ_001.x}
+      cy={NORTH_HEIGHTS_MAP_FINCH_HQ_001.y} r={labels?3.8:6.4}
+      fill="#172533"/>
+    {labels&&<g>
+      <rect x={NORTH_HEIGHTS_MAP_FINCH_HQ_001.x+18}
+        y={NORTH_HEIGHTS_MAP_FINCH_HQ_001.y-17}
+        width="86" height="22" rx="4"
+        fill="#102432" stroke="#d9a64c" strokeWidth="1.5"/>
+      <text x={NORTH_HEIGHTS_MAP_FINCH_HQ_001.x+61}
+        y={NORTH_HEIGHTS_MAP_FINCH_HQ_001.y-2}
+        textAnchor="middle" fontWeight="bold" fontSize="12"
+        fill="#f8df9c">FINCH HQ</text>
+    </g>}
+  </g>
   <circle cx={point.x} cy={point.y} r={labels?10:17}
     fill="#ffffff" stroke="#111827" strokeWidth={labels?3:6}/>
   <circle cx={point.x} cy={point.y} r={labels?18:29}
@@ -101,7 +123,7 @@ export function NorthHeightsExpandedMap({position,onClose}:{
    </header>
    <div className="min-h-0 w-full flex-1 overflow-hidden rounded-lg border border-white/25 bg-[#142334]">
      <svg viewBox="0 0 640 640" className="h-full w-full" role="img"
-       aria-label="Top-down street map of North Heights, white dot marks the player"
+       aria-label="Top-down North Heights map: white dot marks the player and gold diamond marks Finch headquarters"
        style={{touchAction:"none"}}
        onPointerDown={e=>{drag.current={id:e.pointerId,x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}}
        onPointerMove={e=>{
@@ -121,6 +143,9 @@ export function NorthHeightsExpandedMap({position,onClose}:{
    </div>
    <footer className="flex w-full max-w-[780px] flex-wrap items-center justify-between gap-2 text-xs text-slate-200">
      <span><span className="inline-block h-2 w-2 rounded-full bg-white"/> YOU ARE HERE</span>
+     <span className="flex items-center gap-2">
+       <span className="inline-block h-2.5 w-2.5 rotate-45 bg-[#d9a64c]"/> FINCH HQ
+     </span>
      <span>22 named streets · 6 areas · 2 parking lots · Drag to pan</span>
    </footer>
  </div>;
