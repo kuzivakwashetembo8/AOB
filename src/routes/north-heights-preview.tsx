@@ -1,6 +1,7 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
-import {X} from "lucide-react";
+import {X,ArrowUp,ArrowDown} from "lucide-react";
+import type {FinchElevatorState004} from "@/game/experiments/north-heights-finch-lobby-004";
 import {RadioController} from "@/game/audio/radio/radio-controller";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
 import type {GameCommand} from "@/game/core/types";
@@ -53,6 +54,7 @@ function NorthHeightsPreview(){
   const [vehicleSpeed,setVehicleSpeed]=useState(0);
   const [canEnterVehicle,setCanEnterVehicle]=useState(false);
   const [inside,setInside]=useState(false);
+  const [elevator,setElevator]=useState<FinchElevatorState004|null>(null);
   const [mapOpen,setMapOpen]=useState(false);
   const [paused,setPaused]=useState(false);
   useEffect(()=>{radio.current?.setPaused(paused);},[paused]);
@@ -148,7 +150,8 @@ function NorthHeightsPreview(){
             if(currentStage)ledger.finish(currentStage,"First drawn playable North Heights frame");
             ledger.finish("nh:bootstrap","First playable scene frame rendered");
             setFirstPlayable(true);setLoadingSnapshot(ledger.snapshot());
-          }});
+          }},
+          state=>{if(!closed)setElevator(state);});
         if(closed)instance.dispose();
         else{
           // First-frame completion is delivered by Babylon onAfterRender, not here.
@@ -242,6 +245,22 @@ function NorthHeightsPreview(){
           {stats.split("SEDAN ")[1]?.split(" · ")[0]
             ? "SEDAN "+stats.split("SEDAN ")[1]?.split(" · ")[0]
             : "SEDAN PILOT INITIALIZING"}
+        </div>}
+      {ready&&!paused&&(elevator?.available||elevator?.moving)&&
+        <div className="absolute right-3 top-[30%] z-30 rounded-lg border border-white/40 bg-black/85 px-3 py-2 text-white"
+          aria-label="Finch Headquarters glass elevator">
+          {elevator.moving
+            ?<div role="status" className="flex flex-col items-center gap-1 text-xs">
+              <span>FINCH HQ · LIFT IN MOTION</span>
+              <span>HEIGHT {elevator.progress}% · DESTINATION {elevator.direction==="up"?"53":"1"}</span>
+            </div>
+            :<button type="button" data-testid="finch-elevator-travel"
+              onClick={()=>controller.current?.travelFinchElevator()}
+              className="flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2 text-sm font-semibold"
+              aria-label={elevator.direction==="up"?"Ride elevator up to floor 53":"Ride elevator down to ground floor"}>
+              {elevator.direction==="up"?<ArrowUp size={24}/>:<ArrowDown size={24}/>}
+              {elevator.direction==="up"?"FLOOR 53":"GROUND FLOOR"}
+            </button>}
         </div>}
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
       {!ready&&<BootstrapOverlay entries={initialStartupChecklist()}
