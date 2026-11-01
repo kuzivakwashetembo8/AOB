@@ -64,7 +64,7 @@ export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],gro
  let receptionistRoot:TransformNode|null=null;
  let receptionistMeshes:Mesh[]=[];
  let receptionistGroups:{stop:()=>void}[]=[];
- let dead=false,requested=false,progress=0,wasInside=false;
+ let dead=false,requested=false,progress=0;
  const position={x:deskX,z:deskZ-1.48};
  const update=(player:{x:number;z:number}|null,dt:number)=>{
   if(dead)return;
@@ -74,7 +74,7 @@ export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],gro
   // Approaching from lobby opens the doors; once fully inside the cabin they
   // close. Return to the threshold opens them again to permit leaving.
   const nearOutside=!!player&&Math.abs(dx)<3.0&&dz>=-.6&&dz<3.45;
-  const nearInsideExit=!!player&&inside&&dz> -1.15&&!wasInside;
+  const nearInsideExit=inside&&dz> -1.15;
   const wantOpen=nearOutside||nearInsideExit;
   const target=wantOpen?1:0;
   progress+=(target-progress)*Math.min(1,dt*3.2);
@@ -83,7 +83,6 @@ export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],gro
   right.position.x=elevatorX+.83+progress*1.55;
   // Closing is visual only at this milestone; elevator travel, physical cabin
   // interlocks and collision changes are reserved for the next stage.
-  wasInside=inside&&dz< -1.15;
  };
  const loadReceptionist=async()=>{
   if(requested||dead)return;requested=true;
