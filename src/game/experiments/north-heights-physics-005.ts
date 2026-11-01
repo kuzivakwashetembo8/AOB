@@ -8,6 +8,7 @@ import { Mesh, Scene, VertexBuffer } from "@babylonjs/core";
 import { MeridianPhysics } from "@/game/physics/rapier-world";
 import type { BuildingSpec } from "@/game/world-generation/schema";
 import { northHeightsGround } from "./north-heights-reconstruction-001";
+import {finchShaft004,finchFloorRing004} from "./north-heights-finch-elevator-structure-004";
 import {northHeightsDoorway010,NORTH_HEIGHTS_PORTAL_HEIGHT_010}
   from "./north-heights-spatial-plan-010";
 
@@ -108,8 +109,13 @@ export async function createNorthHeightsWalk005(
         wall(x,(openingTop+shellTop)/2,z+d/2,gap/2,(shellTop-openingTop)/2,t/2);
       // The 0.27m-high white floor can be reached via Rapier 0.28m step.
       wall(x,y-.58,z,(w-.6)/2,.05,(d-.6)/2);
-      for(let f=1;f<floors;f++)
-        wall(x,y+f*fh,z,(w-.6)/2,.07,(d-.6)/2);
+      const shaft=finchShaft004(lot);
+      for(let f=1;f<floors;f++){
+        if(shaft){
+          for(const part of finchFloorRing004(x,z,w-.6,d-.6,shaft))
+            wall(part.x,y+f*fh,part.z,part.width/2,.07,part.depth/2);
+        }else wall(x,y+f*fh,z,(w-.6)/2,.07,(d-.6)/2);
+      }
       wall(x,y+h-.12,z,(w-.6)/2,.12,(d-.6)/2);
       // A planar envelope stops cars taking the pedestrian passage without
       // making any artificial invisible collider for Voight.
