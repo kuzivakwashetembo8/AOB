@@ -81,7 +81,7 @@ export function DesktopControls({
   onAction: (action: GameAction) => void;
   driving?: boolean; flying?: boolean; canEnterVehicle?: boolean; canExitVehicle?: boolean;
   passenger?: boolean;
-  elevator?:{direction:"up"|"down";label:string;onClick:()=>void};
+  elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
   return (
     <div className="desktop-controls" aria-label="Desktop game controls">
