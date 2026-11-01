@@ -161,12 +161,12 @@ export async function createNorthHeightsCity8(
   let actor:ReturnType<typeof createMercerStaticCharacter>|null=null;
   let humanoid:LoadedMeridiaCharacter|null=null;
   let mode:"walk"|"fly"="fly";
-  let headingYaw=0;
+  let headingYaw=Math.PI;
   let physicsAccumulator=0;
   const footSpawn={...FINCH_START_005.spawn};
   let lastGrounded=false;
   let lastTravelSpeed=0;
-  const initialYaw = 0, initialPitch = 0;
+  const initialYaw = Math.PI, initialPitch = 0;
   let dragPointer: number | null = null, lastX = 0, lastY = 0;
   let frames = 0;
   const driveToFinchHQ=():boolean=>{
@@ -731,7 +731,7 @@ export async function createNorthHeightsCity8(
         setActiveCharacter(settings.enableCharacter);
       }
       walk?.reset(footSpawn.x,footSpawn.z);
-      yaw=initialYaw;pitch=initialPitch;headingYaw=0;
+      yaw=initialYaw;pitch=initialPitch;headingYaw=Math.PI;
       updateLocation(true);
       physicsAccumulator=0;clearKeys();
     },
