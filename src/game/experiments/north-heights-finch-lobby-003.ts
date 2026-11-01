@@ -5,6 +5,7 @@ import "@babylonjs/loaders/glTF";
 import {PED002_NPC_FILES} from "./north-heights-pedestrian-asset-manifest-002";
 import {NORTH_HEIGHTS_FINCH_HEADQUARTERS_001} from "./north-heights-finch-hq-001";
 import type {BuildingSpec} from "@/game/world-generation/schema";
+import type {MeridianPhysics} from "@/game/physics/rapier-world";
 
 export interface FinchLobby003{
  update:(person:{x:number;z:number}|null,dt:number)=>void;
@@ -13,7 +14,7 @@ export interface FinchLobby003{
  getDoorOpen:()=>number;
 }
 
-export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],ground:(x:number,z:number)=>number):FinchLobby003{
+export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],ground:(x:number,z:number)=>number,physics:MeridianPhysics):FinchLobby003{
  const hq=NORTH_HEIGHTS_FINCH_HEADQUARTERS_001;
  const building=lots.find(l=>l.id===hq.buildingId);
  if(!building)throw Error("POI-003 Finch HQ tower absent from generated city");
@@ -22,6 +23,10 @@ export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],gro
  const cx=building.position.x,cz=building.position.z,y=ground(cx,cz)+.28;
  const root=new TransformNode("poi003:finch-lobby",scene);
  const mats:StandardMaterial[]=[];
+ const colliders:{dispose:()=>void}[]=[];
+ const solid=(x:number,yy:number,z:number,hw:number,hh:number,hd:number)=>{
+  colliders.push(physics.addStaticBox({x,y:yy,z},{x:hw,y:hh,z:hd}));
+ };
  const mat=(name:string,r:number,g:number,b:number,emissive=false)=>{
   const m=new StandardMaterial("poi003:"+name,scene);
   m.diffuseColor=new Color3(r,g,b);m.specularColor=new Color3(.25,.25,.25);
@@ -42,6 +47,8 @@ export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],gro
  box("desk-counter",deskX,y+1.18,deskZ,4.1,.15,1.12,white);
  box("desk-end-left",deskX-1.7,y+.55,deskZ-.36,.18,1.1,.7,white);
  box("desk-end-right",deskX+1.7,y+.55,deskZ-.36,.18,1.1,.7,white);
+ solid(deskX,y+.58,deskZ,1.8,.56,.31);
+ solid(deskX,y+1.18,deskZ,2.05,.075,.56);
  // An edge-mounted cabin facing the building entrance (+Z), inspired by the
  // supplied wood-panel/silver-split-door elevator reference.
  const elevatorX=cx-width/2+3.35,elevatorZ=cz-depth/2+5.35;
@@ -49,8 +56,10 @@ export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],gro
  box("cab-floor",elevatorX,y+.055,elevatorZ,4.5,.11,4.4,dark);
  box("cab-ceiling",elevatorX,y+innerH,elevatorZ,4.5,.16,4.4,dark);
  box("cab-back",elevatorX,y+innerH/2,elevatorZ-2.15,4.5,innerH,.18,wood);
+ solid(elevatorX,y+innerH/2,elevatorZ-2.15,2.25,innerH/2,.09);
  for(const dir of [-1,1]){
   box("cab-side-"+dir,elevatorX+dir*2.2,y+innerH/2,elevatorZ,.18,innerH,4.4,wood);
+  solid(elevatorX+dir*2.2,y+innerH/2,elevatorZ,.09,innerH/2,2.2);
   box("door-jamb-"+dir,elevatorX+dir*1.88,y+innerH/2,frontZ,.28,innerH,.19,steel);
   box("front-wood-"+dir,elevatorX+dir*2.14,y+innerH/2,frontZ,.4,innerH,.22,wood);
  }
@@ -65,6 +74,7 @@ export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],gro
  let receptionistMeshes:Mesh[]=[];
  let receptionistGroups:{stop:()=>void}[]=[];
  let dead=false,requested=false,progress=0;
+ let doorCollider:{dispose:()=>void}|null=null;
  const position={x:deskX,z:deskZ-1.48};
  const update=(player:{x:number;z:number}|null,dt:number)=>{
   if(dead)return;
@@ -81,8 +91,17 @@ export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],gro
   if(Math.abs(progress-target)<.005)progress=target;
   left.position.x=elevatorX-.83-progress*1.55;
   right.position.x=elevatorX+.83+progress*1.55;
-  // Closing is visual only at this milestone; elevator travel, physical cabin
-  // interlocks and collision changes are reserved for the next stage.
+  // Closed doors are physical, open doors are passable. Avoid placing a
+  // collider through Voight while standing in the threshold.
+  const thresholdClear=!player||Math.abs(dx)>2.1||Math.abs(dz)>1.0;
+  if(progress>.04||!thresholdClear){
+    doorCollider?.dispose();doorCollider=null;
+  }else if(!doorCollider&&progress<.02){
+    doorCollider=physics.addStaticBox(
+      {x:elevatorX,y:y+1.55,z:frontZ},{x:1.64,y:1.41,z:.055});
+  }
+  // Door panels are collidable when closed, never while swept across Voight.
+  // Cabin travel to the top floor and its inter-floor state remain deferred.
  };
  const loadReceptionist=async()=>{
   if(requested||dead)return;requested=true;
@@ -121,6 +140,8 @@ export function createFinchLobby003(scene:Scene,lots:readonly BuildingSpec[],gro
   dead=true;receptionistGroups.forEach(g=>g.stop());
   receptionistRoot?.dispose(false,false);
   receptionistMeshes.forEach(mesh=>mesh.dispose());
+  doorCollider?.dispose();doorCollider=null;
+  colliders.forEach(c=>c.dispose());
   root.dispose(false,false);mats.forEach(m=>m.dispose());
  }};
 }
