@@ -75,7 +75,7 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   expect(suite).toContain('"Finch.glb"');
   expect(lift).toContain('const doorGlass=material(');
   expect(lift).toContain('const deckGlass=material(');
-  expect(renderer).toContain('"#EDC52F"');
+  expect(renderer).toContain('"#D7A83E"');
   expect(route).toContain('FINCH_INTRO_005[dialogueIndex]');
   expect(route).toContain('poi005-next');
   expect(touch).toContain("gtd-uniform-action gtd-action-elevator");
