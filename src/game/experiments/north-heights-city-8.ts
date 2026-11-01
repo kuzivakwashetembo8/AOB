@@ -667,8 +667,9 @@ export async function createNorthHeightsCity8(
       humanoid.root.setEnabled(false);
       clearKeys();physicsAccumulator=0;
       onModeChange?.("walk");
-      onVehicleChange?.(agent.id===starterSedanId
-        ?"Sedan · Manual":"Sedan · Autopilot",agent.speed);
+      if(agent.id===starterSedanId)
+        onVehicleChange?.("Sedan · Manual",agent.speed);
+      else onVehicleChange?.("Sedan · Autopilot",agent.speed);
       onNearbyVehicleChange?.(false);
       updateLocation(true);
       onFeedback?.(agent.id===starterSedanId
