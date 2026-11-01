@@ -43,11 +43,34 @@ describe("POI-003 Finch targeted auto-drive and lobby foundation",()=>{
   sim.beginManualDriving(id);
   expect(sim.targetDriveStatus003(id)).toBe("none");
  });
- it("renders and closes the proximity elevator independently of mission or upper-floor travel",()=>{
+ it("brakes to an actual stationary roadside arrival rather than teleporting to the door",()=>{
+  const sim=new NH012TrafficSimulator(1,120125);
+  const stop=finchRoadStop003(sim.graph);
+  const sedan=sim.agents[0]!;
+  sedan.edgeId=stop.edge.id;sedan.connectorId=null;sedan.plannedConnectorId=null;
+  sedan.s=stop.s-12;
+  const start=nh012PointOnEdge(stop.edge,sedan.s);
+  sedan.x=start.x;sedan.z=start.z;
+  sedan.heading=Math.atan2(stop.edge.dx,stop.edge.dz);
+  sedan.speed=4;sedan.waitTicks=0;sedan.arrivalTick=-1;
+  expect(sim.beginFinchTargetDrive003(sedan.id).ok).toBe(true);
+  let arrived=false;
+  for(let i=0;i<350;i++){
+   sim.step();
+   if(sim.targetDriveStatus003(sedan.id)==="arrived"){arrived=true;break;}
+  }
+  expect(arrived).toBe(true);
+  expect(sedan.speed).toBe(0);
+  expect(Math.hypot(sedan.x-stop.position.x,sedan.z-stop.position.z)).toBeLessThan(.2);
+  expect(Math.hypot(sedan.x-NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.entrance.x,
+    sedan.z-NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.entrance.z)).toBeGreaterThan(5);
+ });
+  it("renders and closes the proximity elevator independently of mission or upper-floor travel",()=>{
   const code=read("src/game/experiments/north-heights-finch-lobby-003.ts");
   expect(code).toContain("sliding-door-left");
   expect(code).toContain("sliding-door-right");
   expect(code).toContain("nearOutside");
+  expect(code).toContain("physics.addStaticBox");
   expect(code).toContain("nearInsideExit");
   expect(code).toContain('box("desk-counter"');
   expect(code).toContain("PED002_NPC_FILES[2]");
