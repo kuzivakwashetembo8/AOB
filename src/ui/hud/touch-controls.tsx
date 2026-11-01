@@ -249,7 +249,7 @@ export function TouchControls({
   canEnterVehicle?: boolean;
   canExitVehicle?: boolean;
   passenger?: boolean;
-  elevator?:{direction:"up"|"down";label:string;onClick:()=>void};
+  elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
   const style = {
     "--control-opacity": settings.opacity / 100,
