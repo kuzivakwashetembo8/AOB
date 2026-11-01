@@ -10,6 +10,7 @@ import {
  stage6SteerStep,stage6SweepSedan,STAGE6_WHEELBASE_METERS,
  type SedanStage6Pose,
 } from "@/game/vehicles/nh-opt2-sedan-free-steering-stage6";
+import {FINCH_START_005} from "@/game/experiments/north-heights-finch-intro-005";
 import {planFinchTargetedRoute003,type TargetedRoadRoute003}
  from "@/game/experiments/north-heights-finch-routing-003";
 
@@ -97,6 +98,8 @@ export class NH012TrafficSimulator {
  beginFinchTargetDrive003(agentId:string):{ok:boolean;reason:string;meters?:number}{
   const agent=this.agents.find(a=>a.id===agentId);
   if(!agent)return {ok:false,reason:"Vehicle unavailable"};
+  if(this.freeParkedAgents.has(agentId))
+   return {ok:false,reason:"Drive the parked car onto a road before selecting a route"};
   if(this.isManualDriving(agentId)&&!this.endManualDriving())
    return {ok:false,reason:"Return to a traffic lane before selecting Finch HQ"};
   const route=planFinchTargetedRoute003(this.graph,agent.edgeId,agent.s,agent.connectorId);
@@ -264,6 +267,18 @@ export class NH012TrafficSimulator {
    return this.manual?.agentId===agentId&&this.manual.free;
  }
  isStage6FreeParked(agentId:string):boolean{return this.freeParkedAgents.has(agentId);}
+ /** POI-005: Reassign exactly one existing NH012 identity, not a 126th car.
+  * It is a static, boardable, solid Sedan at Finch's entrance until driven. */
+ parkFinchStarter005():string{
+  const a=this.agents.find(v=>v.id==="NH012:gtd-veh006-mercer-range-rover:WHITE:0");
+  if(!a)throw Error("POI-005 starter vehicle missing from original 125");
+  const p=FINCH_START_005.starterCar;
+  a.x=p.x;a.z=p.z;a.heading=p.heading;
+  a.speed=0;a.state="stopped";a.connectorId=null;a.plannedConnectorId=null;
+  a.arrivalTick=-1;a.waitTicks=0;
+  this.freeParkedAgents.add(a.id);
+  return a.id;
+ }
  /** Dynamic impact recovery is not player parking or scheduled congestion. */
  get recoveringTrafficCount():number{
    return this.impactMotion.size+this.impactRecovery.size;
