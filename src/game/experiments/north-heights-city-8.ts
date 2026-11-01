@@ -739,7 +739,6 @@ export async function createNorthHeightsCity8(
   try {
     status("Generating North Heights · native roads, towers, terraces and facades");
     const world = buildNorthHeightsReconstruction(scene,mobile);
-    finchLobby=createFinchLobby003(scene,world.lotSpecs,northHeightsGround);
     cameraBlockers=northHeightsBuildingCollision005(world.lotSpecs).map(box=>({
       x:box.position.x,y:box.position.y,z:box.position.z,
       halfX:box.halfExtents.x,halfY:box.halfExtents.y,halfZ:box.halfExtents.z,
@@ -764,6 +763,7 @@ export async function createNorthHeightsCity8(
     status("Building Rapier terrain, pavement and "+world.count+" blocking building colliders");
     walk=await createNorthHeightsWalk005(scene,world.lotSpecs,footSpawn);
     if(closed){walk.dispose();walk=null;return controller;}
+    finchLobby=createFinchLobby003(scene,world.lotSpecs,northHeightsGround,walk.physics);
     // GEN-VEH-009: retain all 125 NH-012 routes/identities, but render every
     // moving traffic agent as the single owner-accepted sedan in varied paint.
     // Other car models remain review-only; no proximity GLB swapping.
