@@ -1,6 +1,8 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
-import {X,ArrowUp,ArrowDown} from "lucide-react";
+import {X} from "lucide-react";
+import {Button} from "@/components/ui/button";
+import {FINCH_INTRO_005,FINCH_INTRO_STORAGE_KEY_005} from "@/game/experiments/north-heights-finch-intro-005";
 import type {FinchElevatorState004} from "@/game/experiments/north-heights-finch-lobby-004";
 import {RadioController} from "@/game/audio/radio/radio-controller";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
@@ -55,6 +57,21 @@ function NorthHeightsPreview(){
   const [canEnterVehicle,setCanEnterVehicle]=useState(false);
   const [inside,setInside]=useState(false);
   const [elevator,setElevator]=useState<FinchElevatorState004|null>(null);
+  const [nearFinch,setNearFinch]=useState(false);
+  const [introCompleted,setIntroCompleted]=useState(()=>
+    typeof window!=="undefined"&&window.localStorage.getItem(FINCH_INTRO_STORAGE_KEY_005)==="yes");
+  const [dialogueIndex,setDialogueIndex]=useState<number|null>(null);
+  const advanceFinchDialogue=()=>{
+    if(dialogueIndex===null)return;
+    if(dialogueIndex<FINCH_INTRO_005.length-1){setDialogueIndex(dialogueIndex+1);return;}
+    window.localStorage.setItem(FINCH_INTRO_STORAGE_KEY_005,"yes");
+    setIntroCompleted(true);setDialogueIndex(null);
+  };
+  const elevatorAction=elevator?.available&&!elevator.moving?{
+    direction:elevator.direction,
+    label:elevator.direction==="up"?"Ride to Floor 53":"Ride to Ground Floor",
+    onClick:()=>{controller.current?.travelFinchElevator();},
+  }:undefined;
   const [mapOpen,setMapOpen]=useState(false);
   const [paused,setPaused]=useState(false);
   useEffect(()=>{radio.current?.setPaused(paused);},[paused]);
@@ -63,6 +80,10 @@ function NorthHeightsPreview(){
   const [coarse,setCoarse]=useState(false);
   const inputMode=useInputMode();
   const ready=firstPlayable&&status.includes("physics ready");
+  useEffect(()=>{
+    if(nearFinch&&ready&&!paused&&!introCompleted&&dialogueIndex===null)
+      setDialogueIndex(0);
+  },[nearFinch,ready,paused,introCompleted,dialogueIndex]);
   const failed=/failed|failure|error/i.test(status);
   const touchVisible=coarse&&!(settings.autoHide&&inputMode==="keyboard");
   const desktopVisible=!coarse&&settings.desktopControls;
@@ -151,7 +172,8 @@ function NorthHeightsPreview(){
             ledger.finish("nh:bootstrap","First playable scene frame rendered");
             setFirstPlayable(true);setLoadingSnapshot(ledger.snapshot());
           }},
-          state=>{if(!closed)setElevator(state);});
+          state=>{if(!closed)setElevator(state);},
+          near=>{if(!closed)setNearFinch(near);});
         if(closed)instance.dispose();
         else{
           // First-frame completion is delivered by Babylon onAfterRender, not here.
@@ -246,22 +268,27 @@ function NorthHeightsPreview(){
             ? "SEDAN "+stats.split("SEDAN ")[1]?.split(" · ")[0]
             : "SEDAN PILOT INITIALIZING"}
         </div>}
-      {ready&&!paused&&(elevator?.available||elevator?.moving)&&
-        <div className="absolute right-3 top-[30%] z-30 rounded-lg border border-white/40 bg-black/85 px-3 py-2 text-white"
-          aria-label="Finch Headquarters glass elevator">
-          {elevator.moving
-            ?<div role="status" className="flex flex-col items-center gap-1 text-xs">
-              <span>FINCH HQ · LIFT IN MOTION</span>
-              <span>HEIGHT {elevator.progress}% · DESTINATION {elevator.direction==="up"?"53":"1"}</span>
-            </div>
-            :<button type="button" data-testid="finch-elevator-travel"
-              onClick={()=>controller.current?.travelFinchElevator()}
-              className="flex items-center gap-2 rounded border border-white/30 bg-white/10 px-3 py-2 text-sm font-semibold"
-              aria-label={elevator.direction==="up"?"Ride elevator up to floor 53":"Ride elevator down to ground floor"}>
-              {elevator.direction==="up"?<ArrowUp size={24}/>:<ArrowDown size={24}/>}
-              {elevator.direction==="up"?"FLOOR 53":"GROUND FLOOR"}
-            </button>}
-        </div>}
+      {ready&&!paused&&elevator?.moving&&
+        <div className="pointer-events-none absolute right-3 top-[30%] z-30 rounded border border-white/25 bg-black/70 px-3 py-2 text-xs text-white"
+          role="status">FINCH HQ · LIFT IN MOTION · {elevator.progress}% HEIGHT</div>}
+      {ready&&nearFinch&&introCompleted&&!paused&&dialogueIndex===null&&
+        <Button variant="control" className="absolute bottom-[28%] left-1/2 z-30 -translate-x-1/2 gtd-uniform-action"
+          data-testid="poi005-replay" onClick={()=>setDialogueIndex(0)}>Talk to Finch</Button>}
+      {ready&&!paused&&dialogueIndex!==null&&
+        <section className="absolute bottom-[22%] left-1/2 z-40 w-[min(92vw,540px)] -translate-x-1/2 rounded-xl border border-white/25 bg-[#101b28]/90 px-4 py-3 text-white shadow-lg backdrop-blur-sm"
+          aria-label="Harold Finch introduction" role="dialog" aria-modal="false">
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="font-semibold tracking-wide text-[#dbe6f4]">HAROLD FINCH</span>
+            <span className="text-white/60">{dialogueIndex+1} / {FINCH_INTRO_005.length}</span>
+          </div>
+          <p className="mb-3 text-sm leading-relaxed text-white/95">{FINCH_INTRO_005[dialogueIndex]}</p>
+          <div className="flex justify-end">
+            <Button variant="control" className="gtd-uniform-action px-4" data-testid="poi005-next"
+              onClick={advanceFinchDialogue}>
+              {dialogueIndex===FINCH_INTRO_005.length-1?"Finish":"Next"}
+            </Button>
+          </div>
+        </section>}
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}
       {!ready&&<BootstrapOverlay entries={initialStartupChecklist()}
         measured={loadingSnapshot} elapsedSeconds={loadingSeconds}
@@ -274,11 +301,11 @@ function NorthHeightsPreview(){
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         passenger={sedanPassenger}
-        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
+        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} elevator={dialogueIndex===null?elevatorAction:undefined} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         passenger={sedanPassenger}
-        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
+        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} elevator={dialogueIndex===null?elevatorAction:undefined}/>}
       {mapOpen&&<NorthHeightsExpandedMap position={position} onClose={()=>setMapOpen(false)}
         vehicleOccupied={sedanPassenger}
         onFinchHQSelect={()=>{
