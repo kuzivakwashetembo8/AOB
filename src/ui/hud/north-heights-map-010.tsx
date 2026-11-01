@@ -10,8 +10,8 @@ const regionColor:Record<string,string>={
  "Glass Exchange":"#516574","Eastview Quarter":"#485d6a",
  "Ridge Gardens":"#3c5854","Summit Crest":"#4a5c6b",
 };
-function DistrictVector({x,z,labels=false}:{
- x:number;z:number;labels?:boolean
+function DistrictVector({x,z,labels=false,onFinchSelect}:{
+ x:number;z:number;labels?:boolean;onFinchSelect?:()=>void
 }){
  const point=northHeightsMapPoint010({x,z});
  return <g>
@@ -50,7 +50,14 @@ function DistrictVector({x,z,labels=false}:{
     <text x="8" y={road.z-5} fontSize="9" fill="#e4edf1">{road.eastWest}</text>
   </g>)}
   {/* POI-002: static headquarters landmark, not a mission objective or player position. */}
-  <g aria-label="Finch headquarters location">
+  <g aria-label="Finch headquarters location"
+    role={onFinchSelect?"button":undefined}
+    tabIndex={onFinchSelect?0:undefined}
+    style={{cursor:onFinchSelect?"pointer":"default"}}
+    onPointerDown={onFinchSelect?e=>e.stopPropagation():undefined}
+    onPointerUp={onFinchSelect?e=>e.stopPropagation():undefined}
+    onClick={onFinchSelect?e=>{e.stopPropagation();onFinchSelect();}:undefined}
+    onKeyDown={onFinchSelect?e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();onFinchSelect();}}:undefined}>
     <title>Finch HQ · Harold Finch headquarters</title>
     <rect x={NORTH_HEIGHTS_MAP_FINCH_HQ_001.x-(labels?10:17)}
       y={NORTH_HEIGHTS_MAP_FINCH_HQ_001.y-(labels?10:17)}
@@ -60,6 +67,9 @@ function DistrictVector({x,z,labels=false}:{
     <circle cx={NORTH_HEIGHTS_MAP_FINCH_HQ_001.x}
       cy={NORTH_HEIGHTS_MAP_FINCH_HQ_001.y} r={labels?3.8:6.4}
       fill="#172533"/>
+    {onFinchSelect&&<circle cx={NORTH_HEIGHTS_MAP_FINCH_HQ_001.x}
+      cy={NORTH_HEIGHTS_MAP_FINCH_HQ_001.y} r={25}
+      fill="transparent" pointerEvents="all"/>}
     {labels&&<g>
       <rect x={NORTH_HEIGHTS_MAP_FINCH_HQ_001.x+18}
         y={NORTH_HEIGHTS_MAP_FINCH_HQ_001.y-17}
@@ -93,10 +103,12 @@ export function NorthHeightsMiniMap({position,onExpand}:{
   </span>
  </button>;
 }
-export function NorthHeightsExpandedMap({position,onClose}:{
- position:{x:number;z:number};onClose:()=>void
+export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicleOccupied=false}:{
+ position:{x:number;z:number};onClose:()=>void;
+ onFinchHQSelect?:()=>boolean;vehicleOccupied?:boolean;
 }){
  const [zoom,setZoom]=useState(1);
+ const [destinationNotice,setDestinationNotice]=useState("");
  const [pan,setPan]=useState({x:0,y:0});
  const drag=useRef<{id:number;x:number;y:number}|null>(null);
  useEffect(()=>{
@@ -137,15 +149,21 @@ export function NorthHeightsExpandedMap({position,onClose}:{
        onPointerUp={()=>{drag.current=null;}}
        onPointerCancel={()=>{drag.current=null;}}>
        <g transform={`translate(${pan.x} ${pan.y}) translate(320 320) scale(${zoom}) translate(-320 -320)`}>
-         <DistrictVector x={position.x} z={position.z} labels/>
+         <DistrictVector x={position.x} z={position.z} labels
+           onFinchSelect={()=> {
+             if(!vehicleOccupied){setDestinationNotice("Enter a vehicle to navigate to Finch HQ");return;}
+             if(!onFinchHQSelect?.())setDestinationNotice("Unable to start navigation: use a road-going vehicle");
+           }}/>
        </g>
      </svg>
    </div>
    <footer className="flex w-full max-w-[780px] flex-wrap items-center justify-between gap-2 text-xs text-slate-200">
      <span><span className="inline-block h-2 w-2 rounded-full bg-white"/> YOU ARE HERE</span>
      <span className="flex items-center gap-2">
-       <span className="inline-block h-2.5 w-2.5 rotate-45 bg-[#d9a64c]"/> FINCH HQ
+       <span className="inline-block h-2.5 w-2.5 rotate-45 bg-[#d9a64c]"/>
+       FINCH HQ · {vehicleOccupied?"CLICK PIN TO AUTO-DRIVE":"ENTER VEHICLE TO NAVIGATE"}
      </span>
+     {destinationNotice&&<span role="status" className="text-amber-300">{destinationNotice}</span>}
      <span>22 named streets · 6 areas · 2 parking lots · Drag to pan</span>
    </footer>
  </div>;
