@@ -1,6 +1,6 @@
 /** POI-004. Single centered glass elevator, 53-level continuous physical travel.
  * Shares the shaft coordinates with both Rapier and the authored floor cutouts. */
-import {Color3,Mesh,MeshBuilder,Scene,SceneLoader,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
+import {AnimationGroup,Color3,Mesh,MeshBuilder,Scene,SceneLoader,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import {PED002_NPC_FILES} from "./north-heights-pedestrian-asset-manifest-002";
 import {finchShaft004,FINCH_ELEVATOR_TRAVEL_SECONDS_004} from "./north-heights-finch-elevator-structure-004";
@@ -99,7 +99,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  let mode:"idle"|"closing"|"riding"|"opening"="idle";
  let heightFraction=0,doorFraction=0,available=false,closed=false;
  let personInCar:{x:number;y:number;z:number}|null=null;
- const receptionistNodes:TransformNode[]=[];let groups:{stop:()=>void}[]=[];
+ const receptionistNodes:TransformNode[]=[];let groups:AnimationGroup[]=[];
  let requested=false;
  const status=():FinchElevatorState004=>({
   floor,direction:floor===1?"up":"down",available:mode==="idle"&&available,
