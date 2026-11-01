@@ -148,7 +148,8 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
     lastCounts={full:0,medium:0,distant:0,culled:0};
     for(const b of buckets.values())b.count=0;
     for(const a of snapshot.agents){
-      const color=sedanPaint009(a.id);
+      const color=a.id==="NH012:gtd-veh006-mercer-range-rover:WHITE:0"
+        ?"#EDC52F":sedanPaint009(a.id);
       const pose=sampleTrafficVehicleRoadPose013({
         x:a.x,z:a.z,heading:a.heading,wheelbase,track,ground:northHeightsGround
       });
