@@ -46,6 +46,8 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  const white=material("white",.99,.99,.99);
  const steel=material("steel",.66,.72,.77),wood=material("rosewood",.34,.13,.075);
  const dark=material("slate",.14,.16,.19),glass=material("transparent-glass",.35,.76,.91,.20);
+ const doorGlass=material("door-clear-glass",.45,.79,.95,.40);
+ const deckGlass=material("laminated-floor-glass",.57,.81,.90,.54);
  const blue=material("light",.42,.78,1);
  blue.emissiveColor=new Color3(.1,.35,.5);
  const box=(name:string,px:number,py:number,pz:number,w:number,h:number,d:number,
@@ -81,8 +83,8 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  staticBox(deskX,bottom+.56,deskZ,1.83,.56,.34);
  staticBox(deskX,bottom+1.13,deskZ,2.03,.07,.55);
  // Carriage parts use one transform only: mesh & player ascend together.
- box("car-floor",x,bottom-.075,z,4.3,.15,4.30,white,true);
- box("car-ceiling",x,bottom+height,z,4.35,.13,4.35,dark,true);
+ box("car-floor",x,bottom-.075,z,4.3,.15,4.30,deckGlass,true);
+ box("car-ceiling",x,bottom+height,z,4.35,.13,4.35,doorGlass,true);
  box("car-back-glass",x,bottom+height/2,z-2.17,4.26,height,.07,glass,true);
  for(const side of [-1,1]){
   box("car-side-glass-"+side,x+side*2.17,bottom+height/2,z,.07,height,4.3,glass,true);
@@ -92,8 +94,8 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  box("door-header",x,bottom+height-.10,front,3.85,.24,.19,steel,true);
  box("control-column",x+2.3,bottom+1.4,front+.08,.22,1.2,.15,steel,true);
  box("floor-indicator",x,bottom+height+.11,front+.08,.6,.14,.08,blue,true);
- const doorL=box("door-left",x-.82,bottom+1.48,front,1.63,2.78,.12,steel,true);
- const doorR=box("door-right",x+.82,bottom+1.48,front,1.63,2.78,.12,steel,true);
+ const doorL=box("door-left",x-.82,bottom+1.48,front,1.63,2.78,.12,doorGlass,true);
+ const doorR=box("door-right",x+.82,bottom+1.48,front,1.63,2.78,.12,doorGlass,true);
  let doorCollider:{dispose:()=>void}|null=null,platformCollider:{dispose:()=>void}|null=null;
  let floor:1|53=1,target:1|53=53;
  let mode:"idle"|"closing"|"riding"|"opening"="idle";
