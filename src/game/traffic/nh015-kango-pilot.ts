@@ -9,7 +9,7 @@ export function assignNH015KangoPilot(sim:NH012TrafficSimulator,count=NH015_KANG
    throw Error("NH015 Kangoo pilot permits 0..6");
  const available=sim.agents.map((agent,index)=>({agent,index,
    distance:agent.x*agent.x+(agent.z+31)**2}))
-   .filter(x=>!x.agent.id.startsWith("NH013:")&&!x.agent.id.startsWith("NH014:")&&!x.agent.id.startsWith("NH015:"))
+   .filter(x=>!x.agent.id.startsWith("NH013:")&&!x.agent.id.startsWith("NH014:")&&!x.agent.id.startsWith("NH015:")&&!sim.isStage6FreeParked(x.agent.id))
    .sort((a,b)=>a.distance-b.distance||a.agent.id.localeCompare(b.agent.id)).slice(0,count);
  if(available.length!==count)throw Error("NH015 insufficient free traffic agents");
  const ids=new Set<string>();
