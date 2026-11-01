@@ -67,13 +67,6 @@ export function DrivingArrowControls({ send, haptics }: { send: Send; haptics: b
             <Icon aria-hidden="true" size={30}/>
           </button>
         ))}
-        {elevator&&<Button variant="control"
-          className="gtd-uniform-action gtd-action-elevator"
-          data-testid="poi005-lift-touch"
-          aria-label={elevator.label} title={elevator.label}
-          onClick={elevator.onClick}>
-            {elevator.direction==="up"?<ArrowUp size={19}/>:<ArrowDown size={19}/>}
-          </Button>}
       </div>
     </div>
   );
@@ -299,6 +292,13 @@ export function TouchControls({
             <Icon size={19} />
           </Button>
         ))}
+        {elevator&&<Button variant="control"
+          className="gtd-uniform-action gtd-action-elevator"
+          data-testid="poi005-lift-touch"
+          aria-label={elevator.label} title={elevator.label}
+          onClick={elevator.onClick}>
+            {elevator.direction==="up"?<ArrowUp size={19}/>:<ArrowDown size={19}/>}
+          </Button>}
       </div>
     </div>
   );
