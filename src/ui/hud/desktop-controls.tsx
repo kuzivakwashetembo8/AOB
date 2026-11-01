@@ -75,11 +75,13 @@ export function DesktopControls({
   onAction,
   driving = false, flying = false, canEnterVehicle = false, canExitVehicle = true,
   passenger = false,
+  elevator,
 }: {
   send: Send;
   onAction: (action: GameAction) => void;
   driving?: boolean; flying?: boolean; canEnterVehicle?: boolean; canExitVehicle?: boolean;
   passenger?: boolean;
+  elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
   return (
     <div className="desktop-controls" aria-label="Desktop game controls">
@@ -129,6 +131,13 @@ export function DesktopControls({
             <Icon size={18} />
           </Button>
         ))}
+        {elevator&&<Button variant="control"
+          className="desktop-control-button gtd-uniform-action gtd-action-elevator"
+          data-testid="poi005-lift-desktop"
+          aria-label={elevator.label} data-tooltip={elevator.label}
+          onClick={elevator.onClick}>
+          {elevator.direction==="up"?<ArrowUp size={18}/>:<ArrowDown size={18}/>}
+        </Button>}
       </div>
     </div>
   );

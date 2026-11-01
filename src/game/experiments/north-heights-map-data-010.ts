@@ -4,6 +4,8 @@ import {NORTH_HEIGHTS_COORDS,
  from "@/game/world-generation/north-heights-location-009";
 import {NORTH_HEIGHTS_PARKING_LOTS_010,NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010}
  from "./north-heights-spatial-plan-010";
+import {NORTH_HEIGHTS_FINCH_HEADQUARTERS_001}
+ from "./north-heights-finch-hq-001";
 export const NORTH_HEIGHTS_MAP_SIZE_010=640;
 export const NORTH_HEIGHTS_MAP_ROADS_010=NORTH_HEIGHTS_COORDS.map((coord,i)=>({
   x:coord+320,z:320-coord,
@@ -23,3 +25,9 @@ export const NORTH_HEIGHTS_MAP_BLOCKS_010=Array.from({length:100},(_,n)=>{
 });
 export const NORTH_HEIGHTS_MAP_PARKING_010=NORTH_HEIGHTS_PARKING_LOTS_010
  .map(lot=>({...northHeightsMapPoint010(lot),id:lot.id}));
+
+/** POI-002: stable headquarters pin, projected by the same world-to-map transform as Voight. */
+export const NORTH_HEIGHTS_MAP_FINCH_HQ_001={
+ ...NORTH_HEIGHTS_FINCH_HEADQUARTERS_001,
+ ...northHeightsMapPoint010(NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.position),
+} as const;

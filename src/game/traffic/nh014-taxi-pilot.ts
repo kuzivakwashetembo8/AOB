@@ -8,7 +8,7 @@ export function assignNH014TaxiPilot(sim:NH012TrafficSimulator,count=NH014_TAXI_
  if(!Number.isInteger(count)||count<0||count>NH014_TAXI_COUNT)
    throw Error("NH014 taxi pilot permits 0..8 existing agents");
  const picks=sim.agents.map((agent,index)=>({agent,index,d:agent.x*agent.x+(agent.z+31)**2}))
-   .filter(x=>!x.agent.id.startsWith("NH013:")&&!x.agent.id.startsWith("NH014:"))
+   .filter(x=>!x.agent.id.startsWith("NH013:")&&!x.agent.id.startsWith("NH014:")&&!sim.isStage6FreeParked(x.agent.id))
    .sort((a,b)=>a.d-b.d||a.agent.id.localeCompare(b.agent.id)).slice(0,count);
  if(picks.length!==count)throw Error("NH014 taxi traffic has insufficient unassigned agents");
  const ids=new Set<string>();

@@ -239,6 +239,7 @@ export function TouchControls({
   canEnterVehicle = false,
   canExitVehicle = true,
   passenger = false,
+  elevator,
 }: {
   send: Send;
   settings: Settings;
@@ -248,6 +249,7 @@ export function TouchControls({
   canEnterVehicle?: boolean;
   canExitVehicle?: boolean;
   passenger?: boolean;
+  elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
   const style = {
     "--control-opacity": settings.opacity / 100,
@@ -290,6 +292,13 @@ export function TouchControls({
             <Icon size={19} />
           </Button>
         ))}
+        {elevator&&<Button variant="control"
+          className="gtd-uniform-action gtd-action-elevator"
+          data-testid="poi005-lift-touch"
+          aria-label={elevator.label} title={elevator.label}
+          onClick={elevator.onClick}>
+            {elevator.direction==="up"?<ArrowUp size={19}/>:<ArrowDown size={19}/>}
+          </Button>}
       </div>
     </div>
   );

@@ -57,6 +57,7 @@ export function createNorthHeightsBlockSurfaces008(
   scene:Scene,options:{
     middle:readonly number[];occupied:ReadonlySet<string>;ground:Ground;
     trees:readonly TreeLocation[];grass:StandardMaterial;concrete:StandardMaterial;
+    excludedGrass?:readonly {minX:number;maxX:number;minZ:number;maxZ:number}[];
   },
 ){
   const lawn=newBatch(),paved=newBatch();
@@ -67,7 +68,23 @@ export function createNorthHeightsBlockSurfaces008(
     if(occupied.has(parkCode(i,j))){
       cap(paved,x,z,24.15,24.15,ground,.058);pavements++;
     }else{
-      cap(lawn,x,z,24.15,24.15,ground,.065);parks++;
+      const ex=(options.excludedGrass??[]).find(r=>
+        r.maxX>x-24.15&&r.minX<x+24.15&&r.maxZ>z-24.15&&r.minZ<z+24.15);
+      if(!ex)cap(lawn,x,z,24.15,24.15,ground,.065);
+      else{
+        const boundsX=[x-24.15,Math.max(x-24.15,ex.minX),
+          Math.min(x+24.15,ex.maxX),x+24.15];
+        const boundsZ=[z-24.15,Math.max(z-24.15,ex.minZ),
+          Math.min(z+24.15,ex.maxZ),z+24.15];
+        for(let zz=0;zz<3;zz++)for(let xx=0;xx<3;xx++){
+          if(xx===1&&zz===1)continue;
+          const ax=boundsX[xx]!,bx=boundsX[xx+1]!;
+          const az=boundsZ[zz]!,bz=boundsZ[zz+1]!;
+          if(bx-ax>.001&&bz-az>.001)
+            cap(lawn,(ax+bx)/2,(az+bz)/2,(bx-ax)/2,(bz-az)/2,ground,.065);
+        }
+      }
+      parks++;
     }
   }
   for(const tree of trees){

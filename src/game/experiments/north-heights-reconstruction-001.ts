@@ -13,6 +13,7 @@ import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generatio
 import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
 import { attachNorthHeightsGrass004, planNorthHeightsTrees004, type TreeLocation } from "./north-heights-trees-004";
+import {finchShaft004,finchFloorRing004} from "./north-heights-finch-elevator-structure-004";
 import {createNorthHeightsBlockSurfaces008} from "./north-heights-block-surfaces-008";
 import {planNorthHeightsYardTrees014} from "./north-heights-yard-trees-014";
 import {NORTH_HEIGHTS_PARKING_LOTS_010,NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010,
@@ -353,10 +354,17 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   // accessible from normal terrain/sidewalk by the existing Rapier autostep.
   city.box("concrete",x,y+.095,z,w+1.8,.19,d+1.8);
   // Physically empty rooms, no dark central cuboid, no furniture. One shared
+  const shaft=finchShaft004({id:lot.id,position:{x,z},overrides:{width:w,depth:d,
+    floors:lot.floors,floorHeight:lot.floorHeight}});
   // PURE WHITE slab family for floor surfaces and interior roof undersides.
   city.box("interior-white",x,y+.22,z,w-.6,.10,d-.6);
-  for(let f=1;f<lot.floors;f++)
-    city.box("interior-white",x,y+.80+f*lot.floorHeight,z,w-.6,.14,d-.6);
+  for(let f=1;f<lot.floors;f++){
+    const fy=y+.80+f*lot.floorHeight;
+    if(shaft){
+      for(const part of finchFloorRing004(x,z,w-.6,d-.6,shaft))
+        city.box("interior-white",part.x,fy,part.z,part.width,.14,part.depth);
+    }else city.box("interior-white",x,fy,z,w-.6,.14,d-.6);
+  }
   city.box("interior-white",x,y+height+.63,z,w-.6,.14,d-.6);
   // A low structural skirting makes solid walls meet the shallow foundation
   // without filling the one real open entry slot. Window pattern stays intact.
@@ -373,7 +381,10 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
     // Open-sided podium: structural corner piers, not an opaque box hiding glass.
     for(const sx of [-1,1])for(const sz of [-1,1])
       city.box("stone-c",x+sx*(w/2+.7),y+podiumH/2+.18,z+sz*(d/2+.7),1.1,podiumH,1.1);
-    city.box("stone-c",x,y+podiumH+.9,z,w+2.4,.55,d+2.4);
+    if(shaft){
+      for(const part of finchFloorRing004(x,z,w+2.4,d+2.4,shaft))
+        city.box("stone-c",part.x,y+podiumH+.9,part.z,part.width,.55,part.depth);
+    }else city.box("stone-c",x,y+podiumH+.9,z,w+2.4,.55,d+2.4);
     for(let c=0;c<Math.floor(w/4);c++) {
       const px=x-w/2+(c+.5)*w/Math.floor(w/4);
       if(Math.abs(px-x)>NORTH_HEIGHTS_PORTAL_WIDTH_010/2+1.4)
@@ -481,6 +492,12 @@ export function buildNorthHeightsReconstruction(scene:Scene, mobile:boolean):Nor
     middle:MIDPOINTS,occupied:NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010,
     ground:northHeightsGround,trees:parkPlan,
     grass:city.mat("grass"),concrete:city.mat("concrete"),
+    excludedGrass:lotSpecs.filter(l=>l.id==="NH-04-06-L2").map(l=>({
+      minX:l.position.x-(l.overrides?.width??0)/2-.3,
+      maxX:l.position.x+(l.overrides?.width??0)/2+.3,
+      minZ:l.position.z-(l.overrides?.depth??0)/2-.3,
+      maxZ:l.position.z+(l.overrides?.depth??0)/2+1.5,
+    })),
   });
   // Economical shared lines denote six park bays, with a broad empty drive
   // aisle. Preserve the building-free planned block and original road grid.

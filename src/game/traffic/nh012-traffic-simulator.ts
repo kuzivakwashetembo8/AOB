@@ -10,6 +10,9 @@ import {
  stage6SteerStep,stage6SweepSedan,STAGE6_WHEELBASE_METERS,
  type SedanStage6Pose,
 } from "@/game/vehicles/nh-opt2-sedan-free-steering-stage6";
+import {FINCH_START_005} from "@/game/experiments/north-heights-finch-intro-005";
+import {planFinchTargetedRoute003,type TargetedRoadRoute003}
+ from "@/game/experiments/north-heights-finch-routing-003";
 
 export type NH012MotionState="moving"|"braking"|"stopped"|"turning";
 /** A single tap queues the next legal relative turn, not freeform steering. */
@@ -80,6 +83,32 @@ export class NH012TrafficSimulator {
  private driverThrottleAmount=0;
  /** Stage 5: a single signed-velocity driver on the ORIGINAL traffic agent.
   * All other traffic agents use the identical accepted NH-012 AI solver. */
+ /** Route is owned only by the currently occupied traffic agent. */
+ private targeted: {agentId:string;route:TargetedRoadRoute003;index:number;arrived:boolean}|null=null;
+ targetDriveStatus003(agentId:string):"none"|"enroute"|"arrived"{
+  return this.targeted?.agentId===agentId?(this.targeted.arrived?"arrived":"enroute"):"none";
+ }
+ clearTargetDrive003(agentId:string|null=null):void{
+  const t=this.targeted;
+  if(!t||(agentId&&t.agentId!==agentId))return;
+  const agent=this.agents.find(a=>a.id===t.agentId);
+  if(agent&&!agent.connectorId)agent.plannedConnectorId=null;
+  this.targeted=null;
+ }
+ beginFinchTargetDrive003(agentId:string):{ok:boolean;reason:string;meters?:number}{
+  const agent=this.agents.find(a=>a.id===agentId);
+  if(!agent)return {ok:false,reason:"Vehicle unavailable"};
+  if(this.freeParkedAgents.has(agentId))
+   return {ok:false,reason:"Drive the parked car onto a road before selecting a route"};
+  if(this.isManualDriving(agentId)&&!this.endManualDriving())
+   return {ok:false,reason:"Return to a traffic lane before selecting Finch HQ"};
+  const route=planFinchTargetedRoute003(this.graph,agent.edgeId,agent.s,agent.connectorId);
+  if(!route)return {ok:false,reason:"No legal road route to Finch HQ"};
+  this.clearDriverTurn();this.clearTargetDrive003();
+  agent.plannedConnectorId=null;
+  this.targeted={agentId,route,index:0,arrived:false};
+  return {ok:true,reason:"Driving to Finch HQ",meters:route.doorDistance};
+ }
  private manual: {
    agentId:string;velocity:number;forward:number;reverse:number;
    history:string[];steering:number;steeringRequest:number;free:boolean;
@@ -238,6 +267,18 @@ export class NH012TrafficSimulator {
    return this.manual?.agentId===agentId&&this.manual.free;
  }
  isStage6FreeParked(agentId:string):boolean{return this.freeParkedAgents.has(agentId);}
+ /** POI-005: Reassign exactly one existing NH012 identity, not a 126th car.
+  * It is a static, boardable, solid Sedan at Finch's entrance until driven. */
+ parkFinchStarter005():string{
+  const a=this.agents.find(v=>v.id==="NH012:gtd-veh006-mercer-range-rover:WHITE:0");
+  if(!a)throw Error("POI-005 starter vehicle missing from original 125");
+  const p=FINCH_START_005.starterCar;
+  a.x=p.x;a.z=p.z;a.heading=p.heading;
+  a.speed=0;a.state="stopped";a.connectorId=null;a.plannedConnectorId=null;
+  a.arrivalTick=-1;a.waitTicks=0;
+  this.freeParkedAgents.add(a.id);
+  return a.id;
+ }
  /** Dynamic impact recovery is not player parking or scheduled congestion. */
  get recoveringTrafficCount():number{
    return this.impactMotion.size+this.impactRecovery.size;
@@ -283,6 +324,7 @@ export class NH012TrafficSimulator {
  manualSignedSpeed(agentId:string):number{return this.isManualDriving(agentId)?this.manual!.velocity:0;}
  /** A manual takeover retains visual pose, paint, body, source hubs and AI ID. */
  beginManualDriving(agentId:string):void{
+  this.clearTargetDrive003(agentId);
    const agent=this.agents.find(a=>a.id===agentId);
    if(!agent)throw Error("NH012 unknown manual Sedan "+agentId);
    if(this.manual?.agentId===agentId)return;
@@ -578,6 +620,16 @@ export class NH012TrafficSimulator {
  }
  private chooseConnector(agent:NH012Agent):TrafficConnector012{
    const edge=this.graph.edges.get(agent.edgeId)!;
+  const targeted=this.targeted;
+  if(targeted?.agentId===agent.id&&!targeted.arrived){
+   const nextId=targeted.route.edges[targeted.index+1];
+   if(nextId){
+    const choice=(this.graph.turns.get(edge.id)??[]).find(c=>c.outgoing===nextId);
+    if(!choice)throw Error("POI-003 selected route turn no longer legal");
+    agent.plannedConnectorId=choice.id;
+    return choice;
+   }
+  }
    const cached=agent.plannedConnectorId?this.graph.connectors.get(agent.plannedConnectorId):undefined;
    if(cached)return cached;
    const options=this.graph.turns.get(edge.id)??[];
@@ -690,6 +742,11 @@ export class NH012TrafficSimulator {
      agent.state=braking?(v<.12?"stopped":"braking"):"turning";
      if(!braking&&agent.s>=c.length-1e-4&&this.hasExitSpace(c.outgoing,agent)){
        agent.edgeId=c.outgoing;agent.connectorId=null;agent.s=0;
+        if(this.targeted?.agentId===agent.id){
+         const t=this.targeted;
+         if(t.route.edges[t.index+1]===agent.edgeId)t.index++;
+         else if(t.route.edges[t.index]!==agent.edgeId)this.clearTargetDrive003(agent.id);
+        }
        agent.speed=Math.min(v,4);agent.arrivalTick=-1;agent.waitTicks=0;
        agent.plannedConnectorId=null;
        const next=this.graph.edges.get(agent.edgeId)!;
@@ -708,7 +765,12 @@ export class NH012TrafficSimulator {
      const edge=this.graph.edges.get(agent.edgeId)!;
      const before={...agent};
      const available=safe(leaderGaps.get(agent.id)??Infinity);
-     const toStop=safe(edge.length-agent.s);
+     const t=this.targeted?.agentId===agent.id?this.targeted:null;
+     if(t?.arrived){agent.speed=0;agent.state="stopped";continue;}
+     const destinationStop=t&&t.route.edges[t.index]===agent.edgeId&&
+       t.index===t.route.edges.length-1?t.route.stopS:null;
+     const toStop=Math.min(safe(edge.length-agent.s),
+       destinationStop===null?Infinity:safe(destinationStop-agent.s));
      const safeStopSpeed=Math.sqrt(2*BRAKE*toStop);
      const safeFollowSpeed=Number.isFinite(available)
        ?Math.sqrt(2*BRAKE*Math.max(0,available)):Infinity;
@@ -735,7 +797,13 @@ export class NH012TrafficSimulator {
      agent.heading=nh012HeadingBetween(edge.start,edge.end);
      agent.state=v<.12?"stopped":braking||v<MAX_SPEED*.65?"braking":"moving";
      if(toStop<2)agent.state=v<.12?"stopped":"braking";
-     if(edge.length-agent.s<=.06&&v<.5){
+     if(t&&destinationStop!==null&&destinationStop-agent.s<=.08&&v<.55){
+      agent.s=destinationStop;agent.speed=0;agent.state="stopped";
+      const final=nh012PointOnEdge(edge,destinationStop);
+      agent.x=final.x;agent.z=final.z;
+      t.arrived=true;agent.waitTicks=0;agent.arrivalTick=-1;
+     }
+     if(!t&&edge.length-agent.s<=.06&&v<.5){
        agent.s=edge.length;agent.speed=0;agent.state="stopped";
        if(agent.arrivalTick<0)agent.arrivalTick=this.tick;
        agent.waitTicks++;
@@ -757,6 +825,7 @@ export class NH012TrafficSimulator {
      // A blocked earlier arrival cannot gridlock unrelated legal movements.
      // Keep each queued car's route fixed while allowing the first safe exit.
      for(const agent of queue){
+       if(this.targeted?.agentId===agent.id&&this.targeted.arrived)continue;
        const connector=this.chooseConnector(agent);
        if(!this.hasExitSpace(connector.outgoing,agent))continue;
        if(this.solidAdmission&&!this.solidAdmission(agent,{x:connector.p0.x,z:connector.p0.z,heading:agent.heading}))continue;

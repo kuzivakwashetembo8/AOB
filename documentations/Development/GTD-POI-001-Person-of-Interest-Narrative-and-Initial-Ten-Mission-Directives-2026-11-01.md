@@ -18,7 +18,7 @@ This direction **does not** require a complete recreation of the television seri
 | Role | Narrative function | Interaction rule |
 | --- | --- | --- |
 | **Voight** | Player character and field operative. Investigates and intervenes in Meridia. | The player directly controls Voight using existing world traversal, driving and action systems. |
-| **Finch** | Human mission handler and source of new assignments. | **Voight meets Finch in person at a designated building** to receive/accept a mission and hear a concise briefing. Finch is represented by a future `Finch.glb` asset. Exact building/interior is TBD. |
+| **Finch** | Human mission handler and source of new assignments. | **Voight meets Finch in person at a designated building** to receive/accept a mission and hear a concise briefing. `Finch.glb` is now present in G.T.D. His designated meeting location is the eastern 53-storey North Heights tower `NH-04-06-L2` (see [POI-002](./GTD-POI-002-Finch-Headquarters-Designation-and-Map-Landmark-2026-11-01.md)); interior and meeting interactions remain unimplemented. |
 | **The Machine** | Predictive intelligence source. Delivers clues and updates about an *active* investigation. | **The Machine communicates through ringing public payphones**, represented by future `Payphone.glb` assets. Its ring/answer interaction takes inspiration from *Payback 2*. **Payphones do not issue new missions.** |
 | **People of interest** | Existing NPC population from which primary mission subjects are selected. | A subject may be an intended victim or a prospective perpetrator; this classification is not announced at mission start. |
 | **Supporting NPCs** | Witnesses, accomplices, bystanders, friends, rescuers, pursuers and other mission participants. | May be drawn from the same 100-NPC population without replacing the one primary subject assigned to a mission. |
@@ -104,10 +104,14 @@ The ten labels above are the accepted initial mission **directives**. The exampl
 
 The next planning step is to inspect the canonical repo/assets and agree an **inventory and source-of-truth roster**, including:
 
-- `Finch.glb`, chosen Finch meeting building/interaction point, animation and dialogue presentation;
+- Finch's committed `Finch.glb` asset and designated meeting building `NH-04-06-L2` (POI-002); **interior design, placement, animations and dialogue remain pending**;
 - `Payphone.glb`, suitable world placements, ringing/answer interaction and trigger conditions;
 - 100 existing NPC stable identifiers and fictional ID/SS-style numbers, with concealed 50/50 subject classification;
 - Finch and Machine voice pipeline, generation tools, clips, formats and playback;
 - ten case definitions, supporting NPC assignments, simple objectives, locations, triggers, mission outcome tracking and HUD/map cues.
 
 **Next authorization gate:** Inventory review and a distinct technical implementation plan. Do not infer approval to write gameplay code from this narrative document.
+
+## 7. Location decision addendum (2026-11-01)
+
+**POI-002** establishes `NH-04-06-L2` as Finch's permanent North Heights headquarters. Its initial map landmark is informational only. The proposed two-level interior is a ground-floor reception with an edge elevator and a 53rd-floor Finch meeting/operations room. Floors 2–52 remain inaccessible and do not require furnished interiors. This addendum does not authorize interiors, placing Finch, elevators or mission code. Refer to [GTD-POI-002](./GTD-POI-002-Finch-Headquarters-Designation-and-Map-Landmark-2026-11-01.md) for source-of-truth building and map data.

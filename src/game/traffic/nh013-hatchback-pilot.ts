@@ -9,7 +9,7 @@ export type NH013HatchbackPaint=typeof NH013_HATCHBACK_PAINTS[number];
 export function assignNH013HatchbackPilot(sim:NH012TrafficSimulator,count=12):ReadonlySet<string>{
  if(!Number.isInteger(count)||count<0||count>12)throw Error("NH013 hatchback pilot 0..12");
  const picks=sim.agents.map((a,i)=>({agent:a,index:i,d:a.x*a.x+(a.z+31)**2}))
-   .filter(x=>!x.agent.id.startsWith("NH013:"))
+   .filter(x=>!x.agent.id.startsWith("NH013:")&&!sim.isStage6FreeParked(x.agent.id))
    .sort((a,b)=>a.d-b.d||a.agent.id.localeCompare(b.agent.id)).slice(0,count);
  const ids=new Set<string>();
  for(const [ordinal,pick] of picks.entries()){
