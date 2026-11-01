@@ -84,8 +84,12 @@ describe("POI-004 full-height Finch HQ elevator",()=>{
   expect(code).toContain("PED002_NPC_FILES[24]");
   expect(code).toContain("car-side-glass");
   expect(code).toContain("requestTravel");
-  expect(route).toContain('data-testid="finch-elevator-travel"');
-  expect(route).toContain("<ArrowUp");
-  expect(route).toContain("<ArrowDown");
+  const touch=readFileSync(resolve(process.cwd(),"src/ui/hud/touch-controls.tsx"),"utf8");
+  const desktop=readFileSync(resolve(process.cwd(),"src/ui/hud/desktop-controls.tsx"),"utf8");
+  expect(route).toContain("elevator={dialogueIndex===null?elevatorAction:undefined}");
+  expect(touch).toContain('data-testid="poi005-lift-touch"');
+  expect(desktop).toContain('data-testid="poi005-lift-desktop"');
+  expect(touch).toContain("<ArrowUp");
+  expect(desktop).toContain("<ArrowDown");
  });
 });
