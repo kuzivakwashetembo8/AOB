@@ -65,15 +65,14 @@ describe("POI-003 Finch targeted auto-drive and lobby foundation",()=>{
   expect(Math.hypot(sedan.x-NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.entrance.x,
     sedan.z-NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.entrance.z)).toBeGreaterThan(5);
  });
-  it("renders and closes the proximity elevator independently of mission or upper-floor travel",()=>{
-  const code=read("src/game/experiments/north-heights-finch-lobby-003.ts");
-  expect(code).toContain("sliding-door-left");
-  expect(code).toContain("sliding-door-right");
-  expect(code).toContain("nearOutside");
+  it("keeps a genuine solid reception with 53-floor lift isolated from missions",()=>{
+  const code=read("src/game/experiments/north-heights-finch-lobby-004.ts");
+  expect(code).toContain('box("door-left"');
+  expect(code).toContain('box("door-right"');
+  expect(code).toContain("nearDoor");
   expect(code).toContain("physics.addStaticBox");
-  expect(code).toContain("nearInsideExit");
   expect(code).toContain('box("desk-counter"');
-  expect(code).toContain("PED002_NPC_FILES[2]");
+  expect(code).toContain("PED002_NPC_FILES[24]");
   expect(code).not.toContain("setPlayerPosition(");
   expect(read("src/game/experiments/north-heights-city-8.ts")).toContain("finchLobby.update(");
  });
