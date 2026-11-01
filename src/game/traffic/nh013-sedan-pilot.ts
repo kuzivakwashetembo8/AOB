@@ -16,7 +16,8 @@ export function assignNH013SedanPilot(
  // can be inspected without crossing the district. Stable for fixed NH-012 seed.
  const selected=simulation.agents.map((a,i)=>({
    index:i,distance:(a.x*a.x)+((a.z+31)*(a.z+31)),id:a.id,
- })).sort((a,b)=>a.distance-b.distance||a.id.localeCompare(b.id)).slice(0,count);
+ })).filter(x=>!simulation.isStage6FreeParked(x.id))
+  .sort((a,b)=>a.distance-b.distance||a.id.localeCompare(b.id)).slice(0,count);
  const ids=new Set<string>();
  for(const [ordinal,chosen] of selected.entries()){
    const old=simulation.agents[chosen.index]!;
