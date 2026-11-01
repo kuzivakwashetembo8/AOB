@@ -27,14 +27,14 @@
 - No instant position jumps, off-road shortcuts through buildings, disabled collisions, or new initial loading dependence.
 - Exactly one HQ map landmark: `NH-04-06-L2` only.
 - Targeted route is cancelable by manual driving or exiting. If a vehicle cannot legally join the directed road network from off-road manual driving, route activation is rejected rather than teleporting it.
-- The elevator is **visual-only** in this preview: no full-height shaft, no floor 53 teleport, no door-mesh Rapier collision interlock, no upward ride. These functions require a separately agreed stage. Do not suggest top-floor meeting is playable yet.
-- A receptionist is visible behind a white desk with an Idle animation if its GLB loads successfully; failure is logged and must not block game readiness.
+- The elevator is **ground-floor only** in this preview: the desk and cabin walls have static Rapier collision, and the sliding doors have a conditional collider when closed (automatically released as they open or if Voight occupies the threshold). There is no full-height shaft, no floor 53 teleport, and no upward ride. Those functions require a separately agreed stage.
+- A receptionist is visible behind a white desk with an Idle animation if its GLB loads successfully; failure is logged and must not block game readiness. The desk and elevator walls are physically solid to the Rapier player capsule; moving doors add/release a collision panel based on their animation state.
 - The remaining 51 floors remain undesigned and inaccessible, the existing tower exterior and 100 roaming identities unchanged.
 - No mission assignment, Finch character spawn, dialogue or payphone behavior.
 - Preview acceptance is required before merge/deployment to production.
 
 ## Deferred work
 
-Physical elevator-door interlocks, two-way 53rd-floor transport, furnished upper-level Finch meeting room, actual `Finch.glb` staging, receptionist interaction, elevator sound, camera adaptation and mission flow remain separate upcoming milestones.
+Enhanced elevator occupancy/interlock sequencing, two-way 53rd-floor transport, furnished upper-level Finch meeting room, actual `Finch.glb` staging, receptionist interaction, elevator sound, camera adaptation and mission flow remain separate upcoming milestones.
 
 **Acceptance checklist:** Occupy a Sedan → expand map → click FINCH HQ → observe legal roads and automatic curbside stop → exit safely → enter HQ front opening → approach elevator (doors open) → step into cabin (doors close) → step back towards doors (open) → observe reception desk with idle character.
