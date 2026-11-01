@@ -67,6 +67,13 @@ export function DrivingArrowControls({ send, haptics }: { send: Send; haptics: b
             <Icon aria-hidden="true" size={30}/>
           </button>
         ))}
+        {elevator&&<Button variant="control"
+          className="gtd-uniform-action gtd-action-elevator"
+          data-testid="poi005-lift-touch"
+          aria-label={elevator.label} title={elevator.label}
+          onClick={elevator.onClick}>
+            {elevator.direction==="up"?<ArrowUp size={19}/>:<ArrowDown size={19}/>}
+          </Button>}
       </div>
     </div>
   );
@@ -239,6 +246,7 @@ export function TouchControls({
   canEnterVehicle = false,
   canExitVehicle = true,
   passenger = false,
+  elevator,
 }: {
   send: Send;
   settings: Settings;
@@ -248,6 +256,7 @@ export function TouchControls({
   canEnterVehicle?: boolean;
   canExitVehicle?: boolean;
   passenger?: boolean;
+  elevator?:{direction:"up"|"down";label:string;onClick:()=>void};
 }) {
   const style = {
     "--control-opacity": settings.opacity / 100,
