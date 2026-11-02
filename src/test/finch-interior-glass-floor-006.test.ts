@@ -40,6 +40,10 @@ describe("POI-006 uniformly flat HQ and full-glass elevator",()=>{
   expect(finchTerrainHeight006(away.x,away.z,northHeightsGround))
    .toBeCloseTo(northHeightsGround(away.x,away.z),5);
   expect(finchLobbyMinimumCapsuleY006(away.x,away.z,northHeightsGround)).toBeNull();
+  const lobby=readFileSync(resolve(process.cwd(),"src/game/experiments/north-heights-finch-lobby-004.ts"),"utf8");
+  expect(lobby).not.toContain('box("full-white-lobby-floor"');
+  expect(lobby).not.toContain('box("top-white-landing"');
+  expect(lobby).toContain('box("top-white-door-threshold"');
   const terrain=readFileSync(resolve(process.cwd(),"src/game/experiments/north-heights-reconstruction-001.ts"),"utf8");
   const engine=readFileSync(resolve(process.cwd(),"src/game/experiments/north-heights-city-8.ts"),"utf8");
   expect(terrain).toContain("finchTerrainHeight006(x,z,northHeightsGround)");
