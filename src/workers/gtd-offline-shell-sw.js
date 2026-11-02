@@ -51,6 +51,15 @@ self.addEventListener("message", event => {
   });
 });
 
+// Deliberate in-settings Update is the only authority to skip the waiting
+// phase. Never silently replace the controller of a live gameplay session.
+// The application verifies the installed release via MessageChannel first.
+self.addEventListener("message", event => {
+  if(event.data?.type !== "GTD_OFFLINE_ACTIVATE_UPDATE" ||
+     event.data?.releaseId !== config.releaseId) return;
+  event.waitUntil(self.skipWaiting());
+});
+
 self.addEventListener("fetch", event => {
   const request = event.request;
   if (request.method !== "GET") return;
