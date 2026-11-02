@@ -6,11 +6,6 @@ import {
 } from "@/game/experiments/north-heights-map-data-010";
 
 export type NorthHeightsMapBuilding011={id:string;x:number;z:number;width:number;depth:number;floors:number;kind:string};
-const regionColor:Record<string,string>={
- "South Gateway":"#405365","West Terrace":"#475562",
- "Glass Exchange":"#516574","Eastview Quarter":"#485d6a",
- "Ridge Gardens":"#3c5854","Summit Crest":"#4a5c6b",
-};
 function DistrictVector({x,z,labels=false,onFinchSelect,poi,buildings=[]}:{
  x:number;z:number;labels?:boolean;onFinchSelect?:()=>void;
  poi?:{x:number;z:number}|null|undefined;
