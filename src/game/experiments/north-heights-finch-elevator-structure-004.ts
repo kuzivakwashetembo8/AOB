@@ -1,6 +1,37 @@
 /** POI-004: one permanent cut-out, identically applied to visual and Rapier floors.
  * The central shaft is in the eastern 53-floor tower only. */
 import {NORTH_HEIGHTS_FINCH_HEADQUARTERS_001} from "./north-heights-finch-hq-001";
+/** The actual eastern tower footprint; keep terrain, camera and walk limits aligned. */
+export const FINCH_LOBBY_FOOTPRINT_006={
+ x:NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.position.x,
+ z:NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.position.z,
+ halfX:22.669/2,halfZ:33.889/2,
+} as const;
+export const FINCH_LOBBY_FLOOR_OFFSET_006=.27;
+/** Avoid the legacy hillside ground minimum raising the player within a flat room. */
+export function insideFinchLobby006(x:number,z:number,inset=.25):boolean{
+ const r=FINCH_LOBBY_FOOTPRINT_006;
+ return Math.abs(x-r.x)<r.halfX-inset&&Math.abs(z-r.z)<r.halfZ-inset;
+}
+/** Under-floor terrain is flat, with a short exterior blend to the original hill.
+ * The shared visible terrain mesh and Rapier mesh both use these heights. */
+export function finchTerrainHeight006(x:number,z:number,
+ ground:(x:number,z:number)=>number):number{
+ const r=FINCH_LOBBY_FOOTPRINT_006;
+ const outside=Math.max(0,Math.abs(x-r.x)-r.halfX,Math.abs(z-r.z)-r.halfZ);
+ if(outside>=1.6)return ground(x,z);
+ const floorUnder=ground(r.x,r.z)+.02; // 0.25m below the uniform white floor
+ const t=Math.max(0,Math.min(1,outside/1.6));
+ const blend=t*t*(3-2*t);
+ return floorUnder*(1-blend)+ground(x,z)*blend;
+}
+/** Physical capsule centre cannot be forced higher by the outdoor hillside. */
+export function finchLobbyMinimumCapsuleY006(x:number,z:number,
+ ground:(x:number,z:number)=>number):number|null{
+ return insideFinchLobby006(x,z)?
+  ground(FINCH_LOBBY_FOOTPRINT_006.x,FINCH_LOBBY_FOOTPRINT_006.z)+
+  FINCH_LOBBY_FLOOR_OFFSET_006+.92+.015:null;
+}
 export const FINCH_SHAFT_HALF_X_004=2.55;
 export const FINCH_SHAFT_HALF_Z_004=2.55;
 export const FINCH_ELEVATOR_TRAVEL_SECONDS_004=14;
