@@ -42,7 +42,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  const cx=building.position.x,cz=building.position.z;
  const groundY=ground(cx,cz),bottom=groundY+shaft.bottomFloorOffset;
  const top=groundY+shaft.topFloorOffset;
- const x=shaft.x,z=shaft.z,front=z+2.05,height=3.05;
+ const x=shaft.x,z=shaft.z,front=z+2.17,height=3.05;
  const root=new TransformNode("poi004:finch-interior",scene);
  const carriage=new TransformNode("poi004:carriage-moving",scene);carriage.parent=root;
  const mats:StandardMaterial[]=[];
@@ -85,6 +85,9 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   4.85,top-bottom-3.2,.06,glass);
  // A simple white reception counter to the right of the entrance sightline.
  const deskX=cx+width*.26,deskZ=cz+3.6;
+ // Clean white built-in seat behind the reception desk.
+ box("reception-seat",deskX,bottom+.49,deskZ-1.42,1.05,.14,.9,white);
+ box("reception-seat-base",deskX,bottom+.24,deskZ-1.62,.65,.48,.60,white);
  box("desk-front",deskX,bottom+.56,deskZ,3.65,1.08,.67,white);
  box("desk-counter",deskX,bottom+1.13,deskZ,4.05,.14,1.09,white);
  box("desk-left-side",deskX-1.75,bottom+.56,deskZ-.27,.16,1.1,.75,white);
@@ -92,16 +95,19 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  staticBox(deskX,bottom+.56,deskZ,1.83,.56,.34);
  staticBox(deskX,bottom+1.13,deskZ,2.03,.07,.55);
  // Carriage parts use one transform only: mesh & player ascend together.
- box("car-floor",x,bottom-.075,z,4.3,.15,4.30,deckGlass,true);
+ box("car-floor",x,bottom-.075,z,4.35,.15,4.35,deckGlass,true);
  box("car-ceiling",x,bottom+height,z,4.35,.13,4.35,doorGlass,true);
- box("car-back-glass",x,bottom+height/2,z-2.17,4.26,height,.07,glass,true);
+ box("car-back-glass",x,bottom+height/2,z-2.17,4.35,height,.10,glass,true);
  for(const side of [-1,1]){
-  box("car-side-glass-"+side,x+side*2.17,bottom+height/2,z,.07,height,4.3,glass,true);
+  box("car-side-glass-"+side,x+side*2.17,bottom+height/2,z,.10,height,4.35,glass,true);
  }
  // Every visible elevator component is glass: no steel, timber, jambs,
  // handrails, control columns or opaque floor indicators.
- const doorL=box("door-left",x-.82,bottom+1.48,front,1.63,2.78,.12,doorGlass,true);
- const doorR=box("door-right",x+.82,bottom+1.48,front,1.63,2.78,.12,doorGlass,true);
+ // Fixed glass strips mate with the side, floor, and ceiling panels exactly.
+ box("car-front-sidelight-left",x-1.90,bottom+height/2,front,.55,height,.10,glass,true);
+ box("car-front-sidelight-right",x+1.90,bottom+height/2,front,.55,height,.10,glass,true);
+ const doorL=box("door-left",x-.825,bottom+height/2,front,1.65,height,.12,doorGlass,true);
+ const doorR=box("door-right",x+.825,bottom+height/2,front,1.65,height,.12,doorGlass,true);
  let doorCollider:{dispose:()=>void}|null=null,platformCollider:{dispose:()=>void}|null=null;
  let floor:1|53=1,target:1|53=53;
  let mode:"idle"|"closing"|"riding"|"opening"="idle";
@@ -137,8 +143,11 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   const goal=mode==="closing"||mode==="riding"?0:openingWanted?1:0;
   doorFraction+=(goal-doorFraction)*Math.min(1,step*5.2);
   if(Math.abs(doorFraction-goal)<.005)doorFraction=goal;
-  doorL.position.x=x-.82-doorFraction*1.52;
-  doorR.position.x=x+.82+doorFraction*1.52;
+  // Glass doors retract inside their own openings, not through the cabin sides.
+  doorL.scaling.x=Math.max(.015,1-doorFraction);
+  doorR.scaling.x=Math.max(.015,1-doorFraction);
+  doorL.position.x=x-1.65+doorL.scaling.x*.825;
+  doorR.position.x=x+1.65-doorR.scaling.x*.825;
   if(doorFraction>.04||nearDoor||personInCar){
    doorCollider?.dispose();doorCollider=null;
   }else if(!doorCollider&&doorFraction<.02){
@@ -196,13 +205,20 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
    if(!Number.isFinite(h)||h<.1)throw Error("POI-004 invalid suit NPC geometry");
    const scale=(h<1.25||h>2.25)?1.74/h:1;
    anchor.scaling.setAll(scale);
-   anchor.position.set(deskX-(low.x+high.x)*.5*scale,bottom-low.y*scale,
-    deskZ-1.50-(low.z+high.z)*.5*scale);
+   anchor.position.set(deskX-(low.x+high.x)*.5*scale,bottom-low.y*scale-.45,
+    deskZ-1.62-(low.z+high.z)*.5*scale);
    anchor.rotation.y=0;
    groups=data.animationGroups;
-   const idle=groups.find(g=>/idle/i.test(g.name));
-   for(const g of groups)if(g!==idle)g.stop();
-   idle?.start(true);
+   const seated=groups.find(g=>/(sit.*idle|sit.*loop|seated|sitting)/i.test(g.name));
+   for(const g of groups)if(g!==seated)g.stop();
+   if(seated)seated.start(true);
+   else for(const skeleton of data.skeletons)for(const bone of skeleton.bones){
+     const n=bone.name.toLowerCase().replace(/[^a-z]/g,"");
+     if(/(left|right)(upleg|thigh)$/.test(n))
+       bone.setRotation(new Vector3(-Math.PI/2,0,0));
+     if(/(left|right)(leg|calf|shin)$/.test(n))
+       bone.setRotation(new Vector3(Math.PI/2,0,0));
+   }
   }catch(error){if(!closed)console.error("[POI-004] Formal receptionist failed",error);}
  };
  return {update,requestTravel,loadReceptionist,dispose(){
