@@ -308,7 +308,29 @@ export async function createNorthHeightsCity8(
     // Camera remains strictly inside glass walls/ceiling while the player
     // occupies the lift, including its closing, travel, opening and idle states.
     const inside=liftFrame?.cameraCabin??null;
-    const p=inside?constrainFinchCabinCamera006(computed.position,inside):computed.position;
+    let p=inside?constrainFinchCabinCamera006(computed.position,inside):computed.position;
+    if(!inside&&!ridingSedanId&&mode==="walk"){
+      const room=buildingInteriors.find(lot=>{
+        const w=lot.overrides?.width??12,d=lot.overrides?.depth??12;
+        return Math.abs(player.x-lot.position.x)<w/2-.4&&
+          Math.abs(player.z-lot.position.z)<d/2-.4;
+      });
+      if(room){
+        const w=room.overrides?.width??12,d=room.overrides?.depth??12;
+        const fh=room.overrides?.floorHeight??3.1;
+        const base=room.position.y+.27;
+        // The camera is bounded by the containing room, not by a large
+        // external collision sphere, so roof/floor cannot be peeked through.
+        const floorIndex=Math.max(0,Math.round((player.y-.92-base)/fh));
+        const slab=base+floorIndex*fh;
+        const clamp=(v:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,v));
+        p={
+          x:clamp(p.x,room.position.x-w/2+.55,room.position.x+w/2-.55),
+          y:clamp(p.y,slab+.42,slab+fh-.36),
+          z:clamp(p.z,room.position.z-d/2+.55,room.position.z+d/2-.55),
+        };
+      }
+    }
     camera.position.set(p.x,p.y,p.z);
     camera.setTarget(new Vector3(computed.target.x,computed.target.y,computed.target.z));
   };
