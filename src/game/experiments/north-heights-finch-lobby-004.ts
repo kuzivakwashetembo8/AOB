@@ -1,12 +1,24 @@
 /** POI-004. Single centered glass elevator, 53-level continuous physical travel.
  * Shares the shaft coordinates with both Rapier and the authored floor cutouts. */
-import {AnimationGroup,Color3,Mesh,MeshBuilder,Scene,SceneLoader,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
+import {AnimationGroup,Color3,MeshBuilder,Scene,SceneLoader,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import {PED002_NPC_FILES} from "./north-heights-pedestrian-asset-manifest-002";
 import {finchShaft004,FINCH_ELEVATOR_TRAVEL_SECONDS_004} from "./north-heights-finch-elevator-structure-004";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
 
+/** World-space inner glass envelope; camera never escapes it while occupied. */
+export type FinchCabinCamera006={x:number;z:number;floorY:number;height:number;halfX:number;halfZ:number};
+export function constrainFinchCabinCamera006(
+  position:{x:number;y:number;z:number},cabin:FinchCabinCamera006,
+){
+ const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
+ return {
+  x:clamp(position.x,cabin.x-cabin.halfX,cabin.x+cabin.halfX),
+  y:clamp(position.y,cabin.floorY+.40,cabin.floorY+cabin.height-.25),
+  z:clamp(position.z,cabin.z-cabin.halfZ,cabin.z+cabin.halfZ),
+ };
+}
 export type FinchElevatorState004={
  floor:1|53;direction:"up"|"down";available:boolean;moving:boolean;progress:number;
 };
@@ -14,6 +26,7 @@ export interface FinchLobby004{
  update:(person:{x:number;y:number;z:number}|null,dt:number)=>{
   positionOverride:{x:number;y:number;z:number}|null;
   traveling:boolean;state:FinchElevatorState004;
+  cameraCabin:FinchCabinCamera006|null;
  };
  requestTravel:()=>boolean;
  loadReceptionist:()=>Promise<void>;
@@ -44,12 +57,9 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   mats.push(m);return m;
  };
  const white=material("white",.99,.99,.99);
- const steel=material("steel",.66,.72,.77),wood=material("rosewood",.34,.13,.075);
- const dark=material("slate",.14,.16,.19),glass=material("transparent-glass",.35,.76,.91,.20);
- const doorGlass=material("door-clear-glass",.45,.79,.95,.40);
- const deckGlass=material("laminated-floor-glass",.57,.81,.90,.54);
- const blue=material("light",.42,.78,1);
- blue.emissiveColor=new Color3(.1,.35,.5);
+ const glass=material("transparent-glass",.62,.83,.91,.22);
+ const doorGlass=material("door-clear-glass",.72,.91,.98,.27);
+ const deckGlass=material("laminated-floor-glass",.65,.84,.92,.42);
  const box=(name:string,px:number,py:number,pz:number,w:number,h:number,d:number,
   mat:StandardMaterial,onCarriage=false)=>{
   const mesh=MeshBuilder.CreateBox("poi004:"+name,{width:w,height:h,depth:d},scene);
@@ -88,12 +98,9 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  box("car-back-glass",x,bottom+height/2,z-2.17,4.26,height,.07,glass,true);
  for(const side of [-1,1]){
   box("car-side-glass-"+side,x+side*2.17,bottom+height/2,z,.07,height,4.3,glass,true);
-  box("front-jamb-"+side,x+side*1.9,bottom+height/2,front,.28,height,.18,wood,true);
-  box("handrail-"+side,x+side*2.05,bottom+1,z, .09,.07,3.5,steel,true);
  }
- box("door-header",x,bottom+height-.10,front,3.85,.24,.19,steel,true);
- box("control-column",x+2.3,bottom+1.4,front+.08,.22,1.2,.15,steel,true);
- box("floor-indicator",x,bottom+height+.11,front+.08,.6,.14,.08,blue,true);
+ // Every visible elevator component is glass: no steel, timber, jambs,
+ // handrails, control columns or opaque floor indicators.
  const doorL=box("door-left",x-.82,bottom+1.48,front,1.63,2.78,.12,doorGlass,true);
  const doorR=box("door-right",x+.82,bottom+1.48,front,1.63,2.78,.12,doorGlass,true);
  let doorCollider:{dispose:()=>void}|null=null,platformCollider:{dispose:()=>void}|null=null;
@@ -118,7 +125,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
    Math.abs(p.y-(bottom+(top-bottom)*heightFraction+.92))<1.9;
  };
  const update=(p:{x:number;y:number;z:number}|null,dt:number)=>{
-  if(closed)return {positionOverride:null,traveling:false,state:status()};
+  if(closed)return {positionOverride:null,traveling:false,state:status(),cameraCabin:null};
   const step=Math.min(.05,Math.max(0,dt));
   const offset=heightFraction*(top-bottom);
   const px=(p?.x??Infinity)-x,pz=(p?.z??Infinity)-front;
@@ -162,7 +169,10 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   }
   // The cabin alone travels vertically; shaft glass and both landings stay fixed.
   carriage.position.y=(top-bottom)*heightFraction;
-  return {positionOverride:override,traveling:mode!=="idle",state:status()};
+  const cameraCabin:FinchCabinCamera006|null=(personInCar||mode!=="idle")&&p
+   ?{x,z,floorY:bottom+(top-bottom)*heightFraction,
+      height,halfX:2.17-.18,halfZ:2.17-.18}:null;
+  return {positionOverride:override,traveling:mode!=="idle",state:status(),cameraCabin};
  };
  const loadReceptionist=async()=>{
   if(closed||requested)return;requested=true;
