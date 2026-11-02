@@ -13,7 +13,7 @@ import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generatio
 import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
 import { attachNorthHeightsGrass004, planNorthHeightsTrees004, type TreeLocation } from "./north-heights-trees-004";
-import {finchShaft004,finchFloorRing004} from "./north-heights-finch-elevator-structure-004";
+import {finchShaft004,finchFloorRing004,finchTerrainHeight006,FINCH_LOBBY_FOOTPRINT_006} from "./north-heights-finch-elevator-structure-004";
 import {createNorthHeightsBlockSurfaces008} from "./north-heights-block-surfaces-008";
 import {planNorthHeightsYardTrees014} from "./north-heights-yard-trees-014";
 import {NORTH_HEIGHTS_PARKING_LOTS_010,NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010,
@@ -146,13 +146,26 @@ function paint(scene: Scene, name: string, hex: string) {
 function terrain(scene: Scene, mat: StandardMaterial) {
   const n = 46, positions: number[] = [], indices: number[] = [], normals: number[] = [], uvs: number[] = [];
   const span = EXTENT * 2 + 25;
-  for (let row = 0; row <= n; row++) for (let col = 0; col <= n; col++) {
-    const x = -span/2 + col * span/n, z = -span/2 + row * span/n;
-    positions.push(x, northHeightsGround(x,z) - 0.04, z);
+  // Extra terrain samples at Finch HQ keep both the visible mesh and Rapier
+  // triangles below its flat floor, including along the entire doorway.
+  // Do not increase resolution across all 640m of city.
+  const axis=(center:number,half:number)=>{
+    const coords=Array.from({length:n+1},(_,i)=>-span/2+i*span/n);
+    const lo=center-half-2.2,hi=center+half+2.2;
+    for(let p=lo;p<=hi;p+=1.05)coords.push(p);
+    coords.push(lo,center-half,center+half,hi);
+    return [...new Set(coords.map(v=>Number(v.toFixed(5))))].sort((a,b)=>a-b);
+  };
+  const xAxis=axis(FINCH_LOBBY_FOOTPRINT_006.x,FINCH_LOBBY_FOOTPRINT_006.halfX);
+  const zAxis=axis(FINCH_LOBBY_FOOTPRINT_006.z,FINCH_LOBBY_FOOTPRINT_006.halfZ);
+  const nx=xAxis.length,nz=zAxis.length;
+  for(let row=0;row<nz;row++)for(let col=0;col<nx;col++){
+    const x=xAxis[col]!,z=zAxis[row]!;
+    positions.push(x,finchTerrainHeight006(x,z,northHeightsGround)-.04,z);
     uvs.push(x/5,z/5);
   }
-  for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) {
-    const a = row * (n+1)+col, b = a+1, c = a+n+1, d = c+1;
+  for(let row=0;row<nz-1;row++)for(let col=0;col<nx-1;col++){
+    const a=row*nx+col,b=a+1,c=a+nx,d=c+1;
     indices.push(a,c,b,b,c,d);
   }
   const mesh = new Mesh("nh-ridge-terrain", scene);
