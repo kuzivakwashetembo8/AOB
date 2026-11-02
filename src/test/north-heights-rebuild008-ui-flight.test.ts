@@ -34,7 +34,8 @@ describe("NH-008 district UI parity and third-person flight",()=>{
     // VIS-027-001: the pavement has a genuine underside and sidewalls.
     // The old "no curb strip" assertion prohibited solid curb volume.
     expect(roads).toContain("runStrip(batch.curb");
-    expect(roads).toContain("solidSide(batch.curb");
+    expect(roads).toContain("solidSide(wall");
+    expect(roads).toContain("roundedJunctionPavement");
     expect(roads).toContain("curbFace(batch.curb");
   });
 });

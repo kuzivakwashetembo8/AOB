@@ -1,12 +1,24 @@
 /** POI-004. Single centered glass elevator, 53-level continuous physical travel.
  * Shares the shaft coordinates with both Rapier and the authored floor cutouts. */
-import {AnimationGroup,Color3,Mesh,MeshBuilder,Scene,SceneLoader,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
+import {AnimationGroup,Color3,MeshBuilder,Scene,SceneLoader,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import {PED002_NPC_FILES} from "./north-heights-pedestrian-asset-manifest-002";
 import {finchShaft004,FINCH_ELEVATOR_TRAVEL_SECONDS_004} from "./north-heights-finch-elevator-structure-004";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
 
+/** World-space inner glass envelope; camera never escapes it while occupied. */
+export type FinchCabinCamera006={x:number;z:number;floorY:number;height:number;halfX:number;halfZ:number};
+export function constrainFinchCabinCamera006(
+  position:{x:number;y:number;z:number},cabin:FinchCabinCamera006,
+){
+ const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
+ return {
+  x:clamp(position.x,cabin.x-cabin.halfX,cabin.x+cabin.halfX),
+  y:clamp(position.y,cabin.floorY+.40,cabin.floorY+cabin.height-.25),
+  z:clamp(position.z,cabin.z-cabin.halfZ,cabin.z+cabin.halfZ),
+ };
+}
 export type FinchElevatorState004={
  floor:1|53;direction:"up"|"down";available:boolean;moving:boolean;progress:number;
 };
@@ -14,6 +26,7 @@ export interface FinchLobby004{
  update:(person:{x:number;y:number;z:number}|null,dt:number)=>{
   positionOverride:{x:number;y:number;z:number}|null;
   traveling:boolean;state:FinchElevatorState004;
+  cameraCabin:FinchCabinCamera006|null;
  };
  requestTravel:()=>boolean;
  loadReceptionist:()=>Promise<void>;
@@ -29,7 +42,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  const cx=building.position.x,cz=building.position.z;
  const groundY=ground(cx,cz),bottom=groundY+shaft.bottomFloorOffset;
  const top=groundY+shaft.topFloorOffset;
- const x=shaft.x,z=shaft.z,front=z+2.05,height=3.05;
+ const x=shaft.x,z=shaft.z,front=z+2.17,height=3.05;
  const root=new TransformNode("poi004:finch-interior",scene);
  const carriage=new TransformNode("poi004:carriage-moving",scene);carriage.parent=root;
  const mats:StandardMaterial[]=[];
@@ -44,12 +57,9 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   mats.push(m);return m;
  };
  const white=material("white",.99,.99,.99);
- const steel=material("steel",.66,.72,.77),wood=material("rosewood",.34,.13,.075);
- const dark=material("slate",.14,.16,.19),glass=material("transparent-glass",.35,.76,.91,.20);
- const doorGlass=material("door-clear-glass",.45,.79,.95,.40);
- const deckGlass=material("laminated-floor-glass",.57,.81,.90,.54);
- const blue=material("light",.42,.78,1);
- blue.emissiveColor=new Color3(.1,.35,.5);
+ const glass=material("transparent-glass",.62,.83,.91,.22);
+ const doorGlass=material("door-clear-glass",.72,.91,.98,.27);
+ const deckGlass=material("laminated-floor-glass",.65,.84,.92,.42);
  const box=(name:string,px:number,py:number,pz:number,w:number,h:number,d:number,
   mat:StandardMaterial,onCarriage=false)=>{
   const mesh=MeshBuilder.CreateBox("poi004:"+name,{width:w,height:h,depth:d},scene);
@@ -57,15 +67,14 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   mesh.isPickable=false;mesh.checkCollisions=false;return mesh;
  };
  const width=building.overrides?.width??22.669;
- const depth=building.overrides?.depth??33.889;
- // Completely white, opaque lobby flooring, continuous to the entrance.
- // The shared lawn has independently been cut away beneath this exact footprint.
- box("full-white-lobby-floor",cx,bottom-.04,cz,width-.65,.08,depth-.65,white);
- // White landing around the upper shaft cutout. The procedural full-height
- // office floors remain absent from the shaft, never intersecting its car.
- // A 3m deep room-to-cabin landing aligns flush with the platform.
- box("top-white-landing",x,top-.03,front+2.35,6.7,.06,4.7,white);
- staticBox(x,top-.03,front+2.35,3.35,.03,2.35);
+ // The existing native building slab is the ONE uniform white lobby floor.
+ // Adding a second coplanar white mesh caused z-fighting and uneven visuals.
+ // The terrain below it is now flattened by POI-006.
+ // At Floor 53, the native four-part floor ring already spans the entire room.
+ // Only a short structural threshold bridges its 0.5m gap to the glass door.
+ const thresholdZ=front+.35;
+ box("top-white-door-threshold",x,top-.03,thresholdZ,3.6,.06,.8,white);
+ staticBox(x,top-.03,thresholdZ,1.8,.03,.4);
  // Centered on the -Z wall, with equal left/right margins.
  // Continuous glass shaft: no solid intermediary floors or opaque masonry.
  const shaftH=top-bottom+3.1,shaftY=bottom+shaftH/2;
@@ -76,6 +85,9 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   4.85,top-bottom-3.2,.06,glass);
  // A simple white reception counter to the right of the entrance sightline.
  const deskX=cx+width*.26,deskZ=cz+3.6;
+ // Clean white built-in seat behind the reception desk.
+ box("reception-seat",deskX,bottom+.49,deskZ-1.42,1.05,.14,.9,white);
+ box("reception-seat-base",deskX,bottom+.24,deskZ-1.62,.65,.48,.60,white);
  box("desk-front",deskX,bottom+.56,deskZ,3.65,1.08,.67,white);
  box("desk-counter",deskX,bottom+1.13,deskZ,4.05,.14,1.09,white);
  box("desk-left-side",deskX-1.75,bottom+.56,deskZ-.27,.16,1.1,.75,white);
@@ -83,19 +95,19 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  staticBox(deskX,bottom+.56,deskZ,1.83,.56,.34);
  staticBox(deskX,bottom+1.13,deskZ,2.03,.07,.55);
  // Carriage parts use one transform only: mesh & player ascend together.
- box("car-floor",x,bottom-.075,z,4.3,.15,4.30,deckGlass,true);
+ box("car-floor",x,bottom-.075,z,4.35,.15,4.35,deckGlass,true);
  box("car-ceiling",x,bottom+height,z,4.35,.13,4.35,doorGlass,true);
- box("car-back-glass",x,bottom+height/2,z-2.17,4.26,height,.07,glass,true);
+ box("car-back-glass",x,bottom+height/2,z-2.17,4.35,height,.10,glass,true);
  for(const side of [-1,1]){
-  box("car-side-glass-"+side,x+side*2.17,bottom+height/2,z,.07,height,4.3,glass,true);
-  box("front-jamb-"+side,x+side*1.9,bottom+height/2,front,.28,height,.18,wood,true);
-  box("handrail-"+side,x+side*2.05,bottom+1,z, .09,.07,3.5,steel,true);
+  box("car-side-glass-"+side,x+side*2.17,bottom+height/2,z,.10,height,4.35,glass,true);
  }
- box("door-header",x,bottom+height-.10,front,3.85,.24,.19,steel,true);
- box("control-column",x+2.3,bottom+1.4,front+.08,.22,1.2,.15,steel,true);
- box("floor-indicator",x,bottom+height+.11,front+.08,.6,.14,.08,blue,true);
- const doorL=box("door-left",x-.82,bottom+1.48,front,1.63,2.78,.12,doorGlass,true);
- const doorR=box("door-right",x+.82,bottom+1.48,front,1.63,2.78,.12,doorGlass,true);
+ // Every visible elevator component is glass: no steel, timber, jambs,
+ // handrails, control columns or opaque floor indicators.
+ // Fixed glass strips mate with the side, floor, and ceiling panels exactly.
+ box("car-front-sidelight-left",x-1.90,bottom+height/2,front,.55,height,.10,glass,true);
+ box("car-front-sidelight-right",x+1.90,bottom+height/2,front,.55,height,.10,glass,true);
+ const doorL=box("door-left",x-.825,bottom+height/2,front,1.65,height,.12,doorGlass,true);
+ const doorR=box("door-right",x+.825,bottom+height/2,front,1.65,height,.12,doorGlass,true);
  let doorCollider:{dispose:()=>void}|null=null,platformCollider:{dispose:()=>void}|null=null;
  let floor:1|53=1,target:1|53=53;
  let mode:"idle"|"closing"|"riding"|"opening"="idle";
@@ -118,7 +130,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
    Math.abs(p.y-(bottom+(top-bottom)*heightFraction+.92))<1.9;
  };
  const update=(p:{x:number;y:number;z:number}|null,dt:number)=>{
-  if(closed)return {positionOverride:null,traveling:false,state:status()};
+  if(closed)return {positionOverride:null,traveling:false,state:status(),cameraCabin:null};
   const step=Math.min(.05,Math.max(0,dt));
   const offset=heightFraction*(top-bottom);
   const px=(p?.x??Infinity)-x,pz=(p?.z??Infinity)-front;
@@ -131,8 +143,11 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   const goal=mode==="closing"||mode==="riding"?0:openingWanted?1:0;
   doorFraction+=(goal-doorFraction)*Math.min(1,step*5.2);
   if(Math.abs(doorFraction-goal)<.005)doorFraction=goal;
-  doorL.position.x=x-.82-doorFraction*1.52;
-  doorR.position.x=x+.82+doorFraction*1.52;
+  // Glass doors retract inside their own openings, not through the cabin sides.
+  doorL.scaling.x=Math.max(.015,1-doorFraction);
+  doorR.scaling.x=Math.max(.015,1-doorFraction);
+  doorL.position.x=x-1.65+doorL.scaling.x*.825;
+  doorR.position.x=x+1.65-doorR.scaling.x*.825;
   if(doorFraction>.04||nearDoor||personInCar){
    doorCollider?.dispose();doorCollider=null;
   }else if(!doorCollider&&doorFraction<.02){
@@ -162,7 +177,10 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   }
   // The cabin alone travels vertically; shaft glass and both landings stay fixed.
   carriage.position.y=(top-bottom)*heightFraction;
-  return {positionOverride:override,traveling:mode!=="idle",state:status()};
+  const cameraCabin:FinchCabinCamera006|null=(personInCar||mode!=="idle")&&p
+   ?{x,z,floorY:bottom+(top-bottom)*heightFraction,
+      height,halfX:2.17-.18,halfZ:2.17-.18}:null;
+  return {positionOverride:override,traveling:mode!=="idle",state:status(),cameraCabin};
  };
  const loadReceptionist=async()=>{
   if(closed||requested)return;requested=true;
@@ -187,13 +205,20 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
    if(!Number.isFinite(h)||h<.1)throw Error("POI-004 invalid suit NPC geometry");
    const scale=(h<1.25||h>2.25)?1.74/h:1;
    anchor.scaling.setAll(scale);
-   anchor.position.set(deskX-(low.x+high.x)*.5*scale,bottom-low.y*scale,
-    deskZ-1.50-(low.z+high.z)*.5*scale);
+   anchor.position.set(deskX-(low.x+high.x)*.5*scale,bottom-low.y*scale-.45,
+    deskZ-1.62-(low.z+high.z)*.5*scale);
    anchor.rotation.y=0;
    groups=data.animationGroups;
-   const idle=groups.find(g=>/idle/i.test(g.name));
-   for(const g of groups)if(g!==idle)g.stop();
-   idle?.start(true);
+   const seated=groups.find(g=>/(sit.*idle|sit.*loop|seated|sitting)/i.test(g.name));
+   for(const g of groups)if(g!==seated)g.stop();
+   if(seated)seated.start(true);
+   else for(const skeleton of data.skeletons)for(const bone of skeleton.bones){
+     const n=bone.name.toLowerCase().replace(/[^a-z]/g,"");
+     if(/(left|right)(upleg|thigh)$/.test(n))
+       bone.setRotation(new Vector3(-Math.PI/2,0,0));
+     if(/(left|right)(leg|calf|shin)$/.test(n))
+       bone.setRotation(new Vector3(Math.PI/2,0,0));
+   }
   }catch(error){if(!closed)console.error("[POI-004] Formal receptionist failed",error);}
  };
  return {update,requestTravel,loadReceptionist,dispose(){

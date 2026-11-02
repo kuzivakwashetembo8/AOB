@@ -13,6 +13,8 @@ import {
 import {FINCH_START_005} from "@/game/experiments/north-heights-finch-intro-005";
 import {planFinchTargetedRoute003,type TargetedRoadRoute003}
  from "@/game/experiments/north-heights-finch-routing-003";
+import {dianeCrossCityRoute008,type DianeRoadStop008}
+ from "@/game/experiments/level001-diane-road-008";
 
 export type NH012MotionState="moving"|"braking"|"stopped"|"turning";
 /** A single tap queues the next legal relative turn, not freeform steering. */
@@ -85,6 +87,7 @@ export class NH012TrafficSimulator {
   * All other traffic agents use the identical accepted NH-012 AI solver. */
  /** Route is owned only by the currently occupied traffic agent. */
  private targeted: {agentId:string;route:TargetedRoadRoute003;index:number;arrived:boolean}|null=null;
+ private dianePace001:{id:string;maxSpeed:number}|null=null;
  targetDriveStatus003(agentId:string):"none"|"enroute"|"arrived"{
   return this.targeted?.agentId===agentId?(this.targeted.arrived?"arrived":"enroute"):"none";
  }
@@ -278,6 +281,42 @@ export class NH012TrafficSimulator {
   a.arrivalTick=-1;a.waitTicks=0;
   this.freeParkedAgents.add(a.id);
   return a.id;
+ }
+ /** LVL-001: reserve a real traffic sedan, with the same render and collision hull. */
+ parkDianeVehicle001(id:string,stop:DianeRoadStop008):boolean{
+  const a=this.agents.find(item=>item.id===id),edge=this.graph.edges.get(stop.edgeId);
+  if(!a||!edge||this.manual?.agentId===id)return false;
+  this.clearTargetDrive003(id);
+  a.edgeId=edge.id;a.s=stop.s;a.connectorId=null;a.plannedConnectorId=null;
+  a.x=stop.position.x;a.z=stop.position.z;
+  a.heading=nh012HeadingBetween(edge.start,edge.end);
+  a.speed=0;a.state="stopped";a.arrivalTick=-1;a.waitTicks=0;
+  this.freeParkedAgents.add(id);
+  return true;
+ }
+ beginDianeDrive001(id:string,destination:DianeRoadStop008):boolean{
+  const a=this.agents.find(item=>item.id===id);
+  if(!a||this.isManualDriving(id))return false;
+  const route=dianeCrossCityRoute008(this.graph,a.edgeId,a.s,destination);
+  if(!route||route.edges.length<4)return false;
+  this.clearTargetDrive003();
+  a.plannedConnectorId=null;this.freeParkedAgents.delete(id);
+  this.targeted={agentId:id,route,index:0,arrived:false};
+  this.dianePace001={id,maxSpeed:5.8};
+  return true;
+ }
+ paceDianeVehicle001(id:string,distanceFromReese:number):void{
+  if(this.dianePace001?.id!==id)return;
+  this.dianePace001.maxSpeed=distanceFromReese>95?1.5:
+   distanceFromReese>65?2.8:distanceFromReese>40?4.3:5.8;
+ }
+ finishDianeDrive001(id:string):void{
+  if(this.dianePace001?.id!==id&&this.targeted?.agentId!==id)return;
+  this.dianePace001=null;
+  this.freeParkedAgents.add(id);
+  this.clearTargetDrive003(id);
+  const a=this.agents.find(item=>item.id===id);
+  if(a){a.speed=0;a.state="stopped";a.waitTicks=0;}
  }
  /** Dynamic impact recovery is not player parking or scheduled congestion. */
  get recoveringTrafficCount():number{
@@ -693,6 +732,23 @@ export class NH012TrafficSimulator {
      return;
    }
  }
+ /** Reconcile stale junction ownership after impact recovery, re-parking
+  * or driver handoffs. Never clear a real car still inside the connector. */
+ private reconcileJunctionReservations001(){
+  if(!this.dianePace001)return; // preserve baseline/manual traffic semantics
+  for(const [junction,id] of this.reservations){
+   const owner=this.agents.find(agent=>agent.id===id);
+   const connector=owner?.connectorId?this.graph.connectors.get(owner.connectorId):null;
+   if(!owner||!connector||connector.junction!==junction||
+     this.freeParkedAgents.has(id)||this.manual?.agentId===id)
+     this.reservations.delete(junction);
+  }
+  for(const car of this.agents){
+   const connector=car.connectorId?this.graph.connectors.get(car.connectorId):null;
+   if(connector&&!this.reservations.has(connector.junction))
+     this.reservations.set(connector.junction,car.id);
+  }
+ }
  step(dt=NH012_SIMULATION_DT){
    if(Math.abs(dt-NH012_SIMULATION_DT)>1e-8)throw Error("NH012 requires a 20Hz deterministic step");
    this.tick++;
@@ -701,6 +757,7 @@ export class NH012TrafficSimulator {
    this.stepManual(dt);
    this.stepImpactBodies(dt);
    this.stepImpactRecovery(dt);
+   this.reconcileJunctionReservations001();
    const laneCars=new Map<string,NH012Agent[]>();
    // Recovering cars are still tangible lane leaders. Followers must retain
    // normal braking headways instead of accelerating into a temporary crash.
@@ -732,6 +789,7 @@ export class NH012TrafficSimulator {
      const throttle=this.driverThrottleFor(agent.id);
      let v=braking?Math.max(0,agent.speed-BRAKE*dt)
        :Math.min(4,agent.speed+ACCEL*dt*(throttle>0?throttle:1));
+     if(this.dianePace001?.id===agent.id)v=Math.min(v,this.dianePace001.maxSpeed);
      let ds=Math.min(remaining,v*dt);
      if(remaining<=.001&&!this.hasExitSpace(c.outgoing,agent)){v=0;ds=0;}
      agent.s+=ds;agent.speed=v;
@@ -774,7 +832,8 @@ export class NH012TrafficSimulator {
      const safeStopSpeed=Math.sqrt(2*BRAKE*toStop);
      const safeFollowSpeed=Number.isFinite(available)
        ?Math.sqrt(2*BRAKE*Math.max(0,available)):Infinity;
-     const allowed=Math.min(MAX_SPEED,safeStopSpeed,safeFollowSpeed);
+     const allowed=Math.min(this.dianePace001?.id===agent.id
+       ?this.dianePace001.maxSpeed:MAX_SPEED,safeStopSpeed,safeFollowSpeed);
      // Preserve the exact legacy path when no rider is braking. For the
      // selected agent, a pressed Down key requests a gradual BRAKE-only stop;
      // no reverse, teleport or new manual acceleration logic is introduced.

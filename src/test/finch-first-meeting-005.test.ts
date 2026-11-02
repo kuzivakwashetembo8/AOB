@@ -13,12 +13,12 @@ const building={id:"NH-04-06-L2",position:{x:46.002,y:11.27,z:-94.18},
  overrides:{width:22.669,depth:33.889,floors:53,floorHeight:3.1},
  archetype:"podium-tower",yawRadians:0,seed:"NH-04-06-L2"} as BuildingSpec;
 describe("POI-005 owner-approved Finch introduction",()=>{
- it("holds exactly nine immutable dialogue lines with required Machine and human distinctions",()=>{
-  expect(FINCH_INTRO_005).toHaveLength(9);
-  expect(FINCH_INTRO_005[0]).toBe("Mr. Voight. I'm Harold Finch. Thank you for coming.");
-  expect(FINCH_INTRO_005[4]).toContain("victim");
-  expect(FINCH_INTRO_005[6]).toContain("public telephone");
-  expect(FINCH_INTRO_005[8]).toBe("If you're willing, we can begin. There's someone in Meridia who may be running out of time.");
+ it("requires four approved assignment dialogue bubbles for Reese",()=>{
+  expect(FINCH_INTRO_005).toHaveLength(4);
+  expect(FINCH_INTRO_005[0]).toBe("Mr. Reese, The Machine has given us a new number.");
+  expect(FINCH_INTRO_005[1]).toContain("victim or a perpetrator");
+  expect(FINCH_INTRO_005[2]).toContain("follow her");
+  expect(FINCH_INTRO_005[3]).toBe("Don't intervene. Come back when you have something.");
  });
  it("only admits real three-dimensional proximity, not a character on ground floor",()=>{
   const finch={x:49,y:173.4,z:-86};
@@ -50,18 +50,20 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   sim.parkManualOffRoad(id);
   expect(sim.isStage6FreeParked(id)).toBe(true);
  });
- it("builds hotel/library/office furniture on the physically accessible floor 53",()=>{
+ it("leaves floor 53 empty apart from Finch, with no furniture or extra colliders",()=>{
   const engine=new NullEngine(),scene=new Scene(engine);
   let count=0;
   const physics={addStaticBox:()=>{count++;return {dispose:()=>{count--;}};}} as unknown as MeridianPhysics;
   const suite=createFinchSuite005(scene,[building],()=>11.27,physics);
-  const names=scene.meshes.map(m=>m.name);
-  expect(names.some(n=>n.includes("library-spine"))).toBe(true);
-  expect(names.some(n=>n.includes("executive-desk"))).toBe(true);
-  expect(names.some(n=>n.includes("sofa-seat"))).toBe(true);
-  expect(names.some(n=>n.includes("daybed"))).toBe(true);
+  expect(scene.meshes.filter(m=>m.name.startsWith("poi005:"))).toHaveLength(0);
+  expect(scene.materials.filter(m=>m.name.startsWith("poi005:"))).toHaveLength(0);
+  expect(count).toBe(0);
   expect(suite.isNearFinch(suite.getFinchLocation())).toBe(false);
   expect(suite.getFinchLocation().y).toBeGreaterThan(160);
+  const source=read("src/game/experiments/north-heights-finch-suite-005.ts");
+  for(const prop of ["library-spine","executive-desk","sofa-seat","daybed","floor53-warm-carpet"]){
+    expect(source).not.toContain('box("'+prop);
+  }
   suite.dispose();expect(count).toBe(0);
   scene.dispose();engine.dispose();
  });
@@ -76,7 +78,7 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   expect(lift).toContain('const doorGlass=material(');
   expect(lift).toContain('const deckGlass=material(');
   expect(renderer).toContain('"#D7A83E"');
-  expect(route).toContain('FINCH_INTRO_005[dialogueIndex]');
+  expect(route).toContain('activeLines[dialogueIndex]');
   expect(route).toContain('poi005-next');
   expect(touch).toContain("gtd-uniform-action gtd-action-elevator");
   expect(desktop).toContain("desktop-control-button gtd-uniform-action gtd-action-elevator");

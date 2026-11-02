@@ -13,7 +13,7 @@ import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-hei
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import {loadNorthHeightsStreetLamps012,planNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
-import { createMercerStaticCharacter } from "@/game/world/mercer-static-character-103";
+import { createReesePlayer001 } from "@/game/character/reese-player-001";
 import {loadMeridiaCharacterTrial,type LoadedMeridiaCharacter} from "@/game/character/voight-humanoid-trial";
 import type {GameAction} from "@/game/core/types";
 import {northHeightsActionControl007,northHeightsUnavailableAction007} from "./north-heights-controls-007";
@@ -48,6 +48,12 @@ import {ProceduralVehicleAudio021} from "@/game/audio/vehicle/procedural-vehicle
 import {createFinchLobby004,type FinchLobby004,type FinchElevatorState004} from "./north-heights-finch-lobby-004";
 import {createFinchSuite005,type FinchSuite005} from "./north-heights-finch-suite-005";
 import {FINCH_START_005} from "./north-heights-finch-intro-005";
+import {finchLobbyMinimumCapsuleY006} from "./north-heights-finch-elevator-structure-004";
+import {constrainFinchCabinCamera006} from "./north-heights-finch-lobby-004";
+import {DianeLevel001,readDianeProgress001,type DianeMissionView001} from "./level001-diane-007";
+import {createDianeWorldLabel001} from "./level001-diane-label-007";
+import {createDianeCarMarker008} from "./level001-diane-car-marker-008";
+import type {NorthHeightsMapBuilding011} from "@/ui/hud/north-heights-map-010";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
@@ -62,6 +68,9 @@ export interface NorthHeightsInspection {
   toggleSedanAutopilot: () => void;
   driveToFinchHQ: () => boolean;
   travelFinchElevator: () => boolean;
+  startDianeMission: () => boolean;
+  reportDianeMission: () => boolean;
+  setReeseHandItem:(item:"hand"|"gun")=>void;
   dispose: () => void;
 }
 export async function createNorthHeightsCity8(
@@ -78,6 +87,8 @@ export async function createNorthHeightsCity8(
   onFirstPlayableFrame?: ()=>void,
   onElevatorChange?: (state:FinchElevatorState004|null)=>void,
   onFinchProximityChange?: (near:boolean)=>void,
+  onDianeMissionChange?: (state:DianeMissionView001)=>void,
+  onMapBuildings?: (buildings:readonly NorthHeightsMapBuilding011[])=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -136,6 +147,9 @@ export async function createNorthHeightsCity8(
   let pedestrianAccumulator=0;
   let pedestrianCharacters:PedestrianCharacterRenderer001|null=null;
   let pedestrianLoading=false,pedestrianLoadError="";
+  let dianeLevel:DianeLevel001|null=null;
+  let dianeLabel:ReturnType<typeof createDianeWorldLabel001>|null=null;
+  let dianeCarMarker:ReturnType<typeof createDianeCarMarker008>|null=null;
   /** SDN-001: passenger association with an EXISTING NH-012 agent, not a car actor. */
   let ridingSedanId:string|null=null;
   let rideLastHeading=0;
@@ -158,7 +172,7 @@ export async function createNorthHeightsCity8(
   let lastLocationStreet:string|undefined;
   let lastLocationText="";
   let locationTick=0;
-  let actor:ReturnType<typeof createMercerStaticCharacter>|null=null;
+  let actor:ReturnType<typeof createReesePlayer001>|null=null;
   let humanoid:LoadedMeridiaCharacter|null=null;
   let mode:"walk"|"fly"="fly";
   let headingYaw=Math.PI;
@@ -171,6 +185,9 @@ export async function createNorthHeightsCity8(
   let frames = 0;
   const driveToFinchHQ=():boolean=>{
     if(!ridingSedanId||!traffic){onFeedback?.("Enter a traffic vehicle before selecting Finch HQ");return false;}
+    if(dianeLevel?.stage==="follow"||dianeLevel?.stage==="observe"){
+      onFeedback?.("Finish observing Diane before selecting Finch HQ");return false;
+    }
     const result=traffic.beginFinchTargetDrive003(ridingSedanId);
     if(!result.ok){onFeedback?.(result.reason);return false;}
     finchArrivedAnnounced=false;
@@ -290,7 +307,39 @@ export async function createNorthHeightsCity8(
         ?cameraBlockers.filter(box=>Math.abs(box.x-46.002)>1||Math.abs(box.z+94.18)>1)
         :cameraBlockers,
     );
-    camera.position.set(computed.position.x,computed.position.y,computed.position.z);
+    // Camera remains strictly inside glass walls/ceiling while the player
+    // occupies the lift, including its closing, travel, opening and idle states.
+    const inside=liftFrame?.cameraCabin??null;
+    let p=inside?constrainFinchCabinCamera006(computed.position,inside):computed.position;
+    if(!inside&&!ridingSedanId&&mode==="walk"){
+      const room=buildingInteriors.find(lot=>{
+        const w=lot.overrides?.width??12,d=lot.overrides?.depth??12;
+        const fh=lot.overrides?.floorHeight??3.1, floors=lot.overrides?.floors??1;
+        const groundY=northHeightsGround(lot.position.x,lot.position.z);
+        const withinHeight=player.y>=groundY-.3&&
+          player.y<groundY+fh*floors+.25;
+        return withinHeight&&Math.abs(player.x-lot.position.x)<w/2-.4&&
+          Math.abs(player.z-lot.position.z)<d/2-.4;
+      });
+      if(room){
+        const w=room.overrides?.width??12,d=room.overrides?.depth??12;
+        const fh=room.overrides?.floorHeight??3.1;
+        const base=northHeightsGround(room.position.x,room.position.z)+.27;
+        // The camera is bounded by the containing room, not by a large
+        // external collision sphere, so roof/floor cannot be peeked through.
+        const floorIndex=Math.max(0,Math.round((player.y-.92-base)/fh));
+        const slab=room.id==="NH-04-06-L2"&&floorIndex>=50
+          ?northHeightsGround(room.position.x,room.position.z)+.87+52*fh
+          :base+floorIndex*fh;
+        const clamp=(v:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,v));
+        p={
+          x:clamp(p.x,room.position.x-w/2+.55,room.position.x+w/2-.55),
+          y:clamp(p.y,slab+.42,slab+fh-.36),
+          z:clamp(p.z,room.position.z-d/2+.55,room.position.z+d/2-.55),
+        };
+      }
+    }
+    camera.position.set(p.x,p.y,p.z);
     camera.setTarget(new Vector3(computed.target.x,computed.target.y,computed.target.z));
   };
   const boundActor=()=>{
@@ -299,7 +348,8 @@ export async function createNorthHeightsCity8(
     const limited=clampNorthHeightsActorXZ(point.x,point.z);
     // Player capsule centre is .92m above foot support; never put flight
     // beneath the local ridge, even on boundary transitions.
-    const minY=northHeightsGround(limited.x,limited.z)+.92+.12;
+    const minY=finchLobbyMinimumCapsuleY006(limited.x,limited.z,northHeightsGround)
+      ??northHeightsGround(limited.x,limited.z)+.92+.12;
     if(limited.x!==point.x||limited.z!==point.z||point.y<minY){
       walk.physics.setPlayerPosition({x:limited.x,y:Math.max(minY,point.y),z:limited.z});
     }
@@ -387,6 +437,14 @@ export async function createNorthHeightsCity8(
       while(pedestrianAccumulator>=.05-1e-7&&pedSteps++<3){
         pedestrians.step(.05);pedestrianAccumulator-=.05;
       }
+      const driven=ridingAgent();
+      const missionPlayer=driven
+        ?{x:driven.x,y:northHeightsGround(driven.x,driven.z)+.92,
+           z:driven.z,inCar:true,speed:driven.speed}
+        :mode==="walk"&&walk
+          ?{...walk.physics.playerPosition(),inCar:false,speed:lastTravelSpeed}
+          :null;
+      dianeLevel?.tick(dt,missionPlayer,yaw,northHeightsGround);
     }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
@@ -533,6 +591,16 @@ export async function createNorthHeightsCity8(
     if(pedestrians&&pedestrianCharacters){
       pedestrianCharacters.update(pedestrians,camera);
     }
+    if(dianeLevel&&dianeLabel){
+      dianeLabel.update(dianeLevel.npcPosition,
+        walk&&!ridingSedanId?walk.physics.playerPosition():null,
+        northHeightsGround,dianeLevel.stage,dianeLevel.target.state!=="inside");
+    }
+    if(dianeLevel&&dianeCarMarker){
+      const playerPose=ridingAgent()??(walk&&!ridingSedanId?walk.physics.playerPosition():null);
+      dianeCarMarker.update(dianeLevel.carPosition,playerPose,northHeightsGround,
+        dianeLevel.stage==="follow"||dianeLevel.stage==="observe");
+    }
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
     treeHandle?.update(camera.position,dt);
@@ -654,6 +722,9 @@ export async function createNorthHeightsCity8(
     const near=nearestBoardableVehicle(player,[],movingCandidates(),cameraBlockers);
     if(!near){onFeedback?.("Approach a nearby vehicle to enter");return;}
     if(near.kind==="traffic-sedan"){
+      if(near.id===dianeLevel?.carId){
+        onFeedback?.("Diane's car · enter another vehicle to follow her");return;
+      }
       const agent=traffic?.agents.find(a=>a.id===near.id);
       if(!agent)return;
       traffic?.clearDriverTurn();
@@ -738,6 +809,9 @@ export async function createNorthHeightsCity8(
     },
     toggleSedanAutopilot,
     driveToFinchHQ,
+    startDianeMission(){return dianeLevel?.assign()??false;},
+    reportDianeMission(){return dianeLevel?.report()??false;},
+    setReeseHandItem(item){actor?.setHandItem(item);},
     travelFinchElevator(){
       if(!finchLobby?.requestTravel()){
         onFeedback?.("Step inside Finch HQ elevator before traveling");return false;
@@ -777,6 +851,8 @@ export async function createNorthHeightsCity8(
       if(liftCollisionDisabled)walk?.physics.setPlayerCollisionEnabled(true);
       liftCollisionDisabled=false;
       pedestrianCharacters?.dispose();pedestrianCharacters=null;
+      dianeLabel?.dispose();dianeLabel=null;
+      dianeCarMarker?.dispose();dianeCarMarker=null;dianeLevel=null;
       pedestrians=null;
       traffic3D?.dispose();traffic3D=null;
       for(const hull of solidVehicleHandles.values())hull.dispose();
@@ -795,6 +871,11 @@ export async function createNorthHeightsCity8(
   try {
     status("Generating North Heights · native roads, towers, terraces and facades");
     const world = buildNorthHeightsReconstruction(scene,mobile);
+    onMapBuildings?.(world.lotSpecs.map(l=>({
+      id:l.id,x:l.position.x,z:l.position.z,
+      width:l.overrides?.width??12,depth:l.overrides?.depth??12,
+      floors:l.overrides?.floors??1,kind:l.archetype,
+    })));
     cameraBlockers=northHeightsBuildingCollision005(world.lotSpecs).map(box=>({
       x:box.position.x,y:box.position.y,z:box.position.z,
       halfX:box.halfExtents.x,halfY:box.halfExtents.y,halfZ:box.halfExtents.z,
@@ -891,6 +972,19 @@ export async function createNorthHeightsCity8(
     // Crossings remain geometric-only until the dedicated yielding stage.
     pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
     pedestrians.setVehicleOccupancy((x,z)=>solidField.personClear({x,z}));
+    const assignedDianeCar=traffic.agents[110];
+    if(!assignedDianeCar)throw Error("LVL-001 car identity missing");
+    dianeLevel=new DianeLevel001(pedestrians,traffic,assignedDianeCar.id,
+      readDianeProgress001(),view=>onDianeMissionChange?.(view));
+    const dianeHull=solidVehicleHandles.get(dianeLevel.carId);
+    if(dianeHull){
+      const car=dianeLevel.car;
+      const carPoint=sedanRoadPosition(car);
+      dianeHull.update({x:carPoint.x,y:carPoint.y,z:carPoint.z,heading:car.heading});
+      walk.physics.commitSolidTrafficPositions();
+    }
+    dianeLabel=createDianeWorldLabel001(scene);
+    dianeCarMarker=createDianeCarMarker008(scene);
     console.info("[PED-002] pedestrian graph and independent simulator initialized",{
       agents:pedestrians.population,nodes:pedestrians.graph.nodes.size,
       doorways:pedestrians.graph.entrances.size,parks:pedestrians.graph.parks.length,
@@ -900,8 +994,8 @@ export async function createNorthHeightsCity8(
     // Stage 6: the six parked GLBs are not imported, preloaded, instantiated
     // or added to Rapier in North Heights. Parking pads may remain empty.
     buildingInteriors=world.lotSpecs;
-    status("Loading Voight's accepted walking animation and physics capsule");
-    actor=createMercerStaticCharacter(scene);
+    status("Loading Agent Reese and his embedded animations");
+    actor=createReesePlayer001(scene);
     await actor.ready;
     if(closed)return controller;
     actor.setControlled(true);

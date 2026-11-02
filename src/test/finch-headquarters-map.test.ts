@@ -39,8 +39,9 @@ describe("POI-002 Finch headquarters map designation",()=>{
   expect(view).toContain("FINCH HQ");
   expect(view).toContain('fill="#d9a64c"');
   expect(view).toContain('fill="#ffffff"');
-  expect(view).toContain("<DistrictVector x={position.x} z={position.z}/>");
+  expect(view).toContain("<DistrictVector x={position.x} z={position.z} poi={poi} buildings={buildings}/>");
   expect(view).toContain("<DistrictVector x={position.x} z={position.z} labels");
   expect(view).toContain("onFinchSelect");
+  expect(view).toContain("buildings.map");
  });
 });

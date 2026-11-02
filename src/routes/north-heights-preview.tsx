@@ -1,8 +1,10 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
-import {X} from "lucide-react";
+import {X,Hand,Crosshair,ArrowUp,ArrowDown} from "lucide-react";
 import {Button} from "@/components/ui/button";
-import {FINCH_INTRO_005,FINCH_INTRO_STORAGE_KEY_005} from "@/game/experiments/north-heights-finch-intro-005";
+import {FINCH_INTRO_005} from "@/game/experiments/north-heights-finch-intro-005";
+import {DIANE_DIALOGUE_REPORT_001,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
+ from "@/game/experiments/level001-diane-007";
 import type {FinchElevatorState004} from "@/game/experiments/north-heights-finch-lobby-004";
 import {RadioController} from "@/game/audio/radio/radio-controller";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
@@ -11,7 +13,7 @@ import {pageHead} from "@/lib/page-head";
 import {useSettings} from "@/ui/menus/settings-state";
 import {GTDSettingsOverlay,GTDSessionPauseActions} from "@/ui/menus/session-overlays";
 import {GameHud} from "@/ui/hud/game-hud";
-import {NorthHeightsMiniMap,NorthHeightsExpandedMap} from "@/ui/hud/north-heights-map-010";
+import {NorthHeightsMiniMap,NorthHeightsExpandedMap,type NorthHeightsMapBuilding011} from "@/ui/hud/north-heights-map-010";
 import type {GameSnapshot} from "@/game/core/types";
 import {TouchControls} from "@/ui/hud/touch-controls";
 import {DesktopControls} from "@/ui/hud/desktop-controls";
@@ -48,8 +50,10 @@ function NorthHeightsPreview(){
   const [meridianMinute,setMeridianMinute]=useState(14*60+53);
   const [meridianSpeed,setMeridianSpeed]=useState(2);
   const [mode,setMode]=useState<"walk"|"fly">("walk");
+  const [heldItem,setHeldItem]=useState<"hand"|"gun">("hand");
   const [location,setLocation]=useState("NORTH HEIGHTS // MERIDIAN CITY");
   const [position,setPosition]=useState({x:0,z:-31});
+  const [mapBuildings,setMapBuildings]=useState<readonly NorthHeightsMapBuilding011[]>([]);
   const [vehicle,setVehicle]=useState<string|null>(null);
   useEffect(()=>{if(vehicle)radio.current?.enterVehicle();else radio.current?.exitVehicle();},[vehicle===null]);
   useEffect(()=>{const visibility=()=>radio.current?.setHidden(document.hidden);document.addEventListener("visibilitychange",visibility);return()=>document.removeEventListener("visibilitychange",visibility);},[]);
@@ -58,14 +62,24 @@ function NorthHeightsPreview(){
   const [inside,setInside]=useState(false);
   const [elevator,setElevator]=useState<FinchElevatorState004|null>(null);
   const [nearFinch,setNearFinch]=useState(false);
-  const [introCompleted,setIntroCompleted]=useState(()=>
-    typeof window!=="undefined"&&window.localStorage.getItem(FINCH_INTRO_STORAGE_KEY_005)==="yes");
+  const [dianeMission,setDianeMission]=useState<DianeMissionView001>(()=>{
+    const p=readDianeProgress001();
+    return {phase:p.phase,ssn:p.ssn,name:"Diane",
+      poi:p.phase==="find"?{...DIANE_START_HINT_001}:null,
+      objective:dianeObjective001(p.phase)};
+  });
+  const missionPhaseRef=useRef(dianeMission.phase);
+  const [missionCompletedBanner,setMissionCompletedBanner]=useState(false);
   const [dialogueIndex,setDialogueIndex]=useState<number|null>(null);
+  const [dialogueKind,setDialogueKind]=useState<"assignment"|"report">("assignment");
+  const activeLines=dialogueKind==="assignment"?FINCH_INTRO_005:DIANE_DIALOGUE_REPORT_001;
   const advanceFinchDialogue=()=>{
     if(dialogueIndex===null)return;
-    if(dialogueIndex<FINCH_INTRO_005.length-1){setDialogueIndex(dialogueIndex+1);return;}
-    window.localStorage.setItem(FINCH_INTRO_STORAGE_KEY_005,"yes");
-    setIntroCompleted(true);setDialogueIndex(null);
+    if(dialogueIndex<activeLines.length-1){setDialogueIndex(dialogueIndex+1);return;}
+    const ok=dialogueKind==="assignment"
+      ?controller.current?.startDianeMission()
+      :controller.current?.reportDianeMission();
+    if(ok)setDialogueIndex(null);
   };
   const elevatorAction=elevator?.available&&!elevator.moving?{
     direction:elevator.direction,
@@ -81,9 +95,10 @@ function NorthHeightsPreview(){
   const inputMode=useInputMode();
   const ready=firstPlayable&&status.includes("physics ready");
   useEffect(()=>{
-    if(nearFinch&&ready&&!paused&&!introCompleted&&dialogueIndex===null)
-      setDialogueIndex(0);
-  },[nearFinch,ready,paused,introCompleted,dialogueIndex]);
+    if(!nearFinch||!ready||paused||dialogueIndex!==null)return;
+    if(dianeMission.phase==="unassigned"){setDialogueKind("assignment");setDialogueIndex(0);}
+    if(dianeMission.phase==="return"){setDialogueKind("report");setDialogueIndex(0);}
+  },[nearFinch,ready,paused,dialogueIndex,dianeMission.phase]);
   const failed=/failed|failure|error/i.test(status);
   const touchVisible=coarse&&!(settings.autoHide&&inputMode==="keyboard");
   const desktopVisible=!coarse&&settings.desktopControls;
@@ -173,7 +188,17 @@ function NorthHeightsPreview(){
             setFirstPlayable(true);setLoadingSnapshot(ledger.snapshot());
           }},
           state=>{if(!closed)setElevator(state);},
-          near=>{if(!closed)setNearFinch(near);});
+          near=>{if(!closed)setNearFinch(near);},
+          view=>{if(!closed){
+            const previous=missionPhaseRef.current;
+            missionPhaseRef.current=view.phase;
+            setDianeMission(view);
+            if(view.phase==="return"&&previous==="follow")
+              setFeedback("Diane met three officers. Return to Finch.");
+            if(view.phase==="complete"&&previous==="return")
+              setMissionCompletedBanner(true);
+          }},
+          buildings=>{if(!closed)setMapBuildings(buildings);});
         if(closed)instance.dispose();
         else{
           // First-frame completion is delivered by Babylon onAfterRender, not here.
@@ -209,9 +234,7 @@ function NorthHeightsPreview(){
   const snapshot:GameSnapshot={
     lifecycle:ready?(paused?"paused":"running"):"bootstrapping",
     context:vehicle?"driving":"walking",location,
-    objective:sedanPassenger?
-      "Stage 6 · W/Up forward · S/Down brake/reverse · hold Left/Right to steer anywhere · walls solid · P autopilot"
-      :"Explore North Heights on foot or in flight",
+    objective:dianeMission.objective,
     health:100,reputation:0,heat:0,speed:vehicleSpeed,vehicle,
     meridianTime:clock,meridianMinuteOfDay:Math.floor(meridianMinute),
     meridianTimeScale:meridianSpeed,interiorState:inside?"inside":"outside",
@@ -240,7 +263,8 @@ function NorthHeightsPreview(){
         className="absolute inset-0 h-full w-full" style={{touchAction:"none"}}/>
       {ready&&settings.hud&&<GameHud snapshot={snapshot}
         context={vehicle?"driving":"walking"}
-        mapSlot={<NorthHeightsMiniMap position={position} onExpand={()=>setMapOpen(true)}/>}
+        mapSlot={<NorthHeightsMiniMap position={position} poi={dianeMission.poi} buildings={mapBuildings}
+          onExpand={()=>setMapOpen(true)}/>}
         metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div className="flex items-center gap-2 rounded bg-black/75 px-3 py-2 text-xs text-white" aria-label="Vehicle music"><span>VEHICLE MUSIC · {radioState.status.toUpperCase()}</span><button type="button" onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button></div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
         className="flex max-w-[min(85vw,360px)] flex-wrap items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
         <span>{sedanManual
@@ -259,6 +283,13 @@ function NorthHeightsPreview(){
         mode={inputMode} interaction={feedback} pause={()=>{setPanel("pause");setPaused(true);}}
         showObjective={settings.objective} setMeridianTime={setMeridianMinute}
         setMeridianTimeScale={setMeridianSpeed}/>}
+      {ready&&!paused&&!vehicle&&<Button type="button" variant="control"
+         data-testid="reese-hand-selector" aria-label={heldItem==="hand"?"Equip gun":"Put gun away"}
+         title={heldItem==="hand"?"Empty hands · select gun":"Gun equipped · holster"}
+         className="absolute top-2 right-[108px] z-40 flex h-11 w-11 items-center justify-center border border-white/20 bg-black/55"
+         onClick={()=>{const next=heldItem==="hand"?"gun":"hand";setHeldItem(next);controller.current?.setReeseHandItem(next);}}>
+         {heldItem==="hand"?<Hand size={18}/>:<Crosshair size={18}/>}
+       </Button>}
       {ready&&!settings.hud&&<button type="button" className="absolute top-5 right-5 z-20"
         aria-label="Pause menu" onClick={()=>{setPanel("pause");setPaused(true);}}>II</button>}
       {ready&&!paused&&stats.includes("SEDAN ")&&
@@ -271,21 +302,29 @@ function NorthHeightsPreview(){
       {ready&&!paused&&elevator?.moving&&
         <div className="pointer-events-none absolute right-3 top-[30%] z-30 rounded border border-white/25 bg-black/70 px-3 py-2 text-xs text-white"
           role="status">FINCH HQ · LIFT IN MOTION · {elevator.progress}% HEIGHT</div>}
-      {ready&&nearFinch&&introCompleted&&!paused&&dialogueIndex===null&&
-        <Button variant="control" className="absolute bottom-[28%] left-1/2 z-30 -translate-x-1/2 gtd-uniform-action"
-          data-testid="poi005-replay" onClick={()=>setDialogueIndex(0)}>Talk to Finch</Button>}
+      {ready&&missionCompletedBanner&&!paused&&
+        <div className="absolute left-1/2 top-[22%] z-40 w-[min(90vw,390px)] -translate-x-1/2 rounded-xl border border-white/35 bg-[#111c29]/95 p-4 text-center text-white shadow-lg"
+          role="status" data-testid="level001-completed">
+          <strong>MISSION COMPLETED</strong>
+          <div className="mt-1 text-sm">Level 001 — Diane</div>
+          <div className="mt-2 text-xs text-white/70">Investigation reported to Finch.</div>
+          <Button variant="control" className="mt-3 gtd-uniform-action"
+            onClick={()=>setMissionCompletedBanner(false)}>Continue</Button>
+        </div>}
       {ready&&!paused&&dialogueIndex!==null&&
         <section className="absolute bottom-[22%] left-1/2 z-40 w-[min(92vw,540px)] -translate-x-1/2 rounded-xl border border-white/25 bg-[#101b28]/90 px-4 py-3 text-white shadow-lg backdrop-blur-sm"
-          aria-label="Harold Finch introduction" role="dialog" aria-modal="false">
+          aria-label="Level 001 Finch dialogue" role="dialog" aria-modal="false">
           <div className="mb-2 flex items-center justify-between text-xs">
-            <span className="font-semibold tracking-wide text-[#dbe6f4]">HAROLD FINCH</span>
-            <span className="text-white/60">{dialogueIndex+1} / {FINCH_INTRO_005.length}</span>
+            <span className="font-semibold tracking-wide text-[#dbe6f4]">
+              {dialogueKind==="report"&&dialogueIndex===0?"JOHN REESE":"HAROLD FINCH"}
+            </span>
+            <span className="text-white/60">{dialogueIndex+1} / {activeLines.length}</span>
           </div>
-          <p className="mb-3 text-sm leading-relaxed text-white/95">{FINCH_INTRO_005[dialogueIndex]}</p>
+          <p className="mb-3 text-sm leading-relaxed text-white/95">{activeLines[dialogueIndex]}</p>
           <div className="flex justify-end">
             <Button variant="control" className="gtd-uniform-action px-4" data-testid="poi005-next"
               onClick={advanceFinchDialogue}>
-              {dialogueIndex===FINCH_INTRO_005.length-1?"Finish":"Next"}
+              {dialogueIndex===activeLines.length-1?"Finish":"Next"}
             </Button>
           </div>
         </section>}
@@ -298,15 +337,22 @@ function NorthHeightsPreview(){
           const link=document.createElement("a");link.href=url;link.download="gtd-north-heights-loading.json";link.click();
           window.setTimeout(()=>URL.revokeObjectURL(url),3000);}}
       />}
+      {ready&&!paused&&!mapOpen&&dialogueIndex===null&&elevatorAction&&
+        <Button type="button" variant="control"
+          className="absolute right-4 top-[40%] z-40 flex h-12 w-12 items-center justify-center border border-white/30 bg-black/65 shadow-lg"
+          data-testid="poi005-lift-independent" aria-label={elevatorAction.label}
+          title={elevatorAction.label} onClick={elevatorAction.onClick}>
+          {elevatorAction.direction==="up"?<ArrowUp size={22}/>:<ArrowDown size={22}/>}
+        </Button>}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         passenger={sedanPassenger}
-        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} elevator={dialogueIndex===null?elevatorAction:undefined} onAction={()=>undefined}/>}
+        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         passenger={sedanPassenger}
-        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} elevator={dialogueIndex===null?elevatorAction:undefined}/>}
-      {mapOpen&&<NorthHeightsExpandedMap position={position} onClose={()=>setMapOpen(false)}
+        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
+      {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} buildings={mapBuildings} onClose={()=>setMapOpen(false)}
         vehicleOccupied={sedanPassenger}
         onFinchHQSelect={()=>{
           const routed=controller.current?.driveToFinchHQ()??false;
