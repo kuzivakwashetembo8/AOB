@@ -180,6 +180,9 @@ export async function createNorthHeightsCity8(
   let frames = 0;
   const driveToFinchHQ=():boolean=>{
     if(!ridingSedanId||!traffic){onFeedback?.("Enter a traffic vehicle before selecting Finch HQ");return false;}
+    if(dianeLevel?.stage==="follow"||dianeLevel?.stage==="observe"){
+      onFeedback?.("Finish observing Diane before selecting Finch HQ");return false;
+    }
     const result=traffic.beginFinchTargetDrive003(ridingSedanId);
     if(!result.ok){onFeedback?.(result.reason);return false;}
     finchArrivedAnnounced=false;
@@ -401,9 +404,14 @@ export async function createNorthHeightsCity8(
       while(pedestrianAccumulator>=.05-1e-7&&pedSteps++<3){
         pedestrians.step(.05);pedestrianAccumulator-=.05;
       }
-      const missionPlayer=(!ridingSedanId&&mode==="walk"&&walk)
-        ?walk.physics.playerPosition():null;
-      dianeLevel?.tick(dt,missionPlayer,yaw,!!missionPlayer,northHeightsGround);
+      const driven=ridingAgent();
+      const missionPlayer=driven
+        ?{x:driven.x,y:northHeightsGround(driven.x,driven.z)+.92,
+           z:driven.z,inCar:true,speed:driven.speed}
+        :mode==="walk"&&walk
+          ?{...walk.physics.playerPosition(),inCar:false,speed:lastTravelSpeed}
+          :null;
+      dianeLevel?.tick(dt,missionPlayer,yaw,northHeightsGround);
     }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
@@ -553,7 +561,7 @@ export async function createNorthHeightsCity8(
     if(dianeLevel&&dianeLabel){
       dianeLabel.update(dianeLevel.npcPosition,
         walk&&!ridingSedanId?walk.physics.playerPosition():null,
-        northHeightsGround,dianeLevel.stage);
+        northHeightsGround,dianeLevel.stage,dianeLevel.target.state!=="inside");
     }
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
@@ -676,6 +684,9 @@ export async function createNorthHeightsCity8(
     const near=nearestBoardableVehicle(player,[],movingCandidates(),cameraBlockers);
     if(!near){onFeedback?.("Approach a nearby vehicle to enter");return;}
     if(near.kind==="traffic-sedan"){
+      if(near.id===dianeLevel?.carId){
+        onFeedback?.("Diane's car · enter another vehicle to follow her");return;
+      }
       const agent=traffic?.agents.find(a=>a.id===near.id);
       if(!agent)return;
       traffic?.clearDriverTurn();
@@ -916,8 +927,17 @@ export async function createNorthHeightsCity8(
     // Crossings remain geometric-only until the dedicated yielding stage.
     pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
     pedestrians.setVehicleOccupancy((x,z)=>solidField.personClear({x,z}));
-    dianeLevel=new DianeLevel001(pedestrians,readDianeProgress001(),
-      view=>onDianeMissionChange?.(view));
+    const assignedDianeCar=traffic.agents[110];
+    if(!assignedDianeCar)throw Error("LVL-001 car identity missing");
+    dianeLevel=new DianeLevel001(pedestrians,traffic,assignedDianeCar.id,
+      readDianeProgress001(),view=>onDianeMissionChange?.(view));
+    const dianeHull=solidVehicleHandles.get(dianeLevel.carId);
+    if(dianeHull){
+      const car=dianeLevel.car;
+      const carPoint=sedanRoadPosition(car);
+      dianeHull.update({x:carPoint.x,y:carPoint.y,z:carPoint.z,heading:car.heading});
+      walk.physics.commitSolidTrafficPositions();
+    }
     dianeLabel=createDianeWorldLabel001(scene);
     console.info("[PED-002] pedestrian graph and independent simulator initialized",{
       agents:pedestrians.population,nodes:pedestrians.graph.nodes.size,
