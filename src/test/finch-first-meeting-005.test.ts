@@ -50,18 +50,20 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   sim.parkManualOffRoad(id);
   expect(sim.isStage6FreeParked(id)).toBe(true);
  });
- it("builds hotel/library/office furniture on the physically accessible floor 53",()=>{
+ it("leaves floor 53 empty apart from Finch, with no furniture or extra colliders",()=>{
   const engine=new NullEngine(),scene=new Scene(engine);
   let count=0;
   const physics={addStaticBox:()=>{count++;return {dispose:()=>{count--;}};}} as unknown as MeridianPhysics;
   const suite=createFinchSuite005(scene,[building],()=>11.27,physics);
-  const names=scene.meshes.map(m=>m.name);
-  expect(names.some(n=>n.includes("library-spine"))).toBe(true);
-  expect(names.some(n=>n.includes("executive-desk"))).toBe(true);
-  expect(names.some(n=>n.includes("sofa-seat"))).toBe(true);
-  expect(names.some(n=>n.includes("daybed"))).toBe(true);
+  expect(scene.meshes.filter(m=>m.name.startsWith("poi005:"))).toHaveLength(0);
+  expect(scene.materials.filter(m=>m.name.startsWith("poi005:"))).toHaveLength(0);
+  expect(count).toBe(0);
   expect(suite.isNearFinch(suite.getFinchLocation())).toBe(false);
   expect(suite.getFinchLocation().y).toBeGreaterThan(160);
+  const source=read("src/game/experiments/north-heights-finch-suite-005.ts");
+  for(const prop of ["library-spine","executive-desk","sofa-seat","daybed","floor53-warm-carpet"]){
+    expect(source).not.toContain('box("'+prop);
+  }
   suite.dispose();expect(count).toBe(0);
   scene.dispose();engine.dispose();
  });
