@@ -65,8 +65,9 @@ export function createReesePlayer001(scene:Scene,
  let controlled=false,hiddenDriving=false,closed=false;
  let flight=false,meshCount=0,boneCount=0;
  let flightPitch=0,flightRoll=0;
- let lastGrounded=.15, gaitHold=0;
+ let lastGrounded=.15, pendingGaitSeconds=0;
  let stableGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
+ let pendingGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let handItem:"hand"|"gun"="hand";
  const weaponMeshes:AbstractMesh[]=[];
  let fallbackGun:ReturnType<typeof MeshBuilder.CreateBox>|null=null;
@@ -246,9 +247,14 @@ export function createReesePlayer001(scene:Scene,
    // Preserve the active gait across momentary Rapier contact/speed jitter.
    lastGrounded=grounded?.18:Math.max(0,lastGrounded-dt);
    const next=reeseGroundClip001(speed,sprint,grounded||lastGrounded>0,verticalVelocity);
-   gaitHold+=Math.max(0,dt);
-   if(next!==stableGait&&gaitHold>=.17){stableGait=next;gaitHold=0;}
-   if(next===stableGait)gaitHold=Math.min(.3,gaitHold);
+   if(next===stableGait){pendingGait=next;pendingGaitSeconds=0;}
+   else if(next!==pendingGait){pendingGait=next;pendingGaitSeconds=0;}
+   else{
+     pendingGaitSeconds+=Math.max(0,dt);
+     if(pendingGaitSeconds>=.18){
+       stableGait=next;pendingGaitSeconds=0;
+     }
+   }
    const selected=groups[stableGait]??groups.idle;
    play(selected,stableGait!=="jump"&&stableGait!=="fall");
    advance(dt);
