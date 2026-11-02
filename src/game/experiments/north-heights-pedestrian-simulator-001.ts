@@ -55,6 +55,18 @@ export class NorthHeightsPedestrianSimulator001{
  private readonly eligibleBuildings:string[];
  private readonly routeCache=new Map<string,readonly string[]>();
  private canOccupyVehicleFreeSpace:((x:number,z:number)=>boolean)|null=null;
+ private readonly missionReserved001=new Set<string>();
+ /** Exclusive ownership of existing actors during authored mission beats. */
+ reserveAgents001(ids:readonly string[]):void{
+  for(const id of ids){
+   if(!this.agents.some(a=>a.id===id))throw Error("PED-001 cannot reserve missing "+id);
+   this.missionReserved001.add(id);
+  }
+ }
+ releaseAgents001(ids:readonly string[]):void{
+  ids.forEach(id=>this.missionReserved001.delete(id));
+ }
+
  /** NPC routes remain logical, but may never advance into a solid Sedan. */
  setVehicleOccupancy(clear:(x:number,z:number)=>boolean):void{
    this.canOccupyVehicleFreeSpace=clear;
@@ -195,6 +207,7 @@ export class NorthHeightsPedestrianSimulator001{
    if(delta<=0)return;
    this.tick++;
    for(const a of this.agents){
+     if(this.missionReserved001.has(a.id))continue;
      a.stateAge+=delta;
      if(a.state==="inside"){
        a.insideSeconds-=delta;
