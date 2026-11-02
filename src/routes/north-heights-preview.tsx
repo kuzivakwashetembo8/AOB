@@ -13,7 +13,7 @@ import {pageHead} from "@/lib/page-head";
 import {useSettings} from "@/ui/menus/settings-state";
 import {GTDSettingsOverlay,GTDSessionPauseActions} from "@/ui/menus/session-overlays";
 import {GameHud} from "@/ui/hud/game-hud";
-import {NorthHeightsMiniMap,NorthHeightsExpandedMap} from "@/ui/hud/north-heights-map-010";
+import {NorthHeightsMiniMap,NorthHeightsExpandedMap,type NorthHeightsMapBuilding011} from "@/ui/hud/north-heights-map-010";
 import type {GameSnapshot} from "@/game/core/types";
 import {TouchControls} from "@/ui/hud/touch-controls";
 import {DesktopControls} from "@/ui/hud/desktop-controls";
@@ -53,6 +53,7 @@ function NorthHeightsPreview(){
   const [heldItem,setHeldItem]=useState<"hand"|"gun">("hand");
   const [location,setLocation]=useState("NORTH HEIGHTS // MERIDIAN CITY");
   const [position,setPosition]=useState({x:0,z:-31});
+  const [mapBuildings,setMapBuildings]=useState<readonly NorthHeightsMapBuilding011[]>([]);
   const [vehicle,setVehicle]=useState<string|null>(null);
   useEffect(()=>{if(vehicle)radio.current?.enterVehicle();else radio.current?.exitVehicle();},[vehicle===null]);
   useEffect(()=>{const visibility=()=>radio.current?.setHidden(document.hidden);document.addEventListener("visibilitychange",visibility);return()=>document.removeEventListener("visibilitychange",visibility);},[]);
@@ -196,7 +197,8 @@ function NorthHeightsPreview(){
               setFeedback("Diane met three officers. Return to Finch.");
             if(view.phase==="complete"&&previous==="return")
               setMissionCompletedBanner(true);
-          }});
+          }},
+          buildings=>{if(!closed)setMapBuildings(buildings);});
         if(closed)instance.dispose();
         else{
           // First-frame completion is delivered by Babylon onAfterRender, not here.
@@ -261,7 +263,7 @@ function NorthHeightsPreview(){
         className="absolute inset-0 h-full w-full" style={{touchAction:"none"}}/>
       {ready&&settings.hud&&<GameHud snapshot={snapshot}
         context={vehicle?"driving":"walking"}
-        mapSlot={<NorthHeightsMiniMap position={position} poi={dianeMission.poi}
+        mapSlot={<NorthHeightsMiniMap position={position} poi={dianeMission.poi} buildings={mapBuildings}
           onExpand={()=>setMapOpen(true)}/>}
         metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div className="flex items-center gap-2 rounded bg-black/75 px-3 py-2 text-xs text-white" aria-label="Vehicle music"><span>VEHICLE MUSIC · {radioState.status.toUpperCase()}</span><button type="button" onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button></div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
         className="flex max-w-[min(85vw,360px)] flex-wrap items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
@@ -350,7 +352,7 @@ function NorthHeightsPreview(){
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
-      {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} onClose={()=>setMapOpen(false)}
+      {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} buildings={mapBuildings} onClose={()=>setMapOpen(false)}
         vehicleOccupied={sedanPassenger}
         onFinchHQSelect={()=>{
           const routed=controller.current?.driveToFinchHQ()??false;
