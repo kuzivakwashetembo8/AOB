@@ -20,7 +20,7 @@ export function finchTerrainHeight006(x:number,z:number,
  const r=FINCH_LOBBY_FOOTPRINT_006;
  const outside=Math.max(0,Math.abs(x-r.x)-r.halfX,Math.abs(z-r.z)-r.halfZ);
  if(outside>=1.6)return ground(x,z);
- const floorUnder=ground(r.x,r.z)+.02; // 0.25m below the uniform white floor
+ const floorUnder=ground(r.x,r.z)+.08; // terrain mesh adds -0.04; effective floor step is 0.23m
  const t=Math.max(0,Math.min(1,outside/1.6));
  const blend=t*t*(3-2*t);
  return floorUnder*(1-blend)+ground(x,z)*blend;
