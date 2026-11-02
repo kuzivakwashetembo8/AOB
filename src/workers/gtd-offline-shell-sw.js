@@ -45,10 +45,18 @@ self.addEventListener("activate", event => {
 // An older installed PWA worker can otherwise make cached files appear ready
 // while still serving resources from a different release.
 self.addEventListener("message", event => {
-  if (event.data?.type !== "GTD_OFFLINE_RELEASE_QUERY") return;
-  event.ports?.[0]?.postMessage({
-    type:"GTD_OFFLINE_RELEASE",releaseId:config.releaseId,
-  });
+  if(event.data?.type==="GTD_OFFLINE_RELEASE_QUERY"){
+    event.ports?.[0]?.postMessage({
+      type:"GTD_OFFLINE_RELEASE",releaseId:config.releaseId,
+    });
+    return;
+  }
+  // No active session is replaced automatically. Only an explicit player
+  // Update with the exact staged release SHA may activate a waiting worker.
+  if(event.data?.type==="GTD_OFFLINE_ACTIVATE_UPDATE" &&
+     event.data?.releaseId===config.releaseId){
+    event.waitUntil(self.skipWaiting());
+  }
 });
 
 self.addEventListener("fetch", event => {
