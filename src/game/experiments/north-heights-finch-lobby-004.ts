@@ -66,16 +66,14 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   mesh.position.set(px,py,pz);mesh.material=mat;mesh.parent=onCarriage?carriage:root;
   mesh.isPickable=false;mesh.checkCollisions=false;return mesh;
  };
- const width=building.overrides?.width??22.669;
- const depth=building.overrides?.depth??33.889;
- // Completely white, opaque lobby flooring, continuous to the entrance.
- // The shared lawn has independently been cut away beneath this exact footprint.
- box("full-white-lobby-floor",cx,bottom-.04,cz,width-.65,.08,depth-.65,white);
- // White landing around the upper shaft cutout. The procedural full-height
- // office floors remain absent from the shaft, never intersecting its car.
- // A 3m deep room-to-cabin landing aligns flush with the platform.
- box("top-white-landing",x,top-.03,front+2.35,6.7,.06,4.7,white);
- staticBox(x,top-.03,front+2.35,3.35,.03,2.35);
+ // The existing native building slab is the ONE uniform white lobby floor.
+ // Adding a second coplanar white mesh caused z-fighting and uneven visuals.
+ // The terrain below it is now flattened by POI-006.
+ // At Floor 53, the native four-part floor ring already spans the entire room.
+ // Only a short structural threshold bridges its 0.5m gap to the glass door.
+ const thresholdZ=front+.35;
+ box("top-white-door-threshold",x,top-.03,thresholdZ,3.6,.06,.8,white);
+ staticBox(x,top-.03,thresholdZ,1.8,.03,.4);
  // Centered on the -Z wall, with equal left/right margins.
  // Continuous glass shaft: no solid intermediary floors or opaque masonry.
  const shaftH=top-bottom+3.1,shaftY=bottom+shaftH/2;
