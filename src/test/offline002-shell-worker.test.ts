@@ -32,6 +32,7 @@ function workerHarness(networkWorks = false) {
   runInNewContext(code,{
     self: {
       location:{origin:"https://gtd.example"},
+      skipWaiting:vi.fn(async()=>undefined),
       addEventListener:(name: string, callback:(event:any)=>void)=>{listeners.set(name,callback);},
     },
     caches:{open:async () => cache},
@@ -98,10 +99,31 @@ describe("OFFLINE-002 scoped app shell",()=>{
       expect(await s.dispatch(path)).toBeUndefined();
     }
   });
-  it("does not activate an incomplete release or forcibly replace the active worker",()=>{
-    expect(source).not.toContain("self.skipWaiting(");
-    expect(source).not.toContain("self.clients.claim(");
-    expect(source).toContain("throw Error(\"Missing release shell resource:");
-    expect(source).not.toContain("caches.delete(");
+  it("only activates a fully installed matching release after the player's explicit Update",async()=>{
+    const s=workerHarness();
+    const workerSource=source;
+    expect(workerSource).toContain("GTD_OFFLINE_ACTIVATE_UPDATE");
+    expect(workerSource).toContain("event.waitUntil(self.skipWaiting())");
+    expect(workerSource).not.toContain("self.clients.claim(");
+    expect(workerSource).toContain('throw Error("Missing release shell resource:');
+    expect(workerSource).not.toContain("caches.delete(");
+    // Existing release query stays functional when the activation branch exists.
+    const reply={postMessage:vi.fn()};
+    s.listeners.get("message")?.({data:{type:"GTD_OFFLINE_RELEASE_QUERY"},ports:[reply]});
+    expect(reply.postMessage).toHaveBeenCalledWith({
+      type:"GTD_OFFLINE_RELEASE",releaseId:"a".repeat(40),
+    });
+    let task:Promise<void>|undefined;
+    s.listeners.get("message")?.({
+      data:{type:"GTD_OFFLINE_ACTIVATE_UPDATE",releaseId:"b".repeat(40)},
+      waitUntil:(p:Promise<void>)=>{task=p;},
+    });
+    expect(task).toBeUndefined();
+    s.listeners.get("message")?.({
+      data:{type:"GTD_OFFLINE_ACTIVATE_UPDATE",releaseId:"a".repeat(40)},
+      waitUntil:(p:Promise<void>)=>{task=p;},
+    });
+    await task;
+    expect(task).toBeDefined();
   });
 });
