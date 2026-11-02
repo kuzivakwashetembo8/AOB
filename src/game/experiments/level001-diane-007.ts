@@ -101,8 +101,11 @@ export class DianeLevel001{
    throw Error("LVL-001 NPC identities are not unique");
   const startId=nearestNode(sim.graph,DIANE_START_HINT_001);
   const endId=nearestNode(sim.graph,DIANE_MEETING_HINT_001);
-  this.start={...sim.graph.nodes.get(startId)!};
-  this.meeting={...sim.graph.nodes.get(endId)!};
+  const startPoint=sim.graph.nodes.get(startId)!;
+  const meetingPoint=sim.graph.nodes.get(endId)!;
+  // Keep map-facing locations pure coordinates, never leak graph-node metadata.
+  this.start={x:startPoint.x,z:startPoint.z};
+  this.meeting={x:meetingPoint.x,z:meetingPoint.z};
   this.route=pedestrianRoute001(sim.graph,startId,endId);
   if(this.route.length<2)throw Error("LVL-001 no continuous pedestrian sidewalk route for Diane");
   sim.reserveAgents001([this.target.id,...this.officers.map(a=>a.id)]);
