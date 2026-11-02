@@ -13,12 +13,12 @@ const building={id:"NH-04-06-L2",position:{x:46.002,y:11.27,z:-94.18},
  overrides:{width:22.669,depth:33.889,floors:53,floorHeight:3.1},
  archetype:"podium-tower",yawRadians:0,seed:"NH-04-06-L2"} as BuildingSpec;
 describe("POI-005 owner-approved Finch introduction",()=>{
- it("holds exactly nine immutable dialogue lines with required Machine and human distinctions",()=>{
-  expect(FINCH_INTRO_005).toHaveLength(9);
-  expect(FINCH_INTRO_005[0]).toBe("Mr. Voight. I'm Harold Finch. Thank you for coming.");
-  expect(FINCH_INTRO_005[4]).toContain("victim");
-  expect(FINCH_INTRO_005[6]).toContain("public telephone");
-  expect(FINCH_INTRO_005[8]).toBe("If you're willing, we can begin. There's someone in Meridia who may be running out of time.");
+ it("requires four approved assignment dialogue bubbles for Reese",()=>{
+  expect(FINCH_INTRO_005).toHaveLength(4);
+  expect(FINCH_INTRO_005[0]).toBe("Mr. Reese, The Machine has given us a new number.");
+  expect(FINCH_INTRO_005[1]).toContain("victim or a perpetrator");
+  expect(FINCH_INTRO_005[2]).toContain("follow her");
+  expect(FINCH_INTRO_005[3]).toBe("Don't intervene. Come back when you have something.");
  });
  it("only admits real three-dimensional proximity, not a character on ground floor",()=>{
   const finch={x:49,y:173.4,z:-86};
@@ -78,7 +78,7 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   expect(lift).toContain('const doorGlass=material(');
   expect(lift).toContain('const deckGlass=material(');
   expect(renderer).toContain('"#D7A83E"');
-  expect(route).toContain('FINCH_INTRO_005[dialogueIndex]');
+  expect(route).toContain('activeLines[dialogueIndex]');
   expect(route).toContain('poi005-next');
   expect(touch).toContain("gtd-uniform-action gtd-action-elevator");
   expect(desktop).toContain("desktop-control-button gtd-uniform-action gtd-action-elevator");
