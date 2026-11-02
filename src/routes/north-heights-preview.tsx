@@ -1,6 +1,6 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
-import {X} from "lucide-react";
+import {X,Hand,Crosshair,ArrowUp,ArrowDown} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {FINCH_INTRO_005} from "@/game/experiments/north-heights-finch-intro-005";
 import {DIANE_DIALOGUE_REPORT_001,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
@@ -50,6 +50,7 @@ function NorthHeightsPreview(){
   const [meridianMinute,setMeridianMinute]=useState(14*60+53);
   const [meridianSpeed,setMeridianSpeed]=useState(2);
   const [mode,setMode]=useState<"walk"|"fly">("walk");
+  const [heldItem,setHeldItem]=useState<"hand"|"gun">("hand");
   const [location,setLocation]=useState("NORTH HEIGHTS // MERIDIAN CITY");
   const [position,setPosition]=useState({x:0,z:-31});
   const [vehicle,setVehicle]=useState<string|null>(null);
@@ -280,6 +281,13 @@ function NorthHeightsPreview(){
         mode={inputMode} interaction={feedback} pause={()=>{setPanel("pause");setPaused(true);}}
         showObjective={settings.objective} setMeridianTime={setMeridianMinute}
         setMeridianTimeScale={setMeridianSpeed}/>}
+      {ready&&!paused&&!vehicle&&<Button type="button" variant="control"
+         data-testid="reese-hand-selector" aria-label={heldItem==="hand"?"Equip gun":"Put gun away"}
+         title={heldItem==="hand"?"Empty hands · select gun":"Gun equipped · holster"}
+         className="absolute top-2 right-[108px] z-40 flex h-11 w-11 items-center justify-center border border-white/20 bg-black/55"
+         onClick={()=>{const next=heldItem==="hand"?"gun":"hand";setHeldItem(next);controller.current?.setReeseHandItem(next);}}>
+         {heldItem==="hand"?<Hand size={18}/>:<Crosshair size={18}/>}
+       </Button>}
       {ready&&!settings.hud&&<button type="button" className="absolute top-5 right-5 z-20"
         aria-label="Pause menu" onClick={()=>{setPanel("pause");setPaused(true);}}>II</button>}
       {ready&&!paused&&stats.includes("SEDAN ")&&
@@ -327,14 +335,21 @@ function NorthHeightsPreview(){
           const link=document.createElement("a");link.href=url;link.download="gtd-north-heights-loading.json";link.click();
           window.setTimeout(()=>URL.revokeObjectURL(url),3000);}}
       />}
+      {ready&&!paused&&!mapOpen&&dialogueIndex===null&&elevatorAction&&
+        <Button type="button" variant="control"
+          className="absolute right-4 top-[40%] z-40 flex h-12 w-12 items-center justify-center border border-white/30 bg-black/65 shadow-lg"
+          data-testid="poi005-lift-independent" aria-label={elevatorAction.label}
+          title={elevatorAction.label} onClick={elevatorAction.onClick}>
+          {elevatorAction.direction==="up"?<ArrowUp size={22}/>:<ArrowDown size={22}/>}
+        </Button>}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         passenger={sedanPassenger}
-        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} elevator={dialogueIndex===null?elevatorAction:undefined} onAction={()=>undefined}/>}
+        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         passenger={sedanPassenger}
-        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} elevator={dialogueIndex===null?elevatorAction:undefined}/>}
+        canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
       {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} onClose={()=>setMapOpen(false)}
         vehicleOccupied={sedanPassenger}
         onFinchHQSelect={()=>{
