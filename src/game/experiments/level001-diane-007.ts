@@ -2,11 +2,10 @@
  * Owns four existing pedestrian identities and one of 125 accepted traffic cars.
  * All vehicle movement uses NH012 road traffic; no standalone car motion or GLB.
  */
-import {pedestrianRoute001,type PedGraph001} from "./north-heights-pedestrian-graph-001";
+import type {PedGraph001} from "./north-heights-pedestrian-graph-001";
 import {dianeRoadStop008,dianeRoadMeters008,dianeCrossCityRoute008} from "./level001-diane-road-008";
 import type {NorthHeightsPedestrianSimulator001,PedAgent001} from "./north-heights-pedestrian-simulator-001";
 import type {NH012TrafficSimulator,NH012Agent} from "@/game/traffic/nh012-traffic-simulator";
-import type {TrafficPoint012} from "@/game/traffic/nh012-lane-network";
 export type DianePhase001="unassigned"|"find"|"follow"|"observe"|"return"|"complete";
 export type DianeProgress001={phase:DianePhase001;ssn:string};
 export type DianeMissionView001={phase:DianePhase001;poi:{x:number;z:number}|null;name:string;ssn:string;objective:string};
