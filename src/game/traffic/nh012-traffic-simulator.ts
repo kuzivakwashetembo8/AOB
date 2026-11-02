@@ -732,6 +732,22 @@ export class NH012TrafficSimulator {
      return;
    }
  }
+ /** Reconcile stale junction ownership after impact recovery, re-parking
+  * or driver handoffs. Never clear a real car still inside the connector. */
+ private reconcileJunctionReservations001(){
+  for(const [junction,id] of this.reservations){
+   const owner=this.agents.find(agent=>agent.id===id);
+   const connector=owner?.connectorId?this.graph.connectors.get(owner.connectorId):null;
+   if(!owner||!connector||connector.junction!==junction||
+     this.freeParkedAgents.has(id)||this.manual?.agentId===id)
+     this.reservations.delete(junction);
+  }
+  for(const car of this.agents){
+   const connector=car.connectorId?this.graph.connectors.get(car.connectorId):null;
+   if(connector&&!this.reservations.has(connector.junction))
+     this.reservations.set(connector.junction,car.id);
+  }
+ }
  step(dt=NH012_SIMULATION_DT){
    if(Math.abs(dt-NH012_SIMULATION_DT)>1e-8)throw Error("NH012 requires a 20Hz deterministic step");
    this.tick++;
@@ -740,6 +756,7 @@ export class NH012TrafficSimulator {
    this.stepManual(dt);
    this.stepImpactBodies(dt);
    this.stepImpactRecovery(dt);
+   this.reconcileJunctionReservations001();
    const laneCars=new Map<string,NH012Agent[]>();
    // Recovering cars are still tangible lane leaders. Followers must retain
    // normal braking headways instead of accelerating into a temporary crash.
