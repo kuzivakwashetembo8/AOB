@@ -45,19 +45,18 @@ self.addEventListener("activate", event => {
 // An older installed PWA worker can otherwise make cached files appear ready
 // while still serving resources from a different release.
 self.addEventListener("message", event => {
-  if (event.data?.type !== "GTD_OFFLINE_RELEASE_QUERY") return;
-  event.ports?.[0]?.postMessage({
-    type:"GTD_OFFLINE_RELEASE",releaseId:config.releaseId,
-  });
-});
-
-// Deliberate in-settings Update is the only authority to skip the waiting
-// phase. Never silently replace the controller of a live gameplay session.
-// The application verifies the installed release via MessageChannel first.
-self.addEventListener("message", event => {
-  if(event.data?.type !== "GTD_OFFLINE_ACTIVATE_UPDATE" ||
-     event.data?.releaseId !== config.releaseId) return;
-  event.waitUntil(self.skipWaiting());
+  if(event.data?.type==="GTD_OFFLINE_RELEASE_QUERY"){
+    event.ports?.[0]?.postMessage({
+      type:"GTD_OFFLINE_RELEASE",releaseId:config.releaseId,
+    });
+    return;
+  }
+  // No active session is replaced automatically. Only an explicit player
+  // Update with the exact staged release SHA may activate a waiting worker.
+  if(event.data?.type==="GTD_OFFLINE_ACTIVATE_UPDATE" &&
+     event.data?.releaseId===config.releaseId){
+    event.waitUntil(self.skipWaiting());
+  }
 });
 
 self.addEventListener("fetch", event => {
