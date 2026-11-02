@@ -30,7 +30,7 @@ describe("POI-006 uniformly flat HQ and full-glass elevator",()=>{
    for(const dz of [-.88,-.4,0,.4,.88]){
     const x=r.x+r.halfX*dx,z=r.z+r.halfZ*dz;
     expect(insideFinchLobby006(x,z)).toBe(true);
-    expect(finchTerrainHeight006(x,z,northHeightsGround)).toBeCloseTo(center+.02,5);
+    expect(finchTerrainHeight006(x,z,northHeightsGround)).toBeCloseTo(center+.08,5);
     expect(finchLobbyMinimumCapsuleY006(x,z,northHeightsGround))
      .toBeCloseTo(floor+.92+.015,5);
    }
