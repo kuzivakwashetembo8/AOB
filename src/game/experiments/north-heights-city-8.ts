@@ -52,6 +52,7 @@ import {finchLobbyMinimumCapsuleY006} from "./north-heights-finch-elevator-struc
 import {constrainFinchCabinCamera006} from "./north-heights-finch-lobby-004";
 import {DianeLevel001,readDianeProgress001,type DianeMissionView001} from "./level001-diane-007";
 import {createDianeWorldLabel001} from "./level001-diane-label-007";
+import {createDianeCarMarker008} from "./level001-diane-car-marker-008";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
@@ -145,6 +146,7 @@ export async function createNorthHeightsCity8(
   let pedestrianLoading=false,pedestrianLoadError="";
   let dianeLevel:DianeLevel001|null=null;
   let dianeLabel:ReturnType<typeof createDianeWorldLabel001>|null=null;
+  let dianeCarMarker:ReturnType<typeof createDianeCarMarker008>|null=null;
   /** SDN-001: passenger association with an EXISTING NH-012 agent, not a car actor. */
   let ridingSedanId:string|null=null;
   let rideLastHeading=0;
@@ -563,6 +565,11 @@ export async function createNorthHeightsCity8(
         walk&&!ridingSedanId?walk.physics.playerPosition():null,
         northHeightsGround,dianeLevel.stage,dianeLevel.target.state!=="inside");
     }
+    if(dianeLevel&&dianeCarMarker){
+      const playerPose=ridingAgent()??(walk&&!ridingSedanId?walk.physics.playerPosition():null);
+      dianeCarMarker.update(dianeLevel.carPosition,playerPose,northHeightsGround,
+        dianeLevel.stage==="follow"||dianeLevel.stage==="observe");
+    }
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
     treeHandle?.update(camera.position,dt);
@@ -812,7 +819,8 @@ export async function createNorthHeightsCity8(
       if(liftCollisionDisabled)walk?.physics.setPlayerCollisionEnabled(true);
       liftCollisionDisabled=false;
       pedestrianCharacters?.dispose();pedestrianCharacters=null;
-      dianeLabel?.dispose();dianeLabel=null;dianeLevel=null;
+      dianeLabel?.dispose();dianeLabel=null;
+      dianeCarMarker?.dispose();dianeCarMarker=null;dianeLevel=null;
       pedestrians=null;
       traffic3D?.dispose();traffic3D=null;
       for(const hull of solidVehicleHandles.values())hull.dispose();
@@ -939,6 +947,7 @@ export async function createNorthHeightsCity8(
       walk.physics.commitSolidTrafficPositions();
     }
     dianeLabel=createDianeWorldLabel001(scene);
+    dianeCarMarker=createDianeCarMarker008(scene);
     console.info("[PED-002] pedestrian graph and independent simulator initialized",{
       agents:pedestrians.population,nodes:pedestrians.graph.nodes.size,
       doorways:pedestrians.graph.entrances.size,parks:pedestrians.graph.parks.length,
