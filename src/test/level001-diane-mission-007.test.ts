@@ -12,8 +12,7 @@ function rig(){
   links:new Map([["meeting",[]]]),entrances:new Map(),parks:[],crossings:0,unreachable:[]};
  const agents=Array.from({length:100},(_,i)=>({id:"PED-"+String(i+1).padStart(3,"0"),
   appearanceId:i+1,origin:"HQ",destination:"HQ",x:46,z:-75,state:"inside",speed:1.4})) as PedAgent001[];
- const sim={agents,graph,population:100,reserveAgents001:()=>{},releaseAgents001:()=>{}}
-  as unknown as NorthHeightsPedestrianSimulator001;
+ const sim={agents,graph,population:100,reserveAgents001:()=>{},releaseAgents001:()=>{}} as unknown as NorthHeightsPedestrianSimulator001;
  const traffic=new NH012TrafficSimulator(125,120125);
  const m=new DianeLevel001(sim,traffic,traffic.agents[110]!.id,parseDianeProgress001(null),()=>{});
  return {m,traffic,sim};
