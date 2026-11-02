@@ -66,6 +66,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   mesh.position.set(px,py,pz);mesh.material=mat;mesh.parent=onCarriage?carriage:root;
   mesh.isPickable=false;mesh.checkCollisions=false;return mesh;
  };
+ const width=building.overrides?.width??22.669;
  // The existing native building slab is the ONE uniform white lobby floor.
  // Adding a second coplanar white mesh caused z-fighting and uneven visuals.
  // The terrain below it is now flattened by POI-006.
