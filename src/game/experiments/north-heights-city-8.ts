@@ -314,7 +314,11 @@ export async function createNorthHeightsCity8(
     if(!inside&&!ridingSedanId&&mode==="walk"){
       const room=buildingInteriors.find(lot=>{
         const w=lot.overrides?.width??12,d=lot.overrides?.depth??12;
-        return Math.abs(player.x-lot.position.x)<w/2-.4&&
+        const fh=lot.overrides?.floorHeight??3.1, floors=lot.overrides?.floors??1;
+        const groundY=northHeightsGround(lot.position.x,lot.position.z);
+        const withinHeight=player.y>=groundY-.3&&
+          player.y<groundY+fh*floors+.25;
+        return withinHeight&&Math.abs(player.x-lot.position.x)<w/2-.4&&
           Math.abs(player.z-lot.position.z)<d/2-.4;
       });
       if(room){
