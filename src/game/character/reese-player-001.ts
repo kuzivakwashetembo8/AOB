@@ -7,7 +7,7 @@
  * capsule and controller; replace only the visual actor and its clip driver.
  */
 import {
-  AbstractMesh, AnimationGroup, Material, TransformNode, loadAssetContainerAsync,
+  AbstractMesh, AnimationGroup, Material, TransformNode, MeshBuilder, StandardMaterial, Color3, loadAssetContainerAsync,
   type AssetContainer, type Scene,
 } from "@babylonjs/core";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
@@ -65,6 +65,13 @@ export function createReesePlayer001(scene:Scene,
  let controlled=false,hiddenDriving=false,closed=false;
  let flight=false,meshCount=0,boneCount=0;
  let flightPitch=0,flightRoll=0;
+ let lastGrounded=.15, gaitHold=0;
+ let stableGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
+ let handItem:"hand"|"gun"="hand";
+ const weaponMeshes:AbstractMesh[]=[];
+ let fallbackGun:ReturnType<typeof MeshBuilder.CreateBox>|null=null;
+ let fallbackGrip:ReturnType<typeof MeshBuilder.CreateBox>|null=null;
+ let gunMat:StandardMaterial|null=null;
  const groups:Record<"idle"|"walk"|"run"|"jump"|"fall"|"land",AnimationGroup|null>={
   idle:null,walk:null,run:null,jump:null,fall:null,land:null,
  };
@@ -128,6 +135,7 @@ export function createReesePlayer001(scene:Scene,
    maxY=Math.max(maxY,box.maximumWorld.y);
    maxZ=Math.max(maxZ,box.maximumWorld.z);
    mesh.isPickable=false;mesh.receiveShadows=true;
+   if(/(?:gun|pistol|weapon|revolver)/i.test(mesh.name))weaponMeshes.push(mesh);
    meshCount++;
   }
   const h=maxY-minY;
@@ -149,6 +157,25 @@ export function createReesePlayer001(scene:Scene,
     m.markAsDirty(Material.LightDirtyFlag);
    }
   }
+  if(!weaponMeshes.length){
+    const rightHand=instance.skeletons.flatMap(s=>s.bones)
+      .find(b=>/righthand|rightwrist/i.test(b.name.replace(/[^a-z]/gi,"")));
+    const skinMesh=[...meshes].find(m=>m.skeleton===instance!.skeletons[0]);
+    if(rightHand&&skinMesh){
+      gunMat=new StandardMaterial("reese001-gun-mat",scene);
+      gunMat.diffuseColor=new Color3(.04,.046,.052);
+      fallbackGun=MeshBuilder.CreateBox("reese001-gun",{width:.06,height:.06,depth:.24},scene);
+      fallbackGun.material=gunMat;
+      fallbackGun.attachToBone(rightHand,skinMesh);
+      fallbackGun.position.set(.035,0,.13);
+      fallbackGrip=MeshBuilder.CreateBox("reese001-gun-grip",{width:.05,height:.13,depth:.085},scene);
+      fallbackGrip.material=gunMat;
+      fallbackGrip.attachToBone(rightHand,skinMesh);
+      fallbackGrip.position.set(.035,-.08,.07);
+    }
+  }
+  for(const mesh of weaponMeshes)mesh.setEnabled(false);
+  fallbackGun?.setEnabled(false);fallbackGrip?.setEnabled(false);
   active=groups.idle;
   active.start(true);
   report.activeClip=active.name;
@@ -193,11 +220,17 @@ export function createReesePlayer001(scene:Scene,
    controlled=enabled;hiddenDriving=false;
    anchor.setEnabled(enabled);
    if(enabled){resetFlight();play(groups.idle);}
+   for(const mesh of weaponMeshes)mesh.setEnabled(enabled&&handItem==="gun");
+   fallbackGun?.setEnabled(enabled&&handItem==="gun");
+   fallbackGrip?.setEnabled(enabled&&handItem==="gun");
   },
   setDrivingHidden(hidden:boolean){
    if(closed||!controlled)return;
    hiddenDriving=hidden;
    anchor.setEnabled(!hidden);
+   for(const mesh of weaponMeshes)mesh.setEnabled(!hidden&&handItem==="gun");
+   fallbackGun?.setEnabled(!hidden&&handItem==="gun");
+   fallbackGrip?.setEnabled(!hidden&&handItem==="gun");
   },
   syncHiddenDrivingPose(p:{x:number;y:number;z:number},yaw:number){
    if(closed||!controlled||!hiddenDriving)return;
@@ -210,9 +243,14 @@ export function createReesePlayer001(scene:Scene,
    if(!controlled||closed)return;
    if(flight)resetFlight();
    positionAt(p,yaw);
-   const state=reeseGroundClip001(speed,sprint,grounded,verticalVelocity);
-   const selected=groups[state]??groups.idle;
-   play(selected,state!=="jump"&&state!=="fall");
+   // Preserve the active gait across momentary Rapier contact/speed jitter.
+   lastGrounded=grounded?.18:Math.max(0,lastGrounded-dt);
+   const next=reeseGroundClip001(speed,sprint,grounded||lastGrounded>0,verticalVelocity);
+   gaitHold+=Math.max(0,dt);
+   if(next!==stableGait&&gaitHold>=.17){stableGait=next;gaitHold=0;}
+   if(next===stableGait)gaitHold=Math.min(.3,gaitHold);
+   const selected=groups[stableGait]??groups.idle;
+   play(selected,stableGait!=="jump"&&stableGait!=="fall");
    advance(dt);
   },
   updateControlledFlight(
@@ -222,18 +260,18 @@ export function createReesePlayer001(scene:Scene,
    if(!controlled||closed)return;
    flight=true;
    positionAt(p,yaw);
-   // The export has no dedicated flight cycles. Its neutral loop is used
-   // with visual-only bank/lean; never rotate the Rapier capsule.
+   // Owner requested no Reese flying animation. Preserve only movement physics.
+   resetFlight();
    play(groups.idle);
    advance(input.dt);
-   const pitch=input.forward?(input.accelerated?.72:.27):
-    input.backward?(input.accelerated?-.38:-.22):0;
-   const roll=input.left?.22:input.right?-.22:0;
-   const blend=Math.min(1,Math.max(0,input.dt)*6);
-   flightPitch+=(pitch-flightPitch)*blend;
-   flightRoll+=(roll-flightRoll)*blend;
-   if(tilt){tilt.rotation.x=flightPitch;tilt.rotation.z=flightRoll;}
   },
+  setHandItem(item:"hand"|"gun"){
+   handItem=item;
+   for(const mesh of weaponMeshes)mesh.setEnabled(item==="gun"&&controlled&&!hiddenDriving);
+   fallbackGun?.setEnabled(item==="gun"&&controlled&&!hiddenDriving);
+   fallbackGrip?.setEnabled(item==="gun"&&controlled&&!hiddenDriving);
+  },
+  get handItem(){return handItem;},
   get poseReport(){
    return {meshCount,boneCount,animations:report.animations,
     activeClip:report.activeClip,scale:report.scale,controlled};
@@ -242,6 +280,7 @@ export function createReesePlayer001(scene:Scene,
    if(closed)return;
    closed=true;
    active?.stop();outgoing?.stop();
+   fallbackGun?.dispose();fallbackGrip?.dispose();gunMat?.dispose();
    instance?.dispose();instance=null;
    asset?.dispose();asset=null;
    fit?.dispose();offset?.dispose();tilt?.dispose();
