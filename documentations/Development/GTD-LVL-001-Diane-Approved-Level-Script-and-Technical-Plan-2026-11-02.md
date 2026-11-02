@@ -50,3 +50,19 @@ Show mission completion and leave Level 002 unavailable. Do not reveal Diane as 
 6. Existing Finch mission encounter, glass lift, flat lobby, empty floor 53, Reese animation, physics and camera are not regressed.
 
 Preview deployment and owner's in-game visual acceptance are required before any merge to main.
+
+## Level 001 vehicle-surveillance revision (2026-11-02, owner direction)
+
+**Supersedes the walking-only following sequence above.** The prior one-foot route is historical, not the current acceptance contract.
+
+1. Reese locates Diane via the same anonymous circle-`i` point of interest on the city map. Her fictional number/name are readable **over her character**, not on the map.
+2. Diane approaches an **existing traffic sedan** and gets inside. The pedestrian appearance becomes hidden while seated; no duplicate vehicle or NPC is created.
+3. Reese must enter a **different** car. Diane's driver waits until the player has boarded, then the single existing NH012 vehicle follows an authored legal directed road route across North Heights (minimum ~250 metres, different city sectors). Intersections, cars, buildings and physical collisions remain part of the accepted solver. The trailing player can fall behind without a punitive failure; Diane moderates pace.
+4. Diane stops at a genuine road-side destination, gets out, and walks to meet three existing plainclothes officers. Reese observes the meeting either while stopped in a car or on foot, with a short proximity and facing requirement.
+5. **After being observed**, Diane walks back to her **same parked car and visibly gets in again**. Only then does Reese receive the “Return to Finch” objective and can report on Floor 53.
+6. Preserve the four opening and two closing Finch dialogue bubbles, local mission checkpoint persistence, existing 100 pedestrians/125 traffic cars, and all normal movement, elevator and Finch HQ systems.
+7. The map pin remains anonymous and static. An unobtrusive circle-`i` can mark Diane's car in the 3D world during the pursuit; never reveal her number on the map or above her car.
+
+**Acceptance checklist:** real separate player/Diane cars; drive across city, not a short block; no instant teleport; Diane visibly exits, meets officers, returns to vehicle and disappears on boarding; player can follow in a car; no manual mission failure timer; report triggers only after completed meeting/reboarding.
+
+**Status:** implemented on `feature/level-001-diane-20261102`; preview and visual owner acceptance pending.
