@@ -2,7 +2,9 @@ import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
 import {Button} from "@/components/ui/button";
-import {FINCH_INTRO_005,FINCH_INTRO_STORAGE_KEY_005} from "@/game/experiments/north-heights-finch-intro-005";
+import {FINCH_INTRO_005} from "@/game/experiments/north-heights-finch-intro-005";
+import {DIANE_DIALOGUE_REPORT_001,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
+ from "@/game/experiments/level001-diane-007";
 import type {FinchElevatorState004} from "@/game/experiments/north-heights-finch-lobby-004";
 import {RadioController} from "@/game/audio/radio/radio-controller";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
@@ -58,14 +60,24 @@ function NorthHeightsPreview(){
   const [inside,setInside]=useState(false);
   const [elevator,setElevator]=useState<FinchElevatorState004|null>(null);
   const [nearFinch,setNearFinch]=useState(false);
-  const [introCompleted,setIntroCompleted]=useState(()=>
-    typeof window!=="undefined"&&window.localStorage.getItem(FINCH_INTRO_STORAGE_KEY_005)==="yes");
+  const [dianeMission,setDianeMission]=useState<DianeMissionView001>(()=>{
+    const p=readDianeProgress001();
+    return {phase:p.phase,ssn:p.ssn,name:"Diane",
+      poi:p.phase==="find"?{...DIANE_START_HINT_001}:null,
+      objective:dianeObjective001(p.phase)};
+  });
+  const missionPhaseRef=useRef(dianeMission.phase);
+  const [missionCompletedBanner,setMissionCompletedBanner]=useState(false);
   const [dialogueIndex,setDialogueIndex]=useState<number|null>(null);
+  const [dialogueKind,setDialogueKind]=useState<"assignment"|"report">("assignment");
+  const activeLines=dialogueKind==="assignment"?FINCH_INTRO_005:DIANE_DIALOGUE_REPORT_001;
   const advanceFinchDialogue=()=>{
     if(dialogueIndex===null)return;
-    if(dialogueIndex<FINCH_INTRO_005.length-1){setDialogueIndex(dialogueIndex+1);return;}
-    window.localStorage.setItem(FINCH_INTRO_STORAGE_KEY_005,"yes");
-    setIntroCompleted(true);setDialogueIndex(null);
+    if(dialogueIndex<activeLines.length-1){setDialogueIndex(dialogueIndex+1);return;}
+    const ok=dialogueKind==="assignment"
+      ?controller.current?.startDianeMission()
+      :controller.current?.reportDianeMission();
+    if(ok)setDialogueIndex(null);
   };
   const elevatorAction=elevator?.available&&!elevator.moving?{
     direction:elevator.direction,
@@ -81,9 +93,10 @@ function NorthHeightsPreview(){
   const inputMode=useInputMode();
   const ready=firstPlayable&&status.includes("physics ready");
   useEffect(()=>{
-    if(nearFinch&&ready&&!paused&&!introCompleted&&dialogueIndex===null)
-      setDialogueIndex(0);
-  },[nearFinch,ready,paused,introCompleted,dialogueIndex]);
+    if(!nearFinch||!ready||paused||dialogueIndex!==null)return;
+    if(dianeMission.phase==="unassigned"){setDialogueKind("assignment");setDialogueIndex(0);}
+    if(dianeMission.phase==="return"){setDialogueKind("report");setDialogueIndex(0);}
+  },[nearFinch,ready,paused,dialogueIndex,dianeMission.phase]);
   const failed=/failed|failure|error/i.test(status);
   const touchVisible=coarse&&!(settings.autoHide&&inputMode==="keyboard");
   const desktopVisible=!coarse&&settings.desktopControls;
@@ -173,7 +186,16 @@ function NorthHeightsPreview(){
             setFirstPlayable(true);setLoadingSnapshot(ledger.snapshot());
           }},
           state=>{if(!closed)setElevator(state);},
-          near=>{if(!closed)setNearFinch(near);});
+          near=>{if(!closed)setNearFinch(near);},
+          view=>{if(!closed){
+            const previous=missionPhaseRef.current;
+            missionPhaseRef.current=view.phase;
+            setDianeMission(view);
+            if(view.phase==="return"&&previous==="follow")
+              setFeedback("Diane met three officers. Return to Finch.");
+            if(view.phase==="complete"&&previous==="return")
+              setMissionCompletedBanner(true);
+          }});
         if(closed)instance.dispose();
         else{
           // First-frame completion is delivered by Babylon onAfterRender, not here.
@@ -209,9 +231,7 @@ function NorthHeightsPreview(){
   const snapshot:GameSnapshot={
     lifecycle:ready?(paused?"paused":"running"):"bootstrapping",
     context:vehicle?"driving":"walking",location,
-    objective:sedanPassenger?
-      "Stage 6 · W/Up forward · S/Down brake/reverse · hold Left/Right to steer anywhere · walls solid · P autopilot"
-      :"Explore North Heights on foot or in flight",
+    objective:dianeMission.objective,
     health:100,reputation:0,heat:0,speed:vehicleSpeed,vehicle,
     meridianTime:clock,meridianMinuteOfDay:Math.floor(meridianMinute),
     meridianTimeScale:meridianSpeed,interiorState:inside?"inside":"outside",
@@ -240,7 +260,8 @@ function NorthHeightsPreview(){
         className="absolute inset-0 h-full w-full" style={{touchAction:"none"}}/>
       {ready&&settings.hud&&<GameHud snapshot={snapshot}
         context={vehicle?"driving":"walking"}
-        mapSlot={<NorthHeightsMiniMap position={position} onExpand={()=>setMapOpen(true)}/>}
+        mapSlot={<NorthHeightsMiniMap position={position} poi={dianeMission.poi}
+          onExpand={()=>setMapOpen(true)}/>}
         metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div className="flex items-center gap-2 rounded bg-black/75 px-3 py-2 text-xs text-white" aria-label="Vehicle music"><span>VEHICLE MUSIC · {radioState.status.toUpperCase()}</span><button type="button" onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button></div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
         className="flex max-w-[min(85vw,360px)] flex-wrap items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
         <span>{sedanManual
@@ -271,21 +292,29 @@ function NorthHeightsPreview(){
       {ready&&!paused&&elevator?.moving&&
         <div className="pointer-events-none absolute right-3 top-[30%] z-30 rounded border border-white/25 bg-black/70 px-3 py-2 text-xs text-white"
           role="status">FINCH HQ · LIFT IN MOTION · {elevator.progress}% HEIGHT</div>}
-      {ready&&nearFinch&&introCompleted&&!paused&&dialogueIndex===null&&
-        <Button variant="control" className="absolute bottom-[28%] left-1/2 z-30 -translate-x-1/2 gtd-uniform-action"
-          data-testid="poi005-replay" onClick={()=>setDialogueIndex(0)}>Talk to Finch</Button>}
+      {ready&&missionCompletedBanner&&!paused&&
+        <div className="absolute left-1/2 top-[22%] z-40 w-[min(90vw,390px)] -translate-x-1/2 rounded-xl border border-white/35 bg-[#111c29]/95 p-4 text-center text-white shadow-lg"
+          role="status" data-testid="level001-completed">
+          <strong>MISSION COMPLETED</strong>
+          <div className="mt-1 text-sm">Level 001 — Diane</div>
+          <div className="mt-2 text-xs text-white/70">Investigation reported to Finch.</div>
+          <Button variant="control" className="mt-3 gtd-uniform-action"
+            onClick={()=>setMissionCompletedBanner(false)}>Continue</Button>
+        </div>}
       {ready&&!paused&&dialogueIndex!==null&&
         <section className="absolute bottom-[22%] left-1/2 z-40 w-[min(92vw,540px)] -translate-x-1/2 rounded-xl border border-white/25 bg-[#101b28]/90 px-4 py-3 text-white shadow-lg backdrop-blur-sm"
-          aria-label="Harold Finch introduction" role="dialog" aria-modal="false">
+          aria-label="Level 001 Finch dialogue" role="dialog" aria-modal="false">
           <div className="mb-2 flex items-center justify-between text-xs">
-            <span className="font-semibold tracking-wide text-[#dbe6f4]">HAROLD FINCH</span>
-            <span className="text-white/60">{dialogueIndex+1} / {FINCH_INTRO_005.length}</span>
+            <span className="font-semibold tracking-wide text-[#dbe6f4]">
+              {dialogueKind==="report"&&dialogueIndex===0?"JOHN REESE":"HAROLD FINCH"}
+            </span>
+            <span className="text-white/60">{dialogueIndex+1} / {activeLines.length}</span>
           </div>
-          <p className="mb-3 text-sm leading-relaxed text-white/95">{FINCH_INTRO_005[dialogueIndex]}</p>
+          <p className="mb-3 text-sm leading-relaxed text-white/95">{activeLines[dialogueIndex]}</p>
           <div className="flex justify-end">
             <Button variant="control" className="gtd-uniform-action px-4" data-testid="poi005-next"
               onClick={advanceFinchDialogue}>
-              {dialogueIndex===FINCH_INTRO_005.length-1?"Finish":"Next"}
+              {dialogueIndex===activeLines.length-1?"Finish":"Next"}
             </Button>
           </div>
         </section>}
@@ -306,7 +335,7 @@ function NorthHeightsPreview(){
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} elevator={dialogueIndex===null?elevatorAction:undefined}/>}
-      {mapOpen&&<NorthHeightsExpandedMap position={position} onClose={()=>setMapOpen(false)}
+      {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} onClose={()=>setMapOpen(false)}
         vehicleOccupied={sedanPassenger}
         onFinchHQSelect={()=>{
           const routed=controller.current?.driveToFinchHQ()??false;
