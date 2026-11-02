@@ -48,6 +48,8 @@ import {ProceduralVehicleAudio021} from "@/game/audio/vehicle/procedural-vehicle
 import {createFinchLobby004,type FinchLobby004,type FinchElevatorState004} from "./north-heights-finch-lobby-004";
 import {createFinchSuite005,type FinchSuite005} from "./north-heights-finch-suite-005";
 import {FINCH_START_005} from "./north-heights-finch-intro-005";
+import {finchLobbyMinimumCapsuleY006} from "./north-heights-finch-elevator-structure-004";
+import {constrainFinchCabinCamera006} from "./north-heights-finch-lobby-004";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
@@ -290,7 +292,11 @@ export async function createNorthHeightsCity8(
         ?cameraBlockers.filter(box=>Math.abs(box.x-46.002)>1||Math.abs(box.z+94.18)>1)
         :cameraBlockers,
     );
-    camera.position.set(computed.position.x,computed.position.y,computed.position.z);
+    // Camera remains strictly inside glass walls/ceiling while the player
+    // occupies the lift, including its closing, travel, opening and idle states.
+    const inside=liftFrame?.cameraCabin??null;
+    const p=inside?constrainFinchCabinCamera006(computed.position,inside):computed.position;
+    camera.position.set(p.x,p.y,p.z);
     camera.setTarget(new Vector3(computed.target.x,computed.target.y,computed.target.z));
   };
   const boundActor=()=>{
@@ -299,7 +305,8 @@ export async function createNorthHeightsCity8(
     const limited=clampNorthHeightsActorXZ(point.x,point.z);
     // Player capsule centre is .92m above foot support; never put flight
     // beneath the local ridge, even on boundary transitions.
-    const minY=northHeightsGround(limited.x,limited.z)+.92+.12;
+    const minY=finchLobbyMinimumCapsuleY006(limited.x,limited.z,northHeightsGround)
+      ??northHeightsGround(limited.x,limited.z)+.92+.12;
     if(limited.x!==point.x||limited.z!==point.z||point.y<minY){
       walk.physics.setPlayerPosition({x:limited.x,y:Math.max(minY,point.y),z:limited.z});
     }
