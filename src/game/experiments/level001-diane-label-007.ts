@@ -23,8 +23,8 @@ export function createDianeWorldLabel001(scene:Scene){
  plane.isPickable=false;plane.setEnabled(false);
  return {
   update(target:{x:number;z:number},player:{x:number;z:number}|null,
-   ground:(x:number,z:number)=>number,stage:DianeMissionView001["phase"]){
-   const visible=(stage==="find"||stage==="follow")&&!!player&&
+   ground:(x:number,z:number)=>number,stage:DianeMissionView001["phase"],characterOutside:boolean){
+   const visible=(stage==="find"||stage==="follow"||stage==="observe")&&characterOutside&&!!player&&
     Math.hypot(player.x-target.x,player.z-target.z)<27;
    if(!visible){plane.setEnabled(false);return;}
    plane.position.set(target.x,ground(target.x,target.z)+2.27,target.z);
