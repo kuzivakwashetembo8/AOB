@@ -10,8 +10,9 @@ const regionColor:Record<string,string>={
  "Glass Exchange":"#516574","Eastview Quarter":"#485d6a",
  "Ridge Gardens":"#3c5854","Summit Crest":"#4a5c6b",
 };
-function DistrictVector({x,z,labels=false,onFinchSelect}:{
- x:number;z:number;labels?:boolean;onFinchSelect?:()=>void
+function DistrictVector({x,z,labels=false,onFinchSelect,poi}:{
+ x:number;z:number;labels?:boolean;onFinchSelect?:()=>void;
+ poi?:{x:number;z:number}|null
 }){
  const point=northHeightsMapPoint010({x,z});
  return <g>
@@ -49,6 +50,16 @@ function DistrictVector({x,z,labels=false,onFinchSelect}:{
       transform={`rotate(90 ${road.x+4} 13)`}>{road.northSouth}</text>
     <text x="8" y={road.z-5} fontSize="9" fill="#e4edf1">{road.eastWest}</text>
   </g>)}
+  {/* Level 001: anonymous circular i, no person name, number or map caption. */}
+  {poi&&(()=>{
+   const p=northHeightsMapPoint010(poi);
+   return <g aria-label="Point of interest" data-testid="level001-anonymous-poi">
+     <circle cx={p.x} cy={p.y} r={labels?13:18}
+       fill="#172b3c" stroke="#fff" strokeWidth={labels?2.5:3.5}/>
+     <text x={p.x} y={p.y+(labels?5:7)} textAnchor="middle"
+       fill="#fff" fontWeight="bold" fontSize={labels?19:26}>i</text>
+   </g>;
+  })()}
   {/* POI-002: static headquarters landmark, not a mission objective or player position. */}
   <g aria-label="Finch headquarters location"
     role={onFinchSelect?"button":undefined}
@@ -87,8 +98,8 @@ function DistrictVector({x,z,labels=false,onFinchSelect}:{
     fill="none" stroke="#ffffff" strokeOpacity=".6" strokeWidth="3"/>
  </g>;
 }
-export function NorthHeightsMiniMap({position,onExpand}:{
- position:{x:number;z:number};onExpand:()=>void
+export function NorthHeightsMiniMap({position,onExpand,poi}:{
+ position:{x:number;z:number};onExpand:()=>void;poi?:{x:number;z:number}|null
 }){
  return <button type="button" aria-label="Expand North Heights map"
   title="Open North Heights map"
@@ -96,16 +107,17 @@ export function NorthHeightsMiniMap({position,onExpand}:{
   className="relative z-10 shrink-0 overflow-hidden rounded-full border border-white/45 bg-[#071522] shadow-xl"
   style={{width:"clamp(82px,9vw,116px)",height:"clamp(82px,9vw,116px)"}}>
   <svg viewBox="0 0 640 640" aria-hidden="true" className="h-full w-full">
-    <DistrictVector x={position.x} z={position.z}/>
+    <DistrictVector x={position.x} z={position.z} poi={poi}/>
   </svg>
   <span className="sr-only">
     North Heights
   </span>
  </button>;
 }
-export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicleOccupied=false}:{
+export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicleOccupied=false,poi}:{
  position:{x:number;z:number};onClose:()=>void;
  onFinchHQSelect?:()=>boolean;vehicleOccupied?:boolean;
+ poi?:{x:number;z:number}|null;
 }){
  const [zoom,setZoom]=useState(1);
  const [destinationNotice,setDestinationNotice]=useState("");
@@ -149,7 +161,7 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
        onPointerUp={()=>{drag.current=null;}}
        onPointerCancel={()=>{drag.current=null;}}>
        <g transform={`translate(${pan.x} ${pan.y}) translate(320 320) scale(${zoom}) translate(-320 -320)`}>
-         <DistrictVector x={position.x} z={position.z} labels
+         <DistrictVector x={position.x} z={position.z} labels poi={poi}
            onFinchSelect={()=> {
              if(!vehicleOccupied){setDestinationNotice("Enter a vehicle to navigate to Finch HQ");return;}
              if(!onFinchHQSelect?.())setDestinationNotice("Unable to start navigation: use a road-going vehicle");
