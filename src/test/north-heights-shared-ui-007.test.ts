@@ -20,7 +20,7 @@ describe("NH-007 shared settings and controls",()=>{
   });
   it("uses one Rapier player with two switchable actual GLB visual actors",()=>{
     expect(engine).toContain("loadMeridiaCharacterTrial(scene)");
-    expect(engine).toContain("createMercerStaticCharacter(scene)");
+    expect(engine).toContain("createReesePlayer001(scene)");
     expect(engine).toContain("actor.anchor.setEnabled(enabled)");
     expect(engine).toContain("humanoid.root.setEnabled(!enabled)");
     expect(engine).toContain("controller.setMode(mode===\"walk\"?\"fly\":\"walk\")");
