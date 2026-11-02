@@ -12,7 +12,7 @@ const regionColor:Record<string,string>={
 };
 function DistrictVector({x,z,labels=false,onFinchSelect,poi}:{
  x:number;z:number;labels?:boolean;onFinchSelect?:()=>void;
- poi?:{x:number;z:number}|null
+ poi?:{x:number;z:number}|null|undefined
 }){
  const point=northHeightsMapPoint010({x,z});
  return <g>
@@ -99,7 +99,7 @@ function DistrictVector({x,z,labels=false,onFinchSelect,poi}:{
  </g>;
 }
 export function NorthHeightsMiniMap({position,onExpand,poi}:{
- position:{x:number;z:number};onExpand:()=>void;poi?:{x:number;z:number}|null
+ position:{x:number;z:number};onExpand:()=>void;poi?:{x:number;z:number}|null|undefined
 }){
  return <button type="button" aria-label="Expand North Heights map"
   title="Open North Heights map"
@@ -117,7 +117,7 @@ export function NorthHeightsMiniMap({position,onExpand,poi}:{
 export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicleOccupied=false,poi}:{
  position:{x:number;z:number};onClose:()=>void;
  onFinchHQSelect?:()=>boolean;vehicleOccupied?:boolean;
- poi?:{x:number;z:number}|null;
+ poi?:{x:number;z:number}|null|undefined;
 }){
  const [zoom,setZoom]=useState(1);
  const [destinationNotice,setDestinationNotice]=useState("");
