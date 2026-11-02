@@ -50,6 +50,8 @@ import {createFinchSuite005,type FinchSuite005} from "./north-heights-finch-suit
 import {FINCH_START_005} from "./north-heights-finch-intro-005";
 import {finchLobbyMinimumCapsuleY006} from "./north-heights-finch-elevator-structure-004";
 import {constrainFinchCabinCamera006} from "./north-heights-finch-lobby-004";
+import {DianeLevel001,readDianeProgress001,type DianeMissionView001} from "./level001-diane-007";
+import {createDianeWorldLabel001} from "./level001-diane-label-007";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
@@ -64,6 +66,8 @@ export interface NorthHeightsInspection {
   toggleSedanAutopilot: () => void;
   driveToFinchHQ: () => boolean;
   travelFinchElevator: () => boolean;
+  startDianeMission: () => boolean;
+  reportDianeMission: () => boolean;
   dispose: () => void;
 }
 export async function createNorthHeightsCity8(
@@ -80,6 +84,7 @@ export async function createNorthHeightsCity8(
   onFirstPlayableFrame?: ()=>void,
   onElevatorChange?: (state:FinchElevatorState004|null)=>void,
   onFinchProximityChange?: (near:boolean)=>void,
+  onDianeMissionChange?: (state:DianeMissionView001)=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -138,6 +143,8 @@ export async function createNorthHeightsCity8(
   let pedestrianAccumulator=0;
   let pedestrianCharacters:PedestrianCharacterRenderer001|null=null;
   let pedestrianLoading=false,pedestrianLoadError="";
+  let dianeLevel:DianeLevel001|null=null;
+  let dianeLabel:ReturnType<typeof createDianeWorldLabel001>|null=null;
   /** SDN-001: passenger association with an EXISTING NH-012 agent, not a car actor. */
   let ridingSedanId:string|null=null;
   let rideLastHeading=0;
@@ -394,6 +401,9 @@ export async function createNorthHeightsCity8(
       while(pedestrianAccumulator>=.05-1e-7&&pedSteps++<3){
         pedestrians.step(.05);pedestrianAccumulator-=.05;
       }
+      const missionPlayer=(!ridingSedanId&&mode==="walk"&&walk)
+        ?walk.physics.playerPosition():null;
+      dianeLevel?.tick(dt,missionPlayer,yaw,!!missionPlayer,northHeightsGround);
     }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
@@ -539,6 +549,11 @@ export async function createNorthHeightsCity8(
     // PED-002 checklist 01: characters only. Pending/failed GLBs stay absent.
     if(pedestrians&&pedestrianCharacters){
       pedestrianCharacters.update(pedestrians,camera);
+    }
+    if(dianeLevel&&dianeLabel){
+      dianeLabel.update(dianeLevel.npcPosition,
+        walk&&!ridingSedanId?walk.physics.playerPosition():null,
+        northHeightsGround,dianeLevel.stage);
     }
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
@@ -745,6 +760,8 @@ export async function createNorthHeightsCity8(
     },
     toggleSedanAutopilot,
     driveToFinchHQ,
+    startDianeMission(){return dianeLevel?.assign()??false;},
+    reportDianeMission(){return dianeLevel?.report()??false;},
     travelFinchElevator(){
       if(!finchLobby?.requestTravel()){
         onFeedback?.("Step inside Finch HQ elevator before traveling");return false;
@@ -784,6 +801,7 @@ export async function createNorthHeightsCity8(
       if(liftCollisionDisabled)walk?.physics.setPlayerCollisionEnabled(true);
       liftCollisionDisabled=false;
       pedestrianCharacters?.dispose();pedestrianCharacters=null;
+      dianeLabel?.dispose();dianeLabel=null;dianeLevel=null;
       pedestrians=null;
       traffic3D?.dispose();traffic3D=null;
       for(const hull of solidVehicleHandles.values())hull.dispose();
@@ -898,6 +916,9 @@ export async function createNorthHeightsCity8(
     // Crossings remain geometric-only until the dedicated yielding stage.
     pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
     pedestrians.setVehicleOccupancy((x,z)=>solidField.personClear({x,z}));
+    dianeLevel=new DianeLevel001(pedestrians,readDianeProgress001(),
+      view=>onDianeMissionChange?.(view));
+    dianeLabel=createDianeWorldLabel001(scene);
     console.info("[PED-002] pedestrian graph and independent simulator initialized",{
       agents:pedestrians.population,nodes:pedestrians.graph.nodes.size,
       doorways:pedestrians.graph.entrances.size,parks:pedestrians.graph.parks.length,
