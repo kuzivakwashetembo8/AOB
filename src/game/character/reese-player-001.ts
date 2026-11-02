@@ -65,7 +65,7 @@ export function createReesePlayer001(scene:Scene,
  let controlled=false,hiddenDriving=false,closed=false;
  let flight=false,meshCount=0,boneCount=0;
  let flightPitch=0,flightRoll=0;
- const groups:Record<string,AnimationGroup|null>={
+ const groups:Record<"idle"|"walk"|"run"|"jump"|"fall"|"land",AnimationGroup|null>={
   idle:null,walk:null,run:null,jump:null,fall:null,land:null,
  };
  const report={source:REESE_PLAYER_PATH_001,animations:0,scale:1,
