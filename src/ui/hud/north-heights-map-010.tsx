@@ -1,33 +1,48 @@
 import {useEffect,useRef,useState} from "react";
 import {X,Plus,Minus,MapPinned} from "lucide-react";
 import {
- NORTH_HEIGHTS_MAP_ROADS_010,NORTH_HEIGHTS_MAP_BLOCKS_010,
+ NORTH_HEIGHTS_MAP_ROADS_010,
  NORTH_HEIGHTS_MAP_PARKING_010,NORTH_HEIGHTS_MAP_FINCH_HQ_001,northHeightsMapPoint010,
 } from "@/game/experiments/north-heights-map-data-010";
 
+export type NorthHeightsMapBuilding011={id:string;x:number;z:number;width:number;depth:number;floors:number;kind:string};
 const regionColor:Record<string,string>={
  "South Gateway":"#405365","West Terrace":"#475562",
  "Glass Exchange":"#516574","Eastview Quarter":"#485d6a",
  "Ridge Gardens":"#3c5854","Summit Crest":"#4a5c6b",
 };
-function DistrictVector({x,z,labels=false,onFinchSelect,poi}:{
+function DistrictVector({x,z,labels=false,onFinchSelect,poi,buildings=[]}:{
  x:number;z:number;labels?:boolean;onFinchSelect?:()=>void;
- poi?:{x:number;z:number}|null|undefined
+ poi?:{x:number;z:number}|null|undefined;
+ buildings?:readonly NorthHeightsMapBuilding011[]|undefined;
 }){
  const point=northHeightsMapPoint010({x,z});
  return <g>
-  <rect width="640" height="640" fill="#172533"/>
-  {labels&&NORTH_HEIGHTS_MAP_BLOCKS_010.map(block=><rect key={block.id}
-    x={block.x+3} y={block.y+3} width="58" height="58" rx="2"
-    fill={block.kind==="park"?"#346553":
-      block.kind==="parking"?"#4d555d":regionColor[block.area]??"#43536a"}
-    opacity={block.kind==="building"?.72:1}/>)}
+  {/* World-space streets and real geometry, not abstract grid blocks. */}
+  <rect width="640" height="640" fill="#365d45"/>
   {NORTH_HEIGHTS_MAP_ROADS_010.map((road,i)=><g key={i}>
+    <line x1={road.x} x2={road.x} y1="0" y2="640" stroke="#afb9b4" strokeWidth="15.5"/>
+    <line x1="0" x2="640" y1={road.z} y2={road.z} stroke="#afb9b4" strokeWidth="15.5"/>
+    <line x1={road.x} x2={road.x} y1="0" y2="640" stroke="#30383e" strokeWidth="8"/>
+    <line x1="0" x2="640" y1={road.z} y2={road.z} stroke="#30383e" strokeWidth="8"/>
     <line x1={road.x} x2={road.x} y1="0" y2="640"
-      stroke="#aeb8bf" strokeWidth="7" strokeOpacity=".65"/>
+      stroke="#e6c56b" strokeWidth=".6" strokeDasharray="5 8"/>
     <line x1="0" x2="640" y1={road.z} y2={road.z}
-      stroke="#aeb8bf" strokeWidth="7" strokeOpacity=".65"/>
+      stroke="#e6c56b" strokeWidth=".6" strokeDasharray="5 8"/>
   </g>)}
+  {buildings.map(b=>{
+    const p=northHeightsMapPoint010(b);
+    const fill=b.kind==="podium-tower"?"#548397":b.kind==="office"?"#667d8c":"#7a8588";
+    return <g key={b.id}>
+      <rect x={p.x-b.width/2+1} y={p.y-b.depth/2+1}
+        width={b.width} height={b.depth} fill="#162e34" opacity=".5"/>
+      <rect x={p.x-b.width/2} y={p.y-b.depth/2} width={b.width} height={b.depth}
+        rx="1.5" fill={fill} stroke="#b9d1d7" strokeWidth="1"/>
+      <rect x={p.x-b.width/2+3} y={p.y-b.depth/2+3}
+        width={Math.max(1,b.width-6)} height={Math.max(1,b.depth-6)}
+        fill="none" stroke="#c9d8e2" opacity=".45" strokeWidth=".6"/>
+    </g>;
+  })}
   {labels&&NORTH_HEIGHTS_MAP_PARKING_010.map(lot=><g key={lot.id}>
     <rect x={lot.x-18} y={lot.y-18} width="36" height="36"
       fill="#7b8a91" stroke="#f3cd78" strokeWidth="2"/>
@@ -98,26 +113,29 @@ function DistrictVector({x,z,labels=false,onFinchSelect,poi}:{
     fill="none" stroke="#ffffff" strokeOpacity=".6" strokeWidth="3"/>
  </g>;
 }
-export function NorthHeightsMiniMap({position,onExpand,poi}:{
- position:{x:number;z:number};onExpand:()=>void;poi?:{x:number;z:number}|null|undefined
+export function NorthHeightsMiniMap({position,onExpand,poi,buildings}:{
+ position:{x:number;z:number};onExpand:()=>void;poi?:{x:number;z:number}|null|undefined;
+ buildings?:readonly NorthHeightsMapBuilding011[]|undefined;
 }){
  return <button type="button" aria-label="Expand North Heights map"
   title="Open North Heights map"
   onClick={onExpand}
   className="relative z-10 shrink-0 overflow-hidden rounded-full border border-white/45 bg-[#071522] shadow-xl"
   style={{width:"clamp(82px,9vw,116px)",height:"clamp(82px,9vw,116px)"}}>
-  <svg viewBox="0 0 640 640" aria-hidden="true" className="h-full w-full">
-    <DistrictVector x={position.x} z={position.z} poi={poi}/>
+  <svg viewBox={`${northHeightsMapPoint010(position).x-96} ${northHeightsMapPoint010(position).y-96} 192 192`}
+     aria-hidden="true" className="h-full w-full">
+    <DistrictVector x={position.x} z={position.z} poi={poi} buildings={buildings}/>
   </svg>
   <span className="sr-only">
     North Heights
   </span>
  </button>;
 }
-export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicleOccupied=false,poi}:{
+export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicleOccupied=false,poi,buildings}:{
  position:{x:number;z:number};onClose:()=>void;
  onFinchHQSelect?:()=>boolean;vehicleOccupied?:boolean;
  poi?:{x:number;z:number}|null|undefined;
+ buildings?:readonly NorthHeightsMapBuilding011[]|undefined;
 }){
  const [zoom,setZoom]=useState(1);
  const [destinationNotice,setDestinationNotice]=useState("");
@@ -161,7 +179,7 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
        onPointerUp={()=>{drag.current=null;}}
        onPointerCancel={()=>{drag.current=null;}}>
        <g transform={`translate(${pan.x} ${pan.y}) translate(320 320) scale(${zoom}) translate(-320 -320)`}>
-         <DistrictVector x={position.x} z={position.z} labels poi={poi}
+         <DistrictVector x={position.x} z={position.z} labels poi={poi} buildings={buildings}
            onFinchSelect={()=> {
              if(!vehicleOccupied){setDestinationNotice("Enter a vehicle to navigate to Finch HQ");return;}
              if(!onFinchHQSelect?.())setDestinationNotice("Unable to start navigation: use a road-going vehicle");
