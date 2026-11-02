@@ -735,6 +735,7 @@ export class NH012TrafficSimulator {
  /** Reconcile stale junction ownership after impact recovery, re-parking
   * or driver handoffs. Never clear a real car still inside the connector. */
  private reconcileJunctionReservations001(){
+  if(!this.dianePace001)return; // preserve baseline/manual traffic semantics
   for(const [junction,id] of this.reservations){
    const owner=this.agents.find(agent=>agent.id===id);
    const connector=owner?.connectorId?this.graph.connectors.get(owner.connectorId):null;
