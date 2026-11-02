@@ -7,6 +7,8 @@ import {
 import { defaults, type Settings } from "@/ui/menus/settings-state";
 import {updateGtdToPublishedRelease001,type GtdUpdateStage001} from "@/lib/gtd-update-001";
 
+declare const __GTD_RELEASE_ID__: string;
+
 /** Shared form, mounted inside the paused game without navigating away. */
 // OPT-05: controls without a connected runtime implementation must be
 // discoverable, but must not accept changes or claim that they work.
@@ -35,6 +37,11 @@ export function SettingsEditor({
   const [updating, setUpdating] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<string|null>(null);
   const [updateError, setUpdateError] = useState(false);
+  const queryRelease=typeof window!=="undefined"
+    ?new URLSearchParams(window.location.search).get("gtd_update")?.slice(0,12)
+    :undefined;
+  const staleAfterUpdate=Boolean(queryRelease&&
+    !__GTD_RELEASE_ID__.startsWith(queryRelease));
   const updateGame = () => {
     if(updating)return;
     setUpdating(true);setUpdateError(false);
@@ -273,6 +280,11 @@ export function SettingsEditor({
                   Progress and settings are preserved. The full offline game pack
                   may require reinstallation. Unsaved in-session activity may be lost.
                 </p>
+                {staleAfterUpdate&&!updateStatus&&
+                  <p className="text-destructive text-sm" role="alert">
+                    The loaded game does not match the requested update.
+                    Select Update Game again to retry.
+                  </p>}
                 {updateStatus&&<p className={updateError?"text-destructive text-sm":"toast-line"}
                   data-testid="gtd-update-status" role="status" aria-live="polite">
                   {updateStatus}
