@@ -13,7 +13,7 @@ import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-hei
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import {loadNorthHeightsStreetLamps012,planNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
-import { createMercerStaticCharacter } from "@/game/world/mercer-static-character-103";
+import { createReesePlayer001 } from "@/game/character/reese-player-001";
 import {loadMeridiaCharacterTrial,type LoadedMeridiaCharacter} from "@/game/character/voight-humanoid-trial";
 import type {GameAction} from "@/game/core/types";
 import {northHeightsActionControl007,northHeightsUnavailableAction007} from "./north-heights-controls-007";
@@ -158,7 +158,7 @@ export async function createNorthHeightsCity8(
   let lastLocationStreet:string|undefined;
   let lastLocationText="";
   let locationTick=0;
-  let actor:ReturnType<typeof createMercerStaticCharacter>|null=null;
+  let actor:ReturnType<typeof createReesePlayer001>|null=null;
   let humanoid:LoadedMeridiaCharacter|null=null;
   let mode:"walk"|"fly"="fly";
   let headingYaw=Math.PI;
@@ -900,8 +900,8 @@ export async function createNorthHeightsCity8(
     // Stage 6: the six parked GLBs are not imported, preloaded, instantiated
     // or added to Rapier in North Heights. Parking pads may remain empty.
     buildingInteriors=world.lotSpecs;
-    status("Loading Voight's accepted walking animation and physics capsule");
-    actor=createMercerStaticCharacter(scene);
+    status("Loading Agent Reese and his embedded animations");
+    actor=createReesePlayer001(scene);
     await actor.ready;
     if(closed)return controller;
     actor.setControlled(true);
