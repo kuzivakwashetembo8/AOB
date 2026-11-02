@@ -40,7 +40,11 @@ describe("PED-001 VIS-004: rounded curb fascia has realistic side shading",()=>{
      // Physical side-facing normals now permit a slight natural shadow.
      const vertical=Array.from({length:normals.length/3},(_,i)=>normals[i*3+1]!);
      expect(vertical.some(y=>Math.abs(y)<.75)).toBe(true);
-     expect(vertical.some(y=>y>.95)).toBe(true);
+     // The sidewalk top is a different mesh, so it retains its own upward
+     // normals while this fascia mesh intentionally faces sideways.
+     const pavementNormals=top.getVerticesData(VertexBuffer.NormalKind)!;
+     expect(Array.from({length:pavementNormals.length/3},(_,i)=>
+       pavementNormals[i*3+1]!).some(y=>y>.95)).toBe(true);
    }finally{scene.dispose();engine.dispose();}
  });
 });
