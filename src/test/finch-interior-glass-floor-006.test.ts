@@ -48,8 +48,7 @@ describe("POI-006 uniformly flat HQ and full-glass elevator",()=>{
  it("makes every cabin component transparent glass and confines the camera inside",()=>{
   const engine=new NullEngine(),scene=new Scene(engine);
   let active=0;
-  const physics={addStaticBox:()=>{active++;return {dispose:()=>{active--;}};}}
-   as unknown as MeridianPhysics;
+  const physics={addStaticBox:()=>{active++;return {dispose:()=>{active--;}};}} as unknown as MeridianPhysics;
   const lift=createFinchLobby004(scene,[lot],northHeightsGround,physics);
   const shaft=finchShaft004(lot)!;
   const base=northHeightsGround(lot.position.x,lot.position.z)+shaft.bottomFloorOffset;
