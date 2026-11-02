@@ -21,8 +21,8 @@ describe("PED-001 VIS-004: animated pedestrian ground support",()=>{
    expect(source).not.toContain("slot.anchor.position.set(a.x,ground(a.x,a.z),a.z)");
  });
 });
-describe("PED-001 VIS-004: curb fascia and pavement top have identical shading",()=>{
- it("shares one material and upward normals while retaining five road batches",()=>{
+describe("PED-001 VIS-004: rounded curb fascia has realistic side shading",()=>{
+ it("shares concrete material with genuinely lit vertical normals in five batches",()=>{
    const engine=new NullEngine(),scene=new Scene(engine);
    try{
      const mats=Object.fromEntries(["asphalt","pavement","curb","crossing","marking"].map(name=>
@@ -36,11 +36,11 @@ describe("PED-001 VIS-004: curb fascia and pavement top have identical shading",
      expect(side.material).toBe(mats.pavement);
      expect(side.getTotalIndices()).toBeGreaterThan(800);
      const normals=side.getVerticesData(VertexBuffer.NormalKind)!;
-     for(let i=0;i<normals.length;i+=3){
-       expect(normals[i]).toBe(0);
-       expect(normals[i+1]).toBe(1);
-       expect(normals[i+2]).toBe(0);
-     }
+     // The accepted old upward normals erased the visual 3D curb edge.
+     // Physical side-facing normals now permit a slight natural shadow.
+     const vertical=Array.from({length:normals.length/3},(_,i)=>normals[i*3+1]!);
+     expect(vertical.some(y=>Math.abs(y)<.75)).toBe(true);
+     expect(vertical.some(y=>y>.95)).toBe(true);
    }finally{scene.dispose();engine.dispose();}
  });
 });
