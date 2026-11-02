@@ -5,7 +5,7 @@ export function createDianeWorldLabel001(scene:Scene){
  const texture=new DynamicTexture("level001:diane-identity-texture",
   {width:512,height:128},scene,true);
  texture.hasAlpha=true;
- const ctx=texture.getContext();
+ const ctx=texture.getContext() as unknown as CanvasRenderingContext2D;
  ctx.clearRect(0,0,512,128);
  ctx.fillStyle="rgba(15,22,31,.84)";ctx.fillRect(14,8,484,112);
  ctx.strokeStyle="rgba(240,244,250,.45)";ctx.lineWidth=3;ctx.strokeRect(14,8,484,112);
