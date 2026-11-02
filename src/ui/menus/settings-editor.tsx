@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Check, RotateCcw, Monitor, Volume2, Gamepad2, Eye, PanelsTopLeft, Smartphone, Activity } from "lucide-react";
+import { Check, RotateCcw, Monitor, Volume2, Gamepad2, Eye, PanelsTopLeft, Smartphone, Activity, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { defaults, type Settings } from "@/ui/menus/settings-state";
+import {updateGtdToPublishedRelease001,type GtdUpdateStage001} from "@/lib/gtd-update-001";
 
 /** Shared form, mounted inside the paused game without navigating away. */
 // OPT-05: controls without a connected runtime implementation must be
@@ -20,6 +21,7 @@ const categories = [
   { name: "Accessibility", icon: Eye },
   { name: "Interface", icon: PanelsTopLeft },
   { name: "Mobile Controls", icon: Smartphone },
+  { name: "System", icon: RefreshCw },
 ];
 export function SettingsEditor({
   initialSettings, onApply, inGame = false,
@@ -30,6 +32,20 @@ export function SettingsEditor({
 }) {
   const [category, setCategory] = useState("Graphics");
   const [saved, setSaved] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<string|null>(null);
+  const [updateError, setUpdateError] = useState(false);
+  const updateGame = () => {
+    if(updating)return;
+    setUpdating(true);setUpdateError(false);
+    setUpdateStatus("Checking the published G.T.D release…");
+    void updateGtdToPublishedRelease001((_stage:GtdUpdateStage001,detail)=>{
+      setUpdateStatus(detail);
+    }).catch((error:unknown)=>{
+      setUpdating(false);setUpdateError(true);
+      setUpdateStatus(error instanceof Error?error.message:"Update failed. Your saved game was preserved.");
+    });
+  };
   const [settings, setSettings] = useState<Settings>(initialSettings);
   // The standalone Settings route hydrates saved choices asynchronously.
   // Reflect that hydration without requiring a route reload.
@@ -236,6 +252,32 @@ export function SettingsEditor({
                 {toggle("haptics", "Touch haptics")}
                 {toggle("autoHide", "Hide when keyboard is active")}
               </>
+            )}
+            {category === "System" && (
+              <section className="space-y-3" aria-label="G.T.D release update">
+                <div className="setting-row">
+                  <span>Current game version<small>Update checks the newest published build on this site's domain.</small></span>
+                  <span className="system-label" data-testid="gtd-installed-release">
+                    {typeof __GTD_RELEASE_ID__==="string"?__GTD_RELEASE_ID__.slice(0,10):"DEVELOPMENT"}
+                  </span>
+                </div>
+                <Button variant="menu" type="button" disabled={updating}
+                  className="w-full justify-center" onClick={updateGame}
+                  data-testid="gtd-update-button">
+                  <RefreshCw size={17} className={updating?"animate-spin":""}/>
+                  {updating?"Updating G.T.D…":"Update Game"}
+                </Button>
+                <p className="overlay-note">
+                  Checks the latest deployed release, downloads its verified app shell,
+                  removes outdated game caches and reloads with fresh assets.
+                  Progress and settings are preserved. The full offline game pack
+                  may require reinstallation. Unsaved in-session activity may be lost.
+                </p>
+                {updateStatus&&<p className={updateError?"text-destructive text-sm":"toast-line"}
+                  data-testid="gtd-update-status" role="status" aria-live="polite">
+                  {updateStatus}
+                </p>}
+              </section>
             )}
             <div className="settings-bottom">
               <Button
