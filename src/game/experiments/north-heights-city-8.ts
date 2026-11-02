@@ -53,6 +53,7 @@ import {constrainFinchCabinCamera006} from "./north-heights-finch-lobby-004";
 import {DianeLevel001,readDianeProgress001,type DianeMissionView001} from "./level001-diane-007";
 import {createDianeWorldLabel001} from "./level001-diane-label-007";
 import {createDianeCarMarker008} from "./level001-diane-car-marker-008";
+import type {NorthHeightsMapBuilding011} from "@/ui/hud/north-heights-map-010";
 
 type Control = "forward" | "back" | "left" | "right" | "up" | "down" | "fast";
 export interface NorthHeightsInspection {
@@ -87,6 +88,7 @@ export async function createNorthHeightsCity8(
   onElevatorChange?: (state:FinchElevatorState004|null)=>void,
   onFinchProximityChange?: (near:boolean)=>void,
   onDianeMissionChange?: (state:DianeMissionView001)=>void,
+  onMapBuildings?: (buildings:readonly NorthHeightsMapBuilding011[])=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -863,6 +865,11 @@ export async function createNorthHeightsCity8(
   try {
     status("Generating North Heights · native roads, towers, terraces and facades");
     const world = buildNorthHeightsReconstruction(scene,mobile);
+    onMapBuildings?.(world.lotSpecs.map(l=>({
+      id:l.id,x:l.position.x,z:l.position.z,
+      width:l.overrides?.width??12,depth:l.overrides?.depth??12,
+      floors:l.overrides?.floors??1,kind:l.archetype,
+    })));
     cameraBlockers=northHeightsBuildingCollision005(world.lotSpecs).map(box=>({
       x:box.position.x,y:box.position.y,z:box.position.z,
       halfX:box.halfExtents.x,halfY:box.halfExtents.y,halfZ:box.halfExtents.z,
