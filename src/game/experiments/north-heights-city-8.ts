@@ -320,7 +320,7 @@ export async function createNorthHeightsCity8(
       if(room){
         const w=room.overrides?.width??12,d=room.overrides?.depth??12;
         const fh=room.overrides?.floorHeight??3.1;
-        const base=room.position.y+.27;
+        const base=northHeightsGround(room.position.x,room.position.z)+.27;
         // The camera is bounded by the containing room, not by a large
         // external collision sphere, so roof/floor cannot be peeked through.
         const floorIndex=Math.max(0,Math.round((player.y-.92-base)/fh));
