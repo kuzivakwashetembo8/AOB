@@ -71,6 +71,7 @@ export interface NorthHeightsInspection {
   startDianeMission: () => boolean;
   reportDianeMission: () => boolean;
   setReeseHandItem:(item:"hand"|"gun")=>void;
+  setFinchTalking:(active:boolean)=>void;
   dispose: () => void;
 }
 export async function createNorthHeightsCity8(
@@ -812,6 +813,7 @@ export async function createNorthHeightsCity8(
     startDianeMission(){return dianeLevel?.assign()??false;},
     reportDianeMission(){return dianeLevel?.report()??false;},
     setReeseHandItem(item){actor?.setHandItem(item);},
+    setFinchTalking(active){finchSuite?.setTalking(active);},
     travelFinchElevator(){
       if(!finchLobby?.requestTravel()){
         onFeedback?.("Step inside Finch HQ elevator before traveling");return false;
