@@ -8,7 +8,8 @@ import { Mesh, Scene, VertexBuffer } from "@babylonjs/core";
 import { MeridianPhysics } from "@/game/physics/rapier-world";
 import type { BuildingSpec } from "@/game/world-generation/schema";
 import { northHeightsGround } from "./north-heights-reconstruction-001";
-import {finchShaft004,finchFloorRing004} from "./north-heights-finch-elevator-structure-004";
+import {finchFloorRing004} from "./north-heights-finch-elevator-structure-004";
+import {northHeightsBuildingShaft019} from "./north-heights-building-lift-plan-019";
 import {northHeightsDoorway010,NORTH_HEIGHTS_PORTAL_HEIGHT_010}
   from "./north-heights-spatial-plan-010";
 
@@ -109,7 +110,15 @@ export async function createNorthHeightsWalk005(
         wall(x,(openingTop+shellTop)/2,z+d/2,gap/2,(shellTop-openingTop)/2,t/2);
       // The 0.27m-high white floor can be reached via Rapier 0.28m step.
       wall(x,y-.58,z,(w-.6)/2,.05,(d-.6)/2);
-      const shaft=finchShaft004(lot);
+      const shaft=northHeightsBuildingShaft019(lot);
+      if(shaft&&!shaft.finch){
+       const h=shaft.topFloorOffset-shaft.bottomFloorOffset+fh-.12;
+       const cy=northHeightsGround(x,z)+shaft.bottomFloorOffset+h/2;
+       // Side/back Rapier walls match the visible glass enclosure.
+       wall(shaft.x-shaft.halfX,cy,shaft.z,.055,h/2,shaft.halfZ);
+       wall(shaft.x+shaft.halfX,cy,shaft.z,.055,h/2,shaft.halfZ);
+       wall(shaft.x,cy,shaft.z-shaft.halfZ,shaft.halfX,h/2,.055);
+      }
       for(let f=1;f<floors;f++){
         if(shaft){
           for(const part of finchFloorRing004(x,z,w-.6,d-.6,shaft))
