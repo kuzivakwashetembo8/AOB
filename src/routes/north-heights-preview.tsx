@@ -81,10 +81,6 @@ function NorthHeightsPreview(){
       :controller.current?.reportDianeMission();
     if(ok)setDialogueIndex(null);
   };
-  useEffect(()=>{
-    controller.current?.setFinchTalking(dialogueIndex!==null&&!paused&&
-      !(dialogueKind==="report"&&dialogueIndex===0));
-  },[dialogueIndex,dialogueKind,paused]);
   const elevatorAction=elevator?.available&&!elevator.moving?{
     direction:elevator.direction,
     label:elevator.direction==="up"?"Ride to Floor 53":"Ride to Ground Floor",
@@ -92,6 +88,10 @@ function NorthHeightsPreview(){
   }:undefined;
   const [mapOpen,setMapOpen]=useState(false);
   const [paused,setPaused]=useState(false);
+  useEffect(()=>{
+    controller.current?.setFinchTalking(dialogueIndex!==null&&!paused&&
+      !(dialogueKind==="report"&&dialogueIndex===0));
+  },[dialogueIndex,dialogueKind,paused]);
   useEffect(()=>{radio.current?.setPaused(paused);},[paused]);
   const [panel,setPanel]=useState<"pause"|"settings"|"objectives"|"save">("pause");
   const [feedback,setFeedback]=useState("");
