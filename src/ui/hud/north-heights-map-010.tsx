@@ -142,7 +142,7 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
    return()=>window.removeEventListener("keydown",escape);
  },[onClose]);
  return <div role="dialog" aria-modal="true" aria-label="North Heights 2D map"
-   className="fixed inset-0 z-[100] flex flex-col items-center gap-2 overflow-hidden bg-[#07111d]/95 p-2 text-white">
+   className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-2 overflow-hidden bg-[#07111d]/40 p-3 text-white backdrop-blur-[4px]">
    <header className="flex w-full max-w-[780px] items-center justify-between gap-2">
      <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
        <MapPinned size={17}/> NORTH HEIGHTS — MERIDIAN CITY
@@ -158,7 +158,7 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
          onClick={onClose}><X size={18}/></button>
      </div>
    </header>
-   <div className="min-h-0 w-full flex-1 overflow-hidden rounded-lg border border-white/25 bg-[#142334]">
+   <div className="min-h-0 max-h-[min(82vh,860px)] w-full max-w-[980px] flex-1 overflow-hidden rounded-xl border border-white/35 bg-[#142334] shadow-2xl">
      <svg viewBox="0 0 640 640" className="h-full w-full" role="img"
        aria-label="Top-down North Heights map: white dot marks the player and gold diamond marks Finch headquarters"
        style={{touchAction:"none"}}
