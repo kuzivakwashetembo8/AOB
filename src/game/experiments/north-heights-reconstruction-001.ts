@@ -13,7 +13,9 @@ import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generatio
 import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
 import { attachNorthHeightsGrass004, planNorthHeightsTrees004, type TreeLocation } from "./north-heights-trees-004";
-import {finchShaft004,finchFloorRing004,finchTerrainHeight006,FINCH_LOBBY_FOOTPRINT_006} from "./north-heights-finch-elevator-structure-004";
+import {finchFloorRing004,finchTerrainHeight006,FINCH_LOBBY_FOOTPRINT_006}
+import {northHeightsBuildingShaft019} from "./north-heights-building-lift-plan-019";
+
 import {createNorthHeightsBlockSurfaces008} from "./north-heights-block-surfaces-008";
 import {planNorthHeightsYardTrees014} from "./north-heights-yard-trees-014";
 import {NORTH_HEIGHTS_PARKING_LOTS_010,NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010,
@@ -367,8 +369,16 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   // accessible from normal terrain/sidewalk by the existing Rapier autostep.
   city.box("concrete",x,y+.095,z,w+1.8,.19,d+1.8);
   // Physically empty rooms, no dark central cuboid, no furniture. One shared
-  const shaft=finchShaft004({id:lot.id,position:{x,z},overrides:{width:w,depth:d,
-    floors:lot.floors,floorHeight:lot.floorHeight}});
+  const shaft=northHeightsBuildingShaft019({id:lot.id,position:{x,z},
+   overrides:{width:w,depth:d,floors:lot.floors,floorHeight:lot.floorHeight}});
+  if(shaft&&!shaft.finch){
+   // Shared glass structure stays batched. Only an occupied cabin animates.
+   const h=shaft.topFloorOffset-shaft.bottomFloorOffset+lot.floorHeight-.12;
+   const cy=y+shaft.bottomFloorOffset+h/2;
+   city.box("glass-mid",shaft.x-shaft.halfX,cy,shaft.z,.07,h,shaft.halfZ*2);
+   city.box("glass-mid",shaft.x+shaft.halfX,cy,shaft.z,.07,h,shaft.halfZ*2);
+   city.box("glass-mid",shaft.x,cy,shaft.z-shaft.halfZ,shaft.halfX*2,h,.07);
+  }
   // PURE WHITE slab family for floor surfaces and interior roof undersides.
   city.box("interior-white",x,y+.22,z,w-.6,.10,d-.6);
   for(let f=1;f<lot.floors;f++){
