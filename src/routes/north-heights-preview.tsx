@@ -3,7 +3,7 @@ import {useEffect,useRef,useState} from "react";
 import {X,Hand,Crosshair,ArrowUp,ArrowDown} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {FINCH_INTRO_005} from "@/game/experiments/north-heights-finch-intro-005";
-import {DIANE_DIALOGUE_REPORT_001,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
+import {DIANE_DIALOGUE_REPORT_001,DIANE_DIALOGUE_FAILED_009,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
  from "@/game/experiments/level001-diane-007";
 import type {FinchElevatorState004} from "@/game/experiments/north-heights-finch-lobby-004";
 import {RadioController} from "@/game/audio/radio/radio-controller";
@@ -71,8 +71,8 @@ function NorthHeightsPreview(){
   const missionPhaseRef=useRef(dianeMission.phase);
   const [missionCompletedBanner,setMissionCompletedBanner]=useState(false);
   const [dialogueIndex,setDialogueIndex]=useState<number|null>(null);
-  const [dialogueKind,setDialogueKind]=useState<"assignment"|"report">("assignment");
-  const activeLines=dialogueKind==="assignment"?FINCH_INTRO_005:DIANE_DIALOGUE_REPORT_001;
+  const [dialogueKind,setDialogueKind]=useState<"assignment"|"report"|"failed">("assignment");
+  const activeLines=dialogueKind==="assignment"?FINCH_INTRO_005:dialogueKind==="failed"?DIANE_DIALOGUE_FAILED_009:DIANE_DIALOGUE_REPORT_001;
   const advanceFinchDialogue=()=>{
     if(dialogueIndex===null)return;
     if(dialogueIndex<activeLines.length-1){setDialogueIndex(dialogueIndex+1);return;}
@@ -90,7 +90,7 @@ function NorthHeightsPreview(){
   const [paused,setPaused]=useState(false);
   useEffect(()=>{
     controller.current?.setFinchTalking(dialogueIndex!==null&&!paused&&
-      !(dialogueKind==="report"&&dialogueIndex===0));
+      !((dialogueKind==="report"||dialogueKind==="failed")&&dialogueIndex===0));
   },[dialogueIndex,dialogueKind,paused]);
   useEffect(()=>{radio.current?.setPaused(paused);},[paused]);
   const [panel,setPanel]=useState<"pause"|"settings"|"objectives"|"save">("pause");
@@ -102,6 +102,7 @@ function NorthHeightsPreview(){
     if(!nearFinch||!ready||paused||dialogueIndex!==null)return;
     if(dianeMission.phase==="unassigned"){setDialogueKind("assignment");setDialogueIndex(0);}
     if(dianeMission.phase==="return"){setDialogueKind("report");setDialogueIndex(0);}
+    if(dianeMission.phase==="failed"){setDialogueKind("failed");setDialogueIndex(0);}
   },[nearFinch,ready,paused,dialogueIndex,dianeMission.phase]);
   const failed=/failed|failure|error/i.test(status);
   const touchVisible=coarse&&!(settings.autoHide&&inputMode==="keyboard");
@@ -199,6 +200,7 @@ function NorthHeightsPreview(){
             setDianeMission(view);
             if(view.phase==="return"&&previous==="follow")
               setFeedback("Diane met three officers. Return to Finch.");
+            if(view.phase==="failed")setFeedback("MISSION FAILED · Diane spotted your car. Return to Finch.");
             if(view.phase==="complete"&&previous==="return")
               setMissionCompletedBanner(true);
           }},
