@@ -24,7 +24,7 @@ export function finchElevatorFloorCounter007(fraction:number):number{
  return Math.max(1,Math.min(53,1+Math.round(Math.max(0,Math.min(1,fraction))*52)));
 }
 export type FinchElevatorState004={
- floor:1|53;currentFloor:number;direction:"up"|"down";available:boolean;moving:boolean;progress:number;
+ floor:number;floors:number;buildingId:string;currentFloor:number;direction:"up"|"down";available:boolean;moving:boolean;progress:number;
 };
 export interface FinchLobby004{
  update:(person:{x:number;y:number;z:number}|null,dt:number)=>{
@@ -32,7 +32,7 @@ export interface FinchLobby004{
   traveling:boolean;state:FinchElevatorState004;
   cameraCabin:FinchCabinCamera006|null;
  };
- requestTravel:()=>boolean;
+ requestTravel:(selectedFloor?:number)=>boolean;
  loadReceptionist:()=>Promise<void>;
  dispose:()=>void;
 }
@@ -113,21 +113,25 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  const doorL=box("door-left",x-.825,bottom+height/2,front,1.65,height,.12,doorGlass,true);
  const doorR=box("door-right",x+.825,bottom+height/2,front,1.65,height,.12,doorGlass,true);
  let doorCollider:{dispose:()=>void}|null=null,platformCollider:{dispose:()=>void}|null=null;
- let floor:1|53=1,target:1|53=53;
+ let floor=1,target=53;
+ let travelElapsed=0,travelDuration=FINCH_ELEVATOR_TRAVEL_SECONDS_004,travelStart=0;
  let mode:"idle"|"closing"|"riding"|"opening"="idle";
  let heightFraction=0,doorFraction=0,available=false,closed=false;
  let personInCar:{x:number;y:number;z:number}|null=null;
  const receptionistNodes:TransformNode[]=[];let groups:AnimationGroup[]=[];
  let requested=false;
  const status=():FinchElevatorState004=>({
-  floor,currentFloor:finchElevatorFloorCounter007(heightFraction),
+  floor,floors:53,buildingId:building.id,currentFloor:finchElevatorFloorCounter007(heightFraction),
    direction:floor===1?"up":"down",available:mode==="idle"&&available,
   moving:mode!=="idle",progress:Math.round(heightFraction*100),
  });
- const requestTravel=()=>{
+ const requestTravel=(selectedFloor?:number)=>{
   if(mode!=="idle"||!available||!personInCar||closed)return false;
-  target=floor===1?53:1;mode="closing";available=false;
-  return true;
+  const next=selectedFloor??(floor===1?53:1);
+  if(!Number.isInteger(next)||next<1||next>53||next===floor)return false;
+  target=next;travelStart=heightFraction;travelElapsed=0;
+  travelDuration=Math.max(1.5,FINCH_ELEVATOR_TRAVEL_SECONDS_004*Math.abs(target-floor)/52);
+  mode="closing";available=false;return true;
  };
  const approach=(p:{x:number;y:number;z:number}|null)=>{
   if(!p)return false;
@@ -162,19 +166,21 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   let override:{x:number;y:number;z:number}|null=null;
   if(mode==="closing"&&doorFraction<.02)mode="riding";
   if(mode==="riding"){
-   const delta=step/FINCH_ELEVATOR_TRAVEL_SECONDS_004*(target===53?1:-1);
-   heightFraction=Math.max(0,Math.min(1,heightFraction+delta));
+   travelElapsed=Math.min(travelDuration,travelElapsed+step);
+   const travelEnd=(target-1)/52;
+   const fraction=travelElapsed/travelDuration;
+   heightFraction=Math.max(0,Math.min(1,travelStart+(travelEnd-travelStart)*fraction));
    carriage.position.y=(top-bottom)*heightFraction;
    // Keep the original Voight character/camera and the original player body.
    // No instantaneous floor-53 teleport. The body advances at the same continuous
    // vertical speed as the physically visible elevator cabin.
    const y=bottom+(top-bottom)*heightFraction+.92;
    override={x:personInCar?.x??x,y,z:personInCar?.z??z};
-   if((target===53&&heightFraction>=1)||(target===1&&heightFraction<=0)){
+   if(travelElapsed>=travelDuration){
     floor=target;
     platformCollider?.dispose();platformCollider=null;
-    if(floor===53)platformCollider=physics.addStaticBox(
-      {x,y:top-.08,z},{x:2.15,y:.08,z:2.15});
+    if(floor>1)platformCollider=physics.addStaticBox(
+      {x,y:bottom+(top-bottom)*heightFraction-.08,z},{x:2.15,y:.08,z:2.15});
     mode="opening";
    }
   }else if(mode==="opening"&&doorFraction>.98){
