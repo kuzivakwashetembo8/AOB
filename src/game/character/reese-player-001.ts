@@ -7,7 +7,7 @@
  * capsule and controller; replace only the visual actor and its clip driver.
  */
 import {
-  AbstractMesh, AnimationGroup, Material, TransformNode, MeshBuilder, StandardMaterial, Color3, loadAssetContainerAsync,
+  AbstractMesh, AnimationGroup, Material, MultiMaterial, TransformNode, loadAssetContainerAsync,
   type AssetContainer, type Scene,
 } from "@babylonjs/core";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
@@ -65,14 +65,21 @@ export function createReesePlayer001(scene:Scene,
  let controlled=false,hiddenDriving=false,closed=false;
  let flight=false,meshCount=0,boneCount=0;
  let flightPitch=0,flightRoll=0;
- let lastGrounded=.15, pendingGaitSeconds=0;
+ let pendingGaitSeconds=0;
  let stableGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let pendingGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let handItem:"hand"|"gun"="hand";
- const weaponMeshes:AbstractMesh[]=[];
- let fallbackGun:ReturnType<typeof MeshBuilder.CreateBox>|null=null;
- let fallbackGrip:ReturnType<typeof MeshBuilder.CreateBox>|null=null;
- let gunMat:StandardMaterial|null=null;
+ const weaponMeshes=new Set<AbstractMesh>();
+ const weaponMaterials=new Map<Material,{alpha:number;transparencyMode:number|null}>();
+ const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
+ function applyWeaponVisibility(){
+  const visible=handItem==="gun"&&controlled&&!hiddenDriving;
+  for(const mesh of weaponMeshes)mesh.setEnabled(visible);
+  for(const [material,original] of weaponMaterials){
+   material.alpha=visible?original.alpha:0;
+   material.transparencyMode=visible?original.transparencyMode:Material.MATERIAL_ALPHABLEND;
+  }
+ }
  const groups:Record<"idle"|"walk"|"run"|"jump"|"fall"|"land",AnimationGroup|null>={
   idle:null,walk:null,run:null,jump:null,fall:null,land:null,
  };
@@ -136,7 +143,18 @@ export function createReesePlayer001(scene:Scene,
    maxY=Math.max(maxY,box.maximumWorld.y);
    maxZ=Math.max(maxZ,box.maximumWorld.z);
    mesh.isPickable=false;mesh.receiveShadows=true;
-   if(/(?:gun|pistol|weapon|revolver)/i.test(mesh.name))weaponMeshes.push(mesh);
+   const names=[mesh.name];
+   let parent=mesh.parent;
+   while(parent){names.push(parent.name);parent=parent.parent;}
+   if(names.some(name=>weaponPattern.test(name)))weaponMeshes.add(mesh);
+   else if(mesh.material){
+    const mats=mesh.material instanceof MultiMaterial
+      ?mesh.material.subMaterials.filter((m):m is Material=>m!==null)
+      :[mesh.material];
+    for(const material of mats)
+     if(weaponPattern.test(material.name)&&!weaponMaterials.has(material))
+      weaponMaterials.set(material,{alpha:material.alpha,transparencyMode:material.transparencyMode});
+   }
    meshCount++;
   }
   const h=maxY-minY;
@@ -158,26 +176,11 @@ export function createReesePlayer001(scene:Scene,
     m.markAsDirty(Material.LightDirtyFlag);
    }
   }
-  if(!weaponMeshes.length){
-    const rightHand=instance.skeletons.flatMap(s=>s.bones)
-      .find(b=>/righthand|rightwrist/i.test(b.name.replace(/[^a-z]/gi,"")));
-    const skinMesh=[...meshes].find(m=>m.skeleton===instance!.skeletons[0]);
-    if(rightHand&&skinMesh){
-      gunMat=new StandardMaterial("reese001-gun-mat",scene);
-      gunMat.diffuseColor=new Color3(.04,.046,.052);
-      fallbackGun=MeshBuilder.CreateBox("reese001-gun",{width:.06,height:.06,depth:.24},scene);
-      fallbackGun.material=gunMat;
-      fallbackGun.attachToBone(rightHand,skinMesh);
-      fallbackGun.position.set(.035,0,.13);
-      fallbackGrip=MeshBuilder.CreateBox("reese001-gun-grip",{width:.05,height:.13,depth:.085},scene);
-      fallbackGrip.material=gunMat;
-      fallbackGrip.attachToBone(rightHand,skinMesh);
-      fallbackGrip.position.set(.035,-.08,.07);
-    }
-  }
-  for(const mesh of weaponMeshes)mesh.setEnabled(false);
-  fallbackGun?.setEnabled(false);fallbackGrip?.setEnabled(false);
-  active=groups.idle;
+  // Only use the original GLB weapon; never manufacture a second pistol.
+   applyWeaponVisibility();
+   if(!weaponMeshes.size&&!weaponMaterials.size)
+    console.warn("[REESE-002] Gun not independently separated in GLB: requires named weapon primitive for reliable holstering.");
+   active=groups.idle;
   active.start(true);
   report.activeClip=active.name;
   anchor.setEnabled(false);
@@ -200,7 +203,7 @@ export function createReesePlayer001(scene:Scene,
  function advance(dt:number){
   if(!active)return;
   if(outgoing){
-   transition=Math.min(1,transition+Math.max(0,dt)/.18);
+   transition=Math.min(1,transition+Math.max(0,dt)/.075);
    active.setWeightForAllAnimatables(transition);
    outgoing.setWeightForAllAnimatables(1-transition);
    if(transition>=1){outgoing.stop();outgoing=null;}
@@ -221,17 +224,13 @@ export function createReesePlayer001(scene:Scene,
    controlled=enabled;hiddenDriving=false;
    anchor.setEnabled(enabled);
    if(enabled){resetFlight();play(groups.idle);}
-   for(const mesh of weaponMeshes)mesh.setEnabled(enabled&&handItem==="gun");
-   fallbackGun?.setEnabled(enabled&&handItem==="gun");
-   fallbackGrip?.setEnabled(enabled&&handItem==="gun");
+   applyWeaponVisibility();
   },
   setDrivingHidden(hidden:boolean){
    if(closed||!controlled)return;
    hiddenDriving=hidden;
    anchor.setEnabled(!hidden);
-   for(const mesh of weaponMeshes)mesh.setEnabled(!hidden&&handItem==="gun");
-   fallbackGun?.setEnabled(!hidden&&handItem==="gun");
-   fallbackGrip?.setEnabled(!hidden&&handItem==="gun");
+   applyWeaponVisibility();
   },
   syncHiddenDrivingPose(p:{x:number;y:number;z:number},yaw:number){
    if(closed||!controlled||!hiddenDriving)return;
@@ -244,19 +243,17 @@ export function createReesePlayer001(scene:Scene,
    if(!controlled||closed)return;
    if(flight)resetFlight();
    positionAt(p,yaw);
-   // Preserve the active gait across momentary Rapier contact/speed jitter.
-   lastGrounded=grounded?.18:Math.max(0,lastGrounded-dt);
-   const next=reeseGroundClip001(speed,sprint,grounded||lastGrounded>0,verticalVelocity);
+   // A lost-ground sample at a doorway is not an authored fall.
+   const next=speed<=.15?"idle":sprint||speed>5?"run":"walk";
    if(next===stableGait){pendingGait=next;pendingGaitSeconds=0;}
-   else if(next!==pendingGait){pendingGait=next;pendingGaitSeconds=0;}
-   else{
-     pendingGaitSeconds+=Math.max(0,dt);
-     if(pendingGaitSeconds>=.18){
-       stableGait=next;pendingGaitSeconds=0;
-     }
+   else if(stableGait==="idle"&&next!=="idle"){
+    // Begin the alternating first step on the same frame as movement.
+    stableGait=next;pendingGait=next;pendingGaitSeconds=0;
+   }else if(next!==pendingGait){pendingGait=next;pendingGaitSeconds=0;}
+   else if((pendingGaitSeconds+=Math.max(0,dt))>=.15){
+    stableGait=next;pendingGaitSeconds=0;
    }
-   const selected=groups[stableGait]??groups.idle;
-   play(selected,stableGait!=="jump"&&stableGait!=="fall");
+   play(groups[stableGait]??groups.idle);
    advance(dt);
   },
   updateControlledFlight(
@@ -272,10 +269,7 @@ export function createReesePlayer001(scene:Scene,
    advance(input.dt);
   },
   setHandItem(item:"hand"|"gun"){
-   handItem=item;
-   for(const mesh of weaponMeshes)mesh.setEnabled(item==="gun"&&controlled&&!hiddenDriving);
-   fallbackGun?.setEnabled(item==="gun"&&controlled&&!hiddenDriving);
-   fallbackGrip?.setEnabled(item==="gun"&&controlled&&!hiddenDriving);
+   handItem=item;applyWeaponVisibility();
   },
   get handItem(){return handItem;},
   get poseReport(){
@@ -286,7 +280,6 @@ export function createReesePlayer001(scene:Scene,
    if(closed)return;
    closed=true;
    active?.stop();outgoing?.stop();
-   fallbackGun?.dispose();fallbackGrip?.dispose();gunMat?.dispose();
    instance?.dispose();instance=null;
    asset?.dispose();asset=null;
    fit?.dispose();offset?.dispose();tilt?.dispose();
