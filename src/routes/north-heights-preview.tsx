@@ -1,11 +1,13 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
-import {X,Hand,Crosshair,ArrowUp,ArrowDown} from "lucide-react";
+import {X,Hand,Crosshair,ListOrdered} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {FINCH_INTRO_005} from "@/game/experiments/north-heights-finch-intro-005";
 import {DIANE_DIALOGUE_REPORT_001,DIANE_DIALOGUE_FAILED_009,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
  from "@/game/experiments/level001-diane-007";
 import type {FinchElevatorState004} from "@/game/experiments/north-heights-finch-lobby-004";
+import type {BuildingLiftState019} from "@/game/experiments/north-heights-building-lifts-019";
+import {NorthHeightsLiftKeypad019,type LiftKeypadView019} from "@/ui/hud/north-heights-lift-keypad-019";
 import {RadioController} from "@/game/audio/radio/radio-controller";
 import type {NorthHeightsInspection} from "@/game/experiments/north-heights-city-8";
 import type {GameCommand} from "@/game/core/types";
@@ -61,6 +63,8 @@ function NorthHeightsPreview(){
   const [canEnterVehicle,setCanEnterVehicle]=useState(false);
   const [inside,setInside]=useState(false);
   const [elevator,setElevator]=useState<FinchElevatorState004|null>(null);
+ const [buildingLift,setBuildingLift]=useState<BuildingLiftState019|null>(null);
+ const [keypadDismissedId,setKeypadDismissedId]=useState<string|null>(null);
   const [nearFinch,setNearFinch]=useState(false);
   const [dianeMission,setDianeMission]=useState<DianeMissionView001>(()=>{
     const p=readDianeProgress001();
@@ -81,12 +85,17 @@ function NorthHeightsPreview(){
       :controller.current?.reportDianeMission();
     if(ok)setDialogueIndex(null);
   };
-  const elevatorAction=elevator?.available&&!elevator.moving?{
-    direction:elevator.direction,
-    label:elevator.direction==="up"?"Ride to Floor 53":"Ride to Ground Floor",
-    onClick:()=>{controller.current?.travelFinchElevator();},
-  }:undefined;
-  const [mapOpen,setMapOpen]=useState(false);
+  const activeLift:LiftKeypadView019|null=buildingLift?.available||buildingLift?.moving
+  ?{...buildingLift}
+  :elevator?.available||elevator?.moving
+   ?{buildingId:elevator.buildingId,label:"FINCH HQ",floors:elevator.floors,
+     currentFloor:elevator.currentFloor,available:elevator.available,
+     moving:elevator.moving,finch:true}:null;
+ useEffect(()=>{
+  if(!buildingLift?.available&&!buildingLift?.moving&&
+     !elevator?.available&&!elevator?.moving)setKeypadDismissedId(null);
+ },[buildingLift?.available,buildingLift?.moving,elevator?.available,elevator?.moving]);
+ const [mapOpen,setMapOpen]=useState(false);
   const [paused,setPaused]=useState(false);
   useEffect(()=>{
     controller.current?.setFinchTalking(dialogueIndex!==null&&!paused&&
@@ -204,7 +213,8 @@ function NorthHeightsPreview(){
             if(view.phase==="complete"&&previous==="return")
               setMissionCompletedBanner(true);
           }},
-          buildings=>{if(!closed)setMapBuildings(buildings);});
+          buildings=>{if(!closed)setMapBuildings(buildings);},
+           lift=>{if(!closed)setBuildingLift(lift);});
         if(closed)instance.dispose();
         else{
           // First-frame completion is delivered by Babylon onAfterRender, not here.
@@ -305,9 +315,10 @@ function NorthHeightsPreview(){
             ? "SEDAN "+stats.split("SEDAN ")[1]?.split(" · ")[0]
             : "SEDAN PILOT INITIALIZING"}
         </div>}
-      {ready&&!paused&&elevator?.moving&&
+      {ready&&!paused&&(elevator?.moving||buildingLift?.moving)&&
         <div className="pointer-events-none absolute right-3 top-[30%] z-30 rounded border border-white/25 bg-black/70 px-3 py-2 text-xs text-white"
-          role="status">FINCH HQ · FLOOR {elevator.currentFloor} OF 53</div>}
+          role="status">LIFT · FLOOR {buildingLift?.moving?buildingLift.currentFloor:elevator?.currentFloor}
+          {" "}OF {buildingLift?.moving?buildingLift.floors:elevator?.floors}</div>}
       {ready&&missionCompletedBanner&&!paused&&
         <div className="absolute left-1/2 top-[22%] z-40 w-[min(90vw,390px)] -translate-x-1/2 rounded-xl border border-white/35 bg-[#111c29]/95 p-4 text-center text-white shadow-lg"
           role="status" data-testid="level001-completed">
@@ -322,7 +333,7 @@ function NorthHeightsPreview(){
           aria-label="Level 001 Finch dialogue" role="dialog" aria-modal="false">
           <div className="mb-2 flex items-center justify-between text-xs">
             <span className="font-semibold tracking-wide text-[#dbe6f4]">
-              {dialogueKind==="report"&&dialogueIndex===0?"JOHN REESE":"HAROLD FINCH"}
+              {(dialogueKind==="report"||dialogueKind==="failed")&&dialogueIndex===0?"JOHN REESE":"HAROLD FINCH"}
             </span>
             <span className="text-white/60">{dialogueIndex+1} / {activeLines.length}</span>
           </div>
@@ -343,13 +354,23 @@ function NorthHeightsPreview(){
           const link=document.createElement("a");link.href=url;link.download="gtd-north-heights-loading.json";link.click();
           window.setTimeout(()=>URL.revokeObjectURL(url),3000);}}
       />}
-      {ready&&!paused&&!mapOpen&&dialogueIndex===null&&elevatorAction&&
+      {ready&&!paused&&!mapOpen&&dialogueIndex===null&&activeLift&&
         <Button type="button" variant="control"
-          className="absolute right-4 top-[40%] z-40 flex h-12 w-12 items-center justify-center border border-white/30 bg-black/65 shadow-lg"
-          data-testid="poi005-lift-independent" aria-label={elevatorAction.label}
-          title={elevatorAction.label} onClick={elevatorAction.onClick}>
-          {elevatorAction.direction==="up"?<ArrowUp size={22}/>:<ArrowDown size={22}/>}
+         className="absolute right-4 top-[40%] z-40 flex h-12 w-12 items-center justify-center border border-white/30 bg-black/65 shadow-lg"
+         data-testid="poi005-lift-independent" aria-label="Open elevator floor keypad"
+         title="Choose elevator floor" onClick={()=>setKeypadDismissedId(null)}>
+         <ListOrdered size={21}/>
         </Button>}
+      {ready&&!paused&&!mapOpen&&dialogueIndex===null&&activeLift?.available&&
+        keypadDismissedId!==activeLift.buildingId&&
+        <NorthHeightsLiftKeypad019 lift={activeLift}
+         onClose={()=>setKeypadDismissedId(activeLift.buildingId)}
+         onSelect={floor=>{
+          const ok=activeLift.finch
+           ?controller.current?.travelFinchElevator(floor)
+           :controller.current?.travelBuildingFloor019(activeLift.buildingId,floor);
+          if(ok)setKeypadDismissedId(activeLift.buildingId);
+         }}/>}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
         driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
         passenger={sedanPassenger}
