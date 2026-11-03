@@ -19,8 +19,12 @@ export function constrainFinchCabinCamera006(
   z:clamp(position.z,cabin.z-cabin.halfZ,cabin.z+cabin.halfZ),
  };
 }
+/** 1-based physical floor shown during continuous travel. */
+export function finchElevatorFloorCounter007(fraction:number):number{
+ return Math.max(1,Math.min(53,1+Math.round(Math.max(0,Math.min(1,fraction))*52)));
+}
 export type FinchElevatorState004={
- floor:1|53;direction:"up"|"down";available:boolean;moving:boolean;progress:number;
+ floor:1|53;currentFloor:number;direction:"up"|"down";available:boolean;moving:boolean;progress:number;
 };
 export interface FinchLobby004{
  update:(person:{x:number;y:number;z:number}|null,dt:number)=>{
@@ -116,7 +120,8 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  const receptionistNodes:TransformNode[]=[];let groups:AnimationGroup[]=[];
  let requested=false;
  const status=():FinchElevatorState004=>({
-  floor,direction:floor===1?"up":"down",available:mode==="idle"&&available,
+  floor,currentFloor:finchElevatorFloorCounter007(heightFraction),
+   direction:floor===1?"up":"down",available:mode==="idle"&&available,
   moving:mode!=="idle",progress:Math.round(heightFraction*100),
  });
  const requestTravel=()=>{
