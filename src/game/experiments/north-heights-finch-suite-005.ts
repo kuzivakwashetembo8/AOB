@@ -10,6 +10,7 @@ import type {MeridianPhysics} from "@/game/physics/rapier-world";
 export interface FinchSuite005{
  loadFinch:()=>Promise<void>;
  isNearFinch:(player:{x:number;y:number;z:number}|null)=>boolean;
+ setTalking:(active:boolean)=>void;
  getFinchLocation:()=>{x:number;y:number;z:number};
  dispose:()=>void;
 }
@@ -29,6 +30,18 @@ export function createFinchSuite005(scene:Scene,lots:readonly BuildingSpec[],
  const finchPosition={x:x+2.9,y:y+.93,z:z+8.98};
  let finchRoot:TransformNode|null=null,groups:AnimationGroup[]=[];
  let finchMeshes:Mesh[]=[],loaded=false,requested=false,disposed=false;
+ let idleClip:AnimationGroup|null=null,talkingClip:AnimationGroup|null=null;
+ let speakingRequested=false,speakingActive=false;
+ const switchFinchClip=()=>{
+  if(!loaded||disposed)return;
+  const speaking=speakingRequested&&!!talkingClip;
+  if(speaking===speakingActive)return;
+  const next=speaking?talkingClip:idleClip;
+  if(!next)return;
+  for(const clip of [idleClip,talkingClip])if(clip&&clip!==next)clip.stop();
+  next.start(true);
+  speakingActive=speaking;
+ };
  const loadFinch=async()=>{
   if(disposed||requested)return;
   requested=true;
@@ -55,18 +68,22 @@ export function createFinchSuite005(scene:Scene,lots:readonly BuildingSpec[],
      y-min.y*scale,finchPosition.z-(min.z+max.z)*.5*scale);
    anchor.rotation.y=Math.PI; // faces the approaching lift and office visitor
    groups=result.animationGroups;
-   const idle=groups.find(g=>/^(idle|stand)/i.test(g.name))??groups.find(g=>/idle/i.test(g.name));
-   for(const group of groups)if(group!==idle)group.stop();
-   idle?.start(true);
-   loaded=true;
+   idleClip=groups.find(g=>/^(idle|stand)/i.test(g.name))??groups.find(g=>/idle/i.test(g.name))??null;
+   talkingClip=groups.find(g=>/(talk|speak|chat|conversation|dialog)/i.test(g.name))??null;
+   for(const group of groups)group.stop();
+   idleClip?.start(true);
+   speakingActive=false;loaded=true;
+   switchFinchClip();
+   if(!talkingClip)console.warn("[FINCH-007] Finch.glb is missing a talking animation; idle retained.");
   }catch(err){if(!disposed)console.error("[POI-005] Finch asset failed",err);}
  };
  return {
   loadFinch,
   isNearFinch:p=>finchProximity005(p,finchPosition,loaded),
+   setTalking(active:boolean){speakingRequested=active;switchFinchClip();},
   getFinchLocation:()=>({...finchPosition}),
   dispose(){
-   disposed=true;loaded=false;groups.forEach(g=>g.dispose());
+   disposed=true;loaded=false;groups.forEach(g=>g.dispose());idleClip=null;talkingClip=null;
    finchRoot?.dispose(false,true);
    finchMeshes.forEach(m=>m.dispose());
 
