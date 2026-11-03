@@ -117,7 +117,7 @@ describe("GTD-LEVEL001-WORLD-019 — owner follow-up refinements",()=>{
   const route=source("src/routes/north-heights-preview.tsx");
   expect(ui).toContain("length:lift.floors");
   expect(ui).toContain('data-testid="nh019-lift-keypad"');
-  expect(route).toContain("onBuildingLiftChange");
+  expect(route).toContain("setBuildingLift(lift)");
   expect(route).toContain("travelBuildingFloor019");
   expect(route).toContain("travelFinchElevator(floor)");
  });
