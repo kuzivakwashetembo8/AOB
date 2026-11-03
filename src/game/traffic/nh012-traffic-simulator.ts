@@ -862,7 +862,10 @@ export class NH012TrafficSimulator {
       agent.x=final.x;agent.z=final.z;
       t.arrived=true;agent.waitTicks=0;agent.arrivalTick=-1;
      }
-     if(!t&&edge.length-agent.s<=.06&&v<.5){
+     // A targeted route still needs intersection priority at INTERMEDIATE
+     // stop lines. The former !t guard froze Diane before her first turn.
+     // At the final destination, do not enter another junction queue.
+     if((!t||destinationStop===null)&&edge.length-agent.s<=.06&&v<.5){
        agent.s=edge.length;agent.speed=0;agent.state="stopped";
        if(agent.arrivalTick<0)agent.arrivalTick=this.tick;
        agent.waitTicks++;
