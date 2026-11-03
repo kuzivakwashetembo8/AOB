@@ -50,6 +50,10 @@ export function reeseGroundClip001(
  return sprint||speed>5.0?"run":"walk";
 }
 
+/** No involuntary airborne poses until an authored jump/fall mechanic exists. */
+export function reeseSafeLocomotion007(speed:number,sprint:boolean):"idle"|"walk"|"run"{
+ return speed<=.15?"idle":sprint||speed>5?"run":"walk";
+}
 export function createReesePlayer001(scene:Scene,
  load?:(path:string,scene:Scene)=>Promise<AssetContainer>,
 ){
@@ -244,7 +248,7 @@ export function createReesePlayer001(scene:Scene,
    if(flight)resetFlight();
    positionAt(p,yaw);
    // A lost-ground sample at a doorway is not an authored fall.
-   const next=speed<=.15?"idle":sprint||speed>5?"run":"walk";
+   const next=reeseSafeLocomotion007(speed,sprint);
    if(next===stableGait){pendingGait=next;pendingGaitSeconds=0;}
    else if(stableGait==="idle"&&next!=="idle"){
     // Begin the alternating first step on the same frame as movement.
