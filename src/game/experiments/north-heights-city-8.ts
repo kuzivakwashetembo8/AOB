@@ -334,10 +334,12 @@ export async function createNorthHeightsCity8(
         const base=northHeightsGround(room.position.x,room.position.z)+.27;
         // The camera is bounded by the containing room, not by a large
         // external collision sphere, so roof/floor cannot be peeked through.
-        const floorIndex=Math.max(0,Math.round((player.y-.92-base)/fh));
-        const slab=room.id==="NH-04-06-L2"&&floorIndex>=50
-          ?northHeightsGround(room.position.x,room.position.z)+.87+52*fh
-          :base+floorIndex*fh;
+        const floorIndex=Math.max(0,Math.min((room.overrides?.floors??1)-1,
+          Math.round((player.y-.92-base)/fh)));
+        // Every upper-level physical slab begins at +.87m, not +.27m.
+        // A camera using the ground-floor offset can otherwise see below it.
+        const slab=floorIndex===0?base:
+          northHeightsGround(room.position.x,room.position.z)+.87+floorIndex*fh;
         const clamp=(v:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,v));
         p={
           x:clamp(p.x,room.position.x-w/2+.55,room.position.x+w/2-.55),
