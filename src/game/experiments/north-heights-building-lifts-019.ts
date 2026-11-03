@@ -33,7 +33,7 @@ export function createNorthHeightsBuildingLifts019(scene:Scene,
  floorMat.diffuseColor=new Color3(.91,.96,.98);floorMat.alpha=.76;
  type Active={
   shaft:BuildingShaft019;root:TransformNode;door:ReturnType<typeof MeshBuilder.CreateBox>;
-  platform:{dispose:()=>void}|null;floor:number;target:number;from:number;
+  platform:{dispose:()=>void}|null;homeFloor:number;floor:number;target:number;from:number;
   elapsed:number;duration:number;moving:boolean;inside:boolean;rideX:number;rideZ:number;
  };
  let active:Active|null=null;
@@ -63,7 +63,7 @@ export function createNorthHeightsBuildingLifts019(scene:Scene,
   let platform:{dispose:()=>void}|null=null;
   if(f>1)platform=physics.addStaticBox({x:shaft.x,y:at-.08,z:shaft.z},
     {x:shaft.halfX-.12,y:.075,z:shaft.halfZ-.12});
-  return {shaft,root,door,platform,floor:f,target:f,from:f,
+  return {shaft,root,door,platform,homeFloor:f,floor:f,target:f,from:f,
    elapsed:0,duration:0,moving:false,inside:false,rideX:shaft.x,rideZ:shaft.z};
  };
  const visible=(s:BuildingShaft019,p:{x:number;y:number;z:number})=>{
@@ -102,7 +102,7 @@ export function createNorthHeightsBuildingLifts019(scene:Scene,
     const t=Math.min(1,a.elapsed/a.duration);
     const yFrom=floorY(s,a.from),yTo=floorY(s,a.target);
     const deck=yFrom+(yTo-yFrom)*t;
-    a.root.position.y=deck-floorY(s,a.floor);
+    a.root.position.y=deck-floorY(s,a.homeFloor);
     override={x:a.rideX,y:deck+.92,z:a.rideZ};
     if(t>=1){
      a.floor=a.target;a.moving=false;priorFloors.set(s.id,a.floor);
@@ -114,7 +114,7 @@ export function createNorthHeightsBuildingLifts019(scene:Scene,
    }else{
     a.inside=within;a.rideX=player.x;a.rideZ=player.z;
    }
-   const deck=floorY(s,a.floor)+(a.moving?a.root.position.y:0);
+   const deck=floorY(s,a.homeFloor)+a.root.position.y;
    const occupied=a.inside||a.moving;
    return {positionOverride:override,traveling:a.moving,
     state:occupied?{buildingId:s.id,label:s.id.replace(/-L\d+$/,""),
