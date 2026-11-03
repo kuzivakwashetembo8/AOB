@@ -13,7 +13,7 @@ import { MATERIAL_FAMILIES, type MaterialFamilyId } from "@/game/world-generatio
 import { createSurfaceTexture } from "@/game/world-generation/surface-textures";
 import { createNorthHeightsRoads003 } from "./north-heights-roads-003";
 import { attachNorthHeightsGrass004, planNorthHeightsTrees004, type TreeLocation } from "./north-heights-trees-004";
-import {finchFloorRing004,finchTerrainHeight006,FINCH_LOBBY_FOOTPRINT_006}
+import {finchFloorRing004,finchTerrainHeight006,FINCH_LOBBY_FOOTPRINT_006} from "./north-heights-finch-elevator-structure-004";
 import {northHeightsBuildingShaft019} from "./north-heights-building-lift-plan-019";
 
 import {createNorthHeightsBlockSurfaces008} from "./north-heights-block-surfaces-008";
