@@ -81,6 +81,10 @@ function NorthHeightsPreview(){
       :controller.current?.reportDianeMission();
     if(ok)setDialogueIndex(null);
   };
+  useEffect(()=>{
+    controller.current?.setFinchTalking(dialogueIndex!==null&&!paused&&
+      !(dialogueKind==="report"&&dialogueIndex===0));
+  },[dialogueIndex,dialogueKind,paused]);
   const elevatorAction=elevator?.available&&!elevator.moving?{
     direction:elevator.direction,
     label:elevator.direction==="up"?"Ride to Floor 53":"Ride to Ground Floor",
@@ -286,7 +290,7 @@ function NorthHeightsPreview(){
       {ready&&!paused&&!vehicle&&<Button type="button" variant="control"
          data-testid="reese-hand-selector" aria-label={heldItem==="hand"?"Equip gun":"Put gun away"}
          title={heldItem==="hand"?"Empty hands · select gun":"Gun equipped · holster"}
-         className="absolute top-2 right-[108px] z-40 flex h-11 w-11 items-center justify-center border border-white/20 bg-black/55"
+         className="gtd-hand-always z-40 flex items-center justify-center border border-white/20 bg-black/55"
          onClick={()=>{const next=heldItem==="hand"?"gun":"hand";setHeldItem(next);controller.current?.setReeseHandItem(next);}}>
          {heldItem==="hand"?<Hand size={18}/>:<Crosshair size={18}/>}
        </Button>}
@@ -301,7 +305,7 @@ function NorthHeightsPreview(){
         </div>}
       {ready&&!paused&&elevator?.moving&&
         <div className="pointer-events-none absolute right-3 top-[30%] z-30 rounded border border-white/25 bg-black/70 px-3 py-2 text-xs text-white"
-          role="status">FINCH HQ · LIFT IN MOTION · {elevator.progress}% HEIGHT</div>}
+          role="status">FINCH HQ · FLOOR {elevator.currentFloor} OF 53</div>}
       {ready&&missionCompletedBanner&&!paused&&
         <div className="absolute left-1/2 top-[22%] z-40 w-[min(90vw,390px)] -translate-x-1/2 rounded-xl border border-white/35 bg-[#111c29]/95 p-4 text-center text-white shadow-lg"
           role="status" data-testid="level001-completed">
@@ -312,7 +316,7 @@ function NorthHeightsPreview(){
             onClick={()=>setMissionCompletedBanner(false)}>Continue</Button>
         </div>}
       {ready&&!paused&&dialogueIndex!==null&&
-        <section className="absolute bottom-[22%] left-1/2 z-40 w-[min(92vw,540px)] -translate-x-1/2 rounded-xl border border-white/25 bg-[#101b28]/90 px-4 py-3 text-white shadow-lg backdrop-blur-sm"
+        <section className={`absolute ${coarse?"bottom-24":"bottom-6"} left-1/2 z-40 w-[min(92vw,540px)] -translate-x-1/2 rounded-xl border border-white/25 bg-[#101b28]/90 px-4 py-3 text-white shadow-lg backdrop-blur-sm`}
           aria-label="Level 001 Finch dialogue" role="dialog" aria-modal="false">
           <div className="mb-2 flex items-center justify-between text-xs">
             <span className="font-semibold tracking-wide text-[#dbe6f4]">
