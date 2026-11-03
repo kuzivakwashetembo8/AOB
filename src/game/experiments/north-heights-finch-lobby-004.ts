@@ -210,8 +210,9 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
    if(!Number.isFinite(h)||h<.1)throw Error("POI-004 invalid suit NPC geometry");
    const scale=(h<1.25||h>2.25)?1.74/h:1;
    anchor.scaling.setAll(scale);
-   anchor.position.set(deskX-(low.x+high.x)*.5*scale,bottom-low.y*scale-.45,
-    deskZ-1.62-(low.z+high.z)*.5*scale);
+   // The former negative offset buried her waist below the white seat.
+   anchor.position.set(deskX-(low.x+high.x)*.5*scale,bottom-low.y*scale+.15,
+    deskZ-1.42-(low.z+high.z)*.5*scale);
    anchor.rotation.y=0;
    groups=data.animationGroups;
    const seated=groups.find(g=>/(sit.*idle|sit.*loop|seated|sitting)/i.test(g.name));
