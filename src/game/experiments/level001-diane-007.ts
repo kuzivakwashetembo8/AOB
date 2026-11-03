@@ -97,7 +97,9 @@ export class DianeLevel001{
  private returnStarted=false;
  private returnDone=false;
  private boardingSeconds=0;
- private driveSeconds=0,spottedSeconds=0,fleeingSeconds=0;
+ private driveSeconds=0;
+ private spottedSeconds=0;
+ private fleeingSeconds=0;
  private fleeAway={x:0,z:1};
  private readonly onChange:(view:DianeMissionView001)=>void;
  private readonly carSideDistance=2.6;
