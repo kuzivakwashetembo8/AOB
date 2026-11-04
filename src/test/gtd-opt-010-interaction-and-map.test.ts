@@ -23,7 +23,8 @@ describe("GTD-OPT-010 interaction and cartography contracts",()=>{
     expect(names(false,false,true)).toContain("vehicle");
     expect(names(false,true,false)).toEqual(expect.arrayContaining(["sprint","jump","descend"]));
     expect(names(true,false,false)).toEqual(["vehicle"]);
-    for(const a of visibleTouchActions(false,false,true))expect(["interact","combat","context"]).not.toContain(a.action);
+    expect(names(false,false,false)).toEqual(["jump","sprint","combat"]);
+    for(const a of visibleTouchActions(false,false,true))expect(["interact","context"]).not.toContain(a.action);
   });
   it("keeps geographic north-up (world positive Z to screen negative Y)",()=>{
     const base=northHeightsMapPoint010({x:0,z:0});
