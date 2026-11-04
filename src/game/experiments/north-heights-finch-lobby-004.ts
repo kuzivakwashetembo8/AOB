@@ -3,7 +3,7 @@
 import {AnimationGroup,Color3,MeshBuilder,Scene,SceneLoader,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import {PED002_NPC_FILES} from "./north-heights-pedestrian-asset-manifest-002";
-import {finchShaft004,FINCH_ELEVATOR_TRAVEL_SECONDS_004} from "./north-heights-finch-elevator-structure-004";
+import {finchShaft004,finchFloorStopFraction004,FINCH_ELEVATOR_TRAVEL_SECONDS_004} from "./north-heights-finch-elevator-structure-004";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
 
@@ -74,11 +74,16 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  // The existing native building slab is the ONE uniform white lobby floor.
  // Adding a second coplanar white mesh caused z-fighting and uneven visuals.
  // The terrain below it is now flattened by POI-006.
- // At Floor 53, the native four-part floor ring already spans the entire room.
- // Only a short structural threshold bridges its 0.5m gap to the glass door.
+ // Every upper landing needs the same flush bridge used on Floor 53.
+ // It overlaps the glass cabin deck and the existing white floor ring.
  const thresholdZ=front+.35;
  box("top-white-door-threshold",x,top-.03,thresholdZ,3.6,.06,.8,white);
  staticBox(x,top-.03,thresholdZ,1.8,.03,.4);
+ for(let level=2;level<shaft.floors;level++){
+  const landingY=groundY+shaft.topFloorOffset-(shaft.floors-level)*shaft.fh;
+  box("floor-white-door-threshold-"+level,x,landingY-.03,thresholdZ,3.6,.06,.8,white);
+  staticBox(x,landingY-.03,thresholdZ,1.8,.03,.4);
+ }
  // Centered on the -Z wall, with equal left/right margins.
  // Continuous glass shaft: no solid intermediary floors or opaque masonry.
  const shaftH=top-bottom+3.1,shaftY=bottom+shaftH/2;
@@ -89,9 +94,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   4.85,top-bottom-3.2,.06,glass);
  // A simple white reception counter to the right of the entrance sightline.
  const deskX=cx+width*.26,deskZ=cz+3.6;
- // Clean white built-in seat behind the reception desk.
- box("reception-seat",deskX,bottom+.49,deskZ-1.42,1.05,.14,.9,white);
- box("reception-seat-base",deskX,bottom+.24,deskZ-1.62,.65,.48,.60,white);
+ // No reception chair until a correctly fitted seated asset is available.
  box("desk-front",deskX,bottom+.56,deskZ,3.65,1.08,.67,white);
  box("desk-counter",deskX,bottom+1.13,deskZ,4.05,.14,1.09,white);
  box("desk-left-side",deskX-1.75,bottom+.56,deskZ-.27,.16,1.1,.75,white);
@@ -167,7 +170,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
   if(mode==="closing"&&doorFraction<.02)mode="riding";
   if(mode==="riding"){
    travelElapsed=Math.min(travelDuration,travelElapsed+step);
-   const travelEnd=(target-1)/52;
+   const travelEnd=finchFloorStopFraction004(target,shaft);
    const fraction=travelElapsed/travelDuration;
    heightFraction=Math.max(0,Math.min(1,travelStart+(travelEnd-travelStart)*fraction));
    carriage.position.y=(top-bottom)*heightFraction;

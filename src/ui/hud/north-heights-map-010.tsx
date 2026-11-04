@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from "react";
+import {useEffect,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {X,Plus,Minus,MapPinned} from "lucide-react";
 import {
  NORTH_HEIGHTS_MAP_ROADS_010,
@@ -135,7 +135,33 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
  const [zoom,setZoom]=useState(1);
  const [destinationNotice,setDestinationNotice]=useState("");
  const [pan,setPan]=useState({x:0,y:0});
+ const pointers=useRef(new Map<number,{x:number;y:number}>());
  const drag=useRef<{id:number;x:number;y:number}|null>(null);
+ const pinch=useRef<{distance:number;zoom:number;pan:{x:number;y:number};center:{x:number;y:number}}|null>(null);
+ const mapPoint=(node:SVGSVGElement,x:number,y:number)=>{
+   const rect=node.getBoundingClientRect(),ratio=640/(rect.width||640);
+   return {x:(x-rect.left)*ratio,y:(y-rect.top)*ratio};
+ };
+ const startPinch=(node:SVGSVGElement)=>{
+   if(pointers.current.size!==2)return;
+   const [a,b]=[...pointers.current.values()];
+   const first=mapPoint(node,a!.x,a!.y),second=mapPoint(node,b!.x,b!.y);
+   pinch.current={
+     distance:Math.max(1,Math.hypot(second.x-first.x,second.y-first.y)),
+     zoom,pan,center:{x:(first.x+second.x)/2,y:(first.y+second.y)/2},
+   };
+   drag.current=null;
+ };
+ const releasePointer=(event:ReactPointerEvent<SVGSVGElement>)=>{
+   pointers.current.delete(event.pointerId);
+   pinch.current=null;
+   if(pointers.current.size===1){
+     const [id,point]=[...pointers.current.entries()][0]!;
+     drag.current={id,x:point.x,y:point.y};
+   }else drag.current=null;
+   if(event.currentTarget.hasPointerCapture(event.pointerId))
+     event.currentTarget.releasePointerCapture(event.pointerId);
+ };
  useEffect(()=>{
    const escape=(e:KeyboardEvent)=>{if(e.key==="Escape")onClose();};
    window.addEventListener("keydown",escape);
@@ -143,6 +169,10 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
  },[onClose]);
  return <div role="dialog" aria-modal="true" aria-label="North Heights 2D map"
    className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-2 overflow-hidden bg-[#07111d]/40 p-3 text-white backdrop-blur-[4px]">
+   <button type="button" aria-label="Close map" title="Close map" onClick={onClose}
+     className="fixed right-[max(12px,env(safe-area-inset-right))] top-[max(12px,env(safe-area-inset-top))] z-[110] flex h-10 w-10 items-center justify-center rounded-lg border border-white/40 bg-black/55 text-white shadow-lg backdrop-blur-sm">
+     <X size={22} strokeWidth={2}/>
+   </button>
    <header className="flex w-[min(82vh,92vw,760px)] max-w-[92vw] items-center justify-between gap-2">
      <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
        <MapPinned size={17}/> NORTH HEIGHTS — MERIDIAN CITY
@@ -154,25 +184,47 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
          onClick={()=>setZoom(v=>Math.min(3,v+.25))}><Plus size={17}/></button>
        <button aria-label="Reset map view" className="rounded border border-white/40 px-2 py-2 text-xs"
          onClick={()=>{setZoom(1);setPan({x:0,y:0});}}>RESET</button>
-       <button aria-label="Close map" className="rounded border border-white/40 p-2"
-         onClick={onClose}><X size={18}/></button>
      </div>
    </header>
    <div className="aspect-square w-[min(82vh,92vw,760px)] max-w-[92vw] flex-none overflow-hidden rounded-lg border border-white/35 bg-transparent shadow-2xl">
      <svg viewBox="0 0 640 640" className="h-full w-full" role="img"
        aria-label="Top-down North Heights map: white dot marks the player and gold diamond marks Finch headquarters"
        style={{touchAction:"none"}}
-       onPointerDown={e=>{drag.current={id:e.pointerId,x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}}
+       onPointerDown={e=>{
+         pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
+         e.currentTarget.setPointerCapture(e.pointerId);
+         if(pointers.current.size===1)
+           drag.current={id:e.pointerId,x:e.clientX,y:e.clientY};
+         else if(pointers.current.size===2)startPinch(e.currentTarget);
+       }}
        onPointerMove={e=>{
+         if(!pointers.current.has(e.pointerId))return;
+         pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
+         if(pointers.current.size===2&&pinch.current){
+           const [a,b]=[...pointers.current.values()];
+           const first=mapPoint(e.currentTarget,a!.x,a!.y);
+           const second=mapPoint(e.currentTarget,b!.x,b!.y);
+           const center={x:(first.x+second.x)/2,y:(first.y+second.y)/2};
+           const start=pinch.current;
+           const nextZoom=Math.max(1,Math.min(3,
+             start.zoom*Math.hypot(second.x-first.x,second.y-first.y)/start.distance));
+           const factor=nextZoom/start.zoom;
+           setZoom(nextZoom);
+           // Pinch about the two-finger midpoint without jumping the map.
+           setPan({
+             x:start.pan.x+(center.x-start.center.x)+(start.center.x-320-start.pan.x)*(1-factor),
+             y:start.pan.y+(center.y-start.center.y)+(start.center.y-320-start.pan.y)*(1-factor),
+           });
+           return;
+         }
          const prev=drag.current;
          if(!prev||prev.id!==e.pointerId)return;
-         const width=e.currentTarget.getBoundingClientRect().width||640;
-         const ratio=640/width;
+         const ratio=640/(e.currentTarget.getBoundingClientRect().width||640);
          setPan(p=>({x:p.x+(e.clientX-prev.x)*ratio,y:p.y+(e.clientY-prev.y)*ratio}));
          drag.current={id:e.pointerId,x:e.clientX,y:e.clientY};
        }}
-       onPointerUp={()=>{drag.current=null;}}
-       onPointerCancel={()=>{drag.current=null;}}>
+       onPointerUp={releasePointer}
+       onPointerCancel={releasePointer}>
        <g transform={`translate(${pan.x} ${pan.y}) translate(320 320) scale(${zoom}) translate(-320 -320)`}>
          <DistrictVector x={position.x} z={position.z} labels poi={poi} buildings={buildings}
            onFinchSelect={()=> {

@@ -1,6 +1,6 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
-import {X,Hand,Crosshair,ListOrdered} from "lucide-react";
+import {X,Hand,Crosshair,ListOrdered,ArrowRight} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {FINCH_INTRO_005} from "@/game/experiments/north-heights-finch-intro-005";
 import {DIANE_DIALOGUE_REPORT_001,DIANE_DIALOGUE_FAILED_009,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
@@ -329,20 +329,25 @@ function NorthHeightsPreview(){
             onClick={()=>setMissionCompletedBanner(false)}>Continue</Button>
         </div>}
       {ready&&!paused&&dialogueIndex!==null&&
-        <section className={`absolute ${coarse?"bottom-24":"bottom-6"} left-1/2 z-40 w-[min(92vw,540px)] -translate-x-1/2 rounded-xl border border-white/25 bg-[#101b28]/90 px-4 py-3 text-white shadow-lg backdrop-blur-sm`}
+        <section className="absolute z-40 w-max max-w-[min(60vw,380px)] rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-white shadow-lg backdrop-blur-md"
+          style={{top:"max(8px, env(safe-area-inset-top))",
+            left:"calc(max(12px, env(safe-area-inset-left)) + clamp(82px, 9vw, 116px) + 10px)"}}
           aria-label="Level 001 Finch dialogue" role="dialog" aria-modal="false">
-          <div className="mb-2 flex items-center justify-between text-xs">
-            <span className="font-semibold tracking-wide text-[#dbe6f4]">
+          <div className="mb-1 flex items-center justify-between gap-3 text-[10px] leading-4 text-white/70">
+            <span className="font-semibold tracking-wide text-white/90">
               {(dialogueKind==="report"||dialogueKind==="failed")&&dialogueIndex===0?"JOHN REESE":"HAROLD FINCH"}
             </span>
-            <span className="text-white/60">{dialogueIndex+1} / {activeLines.length}</span>
+            <span className="shrink-0">{dialogueIndex+1} / {activeLines.length}</span>
           </div>
-          <p className="mb-3 text-sm leading-relaxed text-white/95">{activeLines[dialogueIndex]}</p>
-          <div className="flex justify-end">
-            <Button variant="control" className="gtd-uniform-action px-4" data-testid="poi005-next"
+          <div className="flex items-end gap-2">
+            <p className="min-w-0 flex-1 text-xs leading-snug text-white/95">{activeLines[dialogueIndex]}</p>
+            <button type="button" data-testid="poi005-next"
+              aria-label={dialogueIndex===activeLines.length-1?"Finish dialogue":"Next dialogue"}
+              title={dialogueIndex===activeLines.length-1?"Finish dialogue":"Next dialogue"}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-white/25 bg-white/10 text-white hover:bg-white/20"
               onClick={advanceFinchDialogue}>
-              {dialogueIndex===activeLines.length-1?"Finish":"Next"}
-            </Button>
+              <ArrowRight size={17} strokeWidth={1.25}/>
+            </button>
           </div>
         </section>}
       {feedback&&!paused&&<div role="status" className="pointer-events-none absolute bottom-[42%] left-1/2 z-20 max-w-[70vw] -translate-x-1/2 rounded-lg border border-amber-400/40 bg-black/85 px-3 py-2 text-center text-xs text-amber-100">{feedback}</div>}

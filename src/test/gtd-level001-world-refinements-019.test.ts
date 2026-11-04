@@ -11,16 +11,16 @@ import {northHeightsBuildingShaft019,buildingLiftFloorHeight019}
  from "../game/experiments/north-heights-building-lift-plan-019";
 import {createNorthHeightsBuildingLifts019}
  from "../game/experiments/north-heights-building-lifts-019";
-import {finchFloorRing004} from "../game/experiments/north-heights-finch-elevator-structure-004";
+import {finchFloorRing004,finchFloorStopFraction004} from "../game/experiments/north-heights-finch-elevator-structure-004";
 import type {MeridianPhysics} from "../game/physics/rapier-world";
 const source=(p:string)=>readFileSync(resolve(process.cwd(),p),"utf8");
 
 describe("GTD-LEVEL001-WORLD-019 — owner follow-up refinements",()=>{
- it("keeps the receptionist seated visibly ABOVE the white slab",()=>{
+ it("keeps the receptionist seated without a constructed chair",()=>{
   const code=source("src/game/experiments/north-heights-finch-lobby-004.ts");
-  expect(code).toContain('box("reception-seat"');
+  expect(code).not.toContain('box("reception-seat"');
+  expect(code).not.toContain('box("reception-seat-base"');
   expect(code).toContain('bottom-low.y*scale+.15');
-  expect(code).not.toContain("bottom-low.y*scale-.45");
  });
  it("renders a focused square map with only the game behind the blur",()=>{
   const code=source("src/ui/hud/north-heights-map-010.tsx");
@@ -121,4 +121,30 @@ describe("GTD-LEVEL001-WORLD-019 — owner follow-up refinements",()=>{
   expect(route).toContain("travelBuildingFloor019");
   expect(route).toContain("travelFinchElevator(floor)");
  });
+ it("aligns all 53 Finch cabin stops with the actual floor surfaces",()=>{
+  const shaft={floors:53,fh:3.1,bottomFloorOffset:.27,topFloorOffset:.87+52*3.1};
+  expect(finchFloorStopFraction004(1,shaft)).toBe(0);
+  expect(finchFloorStopFraction004(53,shaft)).toBe(1);
+  for(let level=2;level<=53;level++){
+   const cabinTop=shaft.bottomFloorOffset+
+    finchFloorStopFraction004(level,shaft)*(shaft.topFloorOffset-shaft.bottomFloorOffset);
+   const landingTop=.80+(level-1)*shaft.fh+.07;
+   expect(cabinTop).toBeCloseTo(landingTop,8);
+  }
+  const lobby=source("src/game/experiments/north-heights-finch-lobby-004.ts");
+  expect(lobby).toContain("finchFloorStopFraction004(target,shaft)");
+  expect(lobby).toContain('box("top-white-door-threshold"');
+  expect(lobby).toContain('box("floor-white-door-threshold-"+level');
+ });
+ it("keeps the map closable and pinch-zoomable, with compact dialogue above the scene",()=>{
+  const map=source("src/ui/hud/north-heights-map-010.tsx");
+  const route=source("src/routes/north-heights-preview.tsx");
+  expect(map).toContain('aria-label="Close map"');
+  expect(map).toContain("pointers.current.size===2");
+  expect(map).toContain("pinch.current");
+  expect(route).toContain('aria-label="Level 001 Finch dialogue"');
+  expect(route).toContain("<ArrowRight size={17} strokeWidth={1.25}/>");
+  expect(route).not.toContain('?"Finish":"Next"');
+ });
+
 });
