@@ -34,7 +34,8 @@ describe("GTD-REESE-FINCH-007 owner gameplay corrections",()=>{
   expect(finchElevatorFloorCounter007(1)).toBe(53);
   expect(finchElevatorFloorCounter007(5)).toBe(53);
   const page=src("src/routes/north-heights-preview.tsx");
-  expect(page).toContain("FLOOR {elevator.currentFloor} OF 53");
+  expect(page).toContain("LIFT · FLOOR {buildingLift?.moving?buildingLift.currentFloor:elevator?.currentFloor}");
+  expect(page).toContain("OF {buildingLift?.moving?buildingLift.floors:elevator?.floors}");
   expect(page).not.toContain("% HEIGHT");
  });
  it("uses Finch's embedded talking clip while dialogue is active and restores idle",()=>{
@@ -58,6 +59,7 @@ describe("GTD-REESE-FINCH-007 owner gameplay corrections",()=>{
   expect(page).toContain('className="gtd-hand-always');
   expect(map).toContain("backdrop-blur-[4px]");
   expect(map).toContain('bg-[#07111d]/40');
-  expect(map).toContain("max-w-[980px]");
+  expect(map).toContain("aspect-square w-[min(82vh,92vw,760px)]");
+  expect(map).toContain("bg-transparent shadow-2xl");
  });
 });
