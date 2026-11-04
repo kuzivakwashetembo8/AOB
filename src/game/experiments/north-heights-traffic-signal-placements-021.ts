@@ -18,8 +18,10 @@ export function planFinchTrafficSignals021():readonly PilotSignalPlacement021[]{
   const approach=edge.dx>0?"W":edge.dx<0?"E":edge.dz>0?"S":"N";
   // Real directed lanes end 10m before node; support stands outside
   // the 7.75m sidewalk envelope and away from the vehicle swept path.
-  const poleX=edge.end.x+rightX*7.6;
-  const poleZ=edge.end.z+rightZ*7.6;
+  // The accepted curb/sidewalk envelope extends 7.75m from centre.
+  // Keep the support outside its walkable surface with clearance.
+  const poleX=edge.end.x+rightX*8.5;
+  const poleZ=edge.end.z+rightZ*8.5;
   // Distinct, non-duplicated heads: two overhead N/S and two roadside E/W.
   // Both owner GLBs are used, never two overlapping supports at one corner.
   if(edge.dz!==0)
