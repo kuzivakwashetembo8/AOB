@@ -74,6 +74,16 @@ export class NH012TrafficSimulator {
  readonly population:number;
  private readonly rng:()=>number;
  private readonly reservations=new Map<string,string>();
+ /** POI-010: transparent deadlock witnesses, not teleport/recovery cheats. */
+ private readonly blockedConnectorSince=new Map<string,number>();
+ private readonly blockedExitSince=new Map<string,number>();
+ private recoveredOrphans=0;
+ deadlockMetrics010(){
+  return {tick:this.tick,activeReservations:this.reservations.size,
+   orphanReservationsReclaimed:this.recoveredOrphans,
+   blockedConnectors:[...this.blockedConnectorSince].map(([id,since])=>({id,ticks:this.tick-since})),
+   blockedExits:[...this.blockedExitSince].map(([id,since])=>({id,ticks:this.tick-since}))};
+ }
  /** SDN-001 Stage 2: one rider can request braking for ONE original traffic
   * agent. No separate car transform, chassis physics or replacement renderer. */
  private driverBrakeId:string|null=null;
@@ -736,17 +746,18 @@ export class NH012TrafficSimulator {
  /** Reconcile stale junction ownership after impact recovery, re-parking
   * or driver handoffs. Never clear a real car still inside the connector. */
  private reconcileJunctionReservations001(){
-  if(!this.dianePace001)return; // preserve baseline/manual traffic semantics
+  // Reconcile for all traffic, not only when Diane is active.
   for(const [junction,id] of this.reservations){
    const owner=this.agents.find(agent=>agent.id===id);
    const connector=owner?.connectorId?this.graph.connectors.get(owner.connectorId):null;
    if(!owner||!connector||connector.junction!==junction||
      this.freeParkedAgents.has(id)||this.manual?.agentId===id)
-     this.reservations.delete(junction);
+     {this.reservations.delete(junction);this.recoveredOrphans++;}
   }
   for(const car of this.agents){
    const connector=car.connectorId?this.graph.connectors.get(car.connectorId):null;
-   if(connector&&!this.reservations.has(connector.junction))
+   if(connector&&!this.reservations.has(connector.junction)&&
+      !this.freeParkedAgents.has(car.id)&&this.manual?.agentId!==car.id)
      this.reservations.set(connector.junction,car.id);
   }
  }
@@ -815,6 +826,14 @@ export class NH012TrafficSimulator {
        this.reservations.delete(c.junction);
      }
      this.keepSolidMove(agent,before);
+   }
+   // POI-010: record blocked connectors without ever releasing occupied space.
+   for(const car of this.agents){
+    if(!car.connectorId||this.freeParkedAgents.has(car.id)||this.manual?.agentId===car.id){
+      this.blockedConnectorSince.delete(car.id);continue;
+    }
+    if(car.speed>.12)this.blockedConnectorSince.delete(car.id);
+    else if(!this.blockedConnectorSince.has(car.id))this.blockedConnectorSince.set(car.id,this.tick);
    }
    // Advance ordinary lanes; a virtual stop-line leader enforces full stops.
    for(const agent of this.agents){
@@ -889,9 +908,25 @@ export class NH012TrafficSimulator {
      // Keep each queued car's route fixed while allowing the first safe exit.
      for(const agent of queue){
        if(this.targeted?.agentId===agent.id&&this.targeted.arrived)continue;
-       const connector=this.chooseConnector(agent);
+       let connector=this.chooseConnector(agent);
+       // A permanently blocked preferred turn can starve a whole junction.
+       // Before acquiring a reservation, ordinary AI may take another legal
+       // free outgoing edge. Never override authored routes or driver turns.
+       if(!this.hasExitSpace(connector.outgoing,agent)){
+         if(!this.blockedExitSince.has(agent.id))this.blockedExitSince.set(agent.id,this.tick);
+         const waiting=this.tick-(this.blockedExitSince.get(agent.id)??this.tick);
+         if(waiting>=20&&this.targeted?.agentId!==agent.id&&
+           this.driverTurn?.agentId!==agent.id){
+           const alternates=(this.graph.turns.get(agent.edgeId)??[])
+             .filter(c=>c.id!==connector.id&&this.hasExitSpace(c.outgoing,agent))
+             .sort((a,b)=>a.id.localeCompare(b.id));
+           const alternative=alternates[0];
+           if(alternative){connector=alternative;agent.plannedConnectorId=alternative.id;}
+         }
+       }
        if(!this.hasExitSpace(connector.outgoing,agent))continue;
        if(this.solidAdmission&&!this.solidAdmission(agent,{x:connector.p0.x,z:connector.p0.z,heading:agent.heading}))continue;
+       this.blockedExitSince.delete(agent.id);
        this.reservations.set(junction,agent.id);
        // Turn intent is one-shot. Consume it ONLY upon successful junction
        // reservation, never while the lane is merely waiting at a stop line.
