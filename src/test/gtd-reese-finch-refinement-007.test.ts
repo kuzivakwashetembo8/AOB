@@ -47,7 +47,8 @@ describe("GTD-REESE-FINCH-007 owner gameplay corrections",()=>{
   expect(finch).toContain("next.start(true)");
   expect(scene).toContain("setFinchTalking(active){finchSuite?.setTalking(active);}");
   expect(page).toContain("controller.current?.setFinchTalking(dialogueIndex!==null&&!paused");
-  expect(page).toContain('coarse?"bottom-24":"bottom-6"');
+  expect(page).toContain('max-w-[min(60vw,380px)]');
+  expect(page).toContain("<ArrowRight size={17} strokeWidth={1.25}/>");
  });
  it("has three evenly spaced header buttons and a blurred game-backed focused map",()=>{
   const style=src("src/styles.css");
