@@ -24,9 +24,13 @@ describe("GTD-LEVEL001-WORLD-019 — owner follow-up refinements",()=>{
  });
  it("renders a focused square map with only the game behind the blur",()=>{
   const code=source("src/ui/hud/north-heights-map-010.tsx");
-  expect(code).toContain("backdrop-blur-[4px]");
+  // POI-009: the focused map inherits the same translucent game-control
+  // treatment as other panels instead of its former one-off overlay style.
+  expect(code).toContain("poi-game-glass-panel");
   expect(code).toContain("aspect-square");
-  expect(code).toContain('bg-transparent shadow-2xl');
+  expect(code).toContain("bg-transparent");
+  const css=source("src/styles.css");
+  expect(css).toContain("backdrop-filter:blur(12px)");
   expect(code).not.toContain("max-w-[980px] flex-1");
  });
  it("rounds only outward facing land corners without black blocks or 4-way scallops",()=>{
