@@ -126,9 +126,10 @@ export function NorthHeightsMiniMap({position,onExpand,poi,buildings}:{
   </span>
  </button>;
 }
-export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicleOccupied=false,poi,buildings}:{
+export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicleOccupied=false,poi,buildings,machineView=false,onMachineTarget}:{
  position:{x:number;z:number};onClose:()=>void;
  onFinchHQSelect?:()=>boolean;vehicleOccupied?:boolean;
+ machineView?:boolean;onMachineTarget?:(x:number,z:number)=>boolean;
  poi?:{x:number;z:number}|null|undefined;
  buildings?:readonly NorthHeightsMapBuilding011[]|undefined;
 }){
@@ -137,6 +138,7 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
  const [pan,setPan]=useState({x:0,y:0});
  const pointers=useRef(new Map<number,{x:number;y:number}>());
  const drag=useRef<{id:number;x:number;y:number}|null>(null);
+ const tapStart=useRef<{id:number;x:number;y:number;pinched:boolean}|null>(null);
  const pinch=useRef<{distance:number;zoom:number;pan:{x:number;y:number};center:{x:number;y:number}}|null>(null);
  const mapPoint=(node:SVGSVGElement,x:number,y:number)=>{
    const rect=node.getBoundingClientRect(),ratio=640/(rect.width||640);
@@ -151,8 +153,20 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
      zoom,pan,center:{x:(first.x+second.x)/2,y:(first.y+second.y)/2},
    };
    drag.current=null;
+   if(tapStart.current)tapStart.current.pinched=true;
  };
  const releasePointer=(event:ReactPointerEvent<SVGSVGElement>)=>{
+   const started=tapStart.current;
+   if(machineView&&onMachineTarget&&started?.id===event.pointerId&&!started.pinched&&
+      Math.hypot(event.clientX-started.x,event.clientY-started.y)<7){
+     const p=mapPoint(event.currentTarget,event.clientX,event.clientY);
+     const worldMapX=(p.x-pan.x-320)/zoom+320;
+     const worldMapY=(p.y-pan.y-320)/zoom+320;
+     if(worldMapX>=0&&worldMapX<=640&&worldMapY>=0&&worldMapY<=640){
+       if(onMachineTarget(worldMapX-320,320-worldMapY))onClose();
+     }
+   }
+   if(started?.id===event.pointerId)tapStart.current=null;
    pointers.current.delete(event.pointerId);
    pinch.current=null;
    if(pointers.current.size===1){
@@ -192,6 +206,8 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
        style={{touchAction:"none"}}
        onPointerDown={e=>{
          pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
+         if(pointers.current.size===1)tapStart.current={id:e.pointerId,x:e.clientX,y:e.clientY,pinched:false};
+         if(pointers.current.size>1&&tapStart.current)tapStart.current.pinched=true;
          e.currentTarget.setPointerCapture(e.pointerId);
          if(pointers.current.size===1)
            drag.current={id:e.pointerId,x:e.clientX,y:e.clientY};
@@ -227,7 +243,7 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
        onPointerCancel={releasePointer}>
        <g transform={`translate(${pan.x} ${pan.y}) translate(320 320) scale(${zoom}) translate(-320 -320)`}>
          <DistrictVector x={position.x} z={position.z} labels poi={poi} buildings={buildings}
-           onFinchSelect={()=> {
+           onFinchSelect={machineView?undefined:()=> {
              if(!vehicleOccupied){setDestinationNotice("Enter a vehicle to navigate to Finch HQ");return;}
              if(!onFinchHQSelect?.())setDestinationNotice("Unable to start navigation: use a road-going vehicle");
            }}/>
@@ -241,7 +257,7 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
        FINCH HQ · {vehicleOccupied?"CLICK PIN TO AUTO-DRIVE":"ENTER VEHICLE TO NAVIGATE"}
      </span>
      {destinationNotice&&<span role="status" className="text-amber-300">{destinationNotice}</span>}
-     <span>22 named streets · 6 areas · 2 parking lots · Drag to pan</span>
+     <span>{machineView?"THE MACHINE · TAP A LOCATION TO MOVE CAMERA · Drag to pan":"22 named streets · 6 areas · 2 parking lots · Drag to pan"}</span>
    </footer>
  </div>;
 }
