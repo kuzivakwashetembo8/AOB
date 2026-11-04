@@ -239,6 +239,7 @@ export function TouchControls({
   canExitVehicle = true,
   passenger = false,
   armed = false,
+  combatEnabled = true,
   elevator,
 }: {
   send: Send;
@@ -250,6 +251,7 @@ export function TouchControls({
   canExitVehicle?: boolean;
   passenger?: boolean;
   armed?: boolean;
+  combatEnabled?: boolean;
   elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
   const style = {
@@ -265,7 +267,7 @@ export function TouchControls({
     >
       {passenger ? <SedanPassengerPedals send={send} haptics={settings.haptics}/> : arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
       <div className="touch-actions">
-        {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).map(({ action, label, icon: BaseIcon }) => {
+        {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).filter(a=>a.action!=="combat"||combatEnabled).map(({ action, label, icon: BaseIcon }) => {
           const Icon=action==="combat"&&armed?Gun:BaseIcon;
           const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
           return (
