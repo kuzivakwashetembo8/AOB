@@ -13,6 +13,8 @@ export class MeridianPhysics {
   private readonly controller: RAPIER.KinematicCharacterController;
   /** Physical portal thresholds that a vehicle must not climb via autostep. */
   private readonly vehicleNoStepColliders = new Map<number, RAPIER.Collider>();
+  /** POI-009: capped Rapier query blockers for nearby logical NPCs only. */
+  private readonly nearbyPeople=new Map<string,RAPIER.RigidBody>();
   // NH-010 vehicle-only swept barriers: DO NOT register Rapier colliders,
   // because people must be able to enter actual pedestrian doorways.
   private readonly vehicleOnlyFootprints = new Map<number,{
@@ -216,6 +218,36 @@ export class MeridianPhysics {
     };
   }
 
+  /** Bring only local pedestrians into the player's Rapier sweep.
+   * NPC global movement remains owned by the 20 Hz logical simulator. */
+  syncNearbyPedestrians(people:readonly {id:string;x:number;y:number;z:number}[]):void{
+    const player=this.playerBody.translation();
+    const near=people.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&
+       Number.isFinite(p.z)&&Math.hypot(p.x-player.x,p.z-player.z)<8&&
+       Math.abs(p.y-player.y)<2.0)
+      .sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z)||a.id.localeCompare(b.id))
+      .slice(0,24);
+    const keep=new Set(near.map(p=>p.id));
+    let changed=false;
+    for(const [id,body] of this.nearbyPeople){
+      if(keep.has(id))continue;
+      this.world.removeRigidBody(body);this.nearbyPeople.delete(id);changed=true;
+    }
+    for(const p of near){
+      let body=this.nearbyPeople.get(p.id);
+      if(!body){
+        body=this.world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased()
+         .setTranslation(p.x,p.y,p.z));
+        this.world.createCollider(RAPIER.ColliderDesc.capsule(.55,.34),body);
+        this.nearbyPeople.set(p.id,body);changed=true;
+      }
+      const position={x:p.x,y:p.y,z:p.z};
+      body.setTranslation(position,true);
+      body.setNextKinematicTranslation(position);
+      changed=true;
+    }
+    if(changed)this.world.step();
+  }
   /** Make newly installed/moved kinematic car hulls visible to Rapier scene
    * queries before the next character-controller sweep. The broad phase is
    * committed once per traffic tick, not once per each of the 125 cars. */

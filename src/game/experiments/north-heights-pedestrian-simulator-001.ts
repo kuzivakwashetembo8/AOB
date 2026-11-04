@@ -57,6 +57,10 @@ export class NorthHeightsPedestrianSimulator001{
  private readonly eligibleBuildings:string[];
  private readonly routeCache=new Map<string,readonly string[]>();
  private canOccupyVehicleFreeSpace:((x:number,z:number)=>boolean)|null=null;
+ private playerOccupancy:(()=>{x:number;y:number;z:number}|null)|null=null;
+ private groundAt:(x:number,z:number)=>number=()=>0;
+ avoids=0;
+ yields=0;
  private readonly missionReserved001=new Set<string>();
  private readonly hornAlertUntil=new Map<string,number>();
  /** A horn makes an NPC clear the lane more promptly when a safe path exists.
@@ -79,6 +83,11 @@ export class NorthHeightsPedestrianSimulator001{
  /** NPC routes remain logical, but may never advance into a solid Sedan. */
  setVehicleOccupancy(clear:(x:number,z:number)=>boolean):void{
    this.canOccupyVehicleFreeSpace=clear;
+ }
+ /** Inject the real player capsule, keeping interiors/floors physically separate. */
+ setPlayerOccupancy(player:()=>{x:number;y:number;z:number}|null,
+   ground:(x:number,z:number)=>number):void{
+   this.playerOccupancy=player;this.groundAt=ground;
  }
  constructor(buildings:readonly BuildingSpec[],trees:readonly TreeLocation[]=[]){
    this.graph=buildPedestrianGraph001(buildings,trees);
@@ -215,6 +224,36 @@ export class NorthHeightsPedestrianSimulator001{
    const delta=Math.max(0,Math.min(.1,dt));
    if(delta<=0)return;
    this.tick++;
+   // POI-009: bounded spatial hash. Every active NPC, including scripted
+   // mission NPCs, occupies space even if another subsystem owns movement.
+   const cellSize=2.5,hash=(x:number,z:number)=>Math.floor(x/cellSize)+":"+Math.floor(z/cellSize);
+   const cells=new Map<string,PedAgent001[]>();
+   for(const a of this.agents){
+    if(a.state==="inside")continue;
+    const key=hash(a.x,a.z),list=cells.get(key)??[];
+    list.push(a);cells.set(key,list);
+   }
+   const player=this.playerOccupancy?.()??null;
+   const clearPerson=(a:PedAgent001,x:number,z:number):boolean=>{
+    if(this.canOccupyVehicleFreeSpace&&!this.canOccupyVehicleFreeSpace(x,z))return false;
+    if(player&&Math.abs(player.y-(this.groundAt(x,z)+.92))<1.45){
+     const next=Math.hypot(x-player.x,z-player.z);
+     const before=Math.hypot(a.x-player.x,a.z-player.z);
+     if(next<.73&&next<before-.001)return false;
+    }
+    const cx=Math.floor(x/cellSize),cz=Math.floor(z/cellSize);
+    for(let ix=cx-1;ix<=cx+1;ix++)for(let iz=cz-1;iz<=cz+1;iz++){
+     for(const other of cells.get(ix+":"+iz)??[]){
+      if(other.id===a.id)continue;
+      // Logical pedestrians use ground routes. No phantom blockers on upper floors.
+      if(Math.abs(this.groundAt(x,z)-this.groundAt(other.x,other.z))>1.45)continue;
+      const next=Math.hypot(x-other.x,z-other.z);
+      const before=Math.hypot(a.x-other.x,a.z-other.z);
+      if(next<.72&&next<before-.001)return false;
+     }
+    }
+    return true;
+   };
    for(const a of this.agents){
      if(this.missionReserved001.has(a.id))continue;
      a.stateAge+=delta;
@@ -240,13 +279,14 @@ export class NorthHeightsPedestrianSimulator001{
        const length=link.length;
        if(length<EPS){a.segment++;a.progress=0;continue;}
        const motion=pedestrianObstacleStep020(a,p,q,link.kind,remaining,
-         this.canOccupyVehicleFreeSpace??(()=>true),a.appearanceId%2===0?1:-1);
+         (x,z)=>clearPerson(a,x,z),a.appearanceId%2===0?1:-1);
        if(motion.blocked||motion.traveled<EPS){
          // Remain stationary only when no safe bypass is possible.
-         if(motion.blocked)this.setState(a,"wait");
+         if(motion.blocked){this.setState(a,"wait");this.yields++;}
          break;
        }
        const moveX=motion.x-a.x,moveZ=motion.z-a.z;
+       if(Math.abs(motion.avoidOffset)>.015)this.avoids++;
        a.x=motion.x;a.z=motion.z;a.progress=motion.progress;
        a.avoidOffset=motion.avoidOffset;a.avoidTarget=motion.avoidTarget;
        a.heading=Math.atan2(moveX,moveZ);

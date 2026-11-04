@@ -460,6 +460,12 @@ export async function createNorthHeightsCity8(
       while(pedestrianAccumulator>=.05-1e-7&&pedSteps++<3){
         pedestrians.step(.05);pedestrianAccumulator-=.05;
       }
+      // Before Reese's next Rapier movement, register nearby NPC capsules.
+      if(walk){
+        walk.physics.syncNearbyPedestrians(pedestrians.agents
+          .filter(a=>a.state!=="inside")
+          .map(a=>({id:a.id,x:a.x,y:northHeightsGround(a.x,a.z)+.92,z:a.z})));
+      }
       const driven=ridingAgent();
       const missionPlayer=driven
         ?{x:driven.x,y:northHeightsGround(driven.x,driven.z)+.92,
@@ -1062,6 +1068,8 @@ export async function createNorthHeightsCity8(
     // Crossings remain geometric-only until the dedicated yielding stage.
     pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
     pedestrians.setVehicleOccupancy((x,z)=>solidField.personClear({x,z}));
+    pedestrians.setPlayerOccupancy(()=>ridingSedanId||machineView||!walk
+      ?null:walk.physics.playerPosition(),northHeightsGround);
     const assignedDianeCar=traffic.agents[110];
     if(!assignedDianeCar)throw Error("LVL-001 car identity missing");
     dianeLevel=new DianeLevel001(pedestrians,traffic,assignedDianeCar.id,
