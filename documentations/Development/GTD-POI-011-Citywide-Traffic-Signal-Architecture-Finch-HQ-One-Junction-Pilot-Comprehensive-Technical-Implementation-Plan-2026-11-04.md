@@ -483,3 +483,28 @@ Owner instruction: **“Fullplan authorized, merge and deploy.”** In the prior
 7. Extend the tests to assert: all four placements are `roadside`; the source string for the hanging GLB and cantilever code are absent from the renderer; every mast's signed lateral offset is `4.35m`, longitudinal offset `7.15m`, and world x/z head position equals its pole; all four heads face their actual incoming lane direction. The owner-supplied low-poly GLB integrity test must validate only the active file.
 
 **Acceptance status:** The owner rejected the earlier production implementation. A **feature preview** is required for this corrected pilot. **Do not merge or redeploy production before explicit acceptance**. Once the preview link is provided, do not monitor build logs unless the owner reports failure.
+
+---
+
+## 17. POI-011 low-poly GLB duplicate-head repair — 2026-11-04
+
+**User visual rejection:** Even after correcting the support locations to the road-facing sidewalk curbs, the owner identified a **secondary floating traffic light head beside every vehicle signal**. This is a separate GLB-geometry problem, not a reason to move the accepted curbside supports.
+
+**Confirmed source inspection:** The GLB `traffic_light_-_free_low_poly.glb` is a 796,084-byte glTF 2.0 binary containing **15 individually named geometry meshes**, grouped as:
+
+| Original authored geometry family | Count | Required for vehicle road signal? |
+|---|---:|---|
+| `rod_*` | 1 | Yes — pole |
+| `lightTrafficArm_*` | 2 | Yes — pole/head bracket |
+| `lightTrafficMain_*` | 4 | Yes — primary 3-colour vehicle head and lenses |
+| `lightPassengerArm_*` | 2 | **No** — companion arm |
+| `lightPassengerMain_*` | 3 | **No** — companion pedestrian head and lights |
+| `camera_*` | 3 | **No** — standalone camera assembly |
+
+The duplicate visible alongside each mounted signal is consistent with the separately authored passenger-head assembly being instantiated with every complete GLB. The root cause is **not** the removed `Traffic Light 2e (hanging).glb`; it is unrelated geometry inside the currently selected free-standing model.
+
+**Repair contract:** Filter the imported mesh set against the exact `rod_`, `lightTrafficArm_` and `lightTrafficMain_` families. Preserve only **seven required meshes**; dispose the other eight leaf geometry meshes before generating thin-instance matrices. Fail closed if the asset's expected counts change rather than silently showing unexpected duplicate signal heads. Do not download another file or generate a replacement traffic-light housing. Do not remove the distinct pilot's pedestrian WALK/WAIT indicator system, which is a separate gameplay-controlled component.
+
+**Regression:** The automated source-asset test reads the actual binary GLB JSON manifest, verifies its full 15-part structure, asserts seven retained meshes and eight excluded components, and ensures neither the hanging source nor its runtime import is used.
+
+**Owner gate:** Correction remains on `feature/poi-011-curbside-signal-placement-20261104` for preview acceptance. Production `main` is unchanged. No merge until accepted.
