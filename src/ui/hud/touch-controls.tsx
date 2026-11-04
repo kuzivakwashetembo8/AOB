@@ -1,5 +1,6 @@
+import {PistolIcon009} from "./pistol-icon-009";
 import { useEffect, useRef, type CSSProperties, type PointerEvent } from "react";
-import { Hand, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Crosshair, Footprints, Car, Zap, HandFist, Gun } from "lucide-react";
+import { Hand, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Crosshair, Footprints, Car, Zap, HandFist } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameAction, GameCommand } from "@/game/core/types";
 import type { Settings } from "@/ui/menus/settings-state";
@@ -268,7 +269,7 @@ export function TouchControls({
       {passenger ? <SedanPassengerPedals send={send} haptics={settings.haptics}/> : arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
       <div className="touch-actions">
         {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).filter(a=>a.action!=="combat"||combatEnabled).map(({ action, label, icon: BaseIcon }) => {
-          const Icon=action==="combat"&&armed?Gun:BaseIcon;
+          const Icon=action==="combat"&&armed?PistolIcon009:BaseIcon;
           const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
           return (
           <Button
