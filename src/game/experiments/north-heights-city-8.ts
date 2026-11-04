@@ -18,7 +18,7 @@ import {loadMeridiaCharacterTrial,type LoadedMeridiaCharacter} from "@/game/char
 import type {GameAction} from "@/game/core/types";
 import {northHeightsActionControl007,northHeightsUnavailableAction007} from "./north-heights-controls-007";
 import { createNorthHeightsWalk005,northHeightsBuildingCollision005, type NorthHeightsWalk005 } from "./north-heights-physics-005";
-import {resolveNorthHeightsThirdPersonCamera,clampNorthHeightsPitch,clampNorthHeightsActorXZ,type CameraBox} from "@/game/camera/third-person-camera-constraints";
+import {resolveNorthHeightsThirdPersonCamera,northHeightsSkyLookTarget,clampNorthHeightsPitch,clampNorthHeightsActorXZ,type CameraBox} from "@/game/camera/third-person-camera-constraints";
 import {northHeightsLocationAt} from "@/game/world-generation/north-heights-location-009";
 import {
   nearestBoardableVehicle,sedanExitCandidates,overlapsAnotherTrafficSedan,
@@ -361,7 +361,9 @@ export async function createNorthHeightsCity8(
       }
     }
     camera.position.set(p.x,p.y,p.z);
-    camera.setTarget(new Vector3(computed.target.x,computed.target.y,computed.target.z));
+    // Look skyward while preserving the grounded camera position and cabin limits.
+    const look=inside||interiorId?computed.target:northHeightsSkyLookTarget(p,computed.target,yaw,pitch);
+    camera.setTarget(new Vector3(look.x,look.y,look.z));
   };
   const boundActor=()=>{
     if(!walk)return;
