@@ -10,16 +10,17 @@ describe("NH-OPT2: accepted uniform action layout",()=>{
   expect(css).toMatch(/\.touch-actions \.gtd-uniform-action\.control-button \{[\s\S]*?width: 48px;[\s\S]*?height: 48px;/);
   expect(css).toContain("grid-template-columns: repeat(3, 42px)");
  });
- it("keeps desktop actions equal and does not promote sprint",()=>{
+ it("keeps equal base hit areas while raising only the Sprint control as approved",()=>{
   expect(css).toMatch(/\.desktop-action-pad \.gtd-uniform-action\.desktop-control-button \{[\s\S]*?width: 42px;[\s\S]*?height: 42px;/);
-  expect(css).not.toContain(".desktop-action-pad .gtd-action-sprint");
-  expect(css).not.toContain(".touch-actions .gtd-action-sprint");
+  expect(css).toContain(".desktop-action-pad .gtd-action-sprint{translate:0 -8px;}");
+  expect(css).toContain(".touch-actions .gtd-action-sprint{translate:0 -8px;}");
   expect(css).not.toContain("grid-column:2; grid-row:2");
  });
  it("uses the uniform class on both control surfaces without changing action filtering",()=>{
   expect(desktop).toContain("desktop-control-button gtd-uniform-action gtd-action-");
   expect(touch).toContain("gtd-uniform-action gtd-action-");
-  expect(desktop).toContain('driving ? action==="vehicle"&&canExitVehicle');
+  expect(desktop).toContain("driving ? false :");
+  expect(desktop).not.toContain('driving ? action==="vehicle"&&canExitVehicle');
   expect(touch).toContain("visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle)");
  });
 });
