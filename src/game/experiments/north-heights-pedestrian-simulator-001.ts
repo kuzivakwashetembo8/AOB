@@ -59,6 +59,10 @@ export class NorthHeightsPedestrianSimulator001{
  private canOccupyVehicleFreeSpace:((x:number,z:number)=>boolean)|null=null;
  private playerOccupancy:(()=>{x:number;y:number;z:number}|null)|null=null;
  private groundAt:(x:number,z:number)=>number=()=>0;
+ /** Enable reciprocal person-person checks only once an actual gameplay
+  * occupancy provider is wired. Graph-only lifecycle simulators retain their
+  * deterministic routing semantics and avoid allocating a crowd grid. */
+ private peopleAvoidanceEnabled=false;
  avoids=0;
  yields=0;
  private readonly missionReserved001=new Set<string>();
@@ -88,6 +92,7 @@ export class NorthHeightsPedestrianSimulator001{
  setPlayerOccupancy(player:()=>{x:number;y:number;z:number}|null,
    ground:(x:number,z:number)=>number):void{
    this.playerOccupancy=player;this.groundAt=ground;
+   this.peopleAvoidanceEnabled=true;
  }
  constructor(buildings:readonly BuildingSpec[],trees:readonly TreeLocation[]=[]){
    this.graph=buildPedestrianGraph001(buildings,trees);
@@ -228,14 +233,15 @@ export class NorthHeightsPedestrianSimulator001{
    // mission NPCs, occupies space even if another subsystem owns movement.
    const cellSize=2.5,hash=(x:number,z:number)=>Math.floor(x/cellSize)+":"+Math.floor(z/cellSize);
    const cells=new Map<string,PedAgent001[]>();
-   for(const a of this.agents){
+   if(this.peopleAvoidanceEnabled)for(const a of this.agents){
     if(a.state==="inside")continue;
     const key=hash(a.x,a.z),list=cells.get(key)??[];
     list.push(a);cells.set(key,list);
    }
-   const player=this.playerOccupancy?.()??null;
+   const player=this.peopleAvoidanceEnabled?(this.playerOccupancy?.()??null):null;
    const clearPerson=(a:PedAgent001,x:number,z:number):boolean=>{
     if(this.canOccupyVehicleFreeSpace&&!this.canOccupyVehicleFreeSpace(x,z))return false;
+    if(!this.peopleAvoidanceEnabled)return true;
     if(player&&Math.abs(player.y-(this.groundAt(x,z)+.92))<1.45){
      const next=Math.hypot(x-player.x,z-player.z);
      const before=Math.hypot(a.x-player.x,a.z-player.z);
