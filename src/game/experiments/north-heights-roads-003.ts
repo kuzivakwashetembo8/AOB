@@ -100,13 +100,13 @@ function pad(batch:Builder,x0:number,z0:number,x1:number,z1:number,elevation:num
   addQuad(batch,projected(x0,z0,at,elevation),projected(x1,z0,at,elevation),
     projected(x1,z1,at,elevation),projected(x0,z1,at,elevation),true);
 }
-/** Only the OUTER land-facing convex corner is rounded. The three edges
- * meeting roadway strips stay straight and flush, avoiding the four
- * inward scallops and floating dark corner blocks of the old pad. */
-function roundedJunctionPavement(top:Builder,wall:Builder,
+/** POI-010: round ONLY the road-facing convex corner. The land-side
+ * rear corner stays square; pavement, vertical fascia and complementary
+ * asphalt infill share an identical tangent arc (no detached blocks). */
+function roundedJunctionPavement(top:Builder,wall:Builder,asphalt:Builder,
  xa:number,za:number,xb:number,zb:number,
- outerX:number,outerZ:number,at:(x:number,z:number)=>number){
- const r=Math.min(.6,(xb-xa)/4,(zb-za)/4);
+ roadX:number,roadZ:number,at:(x:number,z:number)=>number){
+ const r=Math.min(1.8,(xb-xa)*.49,(zb-za)*.49);
  const corners=[
   {x:xa,z:za,start:180,cx:xa+r,cz:za+r},
   {x:xb,z:za,start:270,cx:xb-r,cz:za+r},
@@ -115,12 +115,25 @@ function roundedJunctionPavement(top:Builder,wall:Builder,
  ];
  const points:{x:number;z:number}[]=[];
  for(const corner of corners){
-  if(Math.abs(corner.x-outerX)>.01||Math.abs(corner.z-outerZ)>.01){
+  if(Math.abs(corner.x-roadX)>.01||Math.abs(corner.z-roadZ)>.01){
    points.push({x:corner.x,z:corner.z});continue;
   }
-  for(let j=0;j<=6;j++){
-   const angle=(corner.start+j*15)*Math.PI/180;
-   points.push({x:corner.cx+r*Math.cos(angle),z:corner.cz+r*Math.sin(angle)});
+  const arc:{x:number;z:number}[]=[];
+  const steps=Math.ceil(Math.PI*r/.4);
+  for(let j=0;j<=steps;j++){
+   const angle=(corner.start+j*90/steps)*Math.PI/180;
+   const vertex={x:corner.cx+r*Math.cos(angle),z:corner.cz+r*Math.sin(angle)};
+   arc.push(vertex);points.push(vertex);
+  }
+  // The cut-away pavement wedge is still asphalt, not empty terrain.
+  for(let j=0;j<arc.length-1;j++){
+   const a=arc[j]!,b=arc[j+1]!;
+   const n=asphalt.p.length/3;
+   for(const p of [{x:corner.x,z:corner.z},a,b]){
+    const v=projected(p.x,p.z,at,ASPHALT_TOP);
+    asphalt.p.push(v.x,v.y,v.z);asphalt.uv.push(v.x/8,v.z/8);
+   }
+   asphalt.indices.push(n,n+1,n+2);
   }
  }
  const cx=(xa+xb)/2,cz=(za+zb)/2;
@@ -237,8 +250,8 @@ export function createNorthHeightsRoads003(
       const z0=z+sz*HALF,z1=z+sz*OUTER;
       const xa=Math.min(x0,x1),xb=Math.max(x0,x1);
       const za=Math.min(z0,z1),zb=Math.max(z0,z1);
-      roundedJunctionPavement(batch.pavement,batch.curb,xa,za,xb,zb,
-        x+sx*OUTER,z+sz*OUTER,at);
+      roundedJunctionPavement(batch.pavement,batch.curb,batch.asphalt,xa,za,xb,zb,
+        x+sx*HALF,z+sz*HALF,at);
        // No block/cap under the corner: fascia already reaches the terrain,
        // and the roadway-facing edges remain uncut.
        sidewalkCount++;

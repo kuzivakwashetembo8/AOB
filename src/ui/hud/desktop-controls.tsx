@@ -112,9 +112,9 @@ export function DesktopControls({
 
       <div className="desktop-action-pad" aria-label="Action controls">
         {actionSpecs.filter(({action}) =>
-          driving ? action==="vehicle"&&canExitVehicle :
+          driving ? false :
           flying ? ["sprint","jump","descend"].includes(action) :
-          ["sprint","jump","combat"].includes(action)||(action==="vehicle"&&canEnterVehicle)
+          ["jump","sprint","combat"].includes(action)
         ).filter(a=>a.action!=="combat"||combatEnabled).map(({ action, label, keyHint, icon: BaseIcon }) => {
           const Icon=action==="combat"&&armed?PistolIcon009:BaseIcon;
           const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
@@ -138,7 +138,7 @@ export function DesktopControls({
             <Icon size={18} />
           </Button>
         );})}
-        {elevator&&<Button variant="control"
+        {false&&elevator&&<Button variant="control"
           className="desktop-control-button gtd-uniform-action gtd-action-elevator"
           data-testid="poi005-lift-desktop"
           aria-label={elevator.label} data-tooltip={elevator.label}

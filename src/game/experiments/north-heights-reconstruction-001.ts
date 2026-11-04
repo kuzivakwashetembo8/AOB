@@ -414,8 +414,13 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   }
   if(podium) {
     // Open-sided podium: structural corner piers, not an opaque box hiding glass.
+    // POI-010: the pier top meets the underside of the actual podium slab.
+    const slabUnder=y+podiumH+.9-.55/2;
+    const pierBase=y+.18;
+    const pierHeight=slabUnder-pierBase+.035;
+    const pierY=pierBase+pierHeight/2;
     for(const sx of [-1,1])for(const sz of [-1,1])
-      city.box("stone-c",x+sx*(w/2+.7),y+podiumH/2+.18,z+sz*(d/2+.7),1.1,podiumH,1.1);
+      city.box("stone-c",x+sx*(w/2+.7),pierY,z+sz*(d/2+.7),1.1,pierHeight,1.1);
     if(shaft){
       for(const part of finchFloorRing004(x,z,w+2.4,d+2.4,shaft))
         city.box("stone-c",part.x,y+podiumH+.9,part.z,part.width,.55,part.depth);

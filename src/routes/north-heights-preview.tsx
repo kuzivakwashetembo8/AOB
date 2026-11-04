@@ -314,6 +314,11 @@ function NorthHeightsPreview(){
         mode={inputMode} interaction={feedback} pause={()=>{setPanel("pause");setPaused(true);}}
         showObjective={settings.objective} setMeridianTime={setMeridianMinute}
         setMeridianTimeScale={setMeridianSpeed}/>}
+      {ready&&!paused&&!vehicle&&!mapOpen&&machineView&&
+       <div className="poi010-camera-status poi-game-glass-panel" role="status"
+         aria-label="Machine Camera Activate · Disable to return to John">
+         Machine Camera Activate · Disable to return to John
+       </div>}
       {ready&&!paused&&!vehicle&&<Button type="button" variant="control"
          data-testid="poi-machine-camera" aria-label={machineView?"Return to Reese":"Activate Machine camera"}
          title={machineView?"Return to Reese":"The Machine · Surveillance POV"}
@@ -381,13 +386,24 @@ function NorthHeightsPreview(){
           const link=document.createElement("a");link.href=url;link.download="gtd-north-heights-loading.json";link.click();
           window.setTimeout(()=>URL.revokeObjectURL(url),3000);}}
       />}
-      {ready&&!paused&&!mapOpen&&dialogueIndex===null&&activeLift&&
-        <Button type="button" variant="control"
-         className="absolute right-4 top-[40%] z-40 flex h-12 w-12 items-center justify-center border border-white/30 bg-black/65 shadow-lg"
-         data-testid="poi005-lift-independent" aria-label="Open elevator floor keypad"
-         title="Choose elevator floor" onClick={()=>setKeypadDismissedId(null)}>
-         <ListOrdered size={21}/>
-        </Button>}
+      {ready&&!paused&&!mapOpen&&!machineView&&dialogueIndex===null&&
+        <div className="poi010-context-actions" aria-label="Contextual vehicle and elevator controls">
+          {activeLift&&<Button type="button" variant="control"
+            className="poi-game-glass-panel poi010-context-button"
+            data-testid="poi005-lift-independent" aria-label="Open elevator floor keypad"
+            title="Choose elevator floor" onClick={()=>setKeypadDismissedId(null)}>
+              <ListOrdered size={21}/>
+            </Button>}
+          {(vehicle!==null?Math.abs(vehicleSpeed)<.25:canEnterVehicle)&&
+            (!activeLift?.available||keypadDismissedId===activeLift.buildingId)&&
+            <Button type="button" variant="control"
+              data-testid="poi010-vehicle-context" className="poi-game-glass-panel poi010-context-button"
+              aria-label={vehicle?"Exit vehicle":"Enter vehicle"}
+              title={vehicle?"Exit vehicle (F)":"Enter vehicle (F)"}
+              onClick={()=>controller.current?.action("vehicle",true)}>
+              <Car size={21}/>
+            </Button>}
+        </div>}
       {ready&&!paused&&!mapOpen&&dialogueIndex===null&&activeLift?.available&&
         keypadDismissedId!==activeLift.buildingId&&
         <NorthHeightsLiftKeypad019 lift={activeLift}

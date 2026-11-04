@@ -2090,3 +2090,43 @@ html[data-display="standalone"] body > * {
 @keyframes poi009-map-in{from{opacity:0;transform:scale(.97);}to{opacity:1;transform:scale(1);}}
 @keyframes poi009-map-out{from{opacity:1;transform:scale(1);}to{opacity:0;transform:scale(.97);}}
 @media(prefers-reduced-motion:reduce){.poi009-expanded-map,.poi009-expanded-map-closing{animation-duration:1ms;}}
+
+/* POI-010: fixed three-action row, 10% additional size, centered on left movement. */
+.touch-controls{--poi010-action-size:76.56px;--poi010-joystick-actual:min(var(--joystick-size,120px),120px);}
+.touch-actions:has(.gtd-uniform-action){
+ --poi010-gap:12px;grid-template-columns:repeat(3,var(--poi010-action-size));
+ grid-auto-rows:var(--poi010-action-size);gap:var(--poi010-gap);
+ bottom:calc(10px + var(--poi010-joystick-actual) * .5 - var(--poi010-action-size) * var(--control-scale,1) * .5);
+}
+.touch-actions .gtd-uniform-action.control-button{
+ width:var(--poi010-action-size);height:var(--poi010-action-size);
+ min-width:var(--poi010-action-size);min-height:var(--poi010-action-size);
+}
+.touch-actions .gtd-action-sprint{translate:0 -8px;}
+.desktop-action-pad{gap:11px;align-self:center;}
+.desktop-action-pad .gtd-uniform-action.desktop-control-button{
+ width:55.44px;height:55.44px;min-width:55.44px;min-height:55.44px;
+}
+.desktop-action-pad .gtd-action-sprint{translate:0 -8px;}
+@media(max-height:440px){
+ .touch-controls{--poi010-action-size:71.28px;--poi010-joystick-actual:min(var(--joystick-size,110px),120px);}
+ .touch-actions:has(.gtd-uniform-action){--poi010-gap:9px;grid-template-columns:repeat(3,var(--poi010-action-size));grid-auto-rows:var(--poi010-action-size);}
+ .touch-actions .gtd-uniform-action.control-button{width:var(--poi010-action-size);height:var(--poi010-action-size);min-width:var(--poi010-action-size);min-height:var(--poi010-action-size);}
+}
+.poi010-context-actions{
+ position:absolute;right:max(16px,env(safe-area-inset-right));top:40%;
+ display:flex;flex-direction:column;gap:10px;z-index:40;pointer-events:auto;
+}
+.poi010-context-button{width:48px;height:48px;display:grid;place-items:center;padding:0;}
+.poi010-camera-status{
+ position:absolute;top:max(8px,env(safe-area-inset-top));
+ right:calc(max(12px,env(safe-area-inset-right)) + 211px);
+ height:44px;padding:0 9px;z-index:17;display:flex;align-items:center;
+ max-width:calc(100vw - 375px);white-space:nowrap;
+ font:500 10px/1.2 var(--font-mono);letter-spacing:.01em;
+ pointer-events:none;overflow:hidden;text-overflow:ellipsis;
+}
+@media(max-width:740px){
+ .poi010-camera-status{font-size:9px;padding:0 5px;max-width:calc(100vw - 355px);}
+ .poi010-context-button{width:44px;height:44px;}
+}

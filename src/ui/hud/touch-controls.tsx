@@ -225,10 +225,9 @@ const actions: Array<{ action: GameAction; label: string; icon: typeof Hand }> =
   { action: "descend", label: "Descend while flying", icon: ArrowDown },
 ];
 export function visibleTouchActions(driving:boolean,flying=false,canEnterVehicle=false,canExitVehicle=true){
-  if(driving)return canExitVehicle?actions.filter(a=>a.action==="vehicle"):[];
+  if(driving)return []; // Center-right contextual vehicle host owns entry/exit.
   if(flying)return actions.filter(a=>["sprint","jump","descend"].includes(a.action));
-  return actions.filter(a=>["sprint","jump","combat"].includes(a.action)||
-    (a.action==="vehicle"&&canEnterVehicle));
+  return actions.filter(a=>["jump","sprint","combat"].includes(a.action));
 }
 export function TouchControls({
   send,
@@ -299,7 +298,7 @@ export function TouchControls({
             <Icon size={19} />
           </Button>
         );})}
-        {elevator&&<Button variant="control"
+        {false&&elevator&&<Button variant="control"
           className="gtd-uniform-action gtd-action-elevator"
           data-testid="poi005-lift-touch"
           aria-label={elevator.label} title={elevator.label}
