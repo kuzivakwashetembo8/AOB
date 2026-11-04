@@ -3,8 +3,9 @@ import {readFileSync,statSync} from "node:fs";
 /** Pure GLB manifest qualification; no Babylon renderer needed to validate
  * source availability, binary GLB header, version and embedded glTF mesh metadata. */
 const ROOT="public/GLBs/Infrastructure/";
+// The hanging source is retained as an unreferenced repository asset, but
+// the owner rejected it for gameplay. Only the accepted roadside GLB is tested.
 const files=[
- {name:"Traffic Light 2e (hanging).glb",size:320520},
  {name:"traffic_light_-_free_low_poly.glb",size:796084},
 ] as const;
 describe("POI-011 source GLB integrity before scene placement",()=>{
