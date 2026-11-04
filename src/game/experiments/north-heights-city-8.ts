@@ -67,6 +67,8 @@ export interface NorthHeightsInspection {
   reset: () => void;
   setTime: (time: NorthHeightsTime) => void;
   setMode: (mode: "walk" | "fly") => boolean;
+  toggleMachineCamera:()=>boolean;
+  moveMachineCameraTo:(x:number,z:number)=>boolean;
   toggleSedanAutopilot: () => void;
   driveToFinchHQ: () => boolean;
   travelFinchElevator: (floor?:number) => boolean;
@@ -94,6 +96,7 @@ export async function createNorthHeightsCity8(
   onDianeMissionChange?: (state:DianeMissionView001)=>void,
   onMapBuildings?: (buildings:readonly NorthHeightsMapBuilding011[])=>void,
   onBuildingLiftChange?: (state:BuildingLiftState019|null)=>void,
+  onMachineModeChange?: (active:boolean)=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -181,7 +184,11 @@ export async function createNorthHeightsCity8(
   let locationTick=0;
   let actor:ReturnType<typeof createReesePlayer001>|null=null;
   let humanoid:LoadedMeridiaCharacter|null=null;
-  let mode:"walk"|"fly"="fly";
+  let mode:"walk"|"fly"="walk";
+  let machineView=false;
+  let savedOrbit={yaw:Math.PI,pitch:0};
+  let footstepTravel=0;
+  let hornCheck=0;
   let headingYaw=Math.PI;
   let physicsAccumulator=0;
   const footSpawn={...FINCH_START_005.spawn};
@@ -235,7 +242,7 @@ export async function createNorthHeightsCity8(
       return;
     }
     if(event.code==="KeyG"){
-      if(!event.repeat)controller.setMode(mode==="walk"?"fly":"walk");
+      if(!event.repeat)controller.toggleMachineCamera();
       return;
     }
     if(event.code==="KeyP"&&ridingSedanId){
@@ -457,6 +464,32 @@ export async function createNorthHeightsCity8(
           :null;
       dianeLevel?.tick(dt,missionPlayer,yaw,northHeightsGround);
     }
+    // Detect a pedestrian in the forward swept corridor of an approaching
+    // car; horn only when obstructed, with one burst per car cooldown.
+    hornCheck+=dt;
+    if(hornCheck>=.30&&traffic&&pedestrians&&vehicleAudio.isUnlocked){
+      hornCheck=0;
+      const visiblePeople=pedestrians.agents.filter(p=>p.state!=="inside");
+      const reese=!ridingSedanId&&walk?walk.physics.playerPosition():null;
+      let hornCount=0;
+      for(const car of traffic.agents){
+        if(car.speed<.25||hornCount>=2)continue;
+        if(Math.hypot(car.x-camera.position.x,car.z-camera.position.z)>65)continue;
+        const people=reese?[...visiblePeople,{id:"reese",x:reese.x,z:reese.z}]:visiblePeople;
+        for(const person of people){
+          const dx=person.x-car.x,dz=person.z-car.z;
+          const forward=dx*Math.sin(car.heading)+dz*Math.cos(car.heading);
+          const side=Math.abs(dx*Math.cos(car.heading)-dz*Math.sin(car.heading));
+          if(forward>1.45&&forward<Math.max(4.5,car.speed*1.3+3)&&side<1.55){
+            if(vehicleAudio.playHorn(car.id,car.x,northHeightsGround(car.x,car.z),car.z)){
+              hornCount++;
+              if(person.id!=="reese")pedestrians.signalHorn(person.id);
+            }
+            break;
+          }
+        }
+      }
+    }
     const key=(code:string)=>keys.has(code),active=(button:Control)=>held.has(button);
     const pad=typeof navigator.getGamepads==="function" ? navigator.getGamepads()[0] : null;
     const stickX=pad&&Math.abs(pad.axes[0]??0)>.18?(pad.axes[0]??0):0;
@@ -494,6 +527,30 @@ export async function createNorthHeightsCity8(
           intentMagnitude:0,sprintRequested:false,jumpAscending:false,dt});
       }
       setCameraAt(pose);
+    }else if(machineView&&walk&&actor&&humanoid){
+      // The Machine navigates a detached first-person camera. Reese's Rapier
+      // capsule stays untouched and his idle pose stays grounded at the anchor.
+      const player=walk.physics.playerPosition();
+      if(settings.enableCharacter)actor.updateControlled(player,headingYaw,0,dt,false,true,0);
+      else{
+        humanoid.root.position.set(player.x,player.y,player.z);
+        humanoid.root.rotation.y=headingYaw;
+        humanoid.updateAnimation({correctedPlanarSpeed:0,rawGrounded:true,
+          intentMagnitude:0,sprintRequested:false,jumpAscending:false,dt});
+      }
+      physicsAccumulator=0;lastTravelSpeed=0;footstepTravel=0;
+      const up=Number(active("up")||key("Space"))-
+        Number(active("down")||key("ControlLeft")||key("ControlRight"));
+      const motion=heading.scale(z).add(side.scale(x)).add(new Vector3(0,up,0));
+      if(motion.lengthSquared()>1)motion.normalize();
+      const speed=fast?25:9;
+      const wanted=camera.position.add(motion.scale(speed*dt));
+      const bounded=clampNorthHeightsActorXZ(wanted.x,wanted.z);
+      camera.position.set(bounded.x,
+        Math.min(280,Math.max(northHeightsGround(bounded.x,bounded.z)+1.4,wanted.y)),bounded.z);
+      const direction=new Vector3(Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),
+        Math.cos(yaw)*Math.cos(pitch));
+      camera.setTarget(camera.position.add(direction));
     }else if(mode==="walk"&&walk&&actor&&humanoid){
       // A fixed-step Rapier simulation, not naive camera clipping.
       physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
@@ -508,6 +565,15 @@ export async function createNorthHeightsCity8(
         last=walk.physics.playerPosition();
         lastGrounded=result.grounded;
         lastTravelSpeed=result.speed;
+        // Gait distance, not render FPS, owns each foot-ground contact.
+        if(result.grounded&&result.speed>.3){
+          footstepTravel+=result.speed/60;
+          const stride=fast?.9:.65;
+          if(footstepTravel>=stride){
+            footstepTravel-=stride;
+            vehicleAudio.playFootstep(fast||result.speed>5);
+          }
+        }else footstepTravel=0;
         if(result.speed>.07)headingYaw=Math.atan2(forward.x,forward.z);
         if(settings.enableCharacter){
           actor.updateControlled(last,headingYaw,result.speed,1/60,
@@ -528,39 +594,6 @@ export async function createNorthHeightsCity8(
       }
       // Same South Ward-style bounded third-person framing for walking.
       setCameraAt(last);
-    } else if(mode==="fly"&&walk&&actor&&humanoid){
-      // Flight is still third person. Move the SAME Rapier capsule, not
-      // the camera in isolation; render exactly one selected visual actor.
-      const up=Number(active("up")||key("Space"))-
-        Number(active("down")||key("ControlLeft")||key("ControlRight"));
-      const travel=heading.scale(z).add(side.scale(x)).add(new Vector3(0,up,0));
-      const length=Math.sqrt(travel.lengthSquared());
-      if(length>1)travel.scaleInPlace(1/length);
-      const flightSpeed=fast?25:9;
-      physicsAccumulator=Math.min(.1,physicsAccumulator+dt);
-      let position=walk.physics.playerPosition();
-      while(physicsAccumulator>=1/60){
-        const desired=travel.scale(flightSpeed/60);
-        walk.physics.movePlayer({x:desired.x,y:desired.y,z:desired.z});
-        boundActor();
-        position=walk.physics.playerPosition();
-        if(Math.hypot(desired.x,desired.z)>.005)
-          headingYaw=Math.atan2(desired.x,desired.z);
-        const animation={
-          dt:1/60,forward:z>.08,backward:z<-.08,left:x<-.08,right:x>.08,
-          ascending:up>.08,descending:up<-.08,accelerated:fast,
-        };
-        if(settings.enableCharacter){
-          actor.updateControlledFlight(position,headingYaw,animation);
-        }else{
-          humanoid.root.position.set(position.x,position.y,position.z);
-          humanoid.root.rotation.y=headingYaw;
-          humanoid.updateFlightAnimation(animation);
-        }
-        physicsAccumulator-=1/60;
-      }
-      // Same radius/ground constraint on flight; no freely detached camera.
-      setCameraAt(position);
     }
     locationTick+=dt;
     if(locationTick>=.33){
@@ -782,10 +815,8 @@ export async function createNorthHeightsCity8(
       }
       const control=northHeightsActionControl007(action);
       if(control){controller.press(control,pressed);return;}
-      if(action==="fly"){
-        if(pressed&&!ridingSedanId)controller.setMode(mode==="walk"?"fly":"walk");
-        return;
-      }
+      if(action==="fly")return; // No Reese flight; only the detached camera can fly.
+      if(action==="descend"&&!machineView)return;
       if(pressed)onFeedback?.(northHeightsUnavailableAction007(action));
     },
     applySettings(next){
@@ -802,6 +833,7 @@ export async function createNorthHeightsCity8(
       else {renderLast=0;trafficAccumulator=0;engine.resize();}
     },
     reset() {
+      machineView=false;onMachineModeChange?.(false);
       if(ridingSedanId){
         if(traffic?.isManualDriving(ridingSedanId)){
           if(!traffic.endManualDriving())traffic.parkManualOffRoad(ridingSedanId);
@@ -820,6 +852,28 @@ export async function createNorthHeightsCity8(
       physicsAccumulator=0;clearKeys();
     },
     toggleSedanAutopilot,
+    toggleMachineCamera(){
+      if(paused||!walk||!actor||!humanoid||ridingSedanId)return machineView;
+      if(!machineView&&(liftFrame?.traveling||genericLiftFrame?.traveling))return false;
+      machineView=!machineView;
+      if(machineView){savedOrbit={yaw,pitch};}
+      else{
+        yaw=savedOrbit.yaw;pitch=savedOrbit.pitch;
+        setCameraAt(walk.physics.playerPosition());
+      }
+      clearKeys();physicsAccumulator=0;footstepTravel=0;
+      onMachineModeChange?.(machineView);
+      return machineView;
+    },
+    moveMachineCameraTo(x,z){
+      if(!machineView||!Number.isFinite(x)||!Number.isFinite(z))return false;
+      const limited=clampNorthHeightsActorXZ(x,z);
+      camera.position.set(limited.x,northHeightsGround(limited.x,limited.z)+11,limited.z);
+      const direction=new Vector3(Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),
+        Math.cos(yaw)*Math.cos(pitch));
+      camera.setTarget(camera.position.add(direction));
+      return true;
+    },
     driveToFinchHQ,
     startDianeMission(){return dianeLevel?.assign()??false;},
     reportDianeMission(){return dianeLevel?.report()??false;},
@@ -841,7 +895,7 @@ export async function createNorthHeightsCity8(
     },
     setTime(time) { lampTime=time;sky.setTime(time);lampHandle?.setTime(time); },
     setMode(next){
-      if(ridingSedanId)return false;
+      if(ridingSedanId||next!=="walk")return false;
       if(next==="walk"&&(!walk||!actor||!humanoid))return false;
       mode=next;clearKeys();physicsAccumulator=0;
       // Preserve the capsule position and third-person orbit on mode changes.
