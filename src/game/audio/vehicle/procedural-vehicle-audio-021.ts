@@ -29,6 +29,7 @@ class ProceduralVoice021 {
   private dead=false;
   private tone:AcousticState021|undefined;
   private lastSpeed=0;
+  private driveCycle=0;
   constructor(
     readonly id:string,
     private readonly ctx:AudioContext,
@@ -90,19 +91,24 @@ class ProceduralVoice021 {
     this.tone=acousticStep021({...input,throttle},this.tone,dt);
     this.lastSpeed=Math.abs(input.signedSpeedMps);
     const {firingHz,load,roadLevel,rpm}=this.tone;
-    const f=Math.max(20,firingHz);
+    // POI-008: a smooth, repeating low→moderate→high→moderate→low
+    // phrase while driving, over the *real speed/load* drivetrain envelope.
+    // Time-based, no oscillator restarts or frame-rate dependent steps.
+    if(this.tone.speedMps>.6)this.driveCycle=(this.driveCycle+Math.max(0,dt)/5.8)%1;
+    const phrase=this.tone.speedMps>.6?(1-Math.cos(this.driveCycle*Math.PI*2))*.5:0;
+    const f=Math.max(20,firingHz*(1+.12*phrase));
     fade(this.engineOsc[0]!.frequency,f,now,.07);
     fade(this.engineOsc[1]!.frequency,f*2.1,now,.07);
     fade(this.engineOsc[2]!.frequency,f*3.8,now,.07);
     const bright=bounded((rpm-850)/5300,0,1);
-    fade(this.engineFilter.frequency,300+bright*1200+load*1500,now,.075);
-    fade(this.engineGain[0]!.gain,.28+load*.15,now);
-    fade(this.engineGain[1]!.gain,.115+load*.15,now);
+    fade(this.engineFilter.frequency,300+bright*1200+load*1500+phrase*950,now,.075);
+    fade(this.engineGain[0]!.gain,.28+load*.15+phrase*.11,now);
+    fade(this.engineGain[1]!.gain,.115+load*.15+phrase*.085,now);
     fade(this.engineGain[2]!.gain,.012+load*.045,now);
     fade(this.rollingFilter.frequency,230+roadLevel*1200,now);
     fade(this.rollingGain.gain,roadLevel*(.04+.028*roadLevel),now);
     // A car at zero velocity still idles. Avoid toggling source nodes.
-    fade(this.output.gain,input.isPlayer?.40:.23,now,.085);
+    fade(this.output.gain,input.isPlayer?.60:.27,now,.085);
     this.panner.positionX.setTargetAtTime(input.x,now,.045);
     this.panner.positionY.setTargetAtTime(input.y+.65,now,.045);
     this.panner.positionZ.setTargetAtTime(input.z,now,.045);
@@ -139,6 +145,7 @@ export class ProceduralVehicleAudio021 {
   private volume:ProceduralVehicleSoundSettings021={master:80,effects:85,muted:false};
   private selectionElapsed=.2;
   private selections:string[]=[];
+  private readonly lastHorn=new Map<string,number>();
   private readonly budget:number;
   constructor(mobile:boolean){this.budget=mobile?3:6;}
   get isUnlocked():boolean{return !!this.ctx&&this.enabled&&this.ctx.state==="running";}
@@ -196,7 +203,47 @@ export class ProceduralVehicleAudio021 {
     const master=bounded(this.volume.master,0,100)/100;
     const effects=bounded(this.volume.effects,0,100)/100;
     // Reserved headroom: live radio uses an independent HTMLAudioElement.
-    fade(bus.gain,audible?master*effects*.28:0,ctx.currentTime,.06);
+    fade(bus.gain,audible?master*effects*.42:0,ctx.currentTime,.06);
+  }
+  /** Procedural impact transients: one physical contact = one audible step.
+   * Caller provides grounded, gait-synchronized contacts; no free-running loop. */
+  playFootstep(running:boolean):void{
+    const ctx=this.ctx,noise=this.noise,bus=this.playerBus;
+    if(!ctx||!noise||!bus||!this.isUnlocked||this.paused||this.hidden||this.volume.muted)return;
+    const now=ctx.currentTime,src=ctx.createBufferSource(),filter=ctx.createBiquadFilter();
+    const gain=ctx.createGain();
+    src.buffer=noise;src.playbackRate.value=running?1.28:.93;
+    filter.type="lowpass";filter.frequency.value=running?930:640;
+    gain.gain.setValueAtTime(.001,now);
+    gain.gain.exponentialRampToValueAtTime(running?.22:.16,now+.012);
+    gain.gain.exponentialRampToValueAtTime(.001,now+(running?.12:.17));
+    src.connect(filter);filter.connect(gain);gain.connect(bus);
+    src.onended=()=>{src.disconnect();filter.disconnect();gain.disconnect();};
+    src.start(now);src.stop(now+.19);
+  }
+  /** Positional vehicle horn for a genuine obstruction, rate-limited per car. */
+  playHorn(id:string,x:number,y:number,z:number):boolean{
+    const ctx=this.ctx,bus=this.trafficBus;
+    if(!ctx||!bus||!this.isUnlocked||this.paused||this.hidden||this.volume.muted)return false;
+    const now=ctx.currentTime;
+    if(now-(this.lastHorn.get(id)??-100)<3.2)return false;
+    this.lastHorn.set(id,now);
+    const panner=ctx.createPanner(),gain=ctx.createGain();
+    panner.panningModel="equalpower";panner.distanceModel="inverse";
+    panner.refDistance=6;panner.maxDistance=65;panner.rolloffFactor=1.4;
+    panner.positionX.value=x;panner.positionY.value=y+1;panner.positionZ.value=z;
+    gain.gain.setValueAtTime(.001,now);
+    gain.gain.linearRampToValueAtTime(.18,now+.025);
+    gain.gain.setValueAtTime(.18,now+.19);
+    gain.gain.exponentialRampToValueAtTime(.001,now+.34);
+    gain.connect(panner);panner.connect(bus);
+    let ended=0;
+    for(const hz of [370,440]){
+      const osc=ctx.createOscillator();osc.type="sawtooth";osc.frequency.value=hz;
+      osc.connect(gain);osc.onended=()=>{osc.disconnect();if(++ended===2){gain.disconnect();panner.disconnect();}};
+      osc.start(now);osc.stop(now+.36);
+    }
+    return true;
   }
   /** Audio-LOD selection is independent of Babylon mesh LOD.
    * Call on a bounded cadence (20Hz max), not on every physics substep. */
@@ -244,7 +291,7 @@ export class ProceduralVehicleAudio021 {
   dispose():void{
     if(this.closed)return;this.closed=true;
     for(const voice of this.voices.values())voice.stop();
-    this.voices.clear();this.selections=[];
+    this.voices.clear();this.selections=[];this.lastHorn.clear();
     this.playerBus?.disconnect();
     this.trafficBus?.disconnect();
     this.masterBus?.disconnect();
