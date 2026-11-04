@@ -83,7 +83,7 @@ export function GameHud({
             </button>
 
             {timeControlsOpen && (
-              <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded border border-white/20 bg-black/90 p-3 backdrop-blur-md">
+              <div className="poi-game-glass-panel absolute right-0 top-full z-50 mt-2 w-64 p-3">
                 <div className="system-label text-primary mb-2">
                   DEV TIME CONTROL
                 </div>

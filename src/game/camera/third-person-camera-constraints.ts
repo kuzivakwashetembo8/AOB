@@ -4,7 +4,7 @@ export type CameraPoint={x:number;y:number;z:number};
 export type CameraBox={x:number;y:number;z:number;halfX:number;halfY:number;halfZ:number};
 export const NORTH_HEIGHTS_CAMERA_LIMIT=309;
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
-export function clampNorthHeightsPitch(pitch:number){return clamp(Number.isFinite(pitch)?pitch:0,-.57,.46);}
+export function clampNorthHeightsPitch(pitch:number){return clamp(Number.isFinite(pitch)?pitch:0,-1.55,1.15);}
 export function clampNorthHeightsActorXZ(x:number,z:number){
   return {x:clamp(x,-NORTH_HEIGHTS_CAMERA_LIMIT,NORTH_HEIGHTS_CAMERA_LIMIT),
     z:clamp(z,-NORTH_HEIGHTS_CAMERA_LIMIT,NORTH_HEIGHTS_CAMERA_LIMIT)};

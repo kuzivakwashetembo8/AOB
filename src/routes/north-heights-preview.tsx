@@ -292,7 +292,7 @@ function NorthHeightsPreview(){
         context={vehicle?"driving":"walking"}
         mapSlot={<NorthHeightsMiniMap position={position} poi={dianeMission.poi} buildings={mapBuildings}
           onExpand={()=>setMapOpen(true)}/>}
-        metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div className="flex items-center gap-2 rounded bg-black/75 px-3 py-2 text-xs text-white" aria-label="Vehicle music"><span>VEHICLE MUSIC · {radioState.status.toUpperCase()}</span><button type="button" onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button></div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
+        metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div className="poi-game-glass-panel flex items-center gap-2 rounded px-3 py-2 text-xs text-white" aria-label="Vehicle music"><span>VEHICLE MUSIC · {radioState.status.toUpperCase()}</span><button type="button" onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button></div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
         className="flex max-w-[min(85vw,360px)] flex-wrap items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
         <span>{sedanManual
           ?"STAGE 6 FREE DRIVE · ↑ FORWARD +30% · ↓ BRAKE / REVERSE · HOLD ← → TO STEER · BUILDINGS / TRAFFIC / TREES / LAMPS SOLID"
@@ -338,7 +338,7 @@ function NorthHeightsPreview(){
           role="status">LIFT · FLOOR {buildingLift?.moving?buildingLift.currentFloor:elevator?.currentFloor}
           {" "}OF {buildingLift?.moving?buildingLift.floors:elevator?.floors}</div>}
       {ready&&missionCompletedBanner&&!paused&&
-        <div className="absolute left-1/2 top-[22%] z-40 w-[min(90vw,390px)] -translate-x-1/2 rounded-xl border border-white/35 bg-[#111c29]/95 p-4 text-center text-white shadow-lg"
+        <div className="poi-game-glass-panel absolute left-1/2 top-[22%] z-40 w-[min(90vw,390px)] -translate-x-1/2 rounded-xl p-4 text-center text-white"
           role="status" data-testid="level001-completed">
           <strong>MISSION COMPLETED</strong>
           <div className="mt-1 text-sm">Level 001 — Diane</div>
@@ -347,7 +347,7 @@ function NorthHeightsPreview(){
             onClick={()=>setMissionCompletedBanner(false)}>Continue</Button>
         </div>}
       {ready&&!paused&&dialogueIndex!==null&&
-        <section className="absolute z-40 w-max max-w-[min(60vw,380px)] rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-white shadow-lg backdrop-blur-md"
+        <section className="poi-game-glass-panel absolute z-40 w-max max-w-[min(60vw,380px)] rounded-lg px-3 py-2 text-white"
           style={{top:"max(8px, env(safe-area-inset-top))",
             left:"calc(max(12px, env(safe-area-inset-left)) + clamp(82px, 9vw, 116px) + 10px)"}}
           aria-label="Level 001 Finch dialogue" role="dialog" aria-modal="false">

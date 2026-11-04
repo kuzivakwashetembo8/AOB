@@ -212,7 +212,6 @@ export function Joystick({ send }: { send: Send }) {
       onLostPointerCapture={release}
     >
       <div ref={thumb} className="joystick-thumb" />
-      <span className="joystick-label">MOVE</span>
     </div>
   );
 }
