@@ -399,7 +399,7 @@ function NorthHeightsPreview(){
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
-        driving={vehicle!==null} flying={machineView}
+        driving={vehicle!==null} flying={machineView} armed={heldItem==="gun"}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
       {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} buildings={mapBuildings} onClose={()=>setMapOpen(false)} onMapCloseStart={()=>controller.current?.playMapCue("close")}
@@ -407,7 +407,7 @@ function NorthHeightsPreview(){
         vehicleOccupied={sedanPassenger}
         onFinchHQSelect={()=>{
           const routed=controller.current?.driveToFinchHQ()??false;
-          if(routed)setMapOpen(false);
+          // Successful route selection is closed by the map's exit animation.
           return routed;
         }}/>} 
       {paused&&panel==="settings"&&<GTDSettingsOverlay
@@ -417,7 +417,7 @@ function NorthHeightsPreview(){
       />}
       {paused&&panel!=="settings"&&<div className="overlay" role="dialog" aria-modal="true"
         aria-label="Pause menu">
-        <div className="overlay-content">
+        <div className="overlay-content poi-game-glass-panel p-4">
           <div className="flex justify-between items-center">
             <span className="system-label text-primary">NORTH HEIGHTS // MERIDIAN CITY // SESSION PAUSED</span>
             <button aria-label="Close pause menu" className="control-button" onClick={close}><X/></button>
