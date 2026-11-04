@@ -240,7 +240,6 @@ export function TouchControls({
   passenger = false,
   armed = false,
   combatEnabled = true,
-  elevator,
 }: {
   send: Send;
   settings: Settings;
@@ -298,13 +297,7 @@ export function TouchControls({
             <Icon size={19} />
           </Button>
         );})}
-        {false&&elevator&&<Button variant="control"
-          className="gtd-uniform-action gtd-action-elevator"
-          data-testid="poi005-lift-touch"
-          aria-label={elevator.label} title={elevator.label}
-          onClick={elevator.onClick}>
-            {elevator.direction==="up"?<ArrowUp size={19}/>:<ArrowDown size={19}/>}
-          </Button>}
+
       </div>
     </div>
   );
