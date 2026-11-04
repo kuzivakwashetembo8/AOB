@@ -6,10 +6,10 @@
 **Baseline:** `main` at `0ad26e44daf0dac2e0e1d893854c05c81d5b2b0a` (POI-009 merged)
 **Document status:** PROPOSED — NOT AUTHORIZED FOR IMPLEMENTATION
 **Planned feature branch, subject to approval:** `feature/poi-010-junction-curbs-combat-jump-20261104`
-**Requested outcomes:** Fix permanently stopped intersection traffic, connect structural pillars to their podium slabs, put curb rounding on the road-facing corner, add muzzle sparks, allow rapid repeated pistol shots with matching sparks and sounds, and restore Reese's authored jumping animation.
+**Requested outcomes:** Correct traffic deadlocks, podium pillar gaps and road-facing curb returns; implement muzzle sparks, responsive repeated pistol shots and Reese's proper jump animation; relocate the vehicle control to center-right, align/enlarge the three gameplay actions, and show active Machine Camera metadata inline with the top-right controls.
 **Authority:** Project owner; preview acceptance required before production merge.
 
-**Scope interpretation:** This plan includes the two previously investigated open observations (traffic deadlock and podium-pillar disconnection) as well as the confirmed outward-facing curb correction and three new requests. These are six distinct work packages. Documentation approval does not imply permission to implement. Only source documentation changes are authorized in the current task.
+**Scope interpretation:** This plan includes the two previously investigated open observations (traffic deadlock and podium-pillar disconnection) as well as the confirmed outward-facing curb correction and three new requests. These are nine distinct work packages (the original six plus three owner-requested UI addenda). Documentation approval does not imply permission to implement. Only source documentation changes are authorized in the current task.
 
 ---
 
@@ -23,6 +23,9 @@
 - Phase 1 combat is still presentation-only, now with a localized muzzle effect. **No projectile, bullet simulation, hit detection, damage, ammo, recoil-driven physics, muzzle impact decals, NPC combat reaction, health or police dispatch.**
 - Reese's physical jump remains controlled by Rapier, not glTF root translation or animation lift. Falling off ledges must not cause involuntary jump takeoff poses at doors/curbs. Do not restore rejected character flight.
 - Prefer modifying the existing native systems in place; no duplicate traffic engine, avatar, audio engine, world-construction path or animation rigs.
+- The on-foot bottom-right action group is permanently **Jump / Sprint / Fight (or Shoot when armed)**, with the car control at the separate center-right elevator-control position. The action group must not change its size or position when a car becomes accessible.
+- The additional action-button enlargement is **10% of POI-009's current sizes**, not 10% of a historical POI-008 baseline; existing control scale, opacity and handedness settings continue to apply.
+- The Machine Camera active-state message is exact owner-specified copy: `Machine Camera Activate · Disable to return to John`.
 
 ### 1.1 Source evidence (read-only inspection)
 
@@ -232,6 +235,74 @@ GROUNDED_IDLE or GROUNDED_MOVING
 
 ---
 
+
+## 7A. Owner addendum — Three HUD interface work packages
+
+**Status:** Owner requested this addendum on 2026-11-04. This is still a proposed technical plan: none of the following code changes is authorized by committing the document. These requirements supersede POI-009 UI layout assumptions that allowed car access to participate in the bottom-right action grid.
+
+### 7A.1 WP-010-07 — Separate the contextual vehicle button from the three action buttons
+
+**Current code evidence:** `src/ui/hud/touch-controls.tsx` and `src/ui/hud/desktop-controls.tsx` include `vehicle` in the same action specifications as Jump, Sprint and Combat; the visibility filters cause a fourth button to appear when boarding is possible. `src/routes/north-heights-preview.tsx` already renders the elevator keypad trigger in a separate position near `right-4 top-[40%]`.
+
+**Technical implementation:**
+1. Define the normal on-foot bottom-right group as **exactly three fixed actions, left to right: Jump, Sprint, Fight/Shoot**. Do not append `vehicle`, `elevator`, or any dynamic contextual action to this row. The combat icon still switches from fist to pistol when Reese is armed.
+2. Remove the car entry/exit button from both touch and desktop action arrays and render it through a **separate center-right contextual action host** at the elevator selector's existing approximate anchor (`top:40%`, `right:16px`, modified for safe-area insets). This is the location where elevator up/down/floor-keypad controls appear, **not beside the bottom-right Fight button**.
+3. Preserve the existing car's `GameAction="vehicle"` callback, proximity eligibility, speed-gated exit, `F` keyboard shortcut, touch press semantics, and accepted car physics. Do not duplicate the vehicle state or make entry/exit available from unrelated locations.
+4. Elevator and vehicle controls can be eligible near the same building entrance. Use a short, consistently spaced **center-right vertical contextual stack** or a deterministic, reversible prioritized display while a lift keypad is open. Both actions must remain discoverable and usable; never let their hit boxes overlap. Close the keypad before making the car button independently actionable if the expanded panel otherwise covers it.
+5. Hide the vehicle button in detached Machine Camera mode and other modes where Reese cannot physically board. During driving, the separate Exit Vehicle button must remain independently available when permitted, regardless of whether the three-action on-foot row is suppressed.
+6. Keep vehicle and elevator surfaces in the common POI glass-button visual language, with meaningful accessible names and keyboard focus support. Neither control affects the horizontal positioning, row count, scale or content of Jump/Sprint/Fight.
+
+**Acceptance:** Vehicle Enter/Exit appears at center-right near the elevator control, never as a fourth bottom-right action, and works on desktop and mobile. Approaching a car or elevator does not move or resize the three gameplay buttons. All car and elevator functions remain intact.
+
+### 7A.2 WP-010-08 — Enlarge the three actions another exact 10%, raise the group, elevate Sprint slightly
+
+**Existing POI-009 measured CSS targets:** `69.6 × 69.6px` standard touch, `64.8 × 64.8px` short-landscape touch and `50.4 × 50.4px` desktop. Apply an additional **×1.10** multiplier to each current baseline, not an additive percentage of the original POI-008 button dimensions.
+
+| Context | POI-009 size | Required POI-010 size |
+|---|---:|---:|
+| Standard touch | 69.6 × 69.6 px | **76.56 × 76.56 px** |
+| Short landscape touch (`max-height:440px`) | 64.8 × 64.8 px | **71.28 × 71.28 px** |
+| Desktop on-screen action pad | 50.4 × 50.4 px | **55.44 × 55.44 px** |
+
+**Positioning rules:**
+1. Keep three equal-size buttons in one row and the established order **Jump | Sprint | Fight/Shoot**. Removing the car control must not leave a fourth empty column or permit responsive reflow into two rows.
+2. Raise the group so the **vertical centers of Jump and Fight/Shoot align horizontally with the center of the left movement control**. For touch, the reference is the joystick's visible center. For desktop, the reference is the left movement pad's visual center, not simply the bottom of the HUD container. Align effective screen-space centers **after settings.scale and transform-origin are applied**.
+3. Position Sprint's visible button approximately **8px higher** than Jump and Fight/Shoot, subject to a small preview adjustment (roughly 5–10px) to match the owner's requested subtle elevation. Only Sprint is offset; its tappable region moves with the visual button. No unintended tap interception.
+4. Add slightly more horizontal separation. Initial candidates: standard touch gap **12px** (up from 9px), short-landscape gap **9px** (up from 6px), desktop gap **11px** (up from 8px); these gap values are preview-tunable, unlike the exact 10% size increase.
+5. Maintain safe-area and HUD settings behavior: position presets, left-handed mode, input opacity and scaling. Keep right-side buttons clear of the center-right vehicle/elevator stack, minimap, map overlay and driving controls. Do not move the left joystick to manufacture alignment.
+6. The stylesheet currently has old NH-OPT2, POI-008 and POI-009 selector overrides. Consolidate final sizing/positioning into a single authoritative POI-010 token/cascade with breakpoint-specific values. Inspect computed dimensions, not only written CSS. Also account for the desktop parent `.desktop-controls` using `align-items:flex-end`, which can otherwise leave the action row too low.
+
+**Acceptance:** All three are exactly 10% larger than POI-009, spaced farther apart and visibly raised so Jump/Fight centerline matches the left movement control; Sprint sits slightly higher. No car-induced row changes, viewport clipping or overlapping touch targets.
+
+### 7A.3 WP-010-09 — Machine Camera active-state tooltip beside top-right buttons
+
+**Exact requested text when The Machine camera is active:**
+
+> Machine Camera Activate · Disable to return to John
+
+**Current code evidence:** `src/routes/north-heights-preview.tsx` has `machineView` and an always-positioned camera toggle `gtd-machine-camera-always`; the hand, info and pause controls occupy the same upper-right region. The existing HUD metadata auto-hides independently.
+
+**Technical implementation:**
+1. Show this **short metadata tooltip only while `machineView===true`**, scene ready and appropriate game HUD visible. Do not show a false active-state message before activation or after return to John.
+2. Preserve the text **exactly**, including `Activate`, `John` and the centered separator `·`; no silent rewrite to “Active” or “Reese” in the visible message. An accessibility description may clarify “John Reese”.
+3. Place it **inline on the same top-right horizontal axis as the camera/hand/info/pause controls**, directly adjacent to the camera button without covering or shifting the other buttons. Do not float it as a unique center-screen modal or let header auto-hide move it to another location. Use a common parent/anchor where practical, rather than independent hard-coded positions that collide.
+4. Render using `poi-game-glass-panel` tokens: translucent dark background, matching blur/border/radius, readable white small metadata text, compact padding and unobtrusive shadow. The tooltip is noninteractive; pointer events must pass through to functional buttons.
+5. On narrow landscape widths, adjust spacing and panel width and preserve readable access to the full phrase without obscuring minimap, objective or the Finch dialogue. Keep a full `aria-label` / title on the active status if visual constraining is unavoidable; do not silently drop the message.
+6. Use an accessible status announcement on the transition to active, not once per animation frame. Deactivation removes the status promptly. The button retains its original function: Machine Camera is detached and returns to John **without transporting Reese**.
+
+**Acceptance:** Activating Machine Camera shows the exact tooltip neatly in the top-right control row; disabling it removes the tooltip and restores the camera to John. Glass styling matches other in-game modals, and top-right icons remain reachable.
+
+### 7A.4 Required regression cases for the three addenda
+
+- Car enters/leaves proximity, with elevator near and far: action-group dimensions and coordinates remain unchanged; car/elevator controls coexist at center-right without overlap.
+- Car exit during accepted low-speed driving, with manual steering, mission navigation and keyboard `F`: existing behavior preserved.
+- Computed style dimensions: standard touch 76.56px, short-landscape 71.28px, desktop 55.44px, with adjusted gaps; no older POI-008/009 rule overrides these sizes.
+- Bounding rectangles: movement-control center-Y equals Jump/Fight center-Y within a small pixel tolerance after user-selected control scale; Sprint is visibly above those centers by the agreed modest offset.
+- Small Android landscape, desktop, touch left-handed and enlarged HUD settings: no clipping or interaction overlap.
+- Toggle Machine Camera with header shown/hidden, while map and pause transitions occur: status text appears exactly when active and disappears when inactive; Reese's physics position does not change.
+
+---
+
 ## 8. Staging and work dependency sequence
 
 This is a **proposal**; executable branch creation and edits require subsequent explicit approval.
@@ -239,6 +310,7 @@ This is a **proposal**; executable branch creation and edits require subsequent 
 | Stage | Package | Validation gate |
 |---|---|---|
 | 00 | Freeze baseline and collect deterministic reproductions | 125-car reservation/stop metrics, four signed curb screenshots, column-gap measurements, real Reese animation name inventory, tap-event baseline |
+| 00A | WP-010-07, 08, 09 — owner HUD addendum | Center-right car/elevator controls, exact +10% sizing, horizontal movement alignment, elevated Sprint, precise Machine Camera status and responsive QA |
 | 01 | WP-010-02 structural pillar join | Four connected corners, no lobby obstruction, procedural model count stable |
 | 02 | WP-010-03 road-facing curb returns | One trial intersection approved before global rollout; four quadrants, road fill, collision/path alignment |
 | 03 | WP-010-06 Reese jump | Existing clips first, explicit takeoff/air/land, physics-foot stability; 3D-gen fallback gated |
@@ -260,6 +332,7 @@ This is a **proposal**; executable branch creation and edits require subsequent 
 - FX unit tests: one accepted shot -> one muzzle flash emission, correct world muzzle transform, bounded emitter count, cleanup on route/unequip/pause, no flash from punch or rejected shot.
 - Audio tests: one valid press -> one shoot cue start; overlapping short tails with bounded peak gain, mute/suspend and stopped cleanup.
 - Jump tests: exact clip mapping, grounded jump entry, airborne rise/fall, landing once, false-ground sample suppression, held jump and repeated jump sequences, running jump, traversal into lift/doorways, no double root lift.
+- HUD addendum tests: bottom-right row contains exactly Jump/Sprint/Fight, car/lift triggers are center-right, +10% sizes produce 76.56/71.28/55.44px by viewport, Jump/Fight align with movement-center after scaling, Sprint only is elevated, and active Machine Camera displays the exact requested status copy.
 
 ### 9.2 Integration and manual
 - Compare a screenshot from one original square corner and one corrected circular return at the same camera pose; test all four city orientations.
@@ -268,6 +341,7 @@ This is a **proposal**; executable branch creation and edits require subsequent 
 - Fire single shots and fast sequences of ~10 and ~30 distinct taps on mobile and desktop. Capture shot, spark and audio-event counts. Judge visual quality at daylight/night and camera zoom distances.
 - Perform jumps from rest, while running, beside a wall, off a curb, on upper floors, on a rooftop and near the elevator. Recheck accepted Reese locomotion.
 - Verify full P.O.I-009 compatibility: map transition/sounds, control grid size, joystick label, Finch mission, Diane mission, character audio and person-person avoidance.
+- Visually inspect the addendum's three-action layout, separate car/elevator control and Machine Camera tooltip across desktop, standard touch, short landscape, handedness/scale options and mission dialogue.
 
 ### 9.3 Build and performance
 Run the repository's complete build chain, including wheel-source audit, extraction, TypeScript noEmit, prebuild, Vitest and production bundle. Any failed test must be diagnosed rather than disabled for a green badge.
@@ -291,6 +365,9 @@ Record before/after:
 - **Muzzle:** If the GLB weapon attachment is unresolved, stop with a reportable asset issue instead of placing a spark at Reese's hand origin.
 - **Rapid fire:** Never fake one-to-one counts by triggering audio/flash when actor shot was rejected. Recoil must be visibly retriggerable at fast tap cadence. Enforce technical resource caps through rendering/voice management rather than a hidden, unexplained 260ms user-input suppression.
 - **Jump:** Distinguish deliberate jump from false grounded samples. Do not replace the correct source clips with a manually invented crouch when 3D-gen already provides authored jump data. Avoid adding a second GLB at startup.
+- **Contextual controls:** A vehicle button rendered as a fourth bottom-right action, overlapping the lift trigger, or hidden when the permitted exit is required is a failed implementation.
+- **Action geometry:** Inexact +10% size, button centers below the left movement control, unintended joystick movement, or Sprint not slightly elevated are failed implementations.
+- **Machine metadata:** A unique opaque popup, a changed visible phrase, an overlapping icon, or a stale active-camera tooltip after switching off is a failed implementation.
 - **Reversible:** Each package is isolated in a commit with rollback capacity; test against the previous P.O.I-009 baseline.
 
 ---
@@ -303,11 +380,14 @@ Record before/after:
 4. Each pistol shot emits a short, properly positioned spark at the muzzle.
 5. Repeated deliberate taps produce matching rapid firing animation, sparks and sound, with no arbitrary 260ms lockout and no damage, bullets or hit detection.
 6. Reese uses appropriate authored takeoff, in-air and landing animation instead of a standing pose in midair; 3D-gen re-export only if verified necessary.
-7. Tests, production build, loading, FPS, missions, radio and third-person camera pass without regression.
-8. Owner receives a feature preview after implementation and build initiation. No merge to `main` or production deployment without explicit approval. Once preview URL is issued, do not monitor logs unless user reports build failure.
+7. Vehicle Enter/Exit is relocated from the action row into the elevator's center-right contextual area, retaining safe boarding and exit functions.
+8. Exactly three bottom-right actions remain: Jump, Sprint and Fight/Shoot, enlarged another 10%, with Jump/Fight aligned to the left movement centerline, Sprint slightly higher and gaps increased.
+9. The exact `Machine Camera Activate · Disable to return to John` status appears neatly beside the top-right buttons only while Machine Camera is active and disappears when disabled.
+10. Tests, production build, loading, FPS, missions, radio and third-person camera pass without regression.
+11. Owner receives a feature preview after implementation and build initiation. No merge to `main` or production deployment without explicit approval. Once preview URL is issued, do not monitor logs unless user reports build failure.
 
 ### Approval checkpoint
 - **Plan written/committed:** documentation only.
-- **Six proposed work packages:** pending explicit implementation authorization.
+- **Nine proposed work packages (six original, three HUD addenda):** pending explicit implementation authorization.
 - **Source code modified:** no.
 - **Deployment initiated:** no.
