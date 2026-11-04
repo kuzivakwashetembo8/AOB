@@ -1,3 +1,4 @@
+import {PistolIcon009} from "./pistol-icon-009";
 import {
   ArrowDown,
   ArrowLeft,
@@ -8,7 +9,6 @@ import {
   Footprints,
   Hand,
   HandFist,
-  Gun,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -116,7 +116,7 @@ export function DesktopControls({
           flying ? ["sprint","jump","descend"].includes(action) :
           ["sprint","jump","combat"].includes(action)||(action==="vehicle"&&canEnterVehicle)
         ).filter(a=>a.action!=="combat"||combatEnabled).map(({ action, label, keyHint, icon: BaseIcon }) => {
-          const Icon=action==="combat"&&armed?Gun:BaseIcon;
+          const Icon=action==="combat"&&armed?PistolIcon009:BaseIcon;
           const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
           return (
           <Button
