@@ -8,8 +8,9 @@
  */
 import {
   AbstractMesh, AnimationGroup, Material, MultiMaterial, TransformNode, loadAssetContainerAsync,
-  type AssetContainer, type Scene,
+  Vector3, type AssetContainer, type Scene,
 } from "@babylonjs/core";
+import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
 import { gtdLoadingLedger as audit } from "../../lib/real-loading-ledger";
 
@@ -75,6 +76,8 @@ export function createReesePlayer001(scene:Scene,
  let handItem:"hand"|"gun"="hand";
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
+ let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
+ const muzzleEffect=createReeseMuzzleSpark010(scene);
  const weaponMeshes=new Set<AbstractMesh>();
  const weaponMaterials=new Map<Material,{alpha:number;transparencyMode:number|null}>();
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
@@ -86,8 +89,8 @@ export function createReesePlayer001(scene:Scene,
    material.transparencyMode=visible?original.transparencyMode:Material.MATERIAL_ALPHABLEND;
   }
  }
- const groups:Record<"idle"|"walk"|"run"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
-  idle:null,walk:null,run:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
+ const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
+  idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
  };
  const report={source:REESE_PLAYER_PATH_001,animations:0,scale:1,
   height:REESE_PLAYER_HEIGHT_001,activeClip:"idle"};
@@ -117,7 +120,9 @@ export function createReesePlayer001(scene:Scene,
   groups.idle=findReeseClip001(instance.animationGroups,"idle");
   groups.walk=findReeseClip001(instance.animationGroups,"walk");
   groups.run=findReeseClip001(instance.animationGroups,"run");
-  groups.jump=findReeseClip001(instance.animationGroups,"jump_air","jump");
+  groups.jumpStart=findReeseClip001(instance.animationGroups,"jump_start","Jump start");
+  groups.jump=findReeseClip001(instance.animationGroups,"Jump (in air)","jump_air");
+  if(!groups.jump)groups.jump=findReeseClip001(instance.animationGroups,"jump");
   groups.fall=findReeseClip001(instance.animationGroups,"fall","jump_air","jump");
   groups.land=findReeseClip001(instance.animationGroups,"jump_land");
   // Verified Ara 3D Gen clip ids: punch, pistol_aim, pistol_fire.
@@ -125,6 +130,7 @@ export function createReesePlayer001(scene:Scene,
   groups.punch=findReeseClip001(instance.animationGroups,"punch");
   groups.pistolAim=findReeseClip001(instance.animationGroups,"pistol_aim","Pistol aim");
   groups.pistolFire=findReeseClip001(instance.animationGroups,"pistol_fire","Pistol fire");
+  if(!groups.jump||!groups.land)console.warn("[POI-010] Missing jump phases",instance.animationGroups.map(g=>g.name));
   if(!groups.punch||!groups.pistolAim||!groups.pistolFire)
    console.warn("[POI-009] combat animation group missing in Reese export",{
     punch:!!groups.punch,aim:!!groups.pistolAim,fire:!!groups.pistolFire,
@@ -216,6 +222,30 @@ export function createReesePlayer001(scene:Scene,
   transition=0;
   report.activeClip=active.name;
  }
+ function muzzleWorld():Vector3|null{
+  const forward=new Vector3(Math.sin(anchor.rotation.y),0,Math.cos(anchor.rotation.y));
+  for(const mesh of weaponMeshes){
+   if(!mesh.isEnabled()||mesh.isDisposed())continue;
+   mesh.computeWorldMatrix(true);
+   let best=-Infinity,point:Vector3|null=null;
+   for(const p of mesh.getBoundingInfo().boundingBox.vectorsWorld){
+    const projection=p.x*forward.x+p.z*forward.z;
+    if(projection>best){best=projection;point=p;}
+   }
+   if(point)return point.clone();
+  }
+  // Use the real skinned right hand when the gun is part of a body material.
+  for(const skeleton of instance?.skeletons??[]){
+   const hand=skeleton.bones.find(b=>/right.?hand$/i.test(b.name));
+   const all=(instance?.rootNodes??[]).flatMap(n=>n.getChildMeshes(false));
+   const mesh=all.find(candidate=>(candidate as typeof candidate&{skeleton?:typeof skeleton}).skeleton===skeleton);
+   if(hand&&mesh){const p=hand.getAbsolutePosition(mesh);
+    if(Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.z))
+     return p.add(forward.scale(.34));
+   }
+  }
+  return null;
+ }
  function advance(dt:number){
   if(!active)return;
   if(outgoing){
@@ -238,6 +268,7 @@ export function createReesePlayer001(scene:Scene,
   setControlled(enabled:boolean){
    if(closed)return;
    controlled=enabled;hiddenDriving=false;combatRemaining=0;
+   wasAirborne=false;takeoffRemaining=0;landingRemaining=0;muzzleEffect.clear();
    anchor.setEnabled(enabled);
    if(enabled){resetFlight();play(groups.idle);}
    applyWeaponVisibility();
@@ -259,7 +290,29 @@ export function createReesePlayer001(scene:Scene,
    if(!controlled||closed)return;
    if(flight)resetFlight();
    positionAt(p,yaw);
-   // A lost-ground sample at a doorway is not an authored fall.
+   muzzleEffect.update(dt);
+   // The Rapier capsule determines physical Y; glTF clips only articulate bones.
+   const airborne=!grounded||verticalVelocity>.65;
+   if(airborne){
+    landingRemaining=0;
+    if(!wasAirborne){
+     wasAirborne=true;takeoffRemaining=verticalVelocity>.7?.15:0;
+     play(takeoffRemaining>0?(groups.jumpStart??groups.jump):(groups.fall??groups.jump),takeoffRemaining<=0);
+    }
+    if(takeoffRemaining>0){
+     takeoffRemaining=Math.max(0,takeoffRemaining-dt);
+     if(takeoffRemaining===0)play(groups.jump??groups.fall);
+    }else play(verticalVelocity<-.45?(groups.fall??groups.jump):(groups.jump??groups.fall));
+    advance(dt);return;
+   }
+   if(wasAirborne){
+    wasAirborne=false;takeoffRemaining=0;landingRemaining=groups.land?.35:0;
+    if(groups.land)play(groups.land,false);
+   }
+   if(landingRemaining>0){
+    landingRemaining=Math.max(0,landingRemaining-dt);
+    if(landingRemaining>0){advance(dt);return;}
+   }
    const next=reeseSafeLocomotion007(speed,sprint);
    if(next===stableGait){pendingGait=next;pendingGaitSeconds=0;}
    else if(stableGait==="idle"&&next!=="idle"){
@@ -290,24 +343,35 @@ export function createReesePlayer001(scene:Scene,
    advance(input.dt);
   },
   setHandItem(item:"hand"|"gun"){
-   handItem=item;combatRemaining=0;applyWeaponVisibility();
+   handItem=item;combatRemaining=0;muzzleEffect.clear();applyWeaponVisibility();
    if(item==="gun"&&groups.pistolAim)play(groups.pistolAim);
    else play(groups.idle);
   },
   /** Animation-and-audio-only: never performs damage, rays or projectile simulation. */
   triggerCombat(): "punch"|"shoot"|null {
-   if(!controlled||closed||hiddenDriving||flight||combatRemaining>0)return null;
+   if(!controlled||closed||hiddenDriving||flight||wasAirborne||landingRemaining>0)return null;
    const attack=handItem==="gun"?"shoot":"punch";
    const clip=attack==="shoot"?groups.pistolFire:groups.punch;
    if(!clip)return null;
    const now=typeof performance!=="undefined"?performance.now():Date.now();
-   if(now-lastAttackAt<(attack==="shoot"?260:550))return null;
+   if(attack==="punch"&&(combatRemaining>0||now-lastAttackAt<550))return null;
+   if(attack==="shoot"&&now-lastAttackAt<12)return null;
+   if(attack==="shoot"){
+    const muzzle=muzzleWorld();if(!muzzle)return null;
+    shotSerial++;
+    // Rapid distinct taps restart one existing clip, never stack animation groups.
+    if(active===clip){outgoing?.stop();outgoing=null;clip.stop();clip.start(false);
+      clip.setWeightForAllAnimatables(1);transition=1;}
+    else play(clip,false);
+    muzzleEffect.emit(muzzle,anchor.rotation.y);
+    combatRemaining=.10;
+   }else{combatRemaining=.55;play(clip,false);}
    lastAttackAt=now;
-   combatRemaining=attack==="shoot"?.26:.55;
-   play(clip,false);
    return attack;
   },
   get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire;},
+  get shotsFired(){return shotSerial;},
+  clearCombatFX(){muzzleEffect.clear();},
   get handItem(){return handItem;},
   get poseReport(){
    return {meshCount,boneCount,animations:report.animations,
@@ -316,7 +380,7 @@ export function createReesePlayer001(scene:Scene,
   dispose(){
    if(closed)return;
    closed=true;
-   active?.stop();outgoing?.stop();
+   active?.stop();outgoing?.stop();muzzleEffect.dispose();
    instance?.dispose();instance=null;
    asset?.dispose();asset=null;
    fit?.dispose();offset?.dispose();tilt?.dispose();
