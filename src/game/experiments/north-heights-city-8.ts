@@ -30,6 +30,8 @@ import type {NH012Agent} from "@/game/traffic/nh012-traffic-simulator";
 import {createNorthHeightsSolidField017}
   from "@/game/vehicles/nh-solid-vehicle-collision-017";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
+import {TrafficSignalController021} from "@/game/traffic/nh021-traffic-signal-controller";
+import {loadFinchTrafficSignals021,type TrafficSignalRenderer021} from "./north-heights-traffic-signal-renderer-021";
 import {NorthHeightsPedestrianSimulator001} from "./north-heights-pedestrian-simulator-001";
 import {loadNorthHeightsPedestrianCharacters001,type PedestrianCharacterRenderer001} from "./north-heights-pedestrian-characters-001";
 import {PED002_NPC_TOTAL_BYTES} from "./north-heights-pedestrian-asset-manifest-002";
@@ -136,6 +138,8 @@ export async function createNorthHeightsCity8(
   let yaw = 0, pitch = 0, closed = false;
   let treeHandle: {dispose:()=>void;update:(camera:Vector3,dt:number)=>void} | null = null;
   let lampHandle:NorthHeightsLampRenderer012|null=null;
+  let signalHandle021:TrafficSignalRenderer021|null=null;
+  const pilotSignal021=new TrafficSignalController021();
   let lampTime:NorthHeightsTime="dusk";
   let walk:NorthHeightsWalk005|null=null;
   let cameraBlockers:CameraBox[]=[];
@@ -662,6 +666,7 @@ export async function createNorthHeightsCity8(
     }
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
+    signalHandle021?.update(camera.position);
     treeHandle?.update(camera.position,dt);
     // 20Hz sound telemetry, gated behind the actual unlocked AudioContext.
     // Query NH012's authoritative positions; never infer engine load from
@@ -916,7 +921,7 @@ export async function createNorthHeightsCity8(
       onFeedback?.("Lift traveling to floor "+floor);
       clearKeys();physicsAccumulator=0;return true;
     },
-    setTime(time) { lampTime=time;sky.setTime(time);lampHandle?.setTime(time); },
+    setTime(time) { lampTime=time;sky.setTime(time);lampHandle?.setTime(time);signalHandle021?.setTime(time); },
     setMode(next){
       if(ridingSedanId||next!=="walk")return false;
       if(next==="walk"&&(!walk||!actor||!humanoid))return false;
@@ -956,6 +961,7 @@ export async function createNorthHeightsCity8(
       for(const hull of solidVehicleHandles.values())hull.dispose();
       solidVehicleHandles.clear();
       traffic=null;
+      signalHandle021?.dispose();signalHandle021=null;
       lampHandle?.dispose();lampHandle=null;
       treeHandle?.dispose();
       actor?.dispose();
@@ -1007,6 +1013,7 @@ export async function createNorthHeightsCity8(
     // moving traffic agent as the single owner-accepted sedan in varied paint.
     // Other car models remain review-only; no proximity GLB swapping.
     traffic=new NH012TrafficSimulator(125,120125);
+    traffic.configureTrafficSignal021(pilotSignal021);
     starterSedanId=traffic.parkFinchStarter005();
     // NH-SOLID-017: the same hull for every accepted source Sedan, regardless
     // of original fleet tags, proximity, camera LOD or driver ownership.
@@ -1072,6 +1079,8 @@ export async function createNorthHeightsCity8(
     // No colored proxies; GLBs appear only when their unique asset is ready.
     // Crossings remain geometric-only until the dedicated yielding stage.
     pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
+    pedestrians.configureTrafficSignal021(pilotSignal021);
+    pilotSignal021.setPedestrianOccupancy021(()=>pedestrians?.activePilotCrossers021()??0);
     pedestrians.setVehicleOccupancy((x,z)=>solidField.personClear({x,z}));
     pedestrians.setPlayerOccupancy(()=>ridingSedanId||machineView||!walk
       ?null:walk.physics.playerPosition(),northHeightsGround);
@@ -1131,6 +1140,24 @@ export async function createNorthHeightsCity8(
     scene.onAfterRenderObservable.addOnce(()=>{
       if(closed)return;
       onFirstPlayableFrame?.();
+      // Pilot GLBs cannot block first playable. Only activated signal poles
+      // become physical blockers after their authored meshes load successfully.
+      void loadFinchTrafficSignals021(scene,northHeightsGround,pilotSignal021)
+        .then(renderer=>{
+          if(closed){renderer.dispose();return;}
+          signalHandle021=renderer;renderer.setTime(lampTime);
+          renderer.update(camera.position);
+          solidField.activateSignalPoles021(renderer.supports);
+          console.info("[POI-011] Finch HQ controlled pilot online",{
+            node:pilotSignal021.plan.nodeId,
+            heads:renderer.supports.length,
+            sources:renderer.sources,
+            snapshot:pilotSignal021.snapshot021(),
+          });
+        })
+        .catch(error=>{
+          console.error("[POI-011] Signal visual assets failed to load",error);
+        });
       void finchLobby?.loadReceptionist();
       void finchSuite?.loadFinch();
       // Never hold the gameplay-ready signal for either GLB. The accepted
