@@ -4,7 +4,7 @@ export type CameraPoint={x:number;y:number;z:number};
 export type CameraBox={x:number;y:number;z:number;halfX:number;halfY:number;halfZ:number};
 export const NORTH_HEIGHTS_CAMERA_LIMIT=309;
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
-export function clampNorthHeightsPitch(pitch:number){return clamp(Number.isFinite(pitch)?pitch:0,-1.55,1.15);}
+export function clampNorthHeightsPitch(pitch:number){return clamp(Number.isFinite(pitch)?pitch:0,-1.15,1.55);}
 export function clampNorthHeightsActorXZ(x:number,z:number){
   return {x:clamp(x,-NORTH_HEIGHTS_CAMERA_LIMIT,NORTH_HEIGHTS_CAMERA_LIMIT),
     z:clamp(z,-NORTH_HEIGHTS_CAMERA_LIMIT,NORTH_HEIGHTS_CAMERA_LIMIT)};
@@ -50,4 +50,15 @@ export function resolveNorthHeightsThirdPersonCamera(
   }
   y=Math.max(y,terrain(x,z)+.85);
   return {position:{x,y,z},target,orbit,radius};
+}
+
+/** Skyward viewing is independent of the camera capsule's terrain clearance. */
+export function northHeightsSkyLookTarget(camera:CameraPoint,actor:CameraPoint,yaw:number,pitch:number){
+ const p=clampNorthHeightsPitch(pitch);
+ const amount=clamp((p-.18)/.72,0,1);
+ const forward={x:camera.x+Math.sin(yaw)*Math.cos(p)*35,
+   y:camera.y+Math.sin(p)*35,z:camera.z+Math.cos(yaw)*Math.cos(p)*35};
+ return {x:actor.x+(forward.x-actor.x)*amount,
+  y:actor.y+.55+(forward.y-actor.y-.55)*amount,
+  z:actor.z+(forward.z-actor.z)*amount};
 }
