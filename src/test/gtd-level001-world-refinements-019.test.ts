@@ -33,12 +33,13 @@ describe("GTD-LEVEL001-WORLD-019 — owner follow-up refinements",()=>{
   expect(css).toContain("backdrop-filter:blur(12px)");
   expect(code).not.toContain("max-w-[980px] flex-1");
  });
- it("rounds only outward facing land corners without black blocks or 4-way scallops",()=>{
+ it("rounds the road-facing inner junction corners without dark blocks or rear scallops",()=>{
   const code=source("src/game/experiments/north-heights-roads-003.ts");
-  expect(code).toContain("outerX:number,outerZ:number");
-  expect(code).toContain("Math.abs(corner.x-outerX)");
+  expect(code).toContain("roadX:number,roadZ:number");
+  expect(code).toContain("Math.abs(corner.x-roadX)");
   expect(code).not.toContain("pad(batch.curb,xa,za,xb,zb,0,at)");
-  expect(code).toContain("roundedJunctionPavement(batch.pavement,batch.curb,xa,za,xb,zb,");
+  expect(code).toContain("roundedJunctionPavement(batch.pavement,batch.curb,batch.asphalt,xa,za,xb,zb,");
+  expect(code).toContain("x+sx*HALF,z+sz*HALF");
  });
  it("moves Diane away from Finch and fails when a following car stays too close",()=>{
   expect(Math.hypot(DIANE_START_HINT_001.x-46.002,DIANE_START_HINT_001.z+94.18))
