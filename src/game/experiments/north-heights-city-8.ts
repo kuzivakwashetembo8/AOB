@@ -850,6 +850,7 @@ export async function createNorthHeightsCity8(
     setPaused(value){
       paused=value;
       vehicleAudio.setPaused(value);
+      if(value)actor?.clearCombatFX();
       if(value){clearKeys();trafficAccumulator=0;}
       else {renderLast=0;trafficAccumulator=0;engine.resize();}
     },
