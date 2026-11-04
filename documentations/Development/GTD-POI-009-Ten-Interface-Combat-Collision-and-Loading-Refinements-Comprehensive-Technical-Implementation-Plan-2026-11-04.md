@@ -4,7 +4,7 @@
 **Project:** P.O.I — Person of Interest (formerly Grand Theft Division / G.T.D)  
 **Repository:** `interlinkglobal/GTD`  
 **Baseline:** `main` at `0ef15c9e0dccfb3ab9b0be72f074e77c04e337e1`  
-**Document status:** PROPOSED — IMPLEMENTATION NOT AUTHORIZED  
+**Document status:** OWNER-APPROVED 2026-11-04 — IMPLEMENTATION FEATURE BRANCH ACTIVE  
 **Planned implementation branch (after owner approval):** `feature/poi-009-ten-refinements-20261104`  
 **Planning owner:** Game development  
 **Acceptance authority:** Project owner  
@@ -401,5 +401,22 @@ All code stages occur **only after approval** on `feature/poi-009-ten-refinement
 ### Approval record
 - **Owner-approved design decision:** Combat Phase 1 = animation and audio only, no hits/damage.
 - **Other ten observations:** Owner supplied; details above proposed for technical approval.
-- **Implementation approval:** PENDING.
+- **Implementation approval:** GRANTED IN CHAT 2026-11-04.
 - **Authorized action now:** Documentation only.
+
+
+---
+
+## 17. Implementation record (2026-11-04)
+
+**Owner authorization:** Full POI-009 plan authorized in chat, including Phase 1 combat restricted to animation/audio only. Source changes committed exclusively to `feature/poi-009-ten-refinements-20261104`. No production merge approved.
+
+**Implemented work packages:** compact 55dvh floor keypad and custom scrolling track; MOVE label removed; touch buttons exactly 58→69.6px, short touch 54→64.8px, desktop 42→50.4px; common glass-panel CSS for in-game overlays; map opening/closing animation and generated sound; third context-aware fist/pistol action; Reese's built-in Punch, Pistol aim, Pistol fire clips with one-shot recovery and synthesized sound; spatially indexed NPC-NPC avoidance with nearby NPC Rapier proxies for Reese; preserved Sedan-native-only North Heights startup path (no non-Sedan vehicle GLB imports); wide skyward camera orientation with terrain-floor protection.
+
+**Verified external asset source:** `interlinkglobal/3d-gen`, `src/core/anim/clips/shooter.ts` defines `pistol_aim`, `pistol_fire`; the animation catalog includes `punch`. Reese's existing 70-animation GLB is the intended animation source, so no extra avatar or second GLB is introduced. Runtime clip presence and animation quality remain preview-acceptance checks.
+
+**Startup evidence level:** static game-source audit and regression contract; cold browser request waterfall has not been observed. If no non-Sedan GLB requests existed before this work, measured performance savings must be stated as zero.
+
+**Verification limitations:** Code edits and source-level checks are complete; a separate cloud build-validation sandbox could not clone GitHub (sandbox git clone failure). No claim of a passing TypeScript build or gameplay performance is made in this document until deployment/build/user acceptance verifies it.
+
+**Deployment policy:** Preview-only until owner accepts, one link provided without continuous monitoring; on reported build errors inspect exact deployment, fix same branch. **Do not merge to main from document authorization alone.**
