@@ -68,6 +68,7 @@ export interface NorthHeightsInspection {
   setTime: (time: NorthHeightsTime) => void;
   setMode: (mode: "walk" | "fly") => boolean;
   toggleMachineCamera:()=>boolean;
+  playMapCue:(kind:"open"|"close")=>void;
   moveMachineCameraTo:(x:number,z:number)=>boolean;
   toggleSedanAutopilot: () => void;
   driveToFinchHQ: () => boolean;
@@ -852,6 +853,7 @@ export async function createNorthHeightsCity8(
       physicsAccumulator=0;clearKeys();
     },
     toggleSedanAutopilot,
+    playMapCue(kind){vehicleAudio.playMapCue(kind);},
     toggleMachineCamera(){
       if(paused||!walk||!actor||!humanoid||ridingSedanId)return machineView;
       if(!machineView&&(liftFrame?.traveling||genericLiftFrame?.traveling))return false;

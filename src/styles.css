@@ -2083,3 +2083,10 @@ html[data-display="standalone"] body > * {
 .poi009-scroll-track{position:absolute;right:2px;top:8px;bottom:8px;width:6px;border-radius:5px;background:rgb(255 255 255 / 9%);pointer-events:none;}
 .poi009-scroll-thumb{position:absolute;top:0;left:0;right:0;border-radius:5px;background:rgb(225 235 245 / 60%);border:1px solid rgb(255 255 255 / 45%);pointer-events:auto;touch-action:none;cursor:grab;}
 .poi009-scroll-thumb:active{cursor:grabbing;background:rgb(240 245 255 / 80%);}
+
+/* POI-009: map enters and exits without removing a live interaction panel early. */
+.poi009-expanded-map{animation:poi009-map-in 200ms cubic-bezier(.2,.8,.2,1) both;}
+.poi009-expanded-map-closing{animation:poi009-map-out 190ms cubic-bezier(.4,0,.7,.2) both;pointer-events:none;}
+@keyframes poi009-map-in{from{opacity:0;transform:scale(.97);}to{opacity:1;transform:scale(1);}}
+@keyframes poi009-map-out{from{opacity:1;transform:scale(1);}to{opacity:0;transform:scale(.97);}}
+@media(prefers-reduced-motion:reduce){.poi009-expanded-map,.poi009-expanded-map-closing{animation-duration:1ms;}}

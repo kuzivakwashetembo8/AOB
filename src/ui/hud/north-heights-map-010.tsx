@@ -126,13 +126,21 @@ export function NorthHeightsMiniMap({position,onExpand,poi,buildings}:{
   </span>
  </button>;
 }
-export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicleOccupied=false,poi,buildings,machineView=false,onMachineTarget}:{
- position:{x:number;z:number};onClose:()=>void;
+export function NorthHeightsExpandedMap({position,onClose,onMapCloseStart,onFinchHQSelect,vehicleOccupied=false,poi,buildings,machineView=false,onMachineTarget}:{
+ position:{x:number;z:number};onClose:()=>void;onMapCloseStart?:(()=>void)|undefined;
  onFinchHQSelect?:()=>boolean;vehicleOccupied?:boolean;
  machineView?:boolean;onMachineTarget?:(x:number,z:number)=>boolean;
  poi?:{x:number;z:number}|null|undefined;
  buildings?:readonly NorthHeightsMapBuilding011[]|undefined;
 }){
+ const [closing,setClosing]=useState(false);
+ const closeTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const close=()=>{
+   if(closing)return;
+   setClosing(true);onMapCloseStart?.();
+   closeTimer.current=setTimeout(()=>onClose(),190);
+ };
+ useEffect(()=>()=>{if(closeTimer.current!==null)clearTimeout(closeTimer.current);},[]);
  const [zoom,setZoom]=useState(1);
  const [destinationNotice,setDestinationNotice]=useState("");
  const [pan,setPan]=useState({x:0,y:0});
@@ -163,7 +171,7 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
      const worldMapX=(p.x-pan.x-320)/zoom+320;
      const worldMapY=(p.y-pan.y-320)/zoom+320;
      if(worldMapX>=0&&worldMapX<=640&&worldMapY>=0&&worldMapY<=640){
-       if(onMachineTarget(worldMapX-320,320-worldMapY))onClose();
+       if(onMachineTarget(worldMapX-320,320-worldMapY))close();
      }
    }
    if(started?.id===event.pointerId)tapStart.current=null;
@@ -177,14 +185,14 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
      event.currentTarget.releasePointerCapture(event.pointerId);
  };
  useEffect(()=>{
-   const escape=(e:KeyboardEvent)=>{if(e.key==="Escape")onClose();};
+   const escape=(e:KeyboardEvent)=>{if(e.key==="Escape")close();};
    window.addEventListener("keydown",escape);
    return()=>window.removeEventListener("keydown",escape);
- },[onClose]);
+ },[closing,onClose,onMapCloseStart]);
  return <div role="dialog" aria-modal="true" aria-label="North Heights 2D map"
-   className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-2 overflow-hidden bg-[#07111d]/40 p-3 text-white backdrop-blur-[4px]">
-   <button type="button" aria-label="Close map" title="Close map" onClick={onClose}
-     className="fixed right-[max(12px,env(safe-area-inset-right))] top-[max(12px,env(safe-area-inset-top))] z-[110] flex h-10 w-10 items-center justify-center rounded-lg border border-white/40 bg-black/55 text-white shadow-lg backdrop-blur-sm">
+   className={`poi009-expanded-map poi-game-glass-panel fixed inset-0 z-[100] flex flex-col items-center justify-center gap-2 overflow-hidden p-3 text-white ${closing?"poi009-expanded-map-closing":""}`}>
+   <button type="button" aria-label="Close map" title="Close map" onClick={close}
+     className="poi-game-glass-panel fixed right-[max(12px,env(safe-area-inset-right))] top-[max(12px,env(safe-area-inset-top))] z-[110] flex h-10 w-10 items-center justify-center rounded-lg text-white">
      <X size={22} strokeWidth={2}/>
    </button>
    <header className="flex w-[min(82vh,92vw,760px)] max-w-[92vw] items-center justify-between gap-2">
@@ -200,7 +208,7 @@ export function NorthHeightsExpandedMap({position,onClose,onFinchHQSelect,vehicl
          onClick={()=>{setZoom(1);setPan({x:0,y:0});}}>RESET</button>
      </div>
    </header>
-   <div className="aspect-square w-[min(82vh,92vw,760px)] max-w-[92vw] flex-none overflow-hidden rounded-lg border border-white/35 bg-transparent shadow-2xl">
+   <div className="poi-game-glass-panel aspect-square w-[min(82vh,92vw,760px)] max-w-[92vw] flex-none overflow-hidden rounded-lg bg-transparent">
      <svg viewBox="0 0 640 640" className="h-full w-full" role="img"
        aria-label="Top-down North Heights map: white dot marks the player and gold diamond marks Finch headquarters"
        style={{touchAction:"none"}}

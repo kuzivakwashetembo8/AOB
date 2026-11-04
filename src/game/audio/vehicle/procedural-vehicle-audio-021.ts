@@ -221,6 +221,23 @@ export class ProceduralVehicleAudio021 {
     src.onended=()=>{src.disconnect();filter.disconnect();gain.disconnect();};
     src.start(now);src.stop(now+.19);
   }
+  /** POI-009: gesture-unlocked, zero-download glass-map interface cue. */
+  playMapCue(kind:"open"|"close"):void{
+    this.unlockFromGesture();
+    const ctx=this.ctx,bus=this.playerBus;
+    if(!ctx||!bus||this.paused||this.hidden||this.volume.muted)return;
+    const now=ctx.currentTime;
+    const oscillator=ctx.createOscillator(),gain=ctx.createGain();
+    oscillator.type="sine";
+    oscillator.frequency.setValueAtTime(kind==="open"?560:740,now);
+    oscillator.frequency.exponentialRampToValueAtTime(kind==="open"?820:460,now+.11);
+    gain.gain.setValueAtTime(.001,now);
+    gain.gain.linearRampToValueAtTime(.08,now+.012);
+    gain.gain.exponentialRampToValueAtTime(.001,now+.14);
+    oscillator.connect(gain);gain.connect(bus);
+    oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
+    oscillator.start(now);oscillator.stop(now+.145);
+  }
   /** Positional vehicle horn for a genuine obstruction, rate-limited per car. */
   playHorn(id:string,x:number,y:number,z:number):boolean{
     const ctx=this.ctx,bus=this.trafficBus;

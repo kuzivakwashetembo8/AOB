@@ -291,7 +291,7 @@ function NorthHeightsPreview(){
       {ready&&settings.hud&&<GameHud snapshot={snapshot}
         context={vehicle?"driving":"walking"}
         mapSlot={<NorthHeightsMiniMap position={position} poi={dianeMission.poi} buildings={mapBuildings}
-          onExpand={()=>setMapOpen(true)}/>}
+          onExpand={()=>{controller.current?.playMapCue("open");setMapOpen(true);}}/>}
         metadataSlot={<div className="flex flex-col gap-2">{vehicle&&!paused&&<div className="poi-game-glass-panel flex items-center gap-2 rounded px-3 py-2 text-xs text-white" aria-label="Vehicle music"><span>VEHICLE MUSIC · {radioState.status.toUpperCase()}</span><button type="button" onClick={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}>{radioState.preferences.enabled?"OFF":"ON"}</button></div>}{sedanPassenger&&!paused&&<div data-testid="nh-opt2-sedan-passenger"
         className="flex max-w-[min(85vw,360px)] flex-wrap items-center gap-2 rounded bg-black/75 px-3 py-1 text-center text-xs text-white">
         <span>{sedanManual
@@ -402,7 +402,7 @@ function NorthHeightsPreview(){
         driving={vehicle!==null} flying={machineView}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
-      {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} buildings={mapBuildings} onClose={()=>setMapOpen(false)}
+      {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} buildings={mapBuildings} onClose={()=>setMapOpen(false)} onMapCloseStart={()=>controller.current?.playMapCue("close")}
         machineView={machineView} onMachineTarget={(x,z)=>controller.current?.moveMachineCameraTo(x,z)??false}
         vehicleOccupied={sedanPassenger}
         onFinchHQSelect={()=>{
