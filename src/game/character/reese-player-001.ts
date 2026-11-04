@@ -306,7 +306,7 @@ export function createReesePlayer001(scene:Scene,
     advance(dt);return;
    }
    if(wasAirborne){
-    wasAirborne=false;takeoffRemaining=0;landingRemaining=groups.land?.35:0;
+    wasAirborne=false;takeoffRemaining=0;landingRemaining=groups.land ? .35 : 0;
     if(groups.land)play(groups.land,false);
    }
    if(landingRemaining>0){
