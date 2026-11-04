@@ -7,7 +7,7 @@ import {
 
 export type NorthHeightsMapBuilding011={id:string;x:number;z:number;width:number;depth:number;floors:number;kind:string};
 function DistrictVector({x,z,labels=false,onFinchSelect,poi,buildings=[]}:{
- x:number;z:number;labels?:boolean;onFinchSelect?:()=>void;
+ x:number;z:number;labels?:boolean;onFinchSelect?:(()=>void)|undefined;
  poi?:{x:number;z:number}|null|undefined;
  buildings?:readonly NorthHeightsMapBuilding011[]|undefined;
 }){
