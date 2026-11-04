@@ -11,7 +11,8 @@ const SOURCES:Record<Kind,string>={
  roadside:"traffic_light_-_free_low_poly.glb",
  hanging:"Traffic Light 2e (hanging).glb",
 };
-type Imported021={kind:Kind;meshes:Mesh[];height:number;extra:AbstractMesh[]};
+type Imported021={kind:Kind;meshes:Mesh[];height:number;extra:AbstractMesh[];
+ lensOffsets:Partial<Record<SignalColour021,Vector3>>};
 type Fixture021={placement:PilotSignalPlacement021;discs:Mesh[];colours:SignalColour021[];
  supports:Mesh[]};
 export interface TrafficSignalRenderer021{
@@ -56,14 +57,29 @@ async function readSource(scene:Scene,kind:Kind):Promise<Imported021>{
   mesh.thinInstanceSetBuffer("matrix",new Float32Array(0),16,true);
   mesh.setEnabled(false);
  }
- // Inspection is evidence, not a claim that file names imply correct orientation.
+ // Use actual source lens submeshes where identifiable by authored mesh /
+ // material labels. Ambiguous multi-colour primitives trigger a logged
+ // geometric fallback instead of asserting that their lens centres were audited.
+ const lensOffsets:Partial<Record<SignalColour021,Vector3>>={};
+ for(const mesh of meshes){
+  const label=(mesh.name+" "+(mesh.material?.name??"")).toLowerCase();
+  for(const key of ["red","amber","green"] as const){
+   const match=key==="amber"?/(amber|yellow)/:new RegExp(key);
+   if(match.test(label)&&!lensOffsets[key]){
+    mesh.refreshBoundingInfo();
+    lensOffsets[key]=mesh.getBoundingInfo().boundingBox.center.clone();
+   }
+  }
+ }
  console.info("[POI-011] owner traffic-light GLB qualification",{
   file:SOURCES[kind],kind,meshes:meshes.map(m=>({name:m.name,
    vertices:m.getTotalVertices(),material:m.material?.name})),
   nativeDimensions:[maxX-minX,nativeHeight,maxZ-minZ],
   normalizedHeight:targetHeight,includesPole,
+  lensCoordinates:Object.fromEntries(Object.entries(lensOffsets).map(([key,p])=>[key,p.asArray()])),
+  lensFallbackRequired:Object.keys(lensOffsets).length!==3,
  });
- return {kind,meshes,height:targetHeight,
+ return {kind,meshes,height:targetHeight,lensOffsets,
   extra:result.meshes.filter(m=>!meshes.includes(m as Mesh))};
 }
 export async function loadFinchTrafficSignals021(
@@ -133,8 +149,17 @@ export async function loadFinchTrafficSignals021(
    const height=ground(p.x,p.z)+(p.kind==="hanging"?5.65:
       src.height>2?src.height-.36:4.1+src.height-.36);
    for(let i=0;i<3;i++){
+    const colour=(["red","amber","green"] as const)[i]!;
     const lens=MeshBuilder.CreateSphere(p.id+"-lens-"+i,{diameter:.20,segments:8},scene);
-    lens.position.set(p.x+p.faceX*.18,
+    const native=src.lensOffsets[colour];
+    if(native){
+      const heading=Math.atan2(p.faceX,p.faceZ);
+      const c=Math.cos(heading),sn=Math.sin(heading);
+      const base=ground(p.x,p.z)+(p.kind==="hanging"?5.65:
+        src.height>2?0:4.1);
+      lens.position.set(p.x+c*native.x+sn*native.z,
+       base+native.y,p.z-sn*native.x+c*native.z);
+    }else lens.position.set(p.x+p.faceX*.18,
       height+(1-i)*spacing,p.z+p.faceZ*.18);
     lens.material=lensOff;lens.isPickable=false;
     discs.push(lens);created.push(lens);
