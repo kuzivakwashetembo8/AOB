@@ -73,7 +73,7 @@ function MovementButton({
 export function DesktopControls({
   send,
   onAction,
-  driving = false, flying = false, canEnterVehicle = false, canExitVehicle = true,
+  driving = false, flying = false,
   passenger = false,
   armed = false,
   combatEnabled = true,
