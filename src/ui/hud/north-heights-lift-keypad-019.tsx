@@ -17,7 +17,7 @@ export function NorthHeightsLiftKeypad019({lift,onSelect,onClose}:{
  const measure=()=>{
   const node=viewport.current;if(!node)return;
   const visible=node.clientHeight,full=node.scrollHeight,overflow=full-visible;
-  const track=Math.max(1,visible-16),thumb=Math.max(24,Math.min(track,track*(visible/Math.max(visible,full))));
+  const track=Math.max(1,visible-16),thumb=Math.min(track,Math.max(24,track*(visible/Math.max(1,full))));
   setScroll({visible:overflow>1,top:overflow>0?(node.scrollTop/overflow)*(track-thumb):0,height:thumb});
  };
  useEffect(()=>{
