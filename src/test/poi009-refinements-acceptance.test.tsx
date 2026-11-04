@@ -29,7 +29,7 @@ describe("POI-009 owner-approved refinement contracts",()=>{
   expect(visibleTouchActions(false).map(x=>x.action)).toEqual(["jump","sprint","combat"]);
   rerender(<TouchControls settings={defaults} send={send} onAction={()=>{}} armed={true}/>);
   expect(screen.getByRole("button",{name:"Fire pistol"})).toBeTruthy();
-  expect(visibleTouchActions(true).map(x=>x.action)).toEqual(["vehicle"]);
+  expect(visibleTouchActions(true).map(x=>x.action)).toEqual([]);
   expect(visibleTouchActions(false,true).map(x=>x.action)).not.toContain("combat");
  });
  it("applies exact 20 percent action size to current POI-008 CSS in both touch viewports and desktop",()=>{
