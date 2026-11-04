@@ -1,11 +1,7 @@
-/** POI-011 curbside correction: four approach signal supports on the actual
- * raised sidewalk immediately behind its ROAD-FACING curb. The prior version
- * offset poles +8.5m from an already lane-offset endpoint, putting them in
- * building yards. Both support and overhead head placement use the actual
- * junction centre as their reference, never a lane endpoint. */
-import {
- buildNorthHeightsTrafficGraph012,NH012_LANE_OFFSET,
-} from "@/game/traffic/nh012-lane-network";
+/** POI-011 curbside correction: exactly four roadside GLB signal supports.
+ * They sit immediately inside the road-facing curb, never in building yards.
+ * Positions derive from the junction centre, not lane-offset endpoints. */
+import {buildNorthHeightsTrafficGraph012} from "@/game/traffic/nh012-lane-network";
 import {FINCH_SIGNAL_NODE_021} from "@/game/traffic/nh021-traffic-signal-plan";
 import {
  NORTH_HEIGHTS_ROAD_HALF_WIDTH_003,
@@ -13,7 +9,7 @@ import {
 } from "./north-heights-roads-003";
 
 export type PilotSignalPlacement021=Readonly<{
- id:string;kind:"roadside"|"hanging";
+ id:string;kind:"roadside";
  x:number;z:number;poleX:number;poleZ:number;
  faceX:number;faceZ:number;approach:"N"|"S"|"E"|"W";
 }>;
@@ -48,16 +44,12 @@ export function planFinchTrafficSignals021():readonly PilotSignalPlacement021[]{
   const longitudinalZ=node.z-edge.dz*nearCorner;
   const poleX=longitudinalX+rightX*curbSide;
   const poleZ=longitudinalZ+rightZ*curbSide;
-  // Hanging head over the incoming driving lane at the SAME chainage:
-  // a short perpendicular cantilever, not an 8.5m diagonal across a yard.
-  // Roadside heads sit directly atop their curbside mast.
-  const hanging=edge.dz!==0;
-  const x=hanging?longitudinalX+rightX*NH012_LANE_OFFSET:poleX;
-  const z=hanging?longitudinalZ+rightZ*NH012_LANE_OFFSET:poleZ;
+  // The supplied low-poly free-standing traffic light sits directly above
+  // its curbside base. No overhead traffic heads, arms or downloads.
   heads.push({
-   id:"poi011-"+(hanging?"hanging":"roadside")+"-"+approach,
-   kind:hanging?"hanging":"roadside",
-   x,z,poleX,poleZ,faceX:-edge.dx,faceZ:-edge.dz,approach,
+   id:"poi011-roadside-"+approach,kind:"roadside",
+   x:poleX,z:poleZ,poleX,poleZ,
+   faceX:-edge.dx,faceZ:-edge.dz,approach,
   });
  }
  if(heads.length!==4||new Set(heads.map(h=>h.approach)).size!==4)
