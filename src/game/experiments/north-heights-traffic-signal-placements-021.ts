@@ -20,14 +20,16 @@ export function planFinchTrafficSignals021():readonly PilotSignalPlacement021[]{
   // the 7.75m sidewalk envelope and away from the vehicle swept path.
   const poleX=edge.end.x+rightX*7.6;
   const poleZ=edge.end.z+rightZ*7.6;
-  heads.push({id:"poi011-roadside-"+approach,kind:"roadside",
-   x:poleX,z:poleZ,poleX,poleZ,faceX:-edge.dx,faceZ:-edge.dz,approach});
-  if(edge.dz!==0){
+  // Distinct, non-duplicated heads: two overhead N/S and two roadside E/W.
+  // Both owner GLBs are used, never two overlapping supports at one corner.
+  if(edge.dz!==0)
    heads.push({id:"poi011-hanging-"+approach,kind:"hanging",
     x:edge.end.x,z:edge.end.z,poleX,poleZ,
     faceX:-edge.dx,faceZ:-edge.dz,approach});
-  }
+  else
+   heads.push({id:"poi011-roadside-"+approach,kind:"roadside",
+    x:poleX,z:poleZ,poleX,poleZ,faceX:-edge.dx,faceZ:-edge.dz,approach});
  }
- if(heads.length!==6)throw Error("POI-011 requires four roadside and two hanging signal heads");
+ if(heads.length!==4)throw Error("POI-011 requires four distinct signaled approaches");
  return heads;
 }
