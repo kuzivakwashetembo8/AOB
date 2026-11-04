@@ -114,6 +114,10 @@ function NorthHeightsPreview(){
   const inputMode=useInputMode();
   const ready=firstPlayable&&status.includes("physics ready");
   useEffect(()=>{
+    controller.current?.setUiBlocked(mapOpen||dialogueIndex!==null||missionCompletedBanner||paused||
+      Boolean(activeLift?.available&&keypadDismissedId!==activeLift.buildingId));
+  },[mapOpen,dialogueIndex,missionCompletedBanner,paused,ready,activeLift?.available,activeLift?.buildingId,keypadDismissedId]);
+  useEffect(()=>{
     // New entry opens a conversation once; leaving the radius rearms it.
     if(!nearFinch){finchVisitOpened.current=false;return;}
     if(!ready||paused||dialogueIndex!==null||finchVisitOpened.current)return;
@@ -396,6 +400,7 @@ function NorthHeightsPreview(){
          }}/>}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
         driving={vehicle!==null} flying={machineView} armed={heldItem==="gun"}
+        combatEnabled={dialogueIndex===null&&!missionCompletedBanner&&(!activeLift?.available||keypadDismissedId===activeLift.buildingId)}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
