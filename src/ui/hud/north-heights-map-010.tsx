@@ -253,7 +253,8 @@ export function NorthHeightsExpandedMap({position,onClose,onMapCloseStart,onFinc
          <DistrictVector x={position.x} z={position.z} labels poi={poi} buildings={buildings}
            onFinchSelect={machineView?undefined:()=> {
              if(!vehicleOccupied){setDestinationNotice("Enter a vehicle to navigate to Finch HQ");return;}
-             if(!onFinchHQSelect?.())setDestinationNotice("Unable to start navigation: use a road-going vehicle");
+             if(onFinchHQSelect?.())close();
+             else setDestinationNotice("Unable to start navigation: use a road-going vehicle");
            }}/>
        </g>
      </svg>
