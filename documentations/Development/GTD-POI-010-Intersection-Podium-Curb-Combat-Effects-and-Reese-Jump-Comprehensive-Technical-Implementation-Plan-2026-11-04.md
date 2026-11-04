@@ -4,12 +4,12 @@
 **Project:** P.O.I — Person of Interest
 **Repository:** `interlinkglobal/GTD`
 **Baseline:** `main` at `0ad26e44daf0dac2e0e1d893854c05c81d5b2b0a` (POI-009 merged)
-**Document status:** PROPOSED — NOT AUTHORIZED FOR IMPLEMENTATION
+**Document status:** OWNER-APPROVED FOR IMPLEMENTATION (2026-11-04) — PREVIEW ACCEPTANCE PENDING
 **Planned feature branch, subject to approval:** `feature/poi-010-junction-curbs-combat-jump-20261104`
 **Requested outcomes:** Correct traffic deadlocks, podium pillar gaps and road-facing curb returns; implement muzzle sparks, responsive repeated pistol shots and Reese's proper jump animation; relocate the vehicle control to center-right, align/enlarge the three gameplay actions, and show active Machine Camera metadata inline with the top-right controls.
 **Authority:** Project owner; preview acceptance required before production merge.
 
-**Scope interpretation:** This plan includes the two previously investigated open observations (traffic deadlock and podium-pillar disconnection) as well as the confirmed outward-facing curb correction and three new requests. These are nine distinct work packages (the original six plus three owner-requested UI addenda). Documentation approval does not imply permission to implement. Only source documentation changes are authorized in the current task.
+**Scope interpretation:** This plan includes the two previously investigated open observations (traffic deadlock and podium-pillar disconnection) as well as the confirmed outward-facing curb correction and three new requests. These are nine distinct work packages (the original six plus three owner-requested UI addenda). The owner subsequently authorized the full nine-package implementation in chat on 2026-11-04. This document records the approved execution scope. Approval to implement does not authorize production merge.
 
 ---
 
@@ -238,7 +238,7 @@ GROUNDED_IDLE or GROUNDED_MOVING
 
 ## 7A. Owner addendum — Three HUD interface work packages
 
-**Status:** Owner requested this addendum on 2026-11-04. This is still a proposed technical plan: none of the following code changes is authorized by committing the document. These requirements supersede POI-009 UI layout assumptions that allowed car access to participate in the bottom-right action grid.
+**Status:** Owner requested this addendum on 2026-11-04 and subsequently authorized all nine POI-010 work packages for implementation on a feature branch. These requirements supersede POI-009 UI layout assumptions that allowed car access to participate in the bottom-right action grid.
 
 ### 7A.1 WP-010-07 — Separate the contextual vehicle button from the three action buttons
 
@@ -387,7 +387,23 @@ Record before/after:
 11. Owner receives a feature preview after implementation and build initiation. No merge to `main` or production deployment without explicit approval. Once preview URL is issued, do not monitor logs unless user reports build failure.
 
 ### Approval checkpoint
-- **Plan written/committed:** documentation only.
-- **Nine proposed work packages (six original, three HUD addenda):** pending explicit implementation authorization.
-- **Source code modified:** no.
-- **Deployment initiated:** no.
+- **Plan written/committed:** yes.
+- **Nine work packages (six original, three HUD addenda):** authorized on 2026-11-04.
+- **Implementation branch:** `feature/poi-010-junction-curbs-combat-jump-20261104`.
+- **Status:** code changes committed on the feature branch; build, runtime and visual acceptance remain unverified until preview tests.
+- **Production merge:** not authorized. No deletion or replacement of original GLB assets.
+
+
+---
+
+## 12. Execution record — 2026-11-04
+
+Owner instructed: “Implementation authorized. You know the drill, I'll be here if any hiccup occurs.” This authorizes a preview implementation, **not** a production release. The feature branch was forked from main at `4675ae3`.
+
+**Implemented source work:** center-right car/elevator contextual button, exactly three on-foot action buttons, 1.10× new effective sizes and Sprint elevation; upper-right active Machine Camera metadata; podium columns derived from slab underside; road-facing curb quarter-arc and asphalt wedge fill; Reese jump takeoff/air/fall/land selection using the existing embedded animation clips; rapid distinct pistol shot animation restart with short procedural muzzle spark pool and existing Web Audio report; intersection reservation reconciliation in ordinary gameplay and safe alternate outgoing-lane selection for uncommitted non-mission cars; opt-in deadlock witnesses.
+
+**Asset work:** No re-export of Reese or new GLB. The 3D-gen catalog already defines the authored jump clips. The runtime animation name matching was expanded to `Jump (in air)` and `Jump start`; actual animation playback and muzzle location still require preview confirmation.
+
+**Verification limitations:** Local git clone was unavailable in this environment; the build pipeline in Vercel and owner playtest are the acceptance gates. Static review alone cannot establish that seeded traffic never deadlocks. Report build or gameplay defects against the preview commit for correction on the same branch. No autoplay/damage/projectile systems were added.
+
+**Deployment policy:** After providing the preview URL, do not poll Vercel build logs. If the owner reports a failure, inspect that precise deployment, patch the same branch and initiate a replacement preview. Production main remains unchanged until separate owner acceptance.
