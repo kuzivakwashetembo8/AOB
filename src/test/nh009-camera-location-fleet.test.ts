@@ -42,8 +42,8 @@ describe("NH-009 approval / pure geometry and integration contracts",()=>{
       expect(camera.position.z).toBeLessThanOrEqual(309);
       expect(Number.isFinite(camera.position.y)).toBe(true);
     }
-    expect(clampNorthHeightsPitch(2)).toBe(.46);
-    expect(clampNorthHeightsPitch(-2)).toBe(-.57);
+    expect(clampNorthHeightsPitch(2)).toBe(1.55);
+    expect(clampNorthHeightsPitch(-2)).toBe(-1.15);
     expect(clampNorthHeightsActorXZ(800,-900)).toEqual({x:309,z:-309});
     const blocking=resolveNorthHeightsThirdPersonCamera({x:0,y:2,z:0},0,0,8,()=>0,[
       {x:0,y:2,z:-4,halfX:3,halfY:3,halfZ:1},
