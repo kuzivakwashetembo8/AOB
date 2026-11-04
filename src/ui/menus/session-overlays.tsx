@@ -29,7 +29,7 @@ export function GTDSettingsOverlay({location,settings,onApply,onClose,onBack}:{
   onClose:()=>void;onBack:()=>void;
 }){
   return <div className="overlay" role="dialog" aria-modal="true" aria-label="Settings">
-    <div className="overlay-content game-settings-dialog max-h-[90vh] overflow-y-auto">
+    <div className="overlay-content poi-game-glass-panel game-settings-dialog max-h-[90vh] overflow-y-auto p-4">
       <div className="flex justify-between items-center">
         <span className="system-label text-primary">{location} // SESSION PAUSED</span>
         <Button variant="control" aria-label="Close pause menu" onClick={onClose}><X/></Button>
