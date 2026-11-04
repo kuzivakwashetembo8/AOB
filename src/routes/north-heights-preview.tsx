@@ -2,7 +2,7 @@ import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
 import {X,Hand,Crosshair,ListOrdered,ArrowRight} from "lucide-react";
 import {Button} from "@/components/ui/button";
-import {FINCH_INTRO_005} from "@/game/experiments/north-heights-finch-intro-005";
+import {FINCH_INTRO_005,finchMissionVisit005} from "@/game/experiments/north-heights-finch-intro-005";
 import {DIANE_DIALOGUE_REPORT_001,DIANE_DIALOGUE_FAILED_009,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
  from "@/game/experiments/level001-diane-007";
 import type {FinchElevatorState004} from "@/game/experiments/north-heights-finch-lobby-004";
@@ -75,11 +75,16 @@ function NorthHeightsPreview(){
   const missionPhaseRef=useRef(dianeMission.phase);
   const [missionCompletedBanner,setMissionCompletedBanner]=useState(false);
   const [dialogueIndex,setDialogueIndex]=useState<number|null>(null);
-  const [dialogueKind,setDialogueKind]=useState<"assignment"|"report"|"failed">("assignment");
-  const activeLines=dialogueKind==="assignment"?FINCH_INTRO_005:dialogueKind==="failed"?DIANE_DIALOGUE_FAILED_009:DIANE_DIALOGUE_REPORT_001;
+  const [dialogueKind,setDialogueKind]=useState<"assignment"|"report"|"failed"|"visit">("assignment");
+  const finchVisitOpened=useRef(false);
+  const activeLines=dialogueKind==="assignment"?FINCH_INTRO_005:dialogueKind==="failed"?DIANE_DIALOGUE_FAILED_009:
+    dialogueKind==="report"?DIANE_DIALOGUE_REPORT_001:finchMissionVisit005(
+      dianeMission.phase==="complete"?"complete":dianeMission.phase==="observe"?"observe":
+      dianeMission.phase==="follow"?"follow":"find");
   const advanceFinchDialogue=()=>{
     if(dialogueIndex===null)return;
     if(dialogueIndex<activeLines.length-1){setDialogueIndex(dialogueIndex+1);return;}
+    if(dialogueKind==="visit"){setDialogueIndex(null);return;}
     const ok=dialogueKind==="assignment"
       ?controller.current?.startDianeMission()
       :controller.current?.reportDianeMission();
@@ -108,10 +113,14 @@ function NorthHeightsPreview(){
   const inputMode=useInputMode();
   const ready=firstPlayable&&status.includes("physics ready");
   useEffect(()=>{
-    if(!nearFinch||!ready||paused||dialogueIndex!==null)return;
-    if(dianeMission.phase==="unassigned"){setDialogueKind("assignment");setDialogueIndex(0);}
-    if(dianeMission.phase==="return"){setDialogueKind("report");setDialogueIndex(0);}
-    if(dianeMission.phase==="failed"){setDialogueKind("failed");setDialogueIndex(0);}
+    // New entry opens a conversation once; leaving the radius rearms it.
+    if(!nearFinch){finchVisitOpened.current=false;return;}
+    if(!ready||paused||dialogueIndex!==null||finchVisitOpened.current)return;
+    finchVisitOpened.current=true;
+    const next=dianeMission.phase==="unassigned"?"assignment":
+      dianeMission.phase==="return"?"report":
+      dianeMission.phase==="failed"?"failed":"visit";
+    setDialogueKind(next);setDialogueIndex(0);
   },[nearFinch,ready,paused,dialogueIndex,dianeMission.phase]);
   const failed=/failed|failure|error/i.test(status);
   const touchVisible=coarse&&!(settings.autoHide&&inputMode==="keyboard");

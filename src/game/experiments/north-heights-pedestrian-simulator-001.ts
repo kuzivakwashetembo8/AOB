@@ -4,6 +4,7 @@
 import {buildPedestrianGraph001,pedestrianRoute001,type PedGraph001,type PedEdgeKind001} from "./north-heights-pedestrian-graph-001";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {TreeLocation} from "./north-heights-trees-004";
+import {pedestrianObstacleStep020} from "./north-heights-pedestrian-avoidance-020";
 
 export type PedState001="depart"|"walk"|"park"|"wait"|"cross"|"arrive"|"inside";
 export type PedAgent001={
@@ -13,6 +14,7 @@ export type PedAgent001={
  seed:number;journeysCompleted:number;departures:number;parkVisits:number;
  crossingsTraversed:number;distanceTraveled:number;reroutes:number;
  lastArrival:string|null;stranded:boolean;
+ avoidOffset:number;avoidTarget:number;
 };
 export const PED001_POPULATION=100;
 const EPS=1e-5;
@@ -100,7 +102,7 @@ export class NorthHeightsPedestrianSimulator001{
        insideSeconds:((i*37%101)/101)*6,
        seed:(2801001+Math.imul(i+1,747796405))>>>0,
        journeysCompleted:0,departures:0,parkVisits:0,crossingsTraversed:0,
-       distanceTraveled:0,reroutes:0,lastArrival:null,stranded:false,
+       distanceTraveled:0,reroutes:0,lastArrival:null,stranded:false,avoidOffset:0,avoidTarget:0,
      };
      this.agents.push(agent);
    }
@@ -161,7 +163,7 @@ export class NorthHeightsPedestrianSimulator001{
    }
    if(a.stranded){a.stranded=false;this.stranded--;}
    a.destination=result.id;a.route=result.route;
-   a.segment=0;a.progress=0;a.departures++;
+   a.segment=0;a.progress=0;a.avoidOffset=0;a.avoidTarget=0;a.departures++;
    a.insideSeconds=0;this.setState(a,"depart");
  }
  private arrive(a:PedAgent001){
@@ -174,7 +176,7 @@ export class NorthHeightsPedestrianSimulator001{
    }
    a.lastArrival=a.destination;a.origin=a.destination;
    a.journeysCompleted++;this.completed++;
-   a.route=[];a.segment=0;a.progress=0;
+   a.route=[];a.segment=0;a.progress=0;a.avoidOffset=0;a.avoidTarget=0;
    a.insideSeconds=2+nextRandom(a)*7;
    this.setState(a,"inside");
  }
@@ -196,7 +198,7 @@ export class NorthHeightsPedestrianSimulator001{
      // Retain the active edge and its exact progress, append a fresh suffix.
      a.route=[from,...chosen.route];
    }else{
-     a.route=chosen.route;a.progress=0;
+     a.route=chosen.route;a.progress=0;a.avoidOffset=0;a.avoidTarget=0;
    }
    a.segment=0;a.destination=chosen.id;
    a.reroutes++;this.reroutes++;
@@ -230,25 +232,26 @@ export class NorthHeightsPedestrianSimulator001{
        }
        const length=link.length;
        if(length<EPS){a.segment++;a.progress=0;continue;}
-       const travel=Math.min(remaining,Math.max(0,length-a.progress));
-       const nextProgress=a.progress+travel;
-       const t=Math.min(1,nextProgress/length);
-       const nextX=p.x+(q.x-p.x)*t,nextZ=p.z+(q.z-p.z)*t;
-       if(this.canOccupyVehicleFreeSpace&&!this.canOccupyVehicleFreeSpace(nextX,nextZ)){
-         // Yield in place, do not consume distance or advance the route.
-         this.setState(a,"wait");break;
+       const motion=pedestrianObstacleStep020(a,p,q,link.kind,remaining,
+         this.canOccupyVehicleFreeSpace??(()=>true),a.appearanceId%2===0?1:-1);
+       if(motion.blocked||motion.traveled<EPS){
+         // Remain stationary only when no safe bypass is possible.
+         if(motion.blocked)this.setState(a,"wait");
+         break;
        }
-       a.progress=nextProgress;remaining-=travel;
-       a.x=nextX;a.z=nextZ;
-       a.heading=Math.atan2(q.x-p.x,q.z-p.z);
-       a.distanceTraveled+=travel;
+       const moveX=motion.x-a.x,moveZ=motion.z-a.z;
+       a.x=motion.x;a.z=motion.z;a.progress=motion.progress;
+       a.avoidOffset=motion.avoidOffset;a.avoidTarget=motion.avoidTarget;
+       a.heading=Math.atan2(moveX,moveZ);
+       remaining=Math.max(0,remaining-motion.traveled);
+       a.distanceTraveled+=motion.traveled;
        const kind:PedEdgeKind001=link.kind;
        const nextState:PedState001=kind==="park"?"park":kind==="crossing"?"cross":
          kind==="entrance"?(a.segment===0?"depart":"arrive"):"walk";
        this.setState(a,nextState);
-       if(a.progress>=length-EPS){
+       if(a.progress>=length-EPS&&Math.abs(a.avoidOffset)<.015){
          a.x=q.x;a.z=q.z;
-         a.segment++;a.progress=0;
+         a.segment++;a.progress=0;a.avoidOffset=0;a.avoidTarget=0;
          if(a.segment===a.route.length-1){this.arrive(a);break;}
        }
      }

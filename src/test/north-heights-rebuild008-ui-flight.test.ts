@@ -30,7 +30,12 @@ describe("NH-008 district UI parity and third-person flight",()=>{
     const world=read("src/game/experiments/north-heights-reconstruction-001.ts");
     const roads=read("src/game/experiments/north-heights-roads-003.ts");
     expect(world).toContain("createNorthHeightsBlockSurfaces008");
-    expect(world).not.toContain('["pavement","sidewalk-paving"]');
+    // INT-independent accepted pavement texture: same coarse aggregate as road,
+    // but warm-grey stone colour. It must not add an extra geometry seam.
+    expect(world).toContain('["pavement","sidewalk-paving"]');
+    expect(world).toContain('textureKind:key==="pavement"?"asphalt"');
+    expect(world).toContain('color:key==="pavement"?"#a8a198"');
+    expect(roads).toContain("curb:material.pavement");
     // VIS-027-001: the pavement has a genuine underside and sidewalls.
     // The old "no curb strip" assertion prohibited solid curb volume.
     expect(roads).toContain("runStrip(batch.curb");

@@ -229,20 +229,23 @@ class InstancedCity {
       fresnel.rightColor=Color3.Black();
       material.reflectionFresnelParameters=fresnel;
     }
-    for(const [key,familyId] of [["road","asphalt"]] as const) {
+    for(const [key,familyId] of [["road","asphalt"],["pavement","sidewalk-paving"]] as const) {
       const family=MATERIAL_FAMILIES[familyId as MaterialFamilyId];
       const mat=this.mat(key);
       mat.diffuseTexture=createSurfaceTexture(scene,{
-        key:"nh-rebuild-002:"+key,
+        key:"nh-rebuild-020:"+key,
         familyId,
         role:"trim",
-        color:family.color,
-        roughness:family.roughness,
+        // Warm-grey stone aggregate: the pavement stays lighter than asphalt.
+        color:key==="pavement"?"#a8a198":family.color,
+        roughness:key==="pavement"?.96:family.roughness,
         metalness:family.metalness,
         alpha:family.alpha,
-        textureKind:family.textureKind,
+        textureKind:key==="pavement"?"asphalt":family.textureKind,
         textureScale:{u:1,v:1},
-        variation:{tintBucket:0,weathering:.64,grime:.58,patching:.48,uvOffset:{u:.17,v:.39}},
+        variation:key==="pavement"
+          ?{tintBucket:0,weathering:.72,grime:.54,patching:.55,uvOffset:{u:.11,v:.31}}
+          :{tintBucket:0,weathering:.64,grime:.58,patching:.48,uvOffset:{u:.17,v:.39}},
       });
       mat.diffuseColor=Color3.White();
       mat.specularColor=new Color3(.025,.025,.025);
