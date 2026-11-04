@@ -1,5 +1,5 @@
-/** POI-011: two owner GLBs imported once, native geometry audited at runtime.
- * Shared geometry and four pilot heads; controller, not renderer, owns phases. */
+/** POI-011: single approved roadside GLB, shared across four curbside heads.
+ * No secondary asset is fetched or instantiated. */
 import {Color3,Matrix,Mesh,MeshBuilder,Quaternion,Scene,SceneLoader,
  StandardMaterial,Vector3,type AbstractMesh} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
@@ -7,11 +7,8 @@ import {planFinchTrafficSignals021,type PilotSignalPlacement021} from "./north-h
 import {NORTH_HEIGHTS_SIDEWALK_ELEVATION_003} from "./north-heights-roads-003";
 import type {TrafficSignalController021,SignalColour021} from "@/game/traffic/nh021-traffic-signal-controller";
 import type {NorthHeightsTime} from "./north-heights-sky-002";
-type Kind="roadside"|"hanging";
-const SOURCES:Record<Kind,string>={
- roadside:"traffic_light_-_free_low_poly.glb",
- hanging:"Traffic Light 2e (hanging).glb",
-};
+type Kind="roadside";
+const SOURCES:Record<Kind,string>={roadside:"traffic_light_-_free_low_poly.glb"};
 type Imported021={kind:Kind;meshes:Mesh[];height:number;extra:AbstractMesh[];
  lensOffsets:Partial<Record<SignalColour021,Vector3>>};
 type Fixture021={placement:PilotSignalPlacement021;discs:Mesh[];colours:SignalColour021[];
@@ -47,8 +44,8 @@ async function readSource(scene:Scene,kind:Kind):Promise<Imported021>{
  const nativeHeight=maxY-minY,nativeWidth=Math.max(maxX-minX,maxZ-minZ);
  if(!Number.isFinite(nativeHeight)||nativeHeight<.001)
   throw Error("POI-011 invalid model native height: "+SOURCES[kind]);
- const includesPole=kind==="roadside"&&nativeHeight>nativeWidth*1.5;
- const targetHeight=kind==="hanging"?1.15:includesPole?4.7:1.15;
+ const includesPole=nativeHeight>nativeWidth*1.5;
+ const targetHeight=includesPole?4.7:1.15;
  const scale=targetHeight/nativeHeight;
  const offset=Matrix.Compose(new Vector3(scale,scale,scale),Quaternion.Identity(),
   new Vector3(-(minX+maxX)*scale/2,-minY*scale,-(minZ+maxZ)*scale/2));
@@ -132,26 +129,19 @@ export async function loadFinchTrafficSignals021(
   // The assets are evaluated on first gameplay frame; the simulation starts
   // independently even if a GLB download has a failed network request.
   imported.push(await readSource(scene,"roadside"));
-  imported.push(await readSource(scene,"hanging"));
   for(const p of positions){
    const src=imported.find(r=>r.kind===p.kind)!;
    const baseY=curbTop(p.poleX,p.poleZ);
-   const mastTop=baseY+(p.kind==="hanging"?5.65:src.height>2?0:4.1);
+   const mastTop=baseY+(src.height>2?0:4.1);
    const supports:Mesh[]=[];
-   if(p.kind==="hanging"||src.height<2){
+   if(src.height<2){
     const a=new Vector3(p.poleX,baseY,p.poleZ);
     const top=new Vector3(p.poleX,mastTop,p.poleZ);
     supports.push(makeSupport(p.id+"-mast",a,top,.13));
    }
-   if(p.kind==="hanging"){
-    const start=new Vector3(p.poleX,mastTop,p.poleZ);
-    const end=new Vector3(p.x,mastTop,p.z);
-    supports.push(makeSupport(p.id+"-cantilever",start,end,.09));
-   }
    const discs:Mesh[]=[];
-   const spacing=p.kind==="hanging"?.28:.32;
-   const height=curbTop(p.x,p.z)+(p.kind==="hanging"?5.65:
-      src.height>2?src.height-.36:4.1+src.height-.36);
+   const spacing=.32;
+   const height=curbTop(p.x,p.z)+(src.height>2?src.height-.36:4.1+src.height-.36);
    for(let i=0;i<3;i++){
     const colour=(["red","amber","green"] as const)[i]!;
     const lens=MeshBuilder.CreateSphere(p.id+"-lens-"+i,{diameter:.20,segments:8},scene);
@@ -159,8 +149,7 @@ export async function loadFinchTrafficSignals021(
     if(native){
       const heading=Math.atan2(p.faceX,p.faceZ);
       const c=Math.cos(heading),sn=Math.sin(heading);
-      const base=curbTop(p.x,p.z)+(p.kind==="hanging"?5.65:
-        src.height>2?0:4.1);
+      const base=curbTop(p.x,p.z)+(src.height>2?0:4.1);
       lens.position.set(p.x+c*native.x+sn*native.z,
        base+native.y,p.z-sn*native.x+c*native.z);
     }else lens.position.set(p.x+p.faceX*.18,
@@ -211,8 +200,7 @@ export async function loadFinchTrafficSignals021(
    for(let i=0;i<positions.length;i++){
     const p=positions[i]!;
     if(p.kind!==group.kind||!visible[i])continue;
-    const headY=curbTop(p.x,p.z)+(p.kind==="hanging"?5.65:
-      group.height>2?0:4.1);
+    const headY=curbTop(p.x,p.z)+(group.height>2?0:4.1);
     const heading=Math.atan2(p.faceX,p.faceZ);
     const matrix=Matrix.Compose(Vector3.One(),Quaternion.RotationAxis(Vector3.Up(),heading),
       new Vector3(p.x,headY,p.z));
