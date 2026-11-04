@@ -1,7 +1,11 @@
 import {describe,expect,it} from "vitest";
 import {TrafficSignalController021} from "../game/traffic/nh021-traffic-signal-controller";
 import {FINCH_SIGNAL_NODE_021,pilotSignalPlans021,pilotZebraEdge021} from "../game/traffic/nh021-traffic-signal-plan";
-import {planFinchTrafficSignals021} from "../game/experiments/north-heights-traffic-signal-placements-021";
+import {planFinchTrafficSignals021,
+ POI011_POLE_CURB_INSET_021,POI011_CORNER_END_CLEARANCE_021
+} from "../game/experiments/north-heights-traffic-signal-placements-021";
+import {NORTH_HEIGHTS_ROAD_HALF_WIDTH_003,
+ NORTH_HEIGHTS_SIDEWALK_OUTER_003} from "../game/experiments/north-heights-roads-003";
 import {northHeightsPedestrianZebra001} from "../game/experiments/north-heights-pedestrian-crossings-001";
 import {NORTH_HEIGHTS_FINCH_HEADQUARTERS_001} from "../game/experiments/north-heights-finch-hq-001";
 import {buildNorthHeightsTrafficGraph012} from "../game/traffic/nh012-lane-network";
@@ -15,6 +19,7 @@ describe("POI-011: citywide data model, one Finch HQ controlled junction",()=>{
   expect(plan[0]!.nodeId).toBe(FINCH_SIGNAL_NODE_021);
   expect(plan[0]!.centre).toEqual({x:64,z:-64});
   expect(plan[0]!.enabled).toBe(true);
+  expect(plan[0]!.installation).toBe("roadside");
   const graph=buildNorthHeightsTrafficGraph012();
   expect(graph.nodes.size).toBe(121);
   const h=NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.entrance;
@@ -23,11 +28,11 @@ describe("POI-011: citywide data model, one Finch HQ controlled junction",()=>{
   expect(ordered[0]!.id).toBe(FINCH_SIGNAL_NODE_021);
   expect(ordered[0]!.d).toBeCloseTo(22.34069077,4);
  });
- it("uses exactly four road-facing approaches, both supplied GLB asset types",()=>{
+ it("uses only four roadside GLB signals with mast feet against the street-facing curb",()=>{
   const placements=planFinchTrafficSignals021();
   expect(placements).toHaveLength(4);
-  expect(placements.filter(p=>p.kind==="hanging")).toHaveLength(2);
-  expect(placements.filter(p=>p.kind==="roadside")).toHaveLength(2);
+  expect(placements.every(p=>p.kind==="roadside")).toBe(true);
+  expect(placements.every(p=>p.x===p.poleX&&p.z===p.poleZ)).toBe(true);
   expect(new Set(placements.map(p=>p.approach)).size).toBe(4);
   const graph=buildNorthHeightsTrafficGraph012();
   const incoming=graph.incoming.get(FINCH_SIGNAL_NODE_021)??[];
@@ -35,11 +40,21 @@ describe("POI-011: citywide data model, one Finch HQ controlled junction",()=>{
    const edge=graph.edges.get(edgeId)!;
    const p=placements.find(p=>p.faceX===-edge.dx&&p.faceZ===-edge.dz);
    expect(p).toBeDefined();
-   expect(Math.hypot(p!.poleX-64,p!.poleZ+64)).toBeGreaterThan(8);
+   const lateral=(p!.poleX-64)*edge.dz-(p!.poleZ+64)*edge.dx;
+   const distanceBeforeNode=-(p!.poleX-64)*edge.dx-(p!.poleZ+64)*edge.dz;
+   // A true roadside pole: 0.35m inward from the 4m carriageway edge.
+   // It must not be offset by 8.5m from an already shifted lane endpoint.
+   expect(lateral).toBeCloseTo(NORTH_HEIGHTS_ROAD_HALF_WIDTH_003+POI011_POLE_CURB_INSET_021,5);
+   expect(distanceBeforeNode).toBeCloseTo(NORTH_HEIGHTS_SIDEWALK_OUTER_003-POI011_CORNER_END_CLEARANCE_021,5);
+   expect(lateral).toBeLessThan(NORTH_HEIGHTS_SIDEWALK_OUTER_003);
+   expect(Math.abs(distanceBeforeNode)).toBeLessThan(10);
   }
   const renderer=source("src/game/experiments/north-heights-traffic-signal-renderer-021.ts");
   expect(renderer).toContain('traffic_light_-_free_low_poly.glb');
-  expect(renderer).toContain('Traffic Light 2e (hanging).glb');
+  expect(renderer).not.toContain('Traffic Light 2e (hanging).glb');
+  expect(renderer).not.toContain('readSource(scene,"hanging")');
+  expect(renderer).not.toContain('-cantilever');
+  expect(renderer).toContain("NORTH_HEIGHTS_SIDEWALK_ELEVATION_003");
   expect(renderer).toContain('thinInstanceSetBuffer("matrix"');
   expect(renderer).toContain("pedestrianMayEnter021");
  });
