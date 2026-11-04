@@ -224,7 +224,7 @@ const actions: Array<{ action: GameAction; label: string; icon: typeof Hand }> =
   { action: "vehicle", label: "Enter or exit vehicle", icon: Car },
   { action: "descend", label: "Descend while flying", icon: ArrowDown },
 ];
-export function visibleTouchActions(driving:boolean,flying=false,canEnterVehicle=false,canExitVehicle=true){
+export function visibleTouchActions(driving:boolean,flying=false,_canEnterVehicle=false,_canExitVehicle=true){
   if(driving)return []; // Center-right contextual vehicle host owns entry/exit.
   if(flying)return actions.filter(a=>["sprint","jump","descend"].includes(a.action));
   return actions.filter(a=>["jump","sprint","combat"].includes(a.action));
