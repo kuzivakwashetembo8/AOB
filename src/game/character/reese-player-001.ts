@@ -236,7 +236,7 @@ export function createReesePlayer001(scene:Scene,
   }
   // Use the real skinned right hand when the gun is part of a body material.
   for(const skeleton of instance?.skeletons??[]){
-   const hand=skeleton.bones.find(b=>/right.?hand$/i.test(b.name));
+   const hand=skeleton.bones.find(b=>/(right.?hand|hand[._-]?r|r[._-]?hand)$/i.test(b.name));
    const all=(instance?.rootNodes??[]).flatMap(n=>n.getChildMeshes(false));
    const mesh=all.find(candidate=>(candidate as typeof candidate&{skeleton?:typeof skeleton}).skeleton===skeleton);
    if(hand&&mesh){const p=hand.getAbsolutePosition(mesh);
@@ -276,6 +276,7 @@ export function createReesePlayer001(scene:Scene,
   setDrivingHidden(hidden:boolean){
    if(closed||!controlled)return;
    hiddenDriving=hidden;
+   if(hidden)muzzleEffect.clear();
    anchor.setEnabled(!hidden);
    applyWeaponVisibility();
   },
@@ -296,7 +297,7 @@ export function createReesePlayer001(scene:Scene,
    if(airborne){
     landingRemaining=0;
     if(!wasAirborne){
-     wasAirborne=true;takeoffRemaining=verticalVelocity>.7?.15:0;
+     wasAirborne=true;takeoffRemaining=verticalVelocity>.7 ? .15 : 0;
      play(takeoffRemaining>0?(groups.jumpStart??groups.jump):(groups.fall??groups.jump),takeoffRemaining<=0);
     }
     if(takeoffRemaining>0){
