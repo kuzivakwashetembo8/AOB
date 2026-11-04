@@ -4,6 +4,7 @@ import {Color3,Matrix,Mesh,MeshBuilder,Quaternion,Scene,SceneLoader,
  StandardMaterial,Vector3,type AbstractMesh} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import {planFinchTrafficSignals021,type PilotSignalPlacement021} from "./north-heights-traffic-signal-placements-021";
+import {NORTH_HEIGHTS_SIDEWALK_ELEVATION_003} from "./north-heights-roads-003";
 import type {TrafficSignalController021,SignalColour021} from "@/game/traffic/nh021-traffic-signal-controller";
 import type {NorthHeightsTime} from "./north-heights-sky-002";
 type Kind="roadside"|"hanging";
@@ -87,6 +88,9 @@ export async function loadFinchTrafficSignals021(
  controller:TrafficSignalController021
 ):Promise<TrafficSignalRenderer021>{
  const positions=planFinchTrafficSignals021();
+ // Mast foot shares the elevation of the actual sidewalk surface.
+ const curbTop=(x:number,z:number)=>
+  ground(x,z)+NORTH_HEIGHTS_SIDEWALK_ELEVATION_003;
  const imported:Imported021[]=[];
  const fixtures:Fixture021[]=[];
  const pedestrianHeads:{housing:Mesh;red:Mesh;green:Mesh}[]=[];
@@ -131,7 +135,7 @@ export async function loadFinchTrafficSignals021(
   imported.push(await readSource(scene,"hanging"));
   for(const p of positions){
    const src=imported.find(r=>r.kind===p.kind)!;
-   const baseY=ground(p.poleX,p.poleZ);
+   const baseY=curbTop(p.poleX,p.poleZ);
    const mastTop=baseY+(p.kind==="hanging"?5.65:src.height>2?0:4.1);
    const supports:Mesh[]=[];
    if(p.kind==="hanging"||src.height<2){
@@ -146,7 +150,7 @@ export async function loadFinchTrafficSignals021(
    }
    const discs:Mesh[]=[];
    const spacing=p.kind==="hanging"?.28:.32;
-   const height=ground(p.x,p.z)+(p.kind==="hanging"?5.65:
+   const height=curbTop(p.x,p.z)+(p.kind==="hanging"?5.65:
       src.height>2?src.height-.36:4.1+src.height-.36);
    for(let i=0;i<3;i++){
     const colour=(["red","amber","green"] as const)[i]!;
@@ -155,7 +159,7 @@ export async function loadFinchTrafficSignals021(
     if(native){
       const heading=Math.atan2(p.faceX,p.faceZ);
       const c=Math.cos(heading),sn=Math.sin(heading);
-      const base=ground(p.x,p.z)+(p.kind==="hanging"?5.65:
+      const base=curbTop(p.x,p.z)+(p.kind==="hanging"?5.65:
         src.height>2?0:4.1);
       lens.position.set(p.x+c*native.x+sn*native.z,
        base+native.y,p.z-sn*native.x+c*native.z);
@@ -173,7 +177,7 @@ export async function loadFinchTrafficSignals021(
     ["east",64+9.55,-64-5.875],
     ["north",64-5.875,-64+9.55],
   ] as const){
-   const h=ground(x,z)+2.32;
+   const h=curbTop(x,z)+2.32;
    const housing=MeshBuilder.CreateBox("poi011-ped-"+label+"-housing",
      {width:.34,height:.59,depth:.22},scene);
    housing.position.set(x,h,z);housing.material=metal;housing.isPickable=false;
@@ -207,7 +211,7 @@ export async function loadFinchTrafficSignals021(
    for(let i=0;i<positions.length;i++){
     const p=positions[i]!;
     if(p.kind!==group.kind||!visible[i])continue;
-    const headY=ground(p.x,p.z)+(p.kind==="hanging"?5.65:
+    const headY=curbTop(p.x,p.z)+(p.kind==="hanging"?5.65:
       group.height>2?0:4.1);
     const heading=Math.atan2(p.faceX,p.faceZ);
     const matrix=Matrix.Compose(Vector3.One(),Quaternion.RotationAxis(Vector3.Up(),heading),
