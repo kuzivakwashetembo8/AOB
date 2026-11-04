@@ -219,9 +219,9 @@ export function Joystick({ send }: { send: Send }) {
 const actions: Array<{ action: GameAction; label: string; icon: typeof Hand }> = [
   { action: "jump", label: "Jump or ascend", icon: ArrowUp },
   { action: "sprint", label: "Sprint or speed boost", icon: Footprints },
+  { action: "combat", label: "Punch", icon: HandFist },
   { action: "vehicle", label: "Enter or exit vehicle", icon: Car },
   { action: "descend", label: "Descend while flying", icon: ArrowDown },
-  { action: "combat", label: "Punch", icon: HandFist },
 ];
 export function visibleTouchActions(driving:boolean,flying=false,canEnterVehicle=false,canExitVehicle=true){
   if(driving)return canExitVehicle?actions.filter(a=>a.action==="vehicle"):[];
