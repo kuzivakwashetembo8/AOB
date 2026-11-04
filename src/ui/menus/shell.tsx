@@ -15,7 +15,7 @@ export function Scene({ game = false }: { game?: boolean }) {
       <div className="scene">
         <img
           src={city}
-          alt="Meridian City skyline overlooking the harbor, with Voight on a rooftop"
+          alt="Meridian City skyline overlooking the harbor, with Reese on a rooftop"
           width={1920}
           height={1088}
           fetchPriority="high"
@@ -29,14 +29,14 @@ export function Scene({ game = false }: { game?: boolean }) {
 }
 export function Brand() {
   return (
-    <Link to="/" className="brand" aria-label="GTD main menu">
+    <Link to="/" className="brand" aria-label="P.O.I main menu">
       <span className="brand-symbol">
-        GTD<span className="text-primary">.</span>
+        P.O.I<span className="text-primary">.</span>
       </span>
       <span className="brand-name">
-        GRAND THEFT
+        PERSON OF
         <br />
-        DIVISION
+        INTEREST
       </span>
     </Link>
   );
@@ -74,9 +74,9 @@ export function LandscapeBoundary({ children }: { children: ReactNode }) {
         <img src={city} alt="Meridian City at dusk" width={1920} height={1088} />
         <div className="portrait-content">
           <div className="portrait-mark">
-            GTD<span className="text-primary">.</span>
+            P.O.I<span className="text-primary">.</span>
           </div>
-          <div className="system-label">GRAND THEFT DIVISION</div>
+          <div className="system-label">PERSON OF INTEREST</div>
           <RotateCw size={36} className="rotate-icon" />
           <h1>ROTATE DEVICE TO CONTINUE</h1>
           <p>Meridian deserves a wider view.</p>

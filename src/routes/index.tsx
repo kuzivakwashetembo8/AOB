@@ -24,7 +24,7 @@ export const Route = createFileRoute("/")({
   head: () =>
     pageHead(
       "Enter Meridian",
-      "Enter the world of GTD — Grand Theft Division. Meridian City awaits Voight in an original, protector-led urban action game.",
+      "Enter P.O.I — Person of Interest. Explore Meridian City as Reese, uncover The Machine's leads and protect those at risk.",
     ),
   component: Launcher,
 });
@@ -40,9 +40,9 @@ function Launcher() {
       <section className="launcher-content">
         <div className="location-eyebrow">MERIDIA // MERIDIAN CITY</div>
         <h1 className="wordmark">
-          GTD<span>.</span>
+          P.O.I<span>.</span>
         </h1>
-        <h2 className="game-title">GRAND THEFT DIVISION</h2>
+        <h2 className="game-title">PERSON OF INTEREST</h2>
         <div className="launcher-rule" />
         <p className="launcher-copy">
           Some cities need a hero.
@@ -175,7 +175,7 @@ function Launcher() {
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Development build">
           <div className="overlay-content">
             <div className="flex justify-between items-center">
-              <span className="system-label text-primary">GTD // BUILD 0.1.0</span>
+              <span className="system-label text-primary">P.O.I // BUILD 0.1.0</span>
               <Button
                 autoFocus
                 variant="control"
@@ -199,7 +199,7 @@ function Launcher() {
             <p className="overlay-note">
               Meridian City · Meridia
               <br />
-              Voight · Protector progression
+              Reese · Person of Interest
               <br />
               Original world. Independent identity.
             </p>

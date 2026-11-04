@@ -8,7 +8,7 @@ import { InstallAction } from "@/ui/menus/install-action";
 export const Route = createFileRoute("/settings")({
   head: () => pageHead(
     "Settings",
-    "Configure GTD graphics, audio, accessibility, interface, and ergonomic mobile controls.",
+    "Configure P.O.I graphics, audio, accessibility, interface, and ergonomic mobile controls.",
   ),
   component: SettingsPage,
 });
@@ -20,7 +20,7 @@ function SettingsPage() {
       <section className="page-content">
         <div className="page-top">
           <div className="min-w-0">
-            <div className="system-label text-primary">GTD // SYSTEM CONFIGURATION</div>
+            <div className="system-label text-primary">P.O.I // SYSTEM CONFIGURATION</div>
             <h1 className="page-heading">SETTINGS<span className="text-primary">.</span></h1>
             <p className="page-subtitle">Your Meridian. Your way.</p>
           </div>
