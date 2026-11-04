@@ -242,7 +242,7 @@ class InstancedCity {
         metalness:family.metalness,
         alpha:family.alpha,
         textureKind:key==="pavement"?"asphalt":family.textureKind,
-        textureScale:{u:1,v:1},
+        textureScale:{u:4,v:4},
         variation:key==="pavement"
           ?{tintBucket:0,weathering:.72,grime:.54,patching:.55,uvOffset:{u:.11,v:.31}}
           :{tintBucket:0,weathering:.64,grime:.58,patching:.48,uvOffset:{u:.17,v:.39}},
@@ -306,8 +306,8 @@ function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
     const bay=length/bays;
     // The glazed sheet is an actual transmissive surface; no opaque exterior
     // geometry is generated over or behind individual square apertures.
-    const xg=side==="z"?x:x+sign*(w/2-.20);
-    const zg=side==="z"?z+sign*(d/2-.20):z;
+    const xg=side==="z"?x:x+sign*(w/2+.005);
+    const zg=side==="z"?z+sign*(d/2+.005):z;
     const entranceFace=side==="z"&&sign===1;
     const openingWidth=Math.min(NORTH_HEIGHTS_PORTAL_WIDTH_010,w*.45);
     if(entranceFace){
@@ -335,6 +335,15 @@ function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
             isHigh?.16:.44,height-NORTH_HEIGHTS_PORTAL_HEIGHT_010,isHigh?.16:.44);
       }else city.box(frame,xf(at),base+height/2,zf(at),
         side==="z"?isHigh?.16:.44:.16,height,side==="z"?.16:isHigh?.16:.44);
+    }
+    if(entranceFace&&isHigh){
+      // Steel jambs and header now connect the lower glazing to the facade.
+      for(const direction of [-1,1])
+        city.box(frame,xf(direction*openingWidth/2),base+
+          NORTH_HEIGHTS_PORTAL_HEIGHT_010/2,zf(0),
+          .16,NORTH_HEIGHTS_PORTAL_HEIGHT_010+.16,.20);
+      city.box(frame,xf(0),base+NORTH_HEIGHTS_PORTAL_HEIGHT_010,zf(0),
+        openingWidth+.16,.16,.20);
     }
     // Continuous physical sills/spandrels with apertures between; horizontal
     // grid level remains 1:1-ish with 3.35/3.10m storey heights.
@@ -411,11 +420,8 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
       for(const part of finchFloorRing004(x,z,w+2.4,d+2.4,shaft))
         city.box("stone-c",part.x,y+podiumH+.9,part.z,part.width,.55,part.depth);
     }else city.box("stone-c",x,y+podiumH+.9,z,w+2.4,.55,d+2.4);
-    for(let c=0;c<Math.floor(w/4);c++) {
-      const px=x-w/2+(c+.5)*w/Math.floor(w/4);
-      if(Math.abs(px-x)>NORTH_HEIGHTS_PORTAL_WIDTH_010/2+1.4)
-        city.box("glass-mid",px,y+3.1,z+d/2+1.27,2.7,3.9,.08);
-    }
+    // POI-008: remove the isolated podium panes offset 1.27m from the facade.
+    // The shared facade-glass plane is now the single source of truth.
   }
   addFacade(city,lot,x,z,y+.8,height,w,d,style,lot.accent,mobile,wall);
   // Distinct roof silhouettes: parapets, crowns, elevator headhouses and
