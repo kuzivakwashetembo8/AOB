@@ -76,7 +76,7 @@ async function readSource(scene:Scene,kind:Kind):Promise<Imported021>{
    vertices:m.getTotalVertices(),material:m.material?.name})),
   nativeDimensions:[maxX-minX,nativeHeight,maxZ-minZ],
   normalizedHeight:targetHeight,includesPole,
-  lensCoordinates:Object.fromEntries(Object.entries(lensOffsets).map(([key,p])=>[key,p.asArray()])),
+  lensCoordinates:Object.fromEntries(Object.entries(lensOffsets).map(([key,p])=>[key,p?.asArray()??null])),
   lensFallbackRequired:Object.keys(lensOffsets).length!==3,
  });
  return {kind,meshes,height:targetHeight,lensOffsets,
