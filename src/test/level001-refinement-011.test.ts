@@ -46,7 +46,10 @@ describe("Level 001 preview refinement 011",()=>{
    .toContain("room.position.z-d/2+.55");
   const traffic=file("src/game/traffic/nh012-traffic-simulator.ts");
   expect(traffic).toContain("reconcileJunctionReservations001()");
-  expect(traffic).toContain("if(!this.dianePace001)return;");
+  // POI-010 reconciles orphaned reservations globally, including outside
+  // Diane's mission. Genuine occupied junctions retain their reservation.
+  expect(traffic).not.toContain("if(!this.dianePace001)return;");
+  expect(traffic).toContain("this.recoveredOrphans++");
  });
  it("leaves the receptionist posed without a chair and retains rounded pavement faces",()=>{
   const lobby=file("src/game/experiments/north-heights-finch-lobby-004.ts");

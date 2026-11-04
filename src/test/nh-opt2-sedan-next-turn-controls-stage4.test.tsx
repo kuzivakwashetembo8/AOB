@@ -21,7 +21,8 @@ describe("GTD-NH-OPT2 Stage 4 pointer regression under Stage 6 free steering",()
     expect(screen.getByRole("button",{name:/hold to steer sedan right anywhere/i})).toBeTruthy();
     expect(screen.getByRole("button",{name:/hold to accelerate sedan/i})).toBeTruthy();
     expect(screen.getByRole("button",{name:/hold to brake sedan/i})).toBeTruthy();
-    expect(screen.getByRole("button",{name:/enter or exit vehicle/i})).toBeTruthy();
+    // POI-010 moves vehicle access to the independent center-right host.
+    expect(screen.queryByRole("button",{name:/enter or exit vehicle/i})).toBeNull();
   });
 
   it("sends a distinct left-right rising edge and restores neutral on pointer release",()=>{

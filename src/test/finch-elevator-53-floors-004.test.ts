@@ -87,9 +87,13 @@ describe("POI-004 full-height Finch HQ elevator",()=>{
   const touch=readFileSync(resolve(process.cwd(),"src/ui/hud/touch-controls.tsx"),"utf8");
   const desktop=readFileSync(resolve(process.cwd(),"src/ui/hud/desktop-controls.tsx"),"utf8");
   expect(route).toContain('data-testid="poi005-lift-independent"');
-  expect(route).toContain('top-[40%]');
+  const css=readFileSync(resolve(process.cwd(),"src/styles.css"),"utf8");
+  expect(route).toContain("poi010-context-actions");
+  expect(css).toContain("top:40%");
   expect(route).not.toContain("elevator={dialogueIndex===null?elevatorAction:undefined}");
-  expect(touch).toContain('data-testid="poi005-lift-touch"');
-  expect(desktop).toContain('data-testid="poi005-lift-desktop"');
+  // The keypad trigger lives in the independent center-right host,
+  // not as an additional cell in either three-action grid.
+  expect(touch).not.toContain('data-testid="poi005-lift-touch"');
+  expect(desktop).not.toContain('data-testid="poi005-lift-desktop"');
  });
 });

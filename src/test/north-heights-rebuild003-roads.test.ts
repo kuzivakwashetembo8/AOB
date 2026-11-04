@@ -40,15 +40,20 @@ describe("NH-REBUILD-003 isolated South Ward-patterned road/curb checkpoint", ()
       // NH-004: at the central four-way junction there must be precisely one
       // asphalt surface quad; duplicate long road-axis strips previously
       // created black/grey fighting and visible elevated cover bridges.
+      // POI-010 appends three-vertex asphalt corner infill to the original
+      // four-vertex strips. Never infer quad boundaries from raw vertex strides.
+      // The central junction still owns exactly one pad, or two triangles.
       const asphaltPositions=asphalt.getVerticesData(VertexBuffer.PositionKind)!;
-      let coveringJunction=0;
-      for(let v=0;v<asphaltPositions.length;v+=12){
-        const xs=[asphaltPositions[v]!,asphaltPositions[v+3]!,asphaltPositions[v+6]!,asphaltPositions[v+9]!];
-        const zs=[asphaltPositions[v+2]!,asphaltPositions[v+5]!,asphaltPositions[v+8]!,asphaltPositions[v+11]!];
-        if(Math.min(...xs)<-.1 && Math.max(...xs)>.1 &&
-           Math.min(...zs)<-.1 && Math.max(...zs)>.1)coveringJunction++;
+      const indices=asphalt.getIndices()!;
+      let centralTriangles=0;
+      for(let i=0;i<indices.length;i+=3){
+        const points=[indices[i]!,indices[i+1]!,indices[i+2]!].map(id=>({
+          x:asphaltPositions[id*3]!,z:asphaltPositions[id*3+2]!,
+        }));
+        if(points.every(p=>Math.abs(p.x)<=4.000001&&Math.abs(p.z)<=4.000001))
+          centralTriangles++;
       }
-      expect(coveringJunction).toBe(1);
+      expect(centralTriangles).toBe(2);
       // NH-005: both perpendicular carriageways and crossing paint must
       // have upward-facing normals. NH-004's +X road strips faced DOWN,
       // making half the road grid render black with identical asphalt.

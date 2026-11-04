@@ -81,8 +81,10 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   expect(renderer).toContain('"#D7A83E"');
   expect(route).toContain('activeLines[dialogueIndex]');
   expect(route).toContain('poi005-next');
-  expect(touch).toContain("gtd-uniform-action gtd-action-elevator");
-  expect(desktop).toContain("desktop-control-button gtd-uniform-action gtd-action-elevator");
+  expect(route).toContain("poi010-context-actions");
+  expect(route).toContain('data-testid="poi005-lift-independent"');
+  expect(touch).not.toContain("gtd-uniform-action gtd-action-elevator");
+  expect(desktop).not.toContain("desktop-control-button gtd-uniform-action gtd-action-elevator");
   expect(route).not.toContain('data-testid="finch-elevator-travel"');
  });
 });

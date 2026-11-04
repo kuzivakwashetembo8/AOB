@@ -17,7 +17,8 @@ describe("NH-OPT2-SDN-001 Stage 3 Sedan mobile pedal integration",()=>{
     render(<TouchControls send={send} settings={defaults} onAction={()=>{}} driving passenger/>);
     expect(screen.getByRole("button",{name:/hold to accelerate sedan/i})).toBeTruthy();
     expect(screen.getByRole("button",{name:/hold to brake sedan/i})).toBeTruthy();
-    expect(screen.getByRole("button",{name:/enter or exit vehicle/i})).toBeTruthy();
+    // Driving pedals remain here; Exit Vehicle is rendered by the route host.
+    expect(screen.queryByRole("button",{name:/enter or exit vehicle/i})).toBeNull();
     expect(screen.queryByRole("group",{name:"Steering arrows"})).toBeNull();
   });
 

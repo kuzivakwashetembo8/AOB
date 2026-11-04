@@ -101,7 +101,11 @@ describe("GTD Stage 5 — manual in-lane motion, owner-approved +30% and tempora
    expect(a.s).toBeGreaterThan(0);
    expect(a.speed).toBeGreaterThan(0);
    expect(s.isManualDriving(a.id)).toBe(true);
-   expect(reservation.reservations.get(c.junction)).toBe(other.id);
+   // The synthetic blocked reservation is orphaned: its owner is not in a
+   // connector. POI-010 repairs this bookkeeping while manual steering
+   // continues across the junction without waiting for traffic permission.
+   expect(reservation.reservations.get(c.junction)).not.toBe(other.id);
+   expect(s.deadlockMetrics010().orphanReservationsReclaimed).toBeGreaterThan(0);
  });
  it("keeps Stage 1 automatic passenger mode available by explicit takeover/handback",()=>{
    const s=make(),a=suitable(s);
