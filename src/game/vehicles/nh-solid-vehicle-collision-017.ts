@@ -102,6 +102,12 @@ export function createNorthHeightsSolidField017(args:{
     lampPolesActive=true;
     for(const lamp of args.lamps)register({x:lamp.x,z:lamp.z,radius:.20});
   }
+  let signalPolesActive=false;
+  function activateSignalPoles021(poles:readonly {x:number;z:number}[]){
+    if(signalPolesActive)return;
+    signalPolesActive=true;
+    for(const pole of poles)register({x:pole.x,z:pole.z,radius:.18});
+  }
   function isCarClear(pose:SedanStage6Pose,length:number,width:number,excludeId:string):boolean{
     if(!buildingClear(pose,length,width))return false;
     const outline=carWorld(pose);
@@ -175,6 +181,6 @@ export function createNorthHeightsSolidField017(args:{
     }
     return null;
   }
-  return {isCarClear,carImpactAt,personClear,activateLampPoles,
-    get staticCount(){return args.trees.length+(lampPolesActive?args.lamps.length:0);}};
+  return {isCarClear,carImpactAt,personClear,activateLampPoles,activateSignalPoles021,
+    get staticCount(){return args.trees.length+(lampPolesActive?args.lamps.length:0)+(signalPolesActive?4:0);}};
 }
