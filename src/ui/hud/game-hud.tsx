@@ -142,7 +142,7 @@ export function GameHud({
 
           {snapshot.flying && (
             <span className="system-label self-center rounded border border-white/30 bg-black/60 px-2 py-1 text-white">
-              FLIGHT / SURVEY
+              THE MACHINE / SURVEILLANCE
             </span>
           )}
           {showHeat && (

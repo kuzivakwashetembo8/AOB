@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties, type PointerEvent } from "react";
-import { Hand, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Crosshair, Footprints, Car, Zap, Plane } from "lucide-react";
+import { Hand, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Crosshair, Footprints, Car, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameAction, GameCommand } from "@/game/core/types";
 import type { Settings } from "@/ui/menus/settings-state";
@@ -221,13 +221,12 @@ const actions: Array<{ action: GameAction; label: string; icon: typeof Hand }> =
   { action: "jump", label: "Jump or ascend", icon: ArrowUp },
   { action: "sprint", label: "Sprint or speed boost", icon: Footprints },
   { action: "vehicle", label: "Enter or exit vehicle", icon: Car },
-  { action: "fly", label: "Toggle flight mode", icon: Plane },
   { action: "descend", label: "Descend while flying", icon: ArrowDown },
 ];
 export function visibleTouchActions(driving:boolean,flying=false,canEnterVehicle=false,canExitVehicle=true){
   if(driving)return canExitVehicle?actions.filter(a=>a.action==="vehicle"):[];
-  if(flying)return actions.filter(a=>["sprint","jump","descend","fly"].includes(a.action));
-  return actions.filter(a=>["sprint","jump","fly"].includes(a.action)||
+  if(flying)return actions.filter(a=>["sprint","jump","descend"].includes(a.action));
+  return actions.filter(a=>["sprint","jump"].includes(a.action)||
     (a.action==="vehicle"&&canEnterVehicle));
 }
 export function TouchControls({

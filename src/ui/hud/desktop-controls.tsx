@@ -4,7 +4,6 @@ import {
   ArrowRight,
   ArrowUp,
   Car,
-  Plane,
   Crosshair,
   Footprints,
   Hand,
@@ -28,7 +27,6 @@ const actionSpecs: ActionSpec[] = [
   { action: "sprint", label: "Sprint", keyHint: "SHIFT", icon: Footprints },
   { action: "combat", label: "Aim / combat", keyHint: "C", icon: Crosshair },
   { action: "vehicle", label: "Enter / exit vehicle", keyHint: "F", icon: Car },
-  { action: "fly", label: "Toggle flight", keyHint: "G", icon: Plane },
   { action: "descend", label: "Descend while flying", keyHint: "CTRL", icon: ArrowDown },
   { action: "context", label: "Context action", keyHint: "Q", icon: Zap },
 ];
@@ -109,8 +107,8 @@ export function DesktopControls({
       <div className="desktop-action-pad" aria-label="Action controls">
         {actionSpecs.filter(({action}) =>
           driving ? action==="vehicle"&&canExitVehicle :
-          flying ? ["sprint","jump","descend","fly"].includes(action) :
-          ["sprint","jump","fly"].includes(action)||(action==="vehicle"&&canEnterVehicle)
+          flying ? ["sprint","jump","descend"].includes(action) :
+          ["sprint","jump"].includes(action)||(action==="vehicle"&&canEnterVehicle)
         ).map(({ action, label, keyHint, icon: Icon }) => (
           <Button
             variant="control"
