@@ -223,7 +223,7 @@ export async function loadFinchTrafficSignals021(
   }
   for(let i=0;i<fixtures.length;i++){
    const f=fixtures[i]!,p=f.placement;
-   const on=visible[i];
+   const on=visible[i]??false;
    const incomingDX=-p.faceX,incomingDZ=-p.faceZ;
    const allowed=controller.colour021(incomingDX,incomingDZ);
    for(let j=0;j<3;j++){
