@@ -927,7 +927,7 @@ export class NH012TrafficSimulator {
    const queues=new Map<string,NH012Agent[]>();
    for(const agent of this.agents)if(!agent.connectorId&&
      (agent.waitTicks>=4||
-       (signal021?.plan.nodeId===this.graph.edges.get(agent.edgeId)?.to&&
+       (signal021!==null&&signal021.plan.nodeId===this.graph.edges.get(agent.edgeId)?.to&&
         agent.s>=this.graph.edges.get(agent.edgeId)!.length-.06&&
         signal021.mayEnter021(this.graph.edges.get(agent.edgeId)!.dx,
           this.graph.edges.get(agent.edgeId)!.dz)))
