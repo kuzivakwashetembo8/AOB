@@ -13,5 +13,27 @@ export function finchProximity005(
 ){
  if(!player||!ready)return false;
  const horizontal=Math.hypot(player.x-finch.x,player.z-finch.z);
- return horizontal<=3.8&&Math.abs(player.y-finch.y)<2.5;
+ return horizontal<=5&&Math.abs(player.y-finch.y)<2.5;
+}
+
+/** Revisit dialogue is informational: it never changes mission progress. */
+export function finchMissionVisit005(phase:"find"|"follow"|"observe"|"complete"){
+ switch(phase){
+  case "find":return [
+   "Mr. Reese, we still need to locate Diane. Her last position is on your map.",
+   "Observe first. We need to determine whether she is in danger or causing it.",
+  ] as const;
+  case "follow":return [
+   "Keep your distance, Mr. Reese. Diane cannot know she is being followed.",
+   "Watch where she goes. Her destination may tell us more than her movements.",
+  ] as const;
+  case "observe":return [
+   "Stay out of sight and see whom Diane meets.",
+   "When you have the details, come back and we will review them.",
+  ] as const;
+  case "complete":return [
+   "Good to see you again, Mr. Reese. Diane's case has been recorded.",
+   "We will study what we learned before The Machine sends another number.",
+  ] as const;
+ }
 }

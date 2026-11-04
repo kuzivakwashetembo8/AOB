@@ -133,6 +133,11 @@ export function createNorthHeightsSolidField017(args:{
     return true;
   }
   function personClear(p:NH017Point,radius=.35):boolean{
+    // The visible solid tree trunks and loaded streetlamp poles are obstacles.
+    for(let ix=Math.floor((p.x-radius-1)/CELL);ix<=Math.floor((p.x+radius+1)/CELL);ix++)
+      for(let iz=Math.floor((p.z-radius-1)/CELL);iz<=Math.floor((p.z+radius+1)/CELL);iz++)
+        for(const pole of staticGrid.get(ix+":"+iz)??[])
+          if(Math.hypot(p.x-pole.x,p.z-pole.z)<radius+pole.radius)return false;
     for(const car of args.cars()){
       if(Math.hypot(car.x-p.x,car.z-p.z)>NH017_SEDAN_LENGTH/2+radius+1)continue;
       if(nh018CircleOverlapsHull(p,radius,carWorld(car)))return false;

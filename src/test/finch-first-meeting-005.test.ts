@@ -24,7 +24,8 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   const finch={x:49,y:173.4,z:-86};
   expect(finchProximity005({x:50,y:173.5,z:-87},finch,true)).toBe(true);
   expect(finchProximity005({x:49,y:12,z:-86},finch,true)).toBe(false);
-  expect(finchProximity005({x:54,y:173.4,z:-86},finch,true)).toBe(false);
+  expect(finchProximity005({x:54,y:173.4,z:-86},finch,true)).toBe(true);
+  expect(finchProximity005({x:54.1,y:173.4,z:-86},finch,true)).toBe(false);
   expect(finchProximity005({x:49,y:173.4,z:-86},finch,false)).toBe(false);
   expect(finchProximity005(null,finch,true)).toBe(false);
  });
