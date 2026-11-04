@@ -20,10 +20,26 @@ export interface TrafficSignalRenderer021{
  setTime:(time:NorthHeightsTime)=>void;
  dispose:()=>void;
 }
+/** Verified against the original 15-mesh glTF manifest. Its 8 supplementary
+ * meshes contain a separate pedestrian signal head/arm and camera; loading
+ * those causes the floating duplicate observed beside EVERY curbside signal.
+ * Retain only 7 authored vehicle-head, arm, and pole geometry meshes. */
+export function isPoi011VehicleSignalMesh021(name:string):boolean{
+ return /^(rod_|lightTrafficArm_|lightTrafficMain_)/.test(name);
+}
 async function readSource(scene:Scene,kind:Kind):Promise<Imported021>{
  const result=await SceneLoader.ImportMeshAsync("","/GLBs/Infrastructure/",SOURCES[kind],scene);
- const meshes=result.meshes.filter((m):m is Mesh=>m instanceof Mesh&&m.getTotalVertices()>0);
- if(!meshes.length)throw Error("POI-011 empty GLB: "+SOURCES[kind]);
+ const authored=result.meshes.filter((m):m is Mesh=>m instanceof Mesh&&m.getTotalVertices()>0);
+ const meshes=authored.filter(m=>isPoi011VehicleSignalMesh021(m.name));
+ const excluded=authored.filter(m=>!isPoi011VehicleSignalMesh021(m.name));
+ // Fail closed on an unknown source revision rather than leave free-floating
+ // signal parts or quietly drop a required vehicle lens.
+ if(meshes.length!==7||excluded.length!==8)
+  throw Error("POI-011 unexpected roadside GLB parts: vehicle="+meshes.length+
+   ", extras="+excluded.length);
+ // The GLB also provides passenger/camera nodes. Their meshes are not
+ // instanced, rendered, or retained as active Babylon scene geometry.
+ for(const mesh of excluded)mesh.dispose(false,false);
  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
  const inspect:{mesh:Mesh;points:number[]}[]=[];
  for(const mesh of meshes){
@@ -76,9 +92,11 @@ async function readSource(scene:Scene,kind:Kind):Promise<Imported021>{
   normalizedHeight:targetHeight,includesPole,
   lensCoordinates:Object.fromEntries(Object.entries(lensOffsets).map(([key,p])=>[key,p?.asArray()??null])),
   lensFallbackRequired:Object.keys(lensOffsets).length!==3,
+  retainedVehicleMeshCount:meshes.length,
+  removedSupplementaryMeshes:excluded.map(m=>m.name),
  });
  return {kind,meshes,height:targetHeight,lensOffsets,
-  extra:result.meshes.filter(m=>!meshes.includes(m as Mesh))};
+  extra:result.meshes.filter(m=>!authored.includes(m as Mesh))};
 }
 export async function loadFinchTrafficSignals021(
  scene:Scene,ground:(x:number,z:number)=>number,
