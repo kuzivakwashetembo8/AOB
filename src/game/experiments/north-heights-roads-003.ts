@@ -256,7 +256,22 @@ export function createNorthHeightsRoads003(
        // and the roadway-facing edges remain uncut.
        sidewalkCount++;
     }
-    // Every third junction gets explicit pedestrian zebra crossing approaches.
+    // POI-011: four front-bumper stop bars only at the Finch HQ pilot.
+    // The painted zebra extends to ~11.33m from the node; white stop bars
+    // at 12.05m leave a clear gap before that crossing.
+    if(ix===6&&iz===4){
+      const d=12.05,wide=3.15,inner=.4,half=.085;
+      pad(batch.marking,x+d-half,z+inner,x+d+half,z+inner+wide,
+        ASPHALT_TOP+.004,at);
+      pad(batch.marking,x-d-half,z-inner-wide,x-d+half,z-inner,
+        ASPHALT_TOP+.004,at);
+      pad(batch.marking,x+inner,z-d-half,x+inner+wide,z-d+half,
+        ASPHALT_TOP+.004,at);
+      pad(batch.marking,x-inner-wide,z+d-half,x-inner,z+d+half,
+        ASPHALT_TOP+.004,at);
+      markings+=4;
+    }
+    // Every third junction plus approved pilot gets zebra crossings.
     if(ix<streets.length-1&&iz<streets.length-1&&northHeightsPedestrianZebra001(ix,iz)){
       const stop=HALF+WALK+1.8;
       // Rectangular painted road bars, with no overlap against sidewalk tops.
