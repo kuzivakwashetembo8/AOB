@@ -1,6 +1,6 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
-import {X,Hand,Crosshair,ListOrdered,ArrowRight} from "lucide-react";
+import {X,Hand,Crosshair,ListOrdered,ArrowRight,Camera} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {FINCH_INTRO_005,finchMissionVisit005} from "@/game/experiments/north-heights-finch-intro-005";
 import {DIANE_DIALOGUE_REPORT_001,DIANE_DIALOGUE_FAILED_009,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
@@ -52,6 +52,7 @@ function NorthHeightsPreview(){
   const [meridianMinute,setMeridianMinute]=useState(14*60+53);
   const [meridianSpeed,setMeridianSpeed]=useState(2);
   const [mode,setMode]=useState<"walk"|"fly">("walk");
+  const [machineView,setMachineView]=useState(false);
   const [heldItem,setHeldItem]=useState<"hand"|"gun">("hand");
   const [location,setLocation]=useState("NORTH HEIGHTS // MERIDIAN CITY");
   const [position,setPosition]=useState({x:0,z:-31});
@@ -223,7 +224,8 @@ function NorthHeightsPreview(){
               setMissionCompletedBanner(true);
           }},
           buildings=>{if(!closed)setMapBuildings(buildings);},
-           lift=>{if(!closed)setBuildingLift(lift);});
+           lift=>{if(!closed)setBuildingLift(lift);},
+           active=>{if(!closed)setMachineView(active);});
         if(closed)instance.dispose();
         else{
           // First-frame completion is delivered by Babylon onAfterRender, not here.
@@ -263,7 +265,7 @@ function NorthHeightsPreview(){
     health:100,reputation:0,heat:0,speed:vehicleSpeed,vehicle,
     meridianTime:clock,meridianMinuteOfDay:Math.floor(meridianMinute),
     meridianTimeScale:meridianSpeed,interiorState:inside?"inside":"outside",
-    flying:mode==="fly"&&!vehicle,
+    flying:machineView,
   };
   return(
     <main className={"game-shell game-viewport relative h-[100dvh] w-full overflow-hidden bg-[#07111c] text-white"+
@@ -308,6 +310,13 @@ function NorthHeightsPreview(){
         mode={inputMode} interaction={feedback} pause={()=>{setPanel("pause");setPaused(true);}}
         showObjective={settings.objective} setMeridianTime={setMeridianMinute}
         setMeridianTimeScale={setMeridianSpeed}/>}
+      {ready&&!paused&&!vehicle&&<Button type="button" variant="control"
+         data-testid="poi-machine-camera" aria-label={machineView?"Return to Reese":"Activate Machine camera"}
+         title={machineView?"Return to Reese":"The Machine · Surveillance POV"}
+         className="gtd-machine-camera-always flex items-center justify-center border border-white/20 bg-black/55"
+         onClick={()=>setMachineView(controller.current?.toggleMachineCamera()??false)}>
+         <Camera size={18}/>
+       </Button>}
       {ready&&!paused&&!vehicle&&<Button type="button" variant="control"
          data-testid="reese-hand-selector" aria-label={heldItem==="hand"?"Equip gun":"Put gun away"}
          title={heldItem==="hand"?"Empty hands · select gun":"Gun equipped · holster"}
@@ -386,14 +395,15 @@ function NorthHeightsPreview(){
           if(ok)setKeypadDismissedId(activeLift.buildingId);
          }}/>}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
-        driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
+        driving={vehicle!==null} flying={machineView}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
-        driving={vehicle!==null} flying={mode==="fly"&&!vehicle}
+        driving={vehicle!==null} flying={machineView}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
       {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} buildings={mapBuildings} onClose={()=>setMapOpen(false)}
+        machineView={machineView} onMachineTarget={(x,z)=>controller.current?.moveMachineCameraTo(x,z)??false}
         vehicleOccupied={sedanPassenger}
         onFinchHQSelect={()=>{
           const routed=controller.current?.driveToFinchHQ()??false;
