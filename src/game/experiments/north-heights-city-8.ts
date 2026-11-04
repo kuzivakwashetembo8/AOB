@@ -242,6 +242,10 @@ export async function createNorthHeightsCity8(
       if(!event.repeat)toggleVehicle();
       return;
     }
+    if(event.code==="KeyC"){
+      if(!event.repeat)controller.action("combat",true);
+      return;
+    }
     if(event.code==="KeyG"){
       if(!event.repeat)controller.toggleMachineCamera();
       return;
@@ -813,6 +817,12 @@ export async function createNorthHeightsCity8(
       if(pressed)vehicleAudio.unlockFromGesture();
       if(pressed&&action==="vehicle"){
         toggleVehicle();return;
+      }
+      if(action==="combat"){
+        if(!pressed||machineView||ridingSedanId||liftFrame?.traveling||genericLiftFrame?.traveling)return;
+        const kind=actor?.triggerCombat();
+        if(kind)vehicleAudio.playCombatCue(kind);
+        return;
       }
       const control=northHeightsActionControl007(action);
       if(control){controller.press(control,pressed);return;}

@@ -395,7 +395,7 @@ function NorthHeightsPreview(){
           if(ok)setKeypadDismissedId(activeLift.buildingId);
          }}/>}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
-        driving={vehicle!==null} flying={machineView}
+        driving={vehicle!==null} flying={machineView} armed={heldItem==="gun"}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}

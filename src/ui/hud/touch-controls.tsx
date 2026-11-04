@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties, type PointerEvent } from "react";
-import { Hand, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Crosshair, Footprints, Car, Zap } from "lucide-react";
+import { Hand, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Crosshair, Footprints, Car, Zap, HandFist, Gun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameAction, GameCommand } from "@/game/core/types";
 import type { Settings } from "@/ui/menus/settings-state";
@@ -221,11 +221,12 @@ const actions: Array<{ action: GameAction; label: string; icon: typeof Hand }> =
   { action: "sprint", label: "Sprint or speed boost", icon: Footprints },
   { action: "vehicle", label: "Enter or exit vehicle", icon: Car },
   { action: "descend", label: "Descend while flying", icon: ArrowDown },
+  { action: "combat", label: "Punch", icon: HandFist },
 ];
 export function visibleTouchActions(driving:boolean,flying=false,canEnterVehicle=false,canExitVehicle=true){
   if(driving)return canExitVehicle?actions.filter(a=>a.action==="vehicle"):[];
   if(flying)return actions.filter(a=>["sprint","jump","descend"].includes(a.action));
-  return actions.filter(a=>["sprint","jump"].includes(a.action)||
+  return actions.filter(a=>["sprint","jump","combat"].includes(a.action)||
     (a.action==="vehicle"&&canEnterVehicle));
 }
 export function TouchControls({
@@ -237,6 +238,7 @@ export function TouchControls({
   canEnterVehicle = false,
   canExitVehicle = true,
   passenger = false,
+  armed = false,
   elevator,
 }: {
   send: Send;
@@ -247,6 +249,7 @@ export function TouchControls({
   canEnterVehicle?: boolean;
   canExitVehicle?: boolean;
   passenger?: boolean;
+  armed?: boolean;
   elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
   const style = {
@@ -262,12 +265,15 @@ export function TouchControls({
     >
       {passenger ? <SedanPassengerPedals send={send} haptics={settings.haptics}/> : arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
       <div className="touch-actions">
-        {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).map(({ action, label, icon: Icon }) => (
+        {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).map(({ action, label, icon: BaseIcon }) => {
+          const Icon=action==="combat"&&armed?Gun:BaseIcon;
+          const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
+          return (
           <Button
             variant="control"
             className={`gtd-uniform-action gtd-action-${action}`}
-            aria-label={label}
-            title={label}
+            aria-label={actualLabel}
+            title={actualLabel}
             key={action}
             onPointerDown={(event) => {
               event.preventDefault();
@@ -289,7 +295,7 @@ export function TouchControls({
           >
             <Icon size={19} />
           </Button>
-        ))}
+        );})}
         {elevator&&<Button variant="control"
           className="gtd-uniform-action gtd-action-elevator"
           data-testid="poi005-lift-touch"

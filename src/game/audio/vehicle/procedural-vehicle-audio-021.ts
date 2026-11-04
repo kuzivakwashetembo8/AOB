@@ -238,6 +238,34 @@ export class ProceduralVehicleAudio021 {
     oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
     oscillator.start(now);oscillator.stop(now+.145);
   }
+  /** POI-009: synthesized melee and pistol cues, no network assets or impacts. */
+  playCombatCue(kind:"punch"|"shoot"):void{
+    this.unlockFromGesture();
+    const ctx=this.ctx,bus=this.playerBus,noise=this.noise;
+    if(!ctx||!bus||!noise||this.paused||this.hidden||this.volume.muted)return;
+    const now=ctx.currentTime,source=ctx.createBufferSource(),filter=ctx.createBiquadFilter();
+    const gain=ctx.createGain();
+    source.buffer=noise;
+    filter.type=kind==="shoot"?"bandpass":"lowpass";
+    filter.frequency.value=kind==="shoot"?1500:460;
+    filter.Q.value=kind==="shoot"?.7:.3;
+    gain.gain.setValueAtTime(.001,now);
+    gain.gain.linearRampToValueAtTime(kind==="shoot"?.43:.18,now+.003);
+    gain.gain.exponentialRampToValueAtTime(.001,now+(kind==="shoot"?.22:.15));
+    source.connect(filter);filter.connect(gain);gain.connect(bus);
+    source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
+    source.start(now);source.stop(now+(kind==="shoot"?.23:.16));
+    if(kind==="shoot"){
+      const osc=ctx.createOscillator(),tone=ctx.createGain();
+      osc.type="triangle";osc.frequency.setValueAtTime(180,now);
+      osc.frequency.exponentialRampToValueAtTime(70,now+.13);
+      tone.gain.setValueAtTime(.10,now);
+      tone.gain.exponentialRampToValueAtTime(.001,now+.15);
+      osc.connect(tone);tone.connect(bus);
+      osc.onended=()=>{osc.disconnect();tone.disconnect();};
+      osc.start(now);osc.stop(now+.16);
+    }
+  }
   /** Positional vehicle horn for a genuine obstruction, rate-limited per car. */
   playHorn(id:string,x:number,y:number,z:number):boolean{
     const ctx=this.ctx,bus=this.trafficBus;

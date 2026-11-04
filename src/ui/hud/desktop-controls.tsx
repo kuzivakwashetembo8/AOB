@@ -7,6 +7,8 @@ import {
   Crosshair,
   Footprints,
   Hand,
+  HandFist,
+  Gun,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +27,7 @@ const actionSpecs: ActionSpec[] = [
   { action: "interact", label: "Interact", keyHint: "E", icon: Hand },
   { action: "jump", label: "Jump", keyHint: "SPACE", icon: ArrowUp },
   { action: "sprint", label: "Sprint", keyHint: "SHIFT", icon: Footprints },
-  { action: "combat", label: "Aim / combat", keyHint: "C", icon: Crosshair },
+  { action: "combat", label: "Punch", keyHint: "C", icon: HandFist },
   { action: "vehicle", label: "Enter / exit vehicle", keyHint: "F", icon: Car },
   { action: "descend", label: "Descend while flying", keyHint: "CTRL", icon: ArrowDown },
   { action: "context", label: "Context action", keyHint: "Q", icon: Zap },
@@ -73,12 +75,14 @@ export function DesktopControls({
   onAction,
   driving = false, flying = false, canEnterVehicle = false, canExitVehicle = true,
   passenger = false,
+  armed = false,
   elevator,
 }: {
   send: Send;
   onAction: (action: GameAction) => void;
   driving?: boolean; flying?: boolean; canEnterVehicle?: boolean; canExitVehicle?: boolean;
   passenger?: boolean;
+  armed?: boolean;
   elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
   return (
@@ -108,13 +112,16 @@ export function DesktopControls({
         {actionSpecs.filter(({action}) =>
           driving ? action==="vehicle"&&canExitVehicle :
           flying ? ["sprint","jump","descend"].includes(action) :
-          ["sprint","jump"].includes(action)||(action==="vehicle"&&canEnterVehicle)
-        ).map(({ action, label, keyHint, icon: Icon }) => (
+          ["sprint","jump","combat"].includes(action)||(action==="vehicle"&&canEnterVehicle)
+        ).map(({ action, label, keyHint, icon: BaseIcon }) => {
+          const Icon=action==="combat"&&armed?Gun:BaseIcon;
+          const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
+          return (
           <Button
             variant="control"
             className={`desktop-control-button gtd-uniform-action gtd-action-${action}`}
-            aria-label={`${label} (${keyHint})`}
-            data-tooltip={`${label} · ${keyHint}`}
+            aria-label={`${actualLabel} (${keyHint})`}
+            data-tooltip={`${actualLabel} · ${keyHint}`}
             key={action}
             onPointerDown={(event) => {
               event.preventDefault();
@@ -128,7 +135,7 @@ export function DesktopControls({
           >
             <Icon size={18} />
           </Button>
-        ))}
+        );})}
         {elevator&&<Button variant="control"
           className="desktop-control-button gtd-uniform-action gtd-action-elevator"
           data-testid="poi005-lift-desktop"

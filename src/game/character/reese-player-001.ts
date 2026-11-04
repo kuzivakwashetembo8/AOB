@@ -73,6 +73,8 @@ export function createReesePlayer001(scene:Scene,
  let stableGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let pendingGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let handItem:"hand"|"gun"="hand";
+ let combatRemaining=0;
+ let lastAttackAt=-Infinity;
  const weaponMeshes=new Set<AbstractMesh>();
  const weaponMaterials=new Map<Material,{alpha:number;transparencyMode:number|null}>();
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
@@ -84,8 +86,8 @@ export function createReesePlayer001(scene:Scene,
    material.transparencyMode=visible?original.transparencyMode:Material.MATERIAL_ALPHABLEND;
   }
  }
- const groups:Record<"idle"|"walk"|"run"|"jump"|"fall"|"land",AnimationGroup|null>={
-  idle:null,walk:null,run:null,jump:null,fall:null,land:null,
+ const groups:Record<"idle"|"walk"|"run"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
+  idle:null,walk:null,run:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
  };
  const report={source:REESE_PLAYER_PATH_001,animations:0,scale:1,
   height:REESE_PLAYER_HEIGHT_001,activeClip:"idle"};
@@ -118,6 +120,16 @@ export function createReesePlayer001(scene:Scene,
   groups.jump=findReeseClip001(instance.animationGroups,"jump_air","jump");
   groups.fall=findReeseClip001(instance.animationGroups,"fall","jump_air","jump");
   groups.land=findReeseClip001(instance.animationGroups,"jump_land");
+  // Verified Ara 3D Gen clip ids: punch, pistol_aim, pistol_fire.
+  // Source exports all 70 clips in this same Reese GLB; no second actor is loaded.
+  groups.punch=findReeseClip001(instance.animationGroups,"punch");
+  groups.pistolAim=findReeseClip001(instance.animationGroups,"pistol_aim","Pistol aim");
+  groups.pistolFire=findReeseClip001(instance.animationGroups,"pistol_fire","Pistol fire");
+  if(!groups.punch||!groups.pistolAim||!groups.pistolFire)
+   console.warn("[POI-009] combat animation group missing in Reese export",{
+    punch:!!groups.punch,aim:!!groups.pistolAim,fire:!!groups.pistolFire,
+    available:instance.animationGroups.map(group=>group.name),
+   });
   if(!groups.idle||!groups.walk||!groups.run)
    throw Error("REESE-001 missing embedded idle/walk/run clips: "+
     instance.animationGroups.map(a=>a.name).join(", "));
@@ -225,7 +237,7 @@ export function createReesePlayer001(scene:Scene,
   anchor,ready,
   setControlled(enabled:boolean){
    if(closed)return;
-   controlled=enabled;hiddenDriving=false;
+   controlled=enabled;hiddenDriving=false;combatRemaining=0;
    anchor.setEnabled(enabled);
    if(enabled){resetFlight();play(groups.idle);}
    applyWeaponVisibility();
@@ -257,7 +269,12 @@ export function createReesePlayer001(scene:Scene,
    else if((pendingGaitSeconds+=Math.max(0,dt))>=.15){
     stableGait=next;pendingGaitSeconds=0;
    }
-   play(groups[stableGait]??groups.idle);
+   if(combatRemaining>0){
+    combatRemaining=Math.max(0,combatRemaining-Math.max(0,dt));
+    if(combatRemaining>0){advance(dt);return;}
+   }
+   play(handItem==="gun"&&stableGait==="idle"&&groups.pistolAim?groups.pistolAim:
+    groups[stableGait]??groups.idle);
    advance(dt);
   },
   updateControlledFlight(
@@ -273,8 +290,24 @@ export function createReesePlayer001(scene:Scene,
    advance(input.dt);
   },
   setHandItem(item:"hand"|"gun"){
-   handItem=item;applyWeaponVisibility();
+   handItem=item;combatRemaining=0;applyWeaponVisibility();
+   if(item==="gun"&&groups.pistolAim)play(groups.pistolAim);
+   else play(groups.idle);
   },
+  /** Animation-and-audio-only: never performs damage, rays or projectile simulation. */
+  triggerCombat(): "punch"|"shoot"|null {
+   if(!controlled||closed||hiddenDriving||flight||combatRemaining>0)return null;
+   const attack=handItem==="gun"?"shoot":"punch";
+   const clip=attack==="shoot"?groups.pistolFire:groups.punch;
+   if(!clip)return null;
+   const now=typeof performance!=="undefined"?performance.now():Date.now();
+   if(now-lastAttackAt<(attack==="shoot"?260:550))return null;
+   lastAttackAt=now;
+   combatRemaining=attack==="shoot"?.26:.55;
+   play(clip,false);
+   return attack;
+  },
+  get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire;},
   get handItem(){return handItem;},
   get poseReport(){
    return {meshCount,boneCount,animations:report.animations,
