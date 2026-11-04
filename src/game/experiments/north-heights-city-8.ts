@@ -62,6 +62,7 @@ export interface NorthHeightsInspection {
   press: (control: Control, down: boolean) => void;
   move: (x:number,y:number) => void;
   action: (action:GameAction,pressed:boolean) => void;
+  setUiBlocked:(blocked:boolean)=>void;
   applySettings: (settings:Settings) => void;
   setPaused: (paused:boolean) => void;
   reset: () => void;
@@ -130,7 +131,7 @@ export async function createNorthHeightsCity8(
   const held = new Set<Control>();
   const keys = new Set<string>();
   let settings:Settings=defaults;
-  let paused=false,analog={x:0,y:0},keyboardUsed=false;
+  let paused=false,uiBlocked=false,analog={x:0,y:0},keyboardUsed=false;
   let renderLast=0;
   let yaw = 0, pitch = 0, closed = false;
   let treeHandle: {dispose:()=>void;update:(camera:Vector3,dt:number)=>void} | null = null;
@@ -820,6 +821,7 @@ export async function createNorthHeightsCity8(
       // Stage 6: continuous x-axis controls heading every fixed simulation tick.
       analog={x:nextX,y:nextY};
     },
+    setUiBlocked(blocked){uiBlocked=blocked;},
     action(action,pressed){
       if(paused)return;
       if(pressed)vehicleAudio.unlockFromGesture();
@@ -827,7 +829,7 @@ export async function createNorthHeightsCity8(
         toggleVehicle();return;
       }
       if(action==="combat"){
-        if(!pressed||machineView||ridingSedanId||liftFrame?.traveling||genericLiftFrame?.traveling)return;
+        if(!pressed||uiBlocked||machineView||ridingSedanId||liftFrame?.traveling||genericLiftFrame?.traveling)return;
         const kind=actor?.triggerCombat();
         if(kind)vehicleAudio.playCombatCue(kind);
         return;
