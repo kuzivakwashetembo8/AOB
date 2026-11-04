@@ -58,9 +58,12 @@ describe("GTD-REESE-FINCH-007 owner gameplay corrections",()=>{
   expect(style).toContain(" + 106px");
   expect(style).toContain("right:max(65px,env(safe-area-inset-right))");
   expect(page).toContain('className="gtd-hand-always');
-  expect(map).toContain("backdrop-blur-[4px]");
-  expect(map).toContain('bg-[#07111d]/40');
+  // POI-009 replaces the bespoke dark map frame with the uniform control-glass
+  // panel while retaining its transparent square canvas and backdrop blur.
+  expect(map).toContain("poi009-expanded-map");
+  expect(map).toContain("poi-game-glass-panel");
   expect(map).toContain("aspect-square w-[min(82vh,92vw,760px)]");
-  expect(map).toContain("bg-transparent shadow-2xl");
+  expect(map).toContain("bg-transparent");
+  expect(style).toContain("backdrop-filter:blur(12px)");
  });
 });
