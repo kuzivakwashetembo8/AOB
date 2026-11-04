@@ -18,7 +18,7 @@ describe("POI-009 owner-approved refinement contracts",()=>{
    onClose={()=>{}} onSelect={()=>{}}/>);
   expect(screen.getByRole("group",{name:"Available floors"})).toBeTruthy();
   expect(screen.getByRole("button",{name:"Go to floor 53"})).toBeTruthy();
-  expect(screen.getByLabelText("Elevator floor keypad").className).toContain("55dvh");
+  expect(screen.getByRole("region",{name:"Elevator floor keypad"}).className).toContain("55dvh");
   expect(source("src/styles.css")).toContain(".poi009-scroll-thumb");
  });
  it("shows no MOVE label, has three touch combat actions, and switches fist/gun accessible text",()=>{
