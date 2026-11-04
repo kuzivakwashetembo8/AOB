@@ -73,6 +73,7 @@ export async function loadFinchTrafficSignals021(
  const positions=planFinchTrafficSignals021();
  const imported:Imported021[]=[];
  const fixtures:Fixture021[]=[];
+ const pedestrianHeads:{housing:Mesh;red:Mesh;green:Mesh}[]=[];
  const materials:StandardMaterial[]=[];
  const created:Mesh[]=[];
  let disposed=false,night=false,lastPhase="",lastVisible="";
@@ -140,6 +141,28 @@ export async function loadFinchTrafficSignals021(
    }
    fixtures.push({placement:p,discs,colours:["red","amber","green"],supports});
   }
+  // The existing graph gains exactly two pilot zebra links: the east
+  // and north approach crossings. Show a compact two-aspect WAIT/WALK
+  // indicator at the associated sidewalk-side waiting anchors.
+  for(const [label,x,z] of [
+    ["east",64+9.55,-64-5.875],
+    ["north",64-5.875,-64+9.55],
+  ] as const){
+   const h=ground(x,z)+2.32;
+   const housing=MeshBuilder.CreateBox("poi011-ped-"+label+"-housing",
+     {width:.34,height:.59,depth:.22},scene);
+   housing.position.set(x,h,z);housing.material=metal;housing.isPickable=false;
+   const red=MeshBuilder.CreateSphere("poi011-ped-"+label+"-wait",
+     {diameter:.18,segments:7},scene);
+   const green=MeshBuilder.CreateSphere("poi011-ped-"+label+"-walk",
+     {diameter:.18,segments:7},scene);
+   red.position.set(x,h+.14,z+.14);
+   green.position.set(x,h-.14,z+.14);
+   red.material=active.red;green.material=lensOff;
+   red.isPickable=false;green.isPickable=false;
+   created.push(housing,red,green);
+   pedestrianHeads.push({housing,red,green});
+  }
  }catch(error){
   for(const m of created)m.dispose(false,true);
   for(const o of imported){for(const m of o.meshes)m.dispose(false,true);for(const m of o.extra)m.dispose();}
@@ -185,6 +208,15 @@ export async function loadFinchTrafficSignals021(
     disc.scaling.setAll(on&&allowed===f.colours[j]&&(night)?1.04:1);
    }
    for(const s of f.supports)s.isVisible=on;
+  }
+  const pedestrianWalk=controller.pedestrianMayEnter021;
+  for(const p of pedestrianHeads){
+   const visiblePed=Math.hypot(p.housing.position.x-camera.x,
+     p.housing.position.z-camera.z)<185;
+   p.housing.isVisible=visiblePed;
+   p.red.isVisible=visiblePed;p.green.isVisible=visiblePed;
+   p.red.material=pedestrianWalk?lensOff:active.red;
+   p.green.material=pedestrianWalk?active.green:lensOff;
   }
  };
  return {sources:imported.map(o=>SOURCES[o.kind]),
