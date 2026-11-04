@@ -307,8 +307,9 @@ export class NH012TrafficSimulator {
  }
  paceDianeVehicle001(id:string,distanceFromReese:number):void{
   if(this.dianePace001?.id!==id)return;
-  this.dianePace001.maxSpeed=distanceFromReese>95?1.5:
-   distanceFromReese>65?2.8:distanceFromReese>40?4.3:5.8;
+  // The target must not crawl at 1.5m/s because Reese is distant.
+   this.dianePace001.maxSpeed=distanceFromReese>110?5.8:
+    distanceFromReese>65?7.0:8.2;
  }
  finishDianeDrive001(id:string):void{
   if(this.dianePace001?.id!==id&&this.targeted?.agentId!==id)return;
@@ -862,7 +863,10 @@ export class NH012TrafficSimulator {
       agent.x=final.x;agent.z=final.z;
       t.arrived=true;agent.waitTicks=0;agent.arrivalTick=-1;
      }
-     if(!t&&edge.length-agent.s<=.06&&v<.5){
+     // A targeted route still needs intersection priority at INTERMEDIATE
+     // stop lines. The former !t guard froze Diane before her first turn.
+     // At the final destination, do not enter another junction queue.
+     if((!t||destinationStop===null)&&edge.length-agent.s<=.06&&v<.5){
        agent.s=edge.length;agent.speed=0;agent.state="stopped";
        if(agent.arrivalTick<0)agent.arrivalTick=this.tick;
        agent.waitTicks++;

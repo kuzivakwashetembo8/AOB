@@ -50,6 +50,8 @@ import {createFinchSuite005,type FinchSuite005} from "./north-heights-finch-suit
 import {FINCH_START_005} from "./north-heights-finch-intro-005";
 import {finchLobbyMinimumCapsuleY006} from "./north-heights-finch-elevator-structure-004";
 import {constrainFinchCabinCamera006} from "./north-heights-finch-lobby-004";
+import {createNorthHeightsBuildingLifts019,type BuildingLiftFrame019,type BuildingLiftState019}
+ from "./north-heights-building-lifts-019";
 import {DianeLevel001,readDianeProgress001,type DianeMissionView001} from "./level001-diane-007";
 import {createDianeWorldLabel001} from "./level001-diane-label-007";
 import {createDianeCarMarker008} from "./level001-diane-car-marker-008";
@@ -67,7 +69,8 @@ export interface NorthHeightsInspection {
   setMode: (mode: "walk" | "fly") => boolean;
   toggleSedanAutopilot: () => void;
   driveToFinchHQ: () => boolean;
-  travelFinchElevator: () => boolean;
+  travelFinchElevator: (floor?:number) => boolean;
+  travelBuildingFloor019:(buildingId:string,floor:number)=>boolean;
   startDianeMission: () => boolean;
   reportDianeMission: () => boolean;
   setReeseHandItem:(item:"hand"|"gun")=>void;
@@ -90,6 +93,7 @@ export async function createNorthHeightsCity8(
   onFinchProximityChange?: (near:boolean)=>void,
   onDianeMissionChange?: (state:DianeMissionView001)=>void,
   onMapBuildings?: (buildings:readonly NorthHeightsMapBuilding011[])=>void,
+  onBuildingLiftChange?: (state:BuildingLiftState019|null)=>void,
 ): Promise<NorthHeightsInspection> {
   configureLocalGameDecoders();
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false }, true);
@@ -136,6 +140,8 @@ export async function createNorthHeightsCity8(
   let lastFinchNear=false;
   let starterSedanId:string|null=null;
   let liftFrame:ReturnType<FinchLobby004["update"]>|null=null;
+  let buildingLifts:ReturnType<typeof createNorthHeightsBuildingLifts019>|null=null;
+  let genericLiftFrame:BuildingLiftFrame019|null=null;
   let liftCollisionDisabled=false;
   let finchArrivedAnnounced=false;
   let traffic3D:NH009SedanTraffic|null=null;
@@ -310,7 +316,7 @@ export async function createNorthHeightsCity8(
     );
     // Camera remains strictly inside glass walls/ceiling while the player
     // occupies the lift, including its closing, travel, opening and idle states.
-    const inside=liftFrame?.cameraCabin??null;
+    const inside=liftFrame?.cameraCabin??genericLiftFrame?.cameraCabin??null;
     let p=inside?constrainFinchCabinCamera006(computed.position,inside):computed.position;
     if(!inside&&!ridingSedanId&&mode==="walk"){
       const room=buildingInteriors.find(lot=>{
@@ -328,10 +334,12 @@ export async function createNorthHeightsCity8(
         const base=northHeightsGround(room.position.x,room.position.z)+.27;
         // The camera is bounded by the containing room, not by a large
         // external collision sphere, so roof/floor cannot be peeked through.
-        const floorIndex=Math.max(0,Math.round((player.y-.92-base)/fh));
-        const slab=room.id==="NH-04-06-L2"&&floorIndex>=50
-          ?northHeightsGround(room.position.x,room.position.z)+.87+52*fh
-          :base+floorIndex*fh;
+        const floorIndex=Math.max(0,Math.min((room.overrides?.floors??1)-1,
+          Math.round((player.y-.92-base)/fh)));
+        // Every upper-level physical slab begins at +.87m, not +.27m.
+        // A camera using the ground-floor offset can otherwise see below it.
+        const slab=floorIndex===0?base:
+          northHeightsGround(room.position.x,room.position.z)+.87+floorIndex*fh;
         const clamp=(v:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,v));
         p={
           x:clamp(p.x,room.position.x-w/2+.55,room.position.x+w/2-.55),
@@ -420,17 +428,19 @@ export async function createNorthHeightsCity8(
         walk?.physics.commitSolidTrafficPositions();
       }
     }
-    if(finchLobby){
-      liftFrame=finchLobby.update(!ridingSedanId&&mode==="walk"&&walk
-        ?walk.physics.playerPosition():null,dt);
-      if(liftFrame.positionOverride&&walk){
-        if(!liftCollisionDisabled){
-          walk.physics.setPlayerCollisionEnabled(false);liftCollisionDisabled=true;
-        }
-        walk.physics.setPlayerPosition(liftFrame.positionOverride);
-      }else if(liftCollisionDisabled&&!liftFrame.traveling&&walk){
-        walk.physics.setPlayerCollisionEnabled(true);liftCollisionDisabled=false;
+    const liftPassenger=!ridingSedanId&&mode==="walk"&&walk
+      ?walk.physics.playerPosition():null;
+    liftFrame=finchLobby?.update(liftPassenger,dt)??null;
+    genericLiftFrame=buildingLifts?.update(liftPassenger,dt)??null;
+    const liftOverride=liftFrame?.positionOverride??genericLiftFrame?.positionOverride??null;
+    const liftTraveling=Boolean(liftFrame?.traveling||genericLiftFrame?.traveling);
+    if(liftOverride&&walk){
+      if(!liftCollisionDisabled){
+        walk.physics.setPlayerCollisionEnabled(false);liftCollisionDisabled=true;
       }
+      walk.physics.setPlayerPosition(liftOverride);
+    }else if(liftCollisionDisabled&&!liftTraveling&&walk){
+      walk.physics.setPlayerCollisionEnabled(true);liftCollisionDisabled=false;
     }
     if(pedestrians){
       pedestrianAccumulator=Math.min(.15,pedestrianAccumulator+dt);
@@ -471,7 +481,7 @@ export async function createNorthHeightsCity8(
         const p=sedanRoadPosition(agent);
         setCameraAt({x:p.x,y:p.y+1.0,z:p.z});
       }
-    }else if(liftFrame?.traveling&&mode==="walk"&&walk&&actor&&humanoid){
+    }else if((liftFrame?.traveling||genericLiftFrame?.traveling)&&mode==="walk"&&walk&&actor&&humanoid){
       // Suspend gravity and walking inputs while the glass lift is active.
       physicsAccumulator=0;lastGrounded=true;lastTravelSpeed=0;
       const pose=walk.physics.playerPosition();
@@ -556,6 +566,7 @@ export async function createNorthHeightsCity8(
     if(locationTick>=.33){
       locationTick=0;updateLocation();
       onElevatorChange?.(liftFrame?.state??null);
+       onBuildingLiftChange?.(genericLiftFrame?.state??null);
       const nearFinch=finchSuite?.isNearFinch(!ridingSedanId&&mode==="walk"&&walk
         ?walk.physics.playerPosition():null)??false;
       if(nearFinch!==lastFinchNear){
@@ -814,11 +825,18 @@ export async function createNorthHeightsCity8(
     reportDianeMission(){return dianeLevel?.report()??false;},
     setReeseHandItem(item){actor?.setHandItem(item);},
     setFinchTalking(active){finchSuite?.setTalking(active);},
-    travelFinchElevator(){
-      if(!finchLobby?.requestTravel()){
+    travelFinchElevator(floor){
+      if(!finchLobby?.requestTravel(floor)){
         onFeedback?.("Step inside Finch HQ elevator before traveling");return false;
       }
       onFeedback?.("Elevator traveling through the glass shaft");
+      clearKeys();physicsAccumulator=0;return true;
+    },
+    travelBuildingFloor019(buildingId,floor){
+      if(!buildingLifts?.requestFloor(buildingId,floor)){
+        onFeedback?.("Enter the glass lift before selecting a floor");return false;
+      }
+      onFeedback?.("Lift traveling to floor "+floor);
       clearKeys();physicsAccumulator=0;return true;
     },
     setTime(time) { lampTime=time;sky.setTime(time);lampHandle?.setTime(time); },
@@ -849,6 +867,7 @@ export async function createNorthHeightsCity8(
       }
       finchSuite?.dispose();finchSuite=null;
       finchLobby?.dispose();finchLobby=null;
+      buildingLifts?.dispose();buildingLifts=null;genericLiftFrame=null;
       liftFrame=null;
       if(liftCollisionDisabled)walk?.physics.setPlayerCollisionEnabled(true);
       liftCollisionDisabled=false;
@@ -904,6 +923,9 @@ export async function createNorthHeightsCity8(
     if(closed){walk.dispose();walk=null;return controller;}
     finchLobby=createFinchLobby004(scene,world.lotSpecs,northHeightsGround,walk.physics);
     finchSuite=createFinchSuite005(scene,world.lotSpecs,northHeightsGround,walk.physics);
+    buildingLifts=createNorthHeightsBuildingLifts019(
+      scene,world.lotSpecs,northHeightsGround,walk.physics);
+    console.info("[NH-LIFT-019] generic lift shafts",buildingLifts.count);
     // GEN-VEH-009: retain all 125 NH-012 routes/identities, but render every
     // moving traffic agent as the single owner-accepted sedan in varied paint.
     // Other car models remain review-only; no proximity GLB swapping.

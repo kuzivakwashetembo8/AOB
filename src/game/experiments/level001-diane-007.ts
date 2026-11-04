@@ -6,7 +6,7 @@ import type {PedGraph001} from "./north-heights-pedestrian-graph-001";
 import {dianeRoadStop008,dianeRoadMeters008,dianeCrossCityRoute008} from "./level001-diane-road-008";
 import type {NorthHeightsPedestrianSimulator001,PedAgent001} from "./north-heights-pedestrian-simulator-001";
 import type {NH012TrafficSimulator,NH012Agent} from "@/game/traffic/nh012-traffic-simulator";
-export type DianePhase001="unassigned"|"find"|"follow"|"observe"|"return"|"complete";
+export type DianePhase001="unassigned"|"find"|"follow"|"observe"|"return"|"complete"|"failed";
 export type DianeProgress001={phase:DianePhase001;ssn:string};
 export type DianeMissionView001={phase:DianePhase001;poi:{x:number;z:number}|null;name:string;ssn:string;objective:string};
 export const DIANE_PROGRESS_KEY_001="gtd:level001:diane:progress:v1";
@@ -14,7 +14,14 @@ export const DIANE_NAME_001="Diane";
 export const DIANE_APPEARANCE_001=63;
 export const DIANE_AGENT_ID_001="PED-063";
 export const DIANE_OFFICERS_001=["PED-024","PED-033","PED-051"] as const;
-export const DIANE_START_HINT_001={x:70,z:-58} as const;
+// Relocated to the far eastern sector: no more encounter on Finch's doorstep.
+export const DIANE_START_HINT_001={x:188,z:-230} as const;
+export const DIANE_SPOTTED_DISTANCE_009=18;
+export const DIANE_SPOTTED_SECONDS_009=.8;
+export const DIANE_DIALOGUE_FAILED_009=[
+ "Diane spotted me. I got too close and she ran.",
+ "We lost our cover, Mr. Reese. We'll restart surveillance from a safer distance.",
+] as const;
 export const DIANE_MEETING_HINT_001={x:-198,z:182} as const;
 export const DIANE_DIALOGUE_ASSIGNMENT_001=[
  "Mr. Reese, The Machine has given us a new number.",
@@ -26,7 +33,7 @@ export const DIANE_DIALOGUE_REPORT_001=[
  "Diane met three men. Plainclothes officers. They seemed to know each other.",
  "Interesting. I'll look into them. We may have misunderstood Diane's role in this.",
 ] as const;
-const phases:readonly DianePhase001[]=["unassigned","find","follow","observe","return","complete"];
+const phases:readonly DianePhase001[]=["unassigned","find","follow","observe","return","complete","failed"];
 export const DIANE_FICTIONAL_SSN_001="000-73-6291";
 export function parseDianeProgress001(raw:string|null):DianeProgress001{
  try{if(raw){const v=JSON.parse(raw) as Partial<DianeProgress001>;
@@ -51,7 +58,7 @@ export function dianeObjective001(phase:DianePhase001):string{
  :phase==="follow"?"Level 001 · Get in a car and follow Diane across North Heights"
  :phase==="observe"?"Level 001 · Watch Diane meet the three men and return to her car"
  :phase==="return"?"Level 001 · Return to Finch on Floor 53"
- :"Level 001 — Diane · Mission completed";
+ :phase==="failed"?"LEVEL 001 FAILED · Diane spotted you. Return to Finch.":"Level 001 — Diane · Mission completed";
 }
 function nearestSidewalk(graph:PedGraph001,p:{x:number;z:number}){
  let selected:string|null=null,dist=Infinity;
@@ -81,6 +88,7 @@ export class DianeLevel001{
  private readonly sim:NorthHeightsPedestrianSimulator001;
  private readonly traffic:NH012TrafficSimulator;
  private readonly finishStop:ReturnType<typeof dianeRoadStop008>;
+ private readonly startStop:ReturnType<typeof dianeRoadStop008>;
  private phase:DianePhase001;
  private driveStarted=false;
  private atMeeting=false;
@@ -89,6 +97,10 @@ export class DianeLevel001{
  private returnStarted=false;
  private returnDone=false;
  private boardingSeconds=0;
+ private driveSeconds=0;
+ private spottedSeconds=0;
+ private fleeingSeconds=0;
+ private fleeAway={x:0,z:1};
  private readonly onChange:(view:DianeMissionView001)=>void;
  private readonly carSideDistance=2.6;
  constructor(sim:NorthHeightsPedestrianSimulator001,traffic:NH012TrafficSimulator,
@@ -106,6 +118,7 @@ export class DianeLevel001{
   if(new Set([target.id,...this.officers.map(a=>a.id)]).size!==4)
    throw Error("LVL-001 duplicate mission appearance");
   const startStop=dianeRoadStop008(traffic.graph,DIANE_START_HINT_001);
+  this.startStop=startStop;
   const meetingSidewalkId=nearestSidewalk(sim.graph,DIANE_MEETING_HINT_001);
   const site=sim.graph.nodes.get(meetingSidewalkId)!;
   this.meeting={x:site.x,z:site.z};
@@ -158,7 +171,34 @@ export class DianeLevel001{
   this.emit();
  }
  assign(){if(this.phase!=="unassigned")return false;this.change("find");return true;}
- report(){if(this.phase!=="return")return false;this.change("complete");return true;}
+ report(){
+  if(this.phase==="return"){this.change("complete");return true;}
+  if(this.phase!=="failed")return false;
+  // A debrief at Finch allows a clean second surveillance attempt.
+  this.traffic.finishDianeDrive001(this.car.id);
+  this.traffic.parkDianeVehicle001(this.car.id,this.startStop);
+  this.driveStarted=false;this.atMeeting=false;this.meetingArrived=false;
+  this.returnStarted=false;this.returnDone=false;this.watchSeconds=0;
+  this.boardingSeconds=0;this.driveSeconds=0;this.spottedSeconds=0;this.fleeingSeconds=0;
+  setPose(this.target,doorSide(this.car,this.carSideDistance),this.car.heading);
+  this.phase="find";
+  saveDianeProgress001({phase:"find",ssn:DIANE_FICTIONAL_SSN_001});
+  this.emit();return true;
+ }
+ private isSpotted(distance:number,dt:number):boolean{
+  if(this.driveSeconds<2||!Number.isFinite(distance))return false;
+  this.spottedSeconds=distance<DIANE_SPOTTED_DISTANCE_009
+   ?this.spottedSeconds+Math.max(0,dt):Math.max(0,this.spottedSeconds-dt*2);
+  return this.spottedSeconds>=DIANE_SPOTTED_SECONDS_009;
+ }
+ private blown(player:PlayerSnapshot001){
+  this.traffic.finishDianeDrive001(this.car.id);
+  const dx=this.car.x-player.x,dz=this.car.z-player.z;
+  const length=Math.max(.001,Math.hypot(dx,dz));
+  this.fleeAway={x:dx/length,z:dz/length};
+  setPose(this.target,doorSide(this.car,this.carSideDistance),this.car.heading,"walk");
+  this.change("failed");
+ }
  private moveDianeTowards(dest:{x:number;z:number},dt:number){
   const dx=dest.x-this.target.x,dz=dest.z-this.target.z,d=Math.hypot(dx,dz);
   if(d<.12){setPose(this.target,dest,this.target.heading);return true;}
@@ -171,6 +211,16 @@ export class DianeLevel001{
  tick(dt:number,player:PlayerSnapshot001|null,facing:number,
    ground:(x:number,z:number)=>number):void{
   if(this.phase==="unassigned"||this.phase==="complete"||!player)return;
+  if(this.phase==="failed"){
+   // A compromised tail ends: Diane runs away rather than meeting the officers.
+   if(this.fleeingSeconds<5){
+    this.target.x+=this.fleeAway.x*4.6*Math.max(0,dt);
+    this.target.z+=this.fleeAway.z*4.6*Math.max(0,dt);
+    this.target.heading=Math.atan2(this.fleeAway.x,this.fleeAway.z);
+    this.target.state="walk";this.fleeingSeconds+=Math.max(0,dt);
+   }else this.target.state="wait";
+   return;
+  }
   const distance=(p:{x:number;z:number})=>Math.hypot(player.x-p.x,player.z-p.z);
   const levelNear=player.inCar||Math.abs(player.y-ground(player.x,player.z)-.92)<3.6;
   if(this.phase==="find"){
@@ -189,6 +239,10 @@ export class DianeLevel001{
     if(!player.inCar||distance(this.car)>65)return;
     if(!this.traffic.beginDianeDrive001(this.car.id,this.finishStop))return;
     this.driveStarted=true;
+   }
+   this.driveSeconds+=Math.max(0,dt);
+   if(player.inCar&&this.isSpotted(distance(this.car),dt)){
+    this.blown(player);return;
    }
    if(!player.inCar)this.traffic.paceDianeVehicle001(this.car.id,120);
    else this.traffic.paceDianeVehicle001(this.car.id,distance(this.car));

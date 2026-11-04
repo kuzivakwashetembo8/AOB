@@ -74,7 +74,7 @@ describe("POI-003 Finch targeted auto-drive and lobby foundation",()=>{
   expect(code).toContain('box("desk-counter"');
   expect(code).toContain("PED002_NPC_FILES[24]");
   expect(code).not.toContain("setPlayerPosition(");
-  expect(read("src/game/experiments/north-heights-city-8.ts")).toContain("finchLobby.update(");
+  expect(read("src/game/experiments/north-heights-city-8.ts")).toContain("finchLobby?.update(");
  });
  it("wires only the clicked HQ marker and the currently occupied vehicle",()=>{
   const map=read("src/ui/hud/north-heights-map-010.tsx");

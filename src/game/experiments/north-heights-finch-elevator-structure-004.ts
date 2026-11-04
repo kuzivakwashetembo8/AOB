@@ -46,6 +46,18 @@ export function finchShaft004(lot:{id:string;position:{x:number;z:number};overri
   bottomFloorOffset:.27,topFloorOffset:.8+(floors-1)*fh+.07,
   floors,fh,width,depth};
 }
+/** Exact stop elevation: the ground lobby is lower than the repeated upper slabs.
+ * A linear (floor-1)/52 fraction stops below intermediate landings.
+ */
+export function finchFloorStopFraction004(floor:number,
+ shaft:{floors:number;fh:number;bottomFloorOffset:number;topFloorOffset:number}):number{
+ const selected=Math.max(1,Math.min(shaft.floors,Math.round(floor)));
+ if(selected===1)return 0;
+ const travel=shaft.topFloorOffset-shaft.bottomFloorOffset;
+ if(travel<=0)return 0;
+ const landing=shaft.topFloorOffset-(shaft.floors-selected)*shaft.fh;
+ return Math.max(0,Math.min(1,(landing-shaft.bottomFloorOffset)/travel));
+}
 export type FinchFloorSection004={x:number;z:number;width:number;depth:number};
 /** Four non-overlapping rectangles leave a full open core at every intermediate
  * level and at the top landing, with a walkable ring all around. */

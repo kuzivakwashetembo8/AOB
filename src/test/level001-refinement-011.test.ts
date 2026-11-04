@@ -48,9 +48,9 @@ describe("Level 001 preview refinement 011",()=>{
   expect(traffic).toContain("reconcileJunctionReservations001()");
   expect(traffic).toContain("if(!this.dianePace001)return;");
  });
- it("adds a reception seat and actual rounded pavement faces",()=>{
+ it("leaves the receptionist posed without a chair and retains rounded pavement faces",()=>{
   const lobby=file("src/game/experiments/north-heights-finch-lobby-004.ts");
-  expect(lobby).toContain('box("reception-seat"');
+  expect(lobby).not.toContain('box("reception-seat"');
   expect(lobby).toContain("sit.*idle");
   const roads=file("src/game/experiments/north-heights-roads-003.ts");
   expect(roads).toContain("roundedJunctionPavement");
