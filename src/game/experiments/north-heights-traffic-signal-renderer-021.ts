@@ -1,5 +1,5 @@
 /** POI-011: two owner GLBs imported once, native geometry audited at runtime.
- * Shared geometry and 6 pilot heads; controller, not renderer, owns phases. */
+ * Shared geometry and four pilot heads; controller, not renderer, owns phases. */
 import {Color3,Matrix,Mesh,MeshBuilder,Quaternion,Scene,SceneLoader,
  StandardMaterial,Vector3,type AbstractMesh} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
@@ -98,8 +98,6 @@ export async function loadFinchTrafficSignals021(
   const axis=to.subtract(from);
   const m=MeshBuilder.CreateCylinder(name,{height:axis.length(),diameter:radius*2,tessellation:7},scene);
   m.position.copyFrom(from.add(to).scale(.5));
-  m.rotationQuaternion=Quaternion.FromUnitVectorsToRef
-    ?undefined:null;
   // Use a world-space quaternion to aim the local vertical cylinder at its beam.
   const direction=axis.normalize(),yAxis=Vector3.Up();
   const dot=Vector3.Dot(yAxis,direction);
