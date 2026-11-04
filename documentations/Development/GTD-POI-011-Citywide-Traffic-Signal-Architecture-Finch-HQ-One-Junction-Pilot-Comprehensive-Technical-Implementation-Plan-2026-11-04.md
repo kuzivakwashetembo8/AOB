@@ -4,7 +4,7 @@
 **Project:** P.O.I. / Grand Theft Division, North Heights (Meridia/Meridian)  
 **Repository:** `interlinkglobal/GTD`  
 **Reference baseline:** `main` at `f71819ea99a655598f7a2c84e6ac3c573dd11532` (contains both owner-added traffic-light GLBs)  
-**Status:** DESIGN DOCUMENT ONLY — IMPLEMENTATION NOT AUTHORIZED  
+**Status:** OWNER-APPROVED PILOT IMPLEMENTATION (2026-11-04) — PRODUCTION BUILD UNVERIFIED  
 **Proposed branch after owner approval:** `feature/poi-011-finch-traffic-signal-pilot-20261104`  
 **Pilot limit:** Exactly ONE signalized junction, nearest the **Finch HQ entrance**; no other signalized junctions are activated without a separate approval.  
 **Long-term scope:** A configurable, performant citywide traffic-signal architecture that can later operate on selected intersections in the current 121-node North Heights grid. The architecture must not imply that all 121 intersections ought to have lights.
@@ -428,8 +428,38 @@ The fictional game may use simplified intervals for performance and usability. D
 - **Document:** citywide-comprehensive technical architecture with exactly one Finch HQ pilot.
 - **Owner-approved principle:** signalized major/selected junctions, not all 121 by default.
 - **Owner-requested immediate focus:** the **single nearest junction to Finch HQ** at `NH012:N:6:4`.
-- **Pilot implementation:** **NOT AUTHORIZED YET**; await explicit owner approval.
+- **Pilot implementation:** **AUTHORIZED**. Owner explicitly instructed: “Fullplan authorized, merge and deploy.”
 - **Citywide physical deployment:** **NOT AUTHORIZED**; separate future gate even after pilot succeeds.
-- **Source code changed by drafting this plan:** **no**.
+- **Source code changed by drafting this plan:** initially no; subsequent implementation is committed to the POI-011 feature branch.
 - **Asset files modified:** **no**.
-- **Deployment initiated:** **no**.
+- **Deployment initiated:** pending final code review and merge at the time of this implementation record.
+
+---
+
+## 15. Implementation record — owner authorization, 2026-11-04
+
+Owner instruction: **“Fullplan authorized, merge and deploy.”** In the prior exchange, owner fixed the boundary as **“one junction, nearest to Finch HQ”**. Accordingly the pilot is implemented for `NH012:N:6:4` only, with no expansion to the other 120 nodes.
+
+**Working branch:** `feature/poi-011-finch-traffic-signal-pilot-20261104`, forked from `main` at `2a25bbc`.
+
+**Source files implemented:**
+- `nh021-traffic-signal-plan.ts`: canonical one-junction pilot, future citywide typed plan and crossing-edge identity.
+- `nh021-movement-conflict-matrix.ts`: directed vehicle approach classification and permission checks.
+- `nh021-traffic-signal-controller.ts`: tick-driven NS/EW green, amber, all-red clearance, on-demand pedestrian WALK and crossing-clearance states. The phase controller runs at the same 20Hz as NH012.
+- `nh012-traffic-simulator.ts`: pilot-only admission, approach braking before crosswalk, conservative exclusive junction reservation, checked downstream exits and manual driver ownership. Unsignalized junction logic otherwise remains in place.
+- `north-heights-pedestrian-simulator-001.ts`: pilot crossing-entry gate with occupancy count; existing crossing NPCs continue through clearance.
+- `north-heights-pedestrian-crossings-001.ts`: **only** adds `6,4` to the shared crossing allocation. This produces the existing system's east/north zebra edges and matching paint, not four unverified zebra approaches.
+- `north-heights-roads-003.ts`: four visible pilot approach stop bars, with no changes to the other 120 junctions' stop-line geometry.
+- `north-heights-traffic-signal-placements-021.ts`: exactly four signal heads oriented from actual NH012 incoming lanes — **two hanging NS heads** and **two roadside EW heads**. No doubled pole at a single approach.
+- `north-heights-traffic-signal-renderer-021.ts`: import BOTH owner-provided GLBs once, inspect native geometry/material names/units at runtime, normalize model coordinates, batch head meshes through thin instancing, derive authored lens centres by mesh/material names when identifiable and use a logged measured-bounds fallback otherwise. Procedural common materials emit red, amber and green; small synchronized pedestrian WALK/WAIT indications are visible at the two pilot crossing approaches.
+- `north-heights-city-8.ts`: defer optional GLB imports until after the first playable frame, then activate traffic and pedestrian signal policies only when rendering has successfully loaded; on asset failure automatically retain the pre-existing all-way stop to prevent invisible reds.
+- `nh-solid-vehicle-collision-017.ts`: register the four physical signal pole positions only after the renderer loads; register corresponding Rapier fixed collision supports for Reese.
+- Tests: `poi011-finch-signal-controller.test.ts` (phase safety, pilot geometry, crossing, unchanged unsignalized traffic), `poi011-owner-traffic-light-glbs.test.ts` (actual binary GLB header, version, mesh and material manifest output).
+
+**Known qualification limitation:** The connected GitHub binary-file tool could not decode the two GLB files for direct visual inspection during authoring. Source paths and byte sizes are verified by the Git tree, but authored lens offsets and orientation are inferred dynamically by the runtime GLB decoder; they still require owner preview/playtest acceptance. The source GLBs were not altered. Do not claim visual geometry or red/green lens behaviour fully accepted without a live game screenshot.
+
+**Safety/fallback:** One pilot only; conservative exclusive connector ownership; no ghosting or forced cars. Both source models must load before the controller activates. If import fails, all normal all-way-stop semantics continue with an explicit console error. All other city junctions remain unsignalized. No auto-enabled future rollout.
+
+**Build status:** Local full repository clone and Vercel test execution were not possible in this authoring sandbox. The dedicated test files are committed but their execution results remain unverified until a build is performed. User requested production merge/deploy after implementation, not background log monitoring. Once the production URL is available, report it and do not monitor logs unless the owner reports a failure.
+
+**Owner acceptance check:** Verify red stopped vehicles with bumpers behind visible stop bars; green vehicles move with existing collision safety, amber/clearance transitions, both owner models appear at the Finch junction facing oncoming cars, NPCs wait for protected WALK and cross without cars entering, and no new heads appear at the other 120 intersections.
