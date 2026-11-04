@@ -28,7 +28,7 @@ import type {WorldOpt001Snapshot} from "@/game/performance/world-opt-001-collect
 
 export const Route=createFileRoute("/north-heights-preview")({
   head:()=>pageHead("North Heights · Procedural Reconstruction",
-    "Isolated North Heights walking and flying, with shared GTD controls."),
+    "Explore North Heights as Reese, with The Machine surveillance camera."),
   component:NorthHeightsPreview,
 });
 function NorthHeightsPreview(){

@@ -3,8 +3,8 @@ import type {AuditKind,AuditRow,AuditSnapshot} from "@/lib/real-loading-ledger";
 
 const order:AuditKind[]=["stage","world","physics","asset","render","resource","main-thread"];
 const titles:Record<AuditKind,string>={
- stage:"Startup operations",world:"World generation",physics:"Physics",
- asset:"Imported assets and decoding",render:"GPU / first frame",
+ stage:"Machine initialization",world:"City reconstruction",physics:"Physics",
+ asset:"Loading visual intelligence",render:"Visual systems / first frame",
  resource:"Completed resource transfers", "main-thread":"Main-thread stalls",
 };
 const icon=(state:AuditRow["state"])=>state==="loaded"?"✓":state==="failed"?"✕":"◌";
@@ -22,7 +22,7 @@ export function LiveLoadingInspector({snapshot}:{snapshot:AuditSnapshot}){
        return value(a.state)-value(b.state)||b.startedMs-a.startedMs;
      }),
  })).filter(g=>g.rows.length),[snapshot,filter]);
- return <section className="gtd-real-ledger" aria-label="Measured resource and game startup diagnostics">
+ return <section className="gtd-real-ledger" aria-label="Measured Machine initialization diagnostics">
    <div className="gtd-real-ledger-header">
      <span>MEASURED OPERATIONS: {snapshot.counts.total}</span>
      <span>✓ {snapshot.counts.loaded} loaded</span>

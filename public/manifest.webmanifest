@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "G.T.D — Grand Theft Division",
-  "short_name": "G.T.D",
-  "description": "Meridian City. One line to hold. An original urban action world.",
+  "name": "P.O.I — Person of Interest",
+  "short_name": "P.O.I",
+  "description": "Meridian City. The Machine sees everything. Reese acts on the numbers.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",

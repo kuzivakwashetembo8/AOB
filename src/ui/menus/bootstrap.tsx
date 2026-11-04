@@ -22,17 +22,17 @@ export function BootstrapOverlay({
   onContinueCurrentBuild?:(()=>void)|undefined;
 }){
   const budget=describeStartupBudget(elapsedSeconds);
-  return <div className="overlay gtd-real-overlay" role="status" aria-label="Preparing Meridian game">
+  return <div className="overlay gtd-real-overlay" role="status" aria-label="The Machine is loading Meridian City">
     <div className="overlay-content gtd-real-content">
       <div className="gtd-real-heading">
         <div className="system-label text-primary">MERIDIA // MERIDIAN CITY</div>
-        <div className="bootstrap-mark">GTD<span className="text-primary">.</span></div>
-        <h2 className="game-title">GRAND THEFT DIVISION</h2>
+        <div className="bootstrap-mark">P.O.I<span className="text-primary">.</span></div>
+        <h2 className="game-title">PERSON OF INTEREST</h2>
         <div className={`load-budget-meter ${budget.exceeded?"load-budget-over":""}`}
           data-gtd-startup-budget={budget.exceeded?"over":"within"}
           role="timer" aria-label="Elapsed game loading time versus 60-second target">
           <div className="load-budget-heading">
-            <span>GAME LOADING TIME</span><span>{budget.exceeded?"60s BUDGET EXCEEDED":"TARGET: 60 SECONDS"}</span>
+            <span>MACHINE LOADING TIME</span><span>{budget.exceeded?"60s BUDGET EXCEEDED":"TARGET: 60 SECONDS"}</span>
           </div>
           <div className="load-budget-face">
             <output data-testid="startup-clock">{formatStartupDuration(elapsedSeconds)}</output>
