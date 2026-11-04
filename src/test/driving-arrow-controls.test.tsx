@@ -18,12 +18,12 @@ function pointer(element: Element, type: string, pointerId: number) {
 }
 afterEach(()=>cleanup());
 describe("UI-DRIVE-009 optional vehicle arrows",()=>{
-  it("renders only Enter/Exit in a vehicle, keeping other controls for walking",()=>{
-    expect(visibleTouchActions(true).map(a=>a.action)).toEqual(["vehicle"]);
+  it("keeps vehicle controls outside the three-action on-foot row",()=>{
+    expect(visibleTouchActions(true).map(a=>a.action)).toEqual([]);
     expect(visibleTouchActions(false).map(a=>a.action)).toEqual(["jump","sprint","combat"]);
     const send=vi.fn();
     const {rerender}=render(<TouchControls settings={{...defaults,drivingTouchLayout:"arrows"}} driving send={send} onAction={()=>{}}/>);
-    expect(screen.getByRole("button",{name:"Enter or exit vehicle"})).toBeTruthy();
+    expect(screen.queryByRole("button",{name:"Enter or exit vehicle"})).toBeNull();
     expect(screen.queryByRole("button",{name:"Aim / combat"})).toBeNull();
     expect(screen.queryByRole("button",{name:"Jump or ascend"})).toBeNull();
     expect(screen.queryByRole("button",{name:"Toggle flight mode"})).toBeNull();
