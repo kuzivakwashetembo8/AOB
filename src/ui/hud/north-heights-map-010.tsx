@@ -134,10 +134,11 @@ export function NorthHeightsExpandedMap({position,onClose,onMapCloseStart,onFinc
  buildings?:readonly NorthHeightsMapBuilding011[]|undefined;
 }){
  const [closing,setClosing]=useState(false);
+ const closingRef=useRef(false);
  const closeTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const close=()=>{
-   if(closing)return;
-   setClosing(true);onMapCloseStart?.();
+   if(closingRef.current)return;
+   closingRef.current=true;setClosing(true);onMapCloseStart?.();
    closeTimer.current=setTimeout(()=>onClose(),190);
  };
  useEffect(()=>()=>{if(closeTimer.current!==null)clearTimeout(closeTimer.current);},[]);
