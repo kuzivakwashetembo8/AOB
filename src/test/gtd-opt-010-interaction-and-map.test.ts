@@ -20,9 +20,9 @@ describe("GTD-OPT-010 interaction and cartography contracts",()=>{
   it("shows only implemented, state-compatible, priority controls",()=>{
     const names=(driving:boolean,flying:boolean,near:boolean)=>visibleTouchActions(driving,flying,near).map(x=>x.action);
     expect(names(false,false,false)).not.toContain("vehicle");
-    expect(names(false,false,true)).toContain("vehicle");
+    expect(names(false,false,true)).not.toContain("vehicle");
     expect(names(false,true,false)).toEqual(expect.arrayContaining(["sprint","jump","descend"]));
-    expect(names(true,false,false)).toEqual(["vehicle"]);
+    expect(names(true,false,false)).toEqual([]);
     expect(names(false,false,false)).toEqual(["jump","sprint","combat"]);
     for(const a of visibleTouchActions(false,false,true))expect(["interact","context"]).not.toContain(a.action);
   });
