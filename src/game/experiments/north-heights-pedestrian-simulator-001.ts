@@ -58,6 +58,13 @@ export class NorthHeightsPedestrianSimulator001{
  private readonly routeCache=new Map<string,readonly string[]>();
  private canOccupyVehicleFreeSpace:((x:number,z:number)=>boolean)|null=null;
  private readonly missionReserved001=new Set<string>();
+ private readonly hornAlertUntil=new Map<string,number>();
+ /** A horn makes an NPC clear the lane more promptly when a safe path exists.
+  * Collision-swept obstacle avoidance still owns where that NPC may step. */
+ signalHorn(id:string):void{
+   const npc=this.agents.find(a=>a.id===id);
+   if(npc&&npc.state!=="inside")this.hornAlertUntil.set(id,this.tick+40);
+ }
  /** Exclusive ownership of existing actors during authored mission beats. */
  reserveAgents001(ids:readonly string[]):void{
   for(const id of ids){
@@ -216,7 +223,7 @@ export class NorthHeightsPedestrianSimulator001{
        if(a.insideSeconds<=0)this.beginJourney(a);
        continue;
      }
-     let remaining=a.speed*delta,iterations=0;
+     let remaining=a.speed*delta*(this.hornAlertUntil.get(a.id)!>this.tick?1.35:1),iterations=0;
      while(remaining>EPS&&iterations++<8){
        if(a.segment>=a.route.length-1){
          this.arrive(a);
