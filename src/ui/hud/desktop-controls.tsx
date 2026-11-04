@@ -77,7 +77,6 @@ export function DesktopControls({
   passenger = false,
   armed = false,
   combatEnabled = true,
-  elevator,
 }: {
   send: Send;
   onAction: (action: GameAction) => void;
@@ -138,13 +137,7 @@ export function DesktopControls({
             <Icon size={18} />
           </Button>
         );})}
-        {false&&elevator&&<Button variant="control"
-          className="desktop-control-button gtd-uniform-action gtd-action-elevator"
-          data-testid="poi005-lift-desktop"
-          aria-label={elevator.label} data-tooltip={elevator.label}
-          onClick={elevator.onClick}>
-          {elevator.direction==="up"?<ArrowUp size={18}/>:<ArrowDown size={18}/>}
-        </Button>}
+
       </div>
     </div>
   );
