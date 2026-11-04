@@ -1,6 +1,6 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useEffect,useRef,useState} from "react";
-import {X,Hand,Crosshair,ListOrdered,ArrowRight,Camera} from "lucide-react";
+import {X,Hand,Crosshair,ListOrdered,ArrowRight,Camera,Car} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {FINCH_INTRO_005,finchMissionVisit005} from "@/game/experiments/north-heights-finch-intro-005";
 import {DIANE_DIALOGUE_REPORT_001,DIANE_DIALOGUE_FAILED_009,DIANE_START_HINT_001,readDianeProgress001,dianeObjective001,type DianeMissionView001}
