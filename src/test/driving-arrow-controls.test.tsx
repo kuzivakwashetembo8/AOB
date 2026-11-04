@@ -20,7 +20,7 @@ afterEach(()=>cleanup());
 describe("UI-DRIVE-009 optional vehicle arrows",()=>{
   it("renders only Enter/Exit in a vehicle, keeping other controls for walking",()=>{
     expect(visibleTouchActions(true).map(a=>a.action)).toEqual(["vehicle"]);
-    expect(visibleTouchActions(false).map(a=>a.action)).toEqual(["jump","sprint","fly"]);
+    expect(visibleTouchActions(false).map(a=>a.action)).toEqual(["jump","sprint"]);
     const send=vi.fn();
     const {rerender}=render(<TouchControls settings={{...defaults,drivingTouchLayout:"arrows"}} driving send={send} onAction={()=>{}}/>);
     expect(screen.getByRole("button",{name:"Enter or exit vehicle"})).toBeTruthy();
@@ -29,6 +29,7 @@ describe("UI-DRIVE-009 optional vehicle arrows",()=>{
     expect(screen.queryByRole("button",{name:"Toggle flight mode"})).toBeNull();
     rerender(<TouchControls settings={{...defaults,drivingTouchLayout:"arrows"}} driving={false} send={send} onAction={()=>{}}/>);
     expect(screen.getByRole("button",{name:"Jump or ascend"})).toBeTruthy();
+    expect(screen.queryByRole("button",{name:"Toggle flight mode"})).toBeNull();
   });
   it("preserves drag defaults and rejects unrecognized persisted control layouts",()=>{
     expect(defaults.drivingTouchLayout).toBe("drag");

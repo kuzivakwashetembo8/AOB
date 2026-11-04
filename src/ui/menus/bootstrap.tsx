@@ -30,7 +30,7 @@ export function BootstrapOverlay({
         <h2 className="game-title">PERSON OF INTEREST</h2>
         <div className={`load-budget-meter ${budget.exceeded?"load-budget-over":""}`}
           data-gtd-startup-budget={budget.exceeded?"over":"within"}
-          role="timer" aria-label="Elapsed game loading time versus 60-second target">
+          role="timer" aria-label="Elapsed Machine loading time versus 60-second target">
           <div className="load-budget-heading">
             <span>MACHINE LOADING TIME</span><span>{budget.exceeded?"60s BUDGET EXCEEDED":"TARGET: 60 SECONDS"}</span>
           </div>

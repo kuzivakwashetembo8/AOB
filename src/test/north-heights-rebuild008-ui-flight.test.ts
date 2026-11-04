@@ -15,16 +15,18 @@ describe("NH-008 district UI parity and third-person flight",()=>{
     expect(hud).toContain("Current Meridian location");
     expect(route).not.toContain("nh-top-button");
   });
-  it("keeps one shared Rapier capsule driving both flight and walking visuals",()=>{
-    const flight=read("src/game/experiments/north-heights-city-8.ts");
-    expect(flight).toContain("walk.physics.movePlayer({x:desired.x,y:desired.y,z:desired.z})");
-    expect(flight).toContain("actor.updateControlledFlight(position,headingYaw,animation)");
-    expect(flight).toContain("humanoid.updateFlightAnimation(animation)");
-    // NH-009 applies one terrain-aware chase camera to walking and flight.
-    expect(flight).toContain("setCameraAt(position)");
-    expect(flight).toContain("resolveNorthHeightsThirdPersonCamera(");
-    expect(flight).not.toContain("camera.position.addInPlace(move.normalize()");
-    expect(flight).not.toContain("camera.position.copyFrom(anchor)");
+  it("keeps Reese grounded while Machine POV moves only the first-person camera",()=>{
+    const engine=read("src/game/experiments/north-heights-city-8.ts");
+    const route=read("src/routes/north-heights-preview.tsx");
+    expect(engine).toContain("machineView=!machineView");
+    expect(engine).toContain("camera.position.set(bounded.x,");
+    expect(engine).toContain("setCameraAt(walk.physics.playerPosition())");
+    expect(engine).toContain("moveMachineCameraTo(x,z)");
+    expect(engine).toContain("resolveNorthHeightsThirdPersonCamera(");
+    expect(engine).not.toContain("walk.physics.movePlayer({x:desired.x,y:desired.y,z:desired.z})");
+    expect(engine).not.toContain("actor.updateControlledFlight(position,headingYaw,animation)");
+    expect(route).toContain('data-testid="poi-machine-camera"');
+    expect(route).toContain("onMachineTarget={(x,z)");
   });
   it("uses real park/concrete land-cover and sidewalks without the old paving seams",()=>{
     const world=read("src/game/experiments/north-heights-reconstruction-001.ts");

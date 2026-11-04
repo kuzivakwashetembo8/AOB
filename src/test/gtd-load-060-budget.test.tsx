@@ -39,9 +39,9 @@ describe("GTD-LOAD-060 one-minute first-playable-frame budget",()=>{
   });
   it("shows a live elapsed counter and clear overrun, not an invented percent",()=>{
     const {rerender}=render(<BootstrapOverlay entries={initialStartupChecklist()} elapsedSeconds={61}/>);
-    const overlay=screen.getByRole("status",{name:"Preparing Meridian game"});
+    const overlay=screen.getByRole("status",{name:"The Machine is loading Meridian City"});
     expect(overlay.getAttribute("data-gtd-startup-budget")).toBeNull();
-    expect(screen.getByRole("timer",{name:"Elapsed game loading time versus 60-second target"}).getAttribute("data-gtd-startup-budget")).toBe("over");
+    expect(screen.getByRole("timer",{name:"Elapsed Machine loading time versus 60-second target"}).getAttribute("data-gtd-startup-budget")).toBe("over");
     expect(screen.getByTestId("startup-clock").textContent).toBe("01:01");
     expect(screen.getByText(/OUTSIDE ATTENTION WINDOW/).textContent).toContain("00:01");
     rerender(<BootstrapOverlay entries={initialStartupChecklist()} elapsedSeconds={20}/>);

@@ -23,7 +23,10 @@ describe("NH-007 shared settings and controls",()=>{
     expect(engine).toContain("createReesePlayer001(scene)");
     expect(engine).toContain("actor.anchor.setEnabled(enabled)");
     expect(engine).toContain("humanoid.root.setEnabled(!enabled)");
-    expect(engine).toContain("controller.setMode(mode===\"walk\"?\"fly\":\"walk\")");
+    // P.O.I: former G key toggles camera-only Machine surveillance, not character flight.
+    expect(engine).toContain("controller.toggleMachineCamera()");
+    expect(engine).toContain("machineView=!machineView");
+    expect(engine).not.toContain("controller.setMode(mode===\"walk\"?\"fly\":\"walk\")");
     expect(engine).not.toContain("loadWitness(scene");
   });
 });
