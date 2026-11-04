@@ -10,6 +10,7 @@ import {
 import "@babylonjs/loaders/glTF";
 import { configureLocalGameDecoders } from "@/game/core/local-decoders";
 import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-heights-reconstruction-001";
+import {NORTH_HEIGHTS_SIDEWALK_ELEVATION_003} from "./north-heights-roads-003";
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import {loadNorthHeightsStreetLamps012,planNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
@@ -1152,7 +1153,7 @@ export async function createNorthHeightsCity8(
           renderer.update(camera.position);
           solidField.activateSignalPoles021(renderer.supports);
           for(const pole of renderer.supports){
-            const foot=northHeightsGround(pole.x,pole.z);
+            const foot=northHeightsGround(pole.x,pole.z)+NORTH_HEIGHTS_SIDEWALK_ELEVATION_003;
             signalPoleHandles021.push(walk!.physics.addStaticBox(
               {x:pole.x,y:foot+2.8,z:pole.z},{x:.16,y:2.8,z:.16},0,
               {vehicleNoStep:true}));
