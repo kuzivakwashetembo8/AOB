@@ -405,6 +405,7 @@ function NorthHeightsPreview(){
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
         driving={vehicle!==null} flying={machineView} armed={heldItem==="gun"}
+        combatEnabled={dialogueIndex===null&&!missionCompletedBanner&&(!activeLift?.available||keypadDismissedId===activeLift.buildingId)}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}
       {mapOpen&&<NorthHeightsExpandedMap position={position} poi={dianeMission.poi} buildings={mapBuildings} onClose={()=>setMapOpen(false)} onMapCloseStart={()=>controller.current?.playMapCue("close")}
