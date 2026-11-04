@@ -76,6 +76,7 @@ export function DesktopControls({
   driving = false, flying = false, canEnterVehicle = false, canExitVehicle = true,
   passenger = false,
   armed = false,
+  combatEnabled = true,
   elevator,
 }: {
   send: Send;
@@ -83,6 +84,7 @@ export function DesktopControls({
   driving?: boolean; flying?: boolean; canEnterVehicle?: boolean; canExitVehicle?: boolean;
   passenger?: boolean;
   armed?: boolean;
+  combatEnabled?: boolean;
   elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
   return (
@@ -113,7 +115,7 @@ export function DesktopControls({
           driving ? action==="vehicle"&&canExitVehicle :
           flying ? ["sprint","jump","descend"].includes(action) :
           ["sprint","jump","combat"].includes(action)||(action==="vehicle"&&canEnterVehicle)
-        ).map(({ action, label, keyHint, icon: BaseIcon }) => {
+        ).filter(a=>a.action!=="combat"||combatEnabled).map(({ action, label, keyHint, icon: BaseIcon }) => {
           const Icon=action==="combat"&&armed?Gun:BaseIcon;
           const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
           return (
