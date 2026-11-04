@@ -463,3 +463,23 @@ Owner instruction: **“Fullplan authorized, merge and deploy.”** In the prior
 **Build status:** Local full repository clone and Vercel test execution were not possible in this authoring sandbox. The dedicated test files are committed but their execution results remain unverified until a build is performed. User requested production merge/deploy after implementation, not background log monitoring. Once the production URL is available, report it and do not monitor logs unless the owner reports a failure.
 
 **Owner acceptance check:** Verify red stopped vehicles with bumpers behind visible stop bars; green vehicles move with existing collision safety, amber/clearance transitions, both owner models appear at the Finch junction facing oncoming cars, NPCs wait for protected WALK and cross without cars entering, and no new heads appear at the other 120 intersections.
+
+---
+
+## 16. POI-011 curbside placement revision — 2026-11-04 (owner rejection)
+
+**Owner visual finding:** The initial Finch signal pilot was rejected because the signal poles were installed inside building yards, away from the actual **road-facing curb edge**. The owner explicitly directed: **“Drop the (hanging) file.”** The rejected production version must not be used as the visual baseline for citywide deployment.
+
+**Correction branch:** `feature/poi-011-curbside-signal-placement-20261104` from the then-current `main` at `f18bff7`.
+
+**Revised source-of-truth for the Finch pilot (supersedes old mixed/overhead model rules):**
+
+1. **Exactly four standalone, curbside heads** — one per incoming road direction. All four use `public/GLBs/Infrastructure/traffic_light_-_free_low_poly.glb`; load/decode its geometry once and batch instances. The hanging model `Traffic Light 2e (hanging).glb` is **excluded from scene load, source manifests, placements and runtime network requests**; it remains a dormant original repository asset unless the owner separately authorizes deleting it.
+2. **Pole location is calculated from the geometric junction centre, not the directed lane endpoint**. The old formula added an 8.5m offset to a lane-centre endpoint already offset 2m laterally and 10m longitudinally from the node, forcing its base far into building parcels.
+3. Use the road renderer's actual `NORTH_HEIGHTS_ROAD_HALF_WIDTH_003=4.0m` and `NORTH_HEIGHTS_SIDEWALK_OUTER_003=7.75m`. Position mast feet `4.35m` from the road centreline — a **0.35m sidewalk-side inset behind the street-facing curb**. Place each `7.15m` before the junction centre on the approaching road axis, clear of the 1.8m curved corner return and adjacent crossing paint. The mast's 0.18m-radius physical collider stays behind the curb lip.
+4. Preserve the actual raised concrete surface elevation `northHeightsGround(x,z)+NORTH_HEIGHTS_SIDEWALK_ELEVATION_003` for visual pole and Rapier collider base alike. No pole may emerge from yard grass, hover, penetrate the sidewalk, or occupy a driving lane.
+5. The two north/south signals must no longer project onto cantilevers or suspend overhead heads. They are identical roadside model instances like the east/west signals, facing the approaching lanes.
+6. No modification to the deterministic 20Hz signal phases, red admission, amber, pedestrian WALK/WAIT, existing 125-vehicle traffic or 120 unsignalized junctions.
+7. Extend the tests to assert: all four placements are `roadside`; the source string for the hanging GLB and cantilever code are absent from the renderer; every mast's signed lateral offset is `4.35m`, longitudinal offset `7.15m`, and world x/z head position equals its pole; all four heads face their actual incoming lane direction. The owner-supplied low-poly GLB integrity test must validate only the active file.
+
+**Acceptance status:** The owner rejected the earlier production implementation. A **feature preview** is required for this corrected pilot. **Do not merge or redeploy production before explicit acceptance**. Once the preview link is provided, do not monitor build logs unless the owner reports failure.
