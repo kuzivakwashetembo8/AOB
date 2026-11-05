@@ -14,6 +14,7 @@ import {NORTH_HEIGHTS_SIDEWALK_ELEVATION_003} from "./north-heights-roads-003";
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import {loadNorthHeightsStreetLamps012,planNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
+import { createNorthHeightsClouds011 } from "./north-heights-clouds-011";
 import { createReesePlayer001 } from "@/game/character/reese-player-001";
 import {loadMeridiaCharacterTrial,type LoadedMeridiaCharacter} from "@/game/character/voight-humanoid-trial";
 import type {GameAction} from "@/game/core/types";
@@ -123,6 +124,7 @@ export async function createNorthHeightsCity8(
   const sun = new DirectionalLight("nh001-daylight", new Vector3(-0.6, -1, 0.4), scene);
   sun.intensity = 1.20;
   const sky = createNorthHeightsSky(scene,sun,hemi,mobile);
+  const clouds = createNorthHeightsClouds011(scene);
   // Start conservatively; shared GTD graphics settings are applied immediately
   // after the route hydrates localStorage (not via a new preferences system).
   engine.setHardwareScalingLevel(mobile ? 1.75 : 1.1);
@@ -923,7 +925,7 @@ export async function createNorthHeightsCity8(
       onFeedback?.("Lift traveling to floor "+floor);
       clearKeys();physicsAccumulator=0;return true;
     },
-    setTime(time) { lampTime=time;sky.setTime(time);lampHandle?.setTime(time);signalHandle021?.setTime(time); },
+    setTime(time) { lampTime=time;sky.setTime(time);clouds.setTime(time);lampHandle?.setTime(time);signalHandle021?.setTime(time); },
     setMode(next){
       if(ridingSedanId||next!=="walk")return false;
       if(next==="walk"&&(!walk||!actor||!humanoid))return false;
@@ -972,7 +974,7 @@ export async function createNorthHeightsCity8(
       humanoid?.disposeDriverContact();
       humanoid?.root.dispose(false,true);
       walk?.dispose();
-      sky.dispose(); scene.dispose(); engine.dispose();
+      clouds.dispose();sky.dispose(); scene.dispose(); engine.dispose();
     },
   };
   const started = performance.now();
