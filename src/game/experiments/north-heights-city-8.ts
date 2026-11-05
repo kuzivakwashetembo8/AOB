@@ -15,6 +15,7 @@ import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import {loadNorthHeightsStreetLamps012,planNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
 import { createNorthHeightsClouds011 } from "./north-heights-clouds-011";
+import {createNorthHeightsPrecipitation022} from "@/game/atmosphere/nh022-precipitation";
 import {
  NorthHeightsAtmosphereModel022,type AtmosphereSnapshot022,type AtmosphereStatus022,
 } from "@/game/atmosphere/nh022-atmosphere-model";
@@ -139,6 +140,7 @@ export async function createNorthHeightsCity8(
   sun.intensity = 1.20;
   const sky = createNorthHeightsSky(scene,sun,hemi,mobile);
   const clouds = createNorthHeightsClouds011(scene,mobile);
+  const precipitation=createNorthHeightsPrecipitation022(scene,mobile);
   const seedBytes=new Uint32Array(1);
   if(typeof crypto!=="undefined"&&typeof crypto.getRandomValues==="function")
    crypto.getRandomValues(seedBytes);
@@ -149,7 +151,9 @@ export async function createNorthHeightsCity8(
    if(paused)return;
    const dt=Math.min(.05,engine.getDeltaTime()/1000);
    atmosphere.advance(dt);
-   clouds.update(atmosphere.render,dt,settings.quality);
+   const state=atmosphere.render;
+   const lightning=precipitation.update(state,Boolean(interiorId));
+   clouds.update(state,dt,settings.quality,lightning);
   });
   // Start conservatively; shared GTD graphics settings are applied immediately
   // after the route hydrates localStorage (not via a new preferences system).
@@ -1023,7 +1027,7 @@ export async function createNorthHeightsCity8(
       humanoid?.disposeDriverContact();
       humanoid?.root.dispose(false,true);
       walk?.dispose();
-      clouds.dispose();sky.dispose(); scene.dispose(); engine.dispose();
+      precipitation.dispose();clouds.dispose();sky.dispose(); scene.dispose(); engine.dispose();
     },
   };
   const started = performance.now();
