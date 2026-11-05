@@ -234,6 +234,8 @@ function NorthHeightsPreview(){
       let currentStage:string|null=null,sequence=0;
       try{
         if(!canvas.current)return;
+        const savedAtmosphere=await loadAtmosphereCheckpoint022();
+        if(closed||!canvas.current)return;
         const {createNorthHeightsCity8}=await import("@/game/experiments/north-heights-city-8");
         if(closed||!canvas.current)return;
         const instance=await createNorthHeightsCity8(canvas.current,
@@ -284,8 +286,14 @@ function NorthHeightsPreview(){
           // First-frame completion is delivered by Babylon onAfterRender, not here.
           controller.current=instance;
           instance.applySettings(currentSettings.current);
-          const hour=Math.floor(meridianMinute/60);
-          instance.setTime(hour>=6&&hour<17?"day":hour>=17&&hour<20?"dusk":"night");
+          if(savedAtmosphere&&instance.restoreAtmosphere(savedAtmosphere)){
+            setClockState({minute:savedAtmosphere.minuteOfDay,dayIndex:savedAtmosphere.dayIndex});
+            setMeridianSpeed(savedAtmosphere.clockSpeed);
+            if(savedAtmosphere.clockSpeed>0)previousClockSpeed.current=savedAtmosphere.clockSpeed;
+            instance.setAtmosphereClock(savedAtmosphere.minuteOfDay,
+              savedAtmosphere.dayIndex,savedAtmosphere.clockSpeed);
+          }else instance.setAtmosphereClock(meridianMinute,dayIndex,meridianSpeed);
+          refreshAtmosphere();
           instance.setPaused(paused);
         }
       }catch(error){
@@ -297,7 +305,7 @@ function NorthHeightsPreview(){
     void start();
     return()=>{closed=true;controller.current?.dispose();controller.current=null;};
   },[]);
-  const close=()=>{setPanel("pause");setPaused(false);setMapOpen(false);};
+  const close=()=>{setPanel("pause");setPaused(false);setMapOpen(false);setInformationOpen(false);};
   useEffect(()=>{
     if(!paused)return;
     const key=(e:KeyboardEvent)=>{if(e.key==="Escape")close();};
@@ -362,7 +370,40 @@ function NorthHeightsPreview(){
       </div>}</div>}
         mode={inputMode} interaction={feedback} pause={()=>{setPanel("pause");setPaused(true);}}
         showObjective={settings.objective} setMeridianTime={setMeridianMinute}
-        setMeridianTimeScale={setMeridianSpeed}/>}
+        setMeridianTimeScale={setMeridianSpeed}
+        onInfo={()=>setInformationOpen(value=>!value)} informationOpen={informationOpen}/>}
+      {ready&&!paused&&informationOpen&&atmosphereStatus&&
+       <NorthHeightsInformationCentre022
+        snapshot={snapshot} atmosphere={atmosphereStatus}
+        vehicle={vehicle} vehicleSpeed={vehicleSpeed}
+        drivingLayout={settings.drivingTouchLayout}
+        radioEnabled={radioState.preferences.enabled} radioStatus={radioState.status}
+        canToggleAutopilot={sedanPassenger} isManualDriving={sedanManual}
+        onClose={()=>setInformationOpen(false)}
+        onSetTime={setMeridianMinute}
+        onSetSpeed={speed=>{if(speed>0)previousClockSpeed.current=speed;setMeridianSpeed(speed);}}
+        onPauseClock={()=>{if(meridianSpeed>0)previousClockSpeed.current=meridianSpeed;setMeridianSpeed(0);}}
+        onResumeClock={()=>setMeridianSpeed(previousClockSpeed.current||2)}
+        onWeatherMode={(mode:WeatherMode022)=>{
+          controller.current?.setAtmosphereWeatherMode(mode);refreshAtmosphere();persistAtmosphere();
+        }}
+        onCondition={(condition:WeatherCondition022)=>{
+          controller.current?.setAtmosphereCondition(condition);refreshAtmosphere();persistAtmosphere();
+        }}
+        onCloudChoice={(choice:CloudChoice022)=>{
+          controller.current?.setAtmosphereCloudChoice(choice);refreshAtmosphere();persistAtmosphere();
+        }}
+        onFreezeAtmosphere={frozen=>{
+          controller.current?.setAtmosphereFrozen(frozen);refreshAtmosphere();persistAtmosphere();
+        }}
+        onDrivingLayout={(layout:DrivingTouchLayout)=>{
+          const next={...settings,drivingTouchLayout:layout};
+          save(next);controller.current?.applySettings(next);
+        }}
+        onToggleAutopilot={()=>controller.current?.toggleSedanAutopilot()}
+        onRadioToggle={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}
+        onOpenSettings={()=>{setInformationOpen(false);setPanel("settings");setPaused(true);}}
+       />}
       {ready&&!paused&&!vehicle&&!mapOpen&&machineView&&
        <div className="poi010-camera-status poi-game-glass-panel" role="status"
          aria-label="Machine Camera Activate · Disable to return to John">
