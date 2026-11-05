@@ -28,7 +28,7 @@ export type AtmosphereStatus022={
  dayIndex:number;minuteOfDay:number;worldSeed:number;
 };
 export type AtmosphereSnapshot022={
- version:1;worldSeed:number;dayIndex:number;minuteOfDay:number;clockSpeed:number;
+ version:1;worldSeed:number;dayIndex:number;minuteOfDay:number;visualMinute:number;clockSpeed:number;
  weatherMode:WeatherMode022;manualCondition:WeatherCondition022;cloudChoice:CloudChoice022;
  frozen:boolean;cloudSeconds:number;from:CloudScene022;to:CloudScene022;
  blend:number;episode:number;transitionSerial:number;
@@ -84,6 +84,7 @@ export function validateAtmosphereSnapshot022(value:unknown):value is Atmosphere
  return a.version===VERSION&&
   Number.isInteger(a.worldSeed)&&Number.isInteger(a.dayIndex)&&Number(a.dayIndex)>=0&&
   Number.isFinite(a.minuteOfDay)&&Number(a.minuteOfDay)>=0&&Number(a.minuteOfDay)<1440&&
+  Number.isFinite(a.visualMinute)&&Number(a.visualMinute)>=0&&Number(a.visualMinute)<1440&&
   Number.isFinite(a.clockSpeed)&&[0,1,2,8].includes(Number(a.clockSpeed))&&
   (a.weatherMode==="Auto"||a.weatherMode==="Manual")&&
   isWeatherCondition022(a.manualCondition)&&
@@ -97,6 +98,7 @@ export class NorthHeightsAtmosphereModel022{
  private seed:number;
  private day=0;
  private minute=14*60+53;
+ private visualMinute=14*60+53;
  private speed=2;
  private weatherMode:WeatherMode022="Auto";
  private manualCondition:WeatherCondition022="Partly Cloudy";
@@ -145,6 +147,11 @@ export class NorthHeightsAtmosphereModel022{
   if(this.frozen||!Number.isFinite(dt)||dt<=0)return;
   const step=Math.min(.05,dt);
   this.cloudSeconds+=step;
+  // The visible cloud palette uses a separate interpolated clock. Freezing
+  // atmosphere also freezes cloud colour even when the game clock advances.
+  let delta=((this.minute-this.visualMinute+2160)%1440)-720;
+  if(Math.abs(delta)<.01)delta=0;
+  this.visualMinute=(this.visualMinute+delta*Math.min(1,step/6)+1440)%1440;
   if(this.blend<1)this.blend=Math.min(1,this.blend+step/this.transitionDuration);
  }
  setWeatherMode(value:WeatherMode022){
@@ -170,7 +177,7 @@ export class NorthHeightsAtmosphereModel022{
    (isCloudGenus022(this.cloudChoice)&&this.to.genus!==this.cloudChoice)))this.reselect(true);
  }
  get render():AtmosphereRender022{
-  return {from:this.from,to:this.to,blend:this.blend,timeOfDay:this.minute,
+  return {from:this.from,to:this.to,blend:this.blend,timeOfDay:this.visualMinute,
    cloudSeconds:this.cloudSeconds,frozen:this.frozen};
  }
  get status():AtmosphereStatus022{
@@ -181,7 +188,7 @@ export class NorthHeightsAtmosphereModel022{
  }
  capture():AtmosphereSnapshot022{
   return {version:1,worldSeed:this.seed,dayIndex:this.day,minuteOfDay:this.minute,
-   clockSpeed:this.speed,weatherMode:this.weatherMode,manualCondition:this.manualCondition,
+   visualMinute:this.visualMinute,clockSpeed:this.speed,weatherMode:this.weatherMode,manualCondition:this.manualCondition,
    cloudChoice:this.cloudChoice,frozen:this.frozen,cloudSeconds:this.cloudSeconds,
    from:{...this.from},to:{...this.to},blend:this.blend,episode:this.episode,
    transitionSerial:this.serial};
@@ -189,6 +196,7 @@ export class NorthHeightsAtmosphereModel022{
  restore(snapshot:unknown):boolean{
   if(!validateAtmosphereSnapshot022(snapshot))return false;
   this.seed=snapshot.worldSeed;this.day=snapshot.dayIndex;this.minute=snapshot.minuteOfDay;
+  this.visualMinute=snapshot.visualMinute;
   this.speed=snapshot.clockSpeed;this.weatherMode=snapshot.weatherMode;
   this.manualCondition=snapshot.manualCondition;this.cloudChoice=snapshot.cloudChoice;
   this.frozen=snapshot.frozen;this.cloudSeconds=snapshot.cloudSeconds;
