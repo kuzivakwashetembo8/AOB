@@ -24,6 +24,8 @@ export function GameHud({
   metadataSlot,
   setMeridianTime,
   setMeridianTimeScale,
+  onInfo,
+  informationOpen = false,
 }: {
   snapshot: GameSnapshot;
   context: HudContext;
@@ -35,6 +37,8 @@ export function GameHud({
   metadataSlot?: ReactNode;
   setMeridianTime: (minuteOfDay: number) => void;
   setMeridianTimeScale: (scale: number) => void;
+  onInfo?: () => void;
+  informationOpen?: boolean;
 }) {
   const [timeControlsOpen, setTimeControlsOpen] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
@@ -51,18 +55,20 @@ export function GameHud({
     <div className={`hud ${mode === "touch" ? "touch" : ""}`}>
       {mapSlot && <div className="gtd-map-always">{mapSlot}</div>}
       <Button type="button" variant="control" className="gtd-header-reveal"
-        title="Game information" aria-label={headerVisible ? "Hide game metadata" : "Show game metadata"}
-        aria-expanded={headerVisible}
-        onClick={() => { setHeaderVisible(value => !value); setTimeControlsOpen(false); }}>
+        title="Game information" aria-label={onInfo ? (informationOpen ? "Close information" : "Open information") : (headerVisible ? "Hide game metadata" : "Show game metadata")}
+        aria-expanded={onInfo ? informationOpen : headerVisible}
+        onClick={() => { if (onInfo) { onInfo(); return; } setHeaderVisible(value => !value); setTimeControlsOpen(false); }}>
         <Info size={18} aria-hidden="true" />
       </Button>
-      {headerVisible && metadataSlot && <div className="absolute right-24 top-20 z-30 max-w-[min(85vw,360px)]">{metadataSlot}</div>}
+      {!onInfo && headerVisible && metadataSlot && <div className="absolute right-24 top-20 z-30 max-w-[min(85vw,360px)]">{metadataSlot}</div>}
       <div className={`hud-top gtd-auto-header ${headerVisible ? "is-visible" : "is-hidden"}`}>
 
         {showObjective ? <div className="objective"><span className="system-label text-primary">OBJECTIVE</span><p>{snapshot.objective}</p></div> : <div />}
 
         <div className="hud-top-right">
-          <div className="relative">
+          {onInfo ? <div className="system-label rounded border border-white/20 bg-black/45 px-2 py-1 text-white/80">
+            MERIDIAN // {snapshot.meridianTime}
+          </div> : <div className="relative">
             <button
               type="button"
               className="rounded border border-white/20 bg-black/55 px-3 py-2 text-left backdrop-blur-sm"
@@ -138,7 +144,7 @@ export function GameHud({
                 </div>
               </div>
             )}
-          </div>
+          </div>}
 
           {snapshot.flying && (
             <span className="system-label self-center rounded border border-white/30 bg-black/60 px-2 py-1 text-white">
