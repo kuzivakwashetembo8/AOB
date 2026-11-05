@@ -15,6 +15,13 @@ import {pageHead} from "@/lib/page-head";
 import {useSettings} from "@/ui/menus/settings-state";
 import {GTDSettingsOverlay,GTDSessionPauseActions} from "@/ui/menus/session-overlays";
 import {GameHud} from "@/ui/hud/game-hud";
+import {NorthHeightsInformationCentre022} from "@/ui/hud/nh022-information-centre";
+import type {AtmosphereStatus022} from "@/game/atmosphere/nh022-atmosphere-model";
+import type {CloudChoice022,WeatherCondition022,WeatherMode022} from "@/game/atmosphere/nh022-cloud-presets";
+import type {DrivingTouchLayout} from "@/ui/menus/settings-state";
+import {
+ loadAtmosphereCheckpoint022,saveAtmosphereCheckpoint022,saveAtmosphereImmediately022,
+} from "@/game/save/nh022-atmosphere-checkpoint";
 import {NorthHeightsMiniMap,NorthHeightsExpandedMap,type NorthHeightsMapBuilding011} from "@/ui/hud/north-heights-map-010";
 import type {GameSnapshot} from "@/game/core/types";
 import {TouchControls} from "@/ui/hud/touch-controls";
@@ -49,8 +56,14 @@ function NorthHeightsPreview(){
   const [stats,setStats]=useState("");
   const perfSession=useRef<WorldOpt001BrowserSession|null>(null);
   const [perfSnapshot,setPerfSnapshot]=useState<WorldOpt001Snapshot|null>(null);
-  const [meridianMinute,setMeridianMinute]=useState(14*60+53);
+  const [clockState,setClockState]=useState({minute:14*60+53,dayIndex:0});
+  const meridianMinute=clockState.minute,dayIndex=clockState.dayIndex;
+  const setMeridianMinute=(minute:number)=>{
+   if(!Number.isFinite(minute))return;
+   setClockState(current=>({...current,minute:((minute%1440)+1440)%1440}));
+  };
   const [meridianSpeed,setMeridianSpeed]=useState(2);
+  const previousClockSpeed=useRef(2);
   const [mode,setMode]=useState<"walk"|"fly">("walk");
   const [machineView,setMachineView]=useState(false);
   const [heldItem,setHeldItem]=useState<"hand"|"gun">("hand");
@@ -102,6 +115,15 @@ function NorthHeightsPreview(){
      !elevator?.available&&!elevator?.moving)setKeypadDismissedId(null);
  },[buildingLift?.available,buildingLift?.moving,elevator?.available,elevator?.moving]);
  const [mapOpen,setMapOpen]=useState(false);
+  const [informationOpen,setInformationOpen]=useState(false);
+  const [atmosphereStatus,setAtmosphereStatus]=useState<AtmosphereStatus022|null>(null);
+  const refreshAtmosphere=()=>setAtmosphereStatus(controller.current?.getAtmosphereStatus()??null);
+  const persistAtmosphere=()=>{
+   const snapshot=controller.current?.captureAtmosphere();
+   if(!snapshot)return;
+   saveAtmosphereImmediately022(snapshot);
+   void saveAtmosphereCheckpoint022(snapshot);
+  };
   const [paused,setPaused]=useState(false);
   useEffect(()=>{
     controller.current?.setFinchTalking(dialogueIndex!==null&&!paused&&
@@ -114,9 +136,14 @@ function NorthHeightsPreview(){
   const inputMode=useInputMode();
   const ready=firstPlayable&&status.includes("physics ready");
   useEffect(()=>{
-    controller.current?.setUiBlocked(mapOpen||dialogueIndex!==null||missionCompletedBanner||paused||
+    controller.current?.setUiBlocked(informationOpen||mapOpen||dialogueIndex!==null||missionCompletedBanner||paused||
       Boolean(activeLift?.available&&keypadDismissedId!==activeLift.buildingId));
-  },[mapOpen,dialogueIndex,missionCompletedBanner,paused,ready,activeLift?.available,activeLift?.buildingId,keypadDismissedId]);
+  },[informationOpen,mapOpen,dialogueIndex,missionCompletedBanner,paused,ready,activeLift?.available,activeLift?.buildingId,keypadDismissedId]);
+  useEffect(()=>{
+   if(paused||mapOpen||dialogueIndex!==null||missionCompletedBanner||
+     (activeLift?.available&&keypadDismissedId!==activeLift.buildingId))
+    setInformationOpen(false);
+  },[paused,mapOpen,dialogueIndex,missionCompletedBanner,activeLift?.available,activeLift?.buildingId,keypadDismissedId]);
   useEffect(()=>{
     // New entry opens a conversation once; leaving the radius rearms it.
     if(!nearFinch){finchVisitOpened.current=false;return;}
@@ -169,13 +196,35 @@ function NorthHeightsPreview(){
   useEffect(()=>{controller.current?.setPaused(paused);},[paused]);
   useEffect(()=>{
     if(paused||!meridianSpeed)return;
-    const tick=window.setInterval(()=>setMeridianMinute(v=>(v+meridianSpeed/2)%1440),1000);
+    const tick=window.setInterval(()=>setClockState(current=>{
+      const minute=current.minute+meridianSpeed/2;
+      return {minute:minute%1440,dayIndex:current.dayIndex+Math.floor(minute/1440)};
+    }),1000);
     return()=>window.clearInterval(tick);
   },[paused,meridianSpeed]);
   useEffect(()=>{
-    const hour=Math.floor(meridianMinute/60);
-    controller.current?.setTime(hour>=6&&hour<17?"day":hour>=17&&hour<20?"dusk":"night");
-  },[meridianMinute]);
+    controller.current?.setAtmosphereClock(meridianMinute,dayIndex,meridianSpeed);
+  },[meridianMinute,dayIndex,meridianSpeed]);
+  useEffect(()=>{
+    if(!ready)return;
+    refreshAtmosphere();
+    const timer=window.setInterval(refreshAtmosphere,1000);
+    return()=>window.clearInterval(timer);
+  },[ready]);
+  useEffect(()=>{
+   if(!ready)return;
+   const onHidden=()=>{if(document.hidden)persistAtmosphere();};
+   const onPageHide=()=>persistAtmosphere();
+   document.addEventListener("visibilitychange",onHidden);
+   window.addEventListener("pagehide",onPageHide);
+   const timer=window.setInterval(persistAtmosphere,15000);
+   return()=>{
+    clearInterval(timer);
+    document.removeEventListener("visibilitychange",onHidden);
+    window.removeEventListener("pagehide",onPageHide);
+    persistAtmosphere();
+   };
+  },[ready]);
   useEffect(()=>{
     let closed=false;
     const start=async()=>{
@@ -185,6 +234,8 @@ function NorthHeightsPreview(){
       let currentStage:string|null=null,sequence=0;
       try{
         if(!canvas.current)return;
+        const savedAtmosphere=await loadAtmosphereCheckpoint022();
+        if(closed||!canvas.current)return;
         const {createNorthHeightsCity8}=await import("@/game/experiments/north-heights-city-8");
         if(closed||!canvas.current)return;
         const instance=await createNorthHeightsCity8(canvas.current,
@@ -235,8 +286,14 @@ function NorthHeightsPreview(){
           // First-frame completion is delivered by Babylon onAfterRender, not here.
           controller.current=instance;
           instance.applySettings(currentSettings.current);
-          const hour=Math.floor(meridianMinute/60);
-          instance.setTime(hour>=6&&hour<17?"day":hour>=17&&hour<20?"dusk":"night");
+          if(savedAtmosphere&&instance.restoreAtmosphere(savedAtmosphere)){
+            setClockState({minute:savedAtmosphere.minuteOfDay,dayIndex:savedAtmosphere.dayIndex});
+            setMeridianSpeed(savedAtmosphere.clockSpeed);
+            if(savedAtmosphere.clockSpeed>0)previousClockSpeed.current=savedAtmosphere.clockSpeed;
+            instance.setAtmosphereClock(savedAtmosphere.minuteOfDay,
+              savedAtmosphere.dayIndex,savedAtmosphere.clockSpeed);
+          }else instance.setAtmosphereClock(meridianMinute,dayIndex,meridianSpeed);
+          refreshAtmosphere();
           instance.setPaused(paused);
         }
       }catch(error){
@@ -248,7 +305,7 @@ function NorthHeightsPreview(){
     void start();
     return()=>{closed=true;controller.current?.dispose();controller.current=null;};
   },[]);
-  const close=()=>{setPanel("pause");setPaused(false);setMapOpen(false);};
+  const close=()=>{setPanel("pause");setPaused(false);setMapOpen(false);setInformationOpen(false);};
   useEffect(()=>{
     if(!paused)return;
     const key=(e:KeyboardEvent)=>{if(e.key==="Escape")close();};
@@ -313,7 +370,40 @@ function NorthHeightsPreview(){
       </div>}</div>}
         mode={inputMode} interaction={feedback} pause={()=>{setPanel("pause");setPaused(true);}}
         showObjective={settings.objective} setMeridianTime={setMeridianMinute}
-        setMeridianTimeScale={setMeridianSpeed}/>}
+        setMeridianTimeScale={setMeridianSpeed}
+        onInfo={()=>setInformationOpen(value=>!value)} informationOpen={informationOpen}/>}
+      {ready&&!paused&&informationOpen&&atmosphereStatus&&
+       <NorthHeightsInformationCentre022
+        snapshot={snapshot} atmosphere={atmosphereStatus}
+        vehicle={vehicle} vehicleSpeed={vehicleSpeed}
+        drivingLayout={settings.drivingTouchLayout}
+        radioEnabled={radioState.preferences.enabled} radioStatus={radioState.status}
+        canToggleAutopilot={sedanPassenger} isManualDriving={sedanManual}
+        onClose={()=>setInformationOpen(false)}
+        onSetTime={setMeridianMinute}
+        onSetSpeed={speed=>{if(speed>0)previousClockSpeed.current=speed;setMeridianSpeed(speed);}}
+        onPauseClock={()=>{if(meridianSpeed>0)previousClockSpeed.current=meridianSpeed;setMeridianSpeed(0);}}
+        onResumeClock={()=>setMeridianSpeed(previousClockSpeed.current||2)}
+        onWeatherMode={(mode:WeatherMode022)=>{
+          controller.current?.setAtmosphereWeatherMode(mode);refreshAtmosphere();persistAtmosphere();
+        }}
+        onCondition={(condition:WeatherCondition022)=>{
+          controller.current?.setAtmosphereCondition(condition);refreshAtmosphere();persistAtmosphere();
+        }}
+        onCloudChoice={(choice:CloudChoice022)=>{
+          controller.current?.setAtmosphereCloudChoice(choice);refreshAtmosphere();persistAtmosphere();
+        }}
+        onFreezeAtmosphere={frozen=>{
+          controller.current?.setAtmosphereFrozen(frozen);refreshAtmosphere();persistAtmosphere();
+        }}
+        onDrivingLayout={(layout:DrivingTouchLayout)=>{
+          const next={...settings,drivingTouchLayout:layout};
+          save(next);controller.current?.applySettings(next);
+        }}
+        onToggleAutopilot={()=>controller.current?.toggleSedanAutopilot()}
+        onRadioToggle={()=>radio.current?.setEnabled(!radioState.preferences.enabled)}
+        onOpenSettings={()=>{setInformationOpen(false);setPanel("settings");setPaused(true);}}
+       />}
       {ready&&!paused&&!vehicle&&!mapOpen&&machineView&&
        <div className="poi010-camera-status poi-game-glass-panel" role="status"
          aria-label="Machine Camera Activate · Disable to return to John">

@@ -14,6 +14,14 @@ import {NORTH_HEIGHTS_SIDEWALK_ELEVATION_003} from "./north-heights-roads-003";
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import {loadNorthHeightsStreetLamps012,planNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
+import { createNorthHeightsClouds011 } from "./north-heights-clouds-011";
+import {createNorthHeightsPrecipitation022} from "@/game/atmosphere/nh022-precipitation";
+import {
+ NorthHeightsAtmosphereModel022,type AtmosphereSnapshot022,type AtmosphereStatus022,
+} from "@/game/atmosphere/nh022-atmosphere-model";
+import type {
+ CloudChoice022,WeatherCondition022,WeatherMode022,
+} from "@/game/atmosphere/nh022-cloud-presets";
 import { createReesePlayer001 } from "@/game/character/reese-player-001";
 import {loadMeridiaCharacterTrial,type LoadedMeridiaCharacter} from "@/game/character/voight-humanoid-trial";
 import type {GameAction} from "@/game/core/types";
@@ -70,6 +78,14 @@ export interface NorthHeightsInspection {
   setPaused: (paused:boolean) => void;
   reset: () => void;
   setTime: (time: NorthHeightsTime) => void;
+  setAtmosphereClock:(minuteOfDay:number,dayIndex:number,speed:number)=>void;
+  getAtmosphereStatus:()=>AtmosphereStatus022;
+  captureAtmosphere:()=>AtmosphereSnapshot022;
+  restoreAtmosphere:(checkpoint:unknown)=>boolean;
+  setAtmosphereWeatherMode:(mode:WeatherMode022)=>void;
+  setAtmosphereCondition:(condition:WeatherCondition022)=>void;
+  setAtmosphereCloudChoice:(choice:CloudChoice022)=>void;
+  setAtmosphereFrozen:(frozen:boolean)=>void;
   setMode: (mode: "walk" | "fly") => boolean;
   toggleMachineCamera:()=>boolean;
   playMapCue:(kind:"open"|"close")=>void;
@@ -123,6 +139,22 @@ export async function createNorthHeightsCity8(
   const sun = new DirectionalLight("nh001-daylight", new Vector3(-0.6, -1, 0.4), scene);
   sun.intensity = 1.20;
   const sky = createNorthHeightsSky(scene,sun,hemi,mobile);
+  const clouds = createNorthHeightsClouds011(scene,mobile);
+  const precipitation=createNorthHeightsPrecipitation022(scene,mobile);
+  const seedBytes=new Uint32Array(1);
+  if(typeof crypto!=="undefined"&&typeof crypto.getRandomValues==="function")
+   crypto.getRandomValues(seedBytes);
+  else seedBytes[0]=Math.floor(Math.random()*4294967296);
+  const atmosphere=new NorthHeightsAtmosphereModel022(seedBytes[0]!);
+  // Sky is a camera-independent scene resource, never regenerated on looking up.
+  scene.onBeforeRenderObservable.add(()=>{
+   if(paused)return;
+   const dt=Math.min(.05,engine.getDeltaTime()/1000);
+   atmosphere.advance(dt);
+   const state=atmosphere.render;
+   const lightning=precipitation.update(state,Boolean(interiorId));
+   clouds.update(state,dt,settings.quality,lightning);
+  });
   // Start conservatively; shared GTD graphics settings are applied immediately
   // after the route hydrates localStorage (not via a new preferences system).
   engine.setHardwareScalingLevel(mobile ? 1.75 : 1.1);
@@ -240,8 +272,8 @@ export async function createNorthHeightsCity8(
   // Stage 6: directional input is continuous rather than junction-gated.
   // Steering is computed at 20Hz using actual signed velocity.
   const keyDown = (event: KeyboardEvent) => {
+    if(paused||uiBlocked)return;
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(event.code)) event.preventDefault();
-    if(paused)return;
     // Invoke resume() in keyboard gesture context (browser autoplay policy).
     vehicleAudio.unlockFromGesture();
     keyboardUsed=true;
@@ -272,7 +304,7 @@ export async function createNorthHeightsCity8(
     if(ridingSedanId)traffic?.setManualPedals(ridingSedanId,0,0);
   };
   const pointerDown = (event: PointerEvent) => {
-    if(paused||dragPointer !== null) return;
+    if(paused||uiBlocked||dragPointer !== null) return;
     vehicleAudio.unlockFromGesture();
     dragPointer = event.pointerId; lastX = event.clientX; lastY = event.clientY;
     canvas.setPointerCapture(event.pointerId);
@@ -816,21 +848,21 @@ export async function createNorthHeightsCity8(
   };
   const controller: NorthHeightsInspection = {
     press(control,down){
-      if(paused)return;
+      if(paused||uiBlocked)return;
       if(down){vehicleAudio.unlockFromGesture();held.add(control);}
       else held.delete(control);
     },
     move(x,y){
-      if(paused)return;
+      if(paused||uiBlocked)return;
       if(Math.abs(x)+Math.abs(y)>.1)vehicleAudio.unlockFromGesture();
       const nextX=Math.max(-1,Math.min(1,x));
       const nextY=Math.max(-1,Math.min(1,y));
       // Stage 6: continuous x-axis controls heading every fixed simulation tick.
       analog={x:nextX,y:nextY};
     },
-    setUiBlocked(blocked){uiBlocked=blocked;},
+    setUiBlocked(blocked){uiBlocked=blocked;if(blocked)clearKeys();},
     action(action,pressed){
-      if(paused)return;
+      if(paused||uiBlocked)return;
       if(pressed)vehicleAudio.unlockFromGesture();
       if(pressed&&action==="vehicle"){
         toggleVehicle();return;
@@ -923,7 +955,30 @@ export async function createNorthHeightsCity8(
       onFeedback?.("Lift traveling to floor "+floor);
       clearKeys();physicsAccumulator=0;return true;
     },
-    setTime(time) { lampTime=time;sky.setTime(time);lampHandle?.setTime(time);signalHandle021?.setTime(time); },
+    setTime(time) { lampTime=time;sky.setTime(time);clouds.setTime(time);lampHandle?.setTime(time);signalHandle021?.setTime(time); },
+    setAtmosphereClock(minuteOfDay,dayIndex,speed){
+      atmosphere.syncClock(minuteOfDay,dayIndex,speed);
+      sky.setMinuteOfDay(minuteOfDay);
+      const hour=Math.floor(minuteOfDay/60);
+      const time:NorthHeightsTime=hour>=6&&hour<17?"day":hour>=17&&hour<20?"dusk":"night";
+      if(lampTime!==time){controller.setTime(time);}
+    },
+    getAtmosphereStatus(){return atmosphere.status;},
+    captureAtmosphere(){return atmosphere.capture();},
+    restoreAtmosphere(snapshot){
+      const restored=atmosphere.restore(snapshot);
+      if(restored){
+       const data=atmosphere.status;
+       sky.setMinuteOfDay(data.minuteOfDay);
+       const h=Math.floor(data.minuteOfDay/60);
+       controller.setTime(h>=6&&h<17?"day":h>=17&&h<20?"dusk":"night");
+      }
+      return restored;
+    },
+    setAtmosphereWeatherMode(mode){atmosphere.setWeatherMode(mode);},
+    setAtmosphereCondition(condition){atmosphere.setCondition(condition);},
+    setAtmosphereCloudChoice(choice){atmosphere.setCloudChoice(choice);},
+    setAtmosphereFrozen(frozen){atmosphere.setFrozen(frozen);},
     setMode(next){
       if(ridingSedanId||next!=="walk")return false;
       if(next==="walk"&&(!walk||!actor||!humanoid))return false;
@@ -972,7 +1027,7 @@ export async function createNorthHeightsCity8(
       humanoid?.disposeDriverContact();
       humanoid?.root.dispose(false,true);
       walk?.dispose();
-      sky.dispose(); scene.dispose(); engine.dispose();
+      precipitation.dispose();clouds.dispose();sky.dispose(); scene.dispose(); engine.dispose();
     },
   };
   const started = performance.now();
