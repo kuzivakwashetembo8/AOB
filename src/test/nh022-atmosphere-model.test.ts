@@ -10,7 +10,7 @@ import {
 describe("GTD-NH-ATM-022 living sky and manual weather contract",()=>{
  it("defines ten meteorologically distinct visual genera",()=>{
   expect(CLOUD_GENERA_022).toHaveLength(10);
-  expect(new Set(CLOUD_GENERA_022)).toHaveLength(10);
+  expect(new Set(CLOUD_GENERA_022).size).toBe(10);
   expect(CLOUD_PRESETS_022.Cirrostratus.shape).toBe("veil");
   expect(CLOUD_PRESETS_022.Cumulus.shape).toBe("puffs");
   expect(CLOUD_PRESETS_022.Nimbostratus.shape).toBe("rain");
