@@ -177,7 +177,7 @@ export function createNorthHeightsClouds011(scene:Scene,mobile=false){
   layers[index]?.dispose();layers[index]=createLayer(scene,cloud,index,mobile);
   return layers[index]!;
  };
- const update=(state:AtmosphereRender022,_dt:number,quality="High")=>{
+ const update=(state:AtmosphereRender022,_dt:number,quality="High",lightning=0)=>{
   if(closed)return;
   const first=ensure(0,state.from);
   const second=state.from.id===state.to.id?null:ensure(1,state.to);
@@ -190,6 +190,7 @@ export function createNorthHeightsClouds011(scene:Scene,mobile=false){
    layer.dome.visibility=visible;layer.cap.visibility=visible;
    const p=layer.scene;
    const tint=tintForMinute(state.timeOfDay,p.condition);
+   if(lightning>0){tint.r+=lightning*.48;tint.g+=lightning*.5;tint.b+=lightning*.55;}
    layer.material.diffuseColor.copyFrom(tint);
    layer.material.emissiveColor.copyFrom(tint);
    const drift=CLOUD_PRESETS_022[p.genus].drift;
