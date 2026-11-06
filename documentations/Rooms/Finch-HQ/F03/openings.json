@@ -1,0 +1,46 @@
+{
+  "schema": "game-room.opening-schedule.v1",
+  "roomId": "finch-hq-f03-cafe-review-v1",
+  "primaryArrival": {
+    "openingId": "F03-LIFT-ARRIVAL",
+    "exception": "Floor 3 is entered by the accepted 5.1m glass elevator. Arrival opening width 2.55m meets the 2.4m project design target."
+  },
+  "openings": [
+    {
+      "id": "F03-LIFT-ARRIVAL",
+      "kind": "door",
+      "wall": "shaft-front-facing-cafe",
+      "widthMeters": 2.55,
+      "heightMeters": 3.05,
+      "thresholdMeters": 0,
+      "mask": "masks/arrival-pending.png",
+      "cutter": "masks/arrival-pending.json",
+      "destination": "F03-CAFE-CORRIDOR",
+      "approved": false
+    },
+    {
+      "id": "F03-MEETING-ENTRY",
+      "kind": "door",
+      "wall": "meeting-front-z8",
+      "widthMeters": 2.4,
+      "heightMeters": 3.2,
+      "thresholdMeters": 0,
+      "mask": "masks/meeting-pending.png",
+      "cutter": "masks/meeting-pending.json",
+      "destination": "F03-MEETING-ROOM",
+      "approved": false
+    },
+    {
+      "id": "F03-PANTRY-ENTRY",
+      "kind": "door",
+      "wall": "service-west-x5.6",
+      "widthMeters": 2.1,
+      "heightMeters": 3.2,
+      "thresholdMeters": 0,
+      "mask": "masks/pantry-pending.png",
+      "cutter": "masks/pantry-pending.json",
+      "destination": "F03-BACK-PANTRY",
+      "approved": false
+    }
+  ]
+}
