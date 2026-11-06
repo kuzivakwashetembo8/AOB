@@ -1,0 +1,35 @@
+{
+  "schema": "game-room.milestone-reviews.v1",
+  "roomId": "finch-hq-f03-cafe-review-v1",
+  "function": {
+    "status": "approved",
+    "approvedBy": "owner",
+    "approvedAt": "2026-11-06",
+    "evidence": [
+      "https://finch-hq-floor-03-cafe-review-kqdk4s.v2.appdeploy.ai/",
+      "Owner statement, 2026-11-06: Accepted. Add to Finch HQ."
+    ],
+    "strangestElement": "Separated café and meeting room must remain traversable from the real lift",
+    "notes": "Owner accepted the AppDeploy Floor 3 cafe design and explicitly authorized addition to Finch HQ. Form and Runtime remain pending gameplay inspection."
+  },
+  "form": {
+    "status": "pending",
+    "approvedBy": "",
+    "approvedAt": "",
+    "evidence": [
+      "https://finch-hq-floor-03-cafe-review-kqdk4s.v2.appdeploy.ai/"
+    ],
+    "strangestElement": "Mesh construction, Boolean apertures and support contact not audited",
+    "notes": "This 3D AppDeploy geometry is a provisional Function-review model. Do not export or merge."
+  },
+  "runtime": {
+    "status": "pending",
+    "approvedBy": "",
+    "approvedAt": "",
+    "evidence": [
+      "https://finch-hq-floor-03-cafe-review-kqdk4s.v2.appdeploy.ai/"
+    ],
+    "strangestElement": "Not yet loaded into G.T.D; collision and mobile performance unverified",
+    "notes": "This 3D AppDeploy geometry is a provisional Function-review model. Do not export or merge."
+  }
+}

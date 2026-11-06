@@ -1,0 +1,24 @@
+{
+  "schema": "game-room.plan-metadata.v1",
+  "roomId": "finch-hq-f03-cafe-review-v1",
+  "style": "monochrome-engineering",
+  "projectionSource": "actual-meshes",
+  "layers": [
+    "lower-room",
+    "reflected-ceiling"
+  ],
+  "semanticLabelsOutsideImage": true,
+  "aiInspirationIncluded": false,
+  "aiInspirationReason": "",
+  "coverage": [
+    "elevator shaft",
+    "lobby and lift apron",
+    "cafe counter",
+    "dining clusters",
+    "meeting room",
+    "pantry",
+    "true openings",
+    "glazed facade",
+    "ceiling task lights"
+  ]
+}

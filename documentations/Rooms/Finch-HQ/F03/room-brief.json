@@ -1,0 +1,74 @@
+{
+  "schema": "game-room.room-brief.v1",
+  "roomId": "finch-hq-f03-cafe-review-v1",
+  "family": "gameplay-room",
+  "purpose": "Floor 03: public café with dining, a service counter, back pantry, meeting room, and genuine access from the accepted Finch HQ glass elevator.",
+  "runtimeSurface": "AppDeploy 3D Function review; future Babylon.js + Rapier G.T.D integration only after owner acceptance and approved export",
+  "boundsMeters": [
+    22.669,
+    3.35,
+    33.889
+  ],
+  "hero": {
+    "id": "finch-cafe-service-counter",
+    "role": "Café counter with espresso station and legible customer/service sides",
+    "reservedBoundsMeters": [
+      5.4,
+      2,
+      2.7
+    ]
+  },
+  "symmetry": {
+    "mode": "none",
+    "order": 1,
+    "appliesTo": [],
+    "exceptions": [
+      "elevator shaft offset toward south face",
+      "deliberately asymmetric café service and meeting placement"
+    ]
+  },
+  "circulation": {
+    "description": "Actual 5.1m square glass lift shaft reserved; open ~2.55m lift arrival route; meeting-room entrance 2.4m; real pantry entry 2.1m; no false doorways",
+    "minimumClearanceMeters": 1.2
+  },
+  "productionCamera": {
+    "viewport": [
+      1280,
+      800
+    ],
+    "location": [
+      -5.3,
+      2.7,
+      -8
+    ],
+    "target": [
+      0.4,
+      1.3,
+      2.1
+    ],
+    "verticalFovDegrees": 57
+  },
+  "performanceBudget": {
+    "maxSceneTriangles": 100000,
+    "maxVLowBytes": 850000,
+    "maxHighTextureBytes": 8000000
+  },
+  "creditBudget": {
+    "maximumCredits": 0,
+    "approvalRequired": true
+  },
+  "environment": {
+    "type": "none",
+    "identity": "Meridia skyline procedural placeholder",
+    "source": "AppDeploy procedural THREE scene only",
+    "assignmentKey": "finch-hq:f03"
+  },
+  "artifacts": {
+    "floorPlan": "plans/f03-floor-plan-pending.png",
+    "reflectedCeilingPlan": "plans/f03-ceiling-pending.png",
+    "planMetadata": "plan-metadata.json",
+    "wallElevations": [],
+    "visualTarget": "https://finch-hq-floor-03-cafe-review-kqdk4s.v2.appdeploy.ai/",
+    "openingContactSheet": "masks/openings-pending.png"
+  }
+}

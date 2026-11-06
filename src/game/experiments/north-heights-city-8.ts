@@ -495,6 +495,13 @@ export async function createNorthHeightsCity8(
     }else if(liftCollisionDisabled&&!liftTraveling&&walk){
       walk.physics.setPlayerCollisionEnabled(true);liftCollisionDisabled=false;
     }
+    // Rooms exist as lightweight plans; actual Floor 3 furniture, lights and
+    // Rapier props are mounted only when Reese occupies the destination.
+    // Never load furnished floors during elevator transit or driving.
+    finchSuite?.updateInterior(
+      !ridingSedanId&&mode==="walk"&&walk?walk.physics.playerPosition():null,
+      liftTraveling,
+    );
     if(pedestrians){
       pedestrianAccumulator=Math.min(.15,pedestrianAccumulator+dt);
       let pedSteps=0;
