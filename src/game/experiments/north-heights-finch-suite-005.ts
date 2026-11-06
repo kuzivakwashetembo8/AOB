@@ -4,6 +4,7 @@ import {AnimationGroup,Mesh,Scene,SceneLoader,TransformNode,Vector3} from "@baby
 import "@babylonjs/loaders/glTF";
 import {finchProximity005} from "./north-heights-finch-intro-005";
 import {finchShaft004} from "./north-heights-finch-elevator-structure-004";
+import {createFinchRoomTrial022} from "./north-heights-finch-office-trial-022";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
 
@@ -22,11 +23,10 @@ export function createFinchSuite005(scene:Scene,lots:readonly BuildingSpec[],
  if(!shaft)throw Error("POI-005 missing shaft reference");
  const x=lot.position.x,z=lot.position.z;
  const y=ground(x,z)+shaft.topFloorOffset;
- // Owner's Nov 2 direction: leave floor 53 architecturally empty.
- // The generated white slab and Rapier ring come from the building generator;
- // this suite module must NOT create any additional surface, furniture,
- // accent material, collider, or decorative prop.
- // Keep Finch in his already-established meeting area, away from the shaft.
+ // FINCH-ROOM-022: on this isolated evaluation branch only, dress the actual
+ // 53rd floor around the existing Finch position. Keep the white structural
+ // slab, glass elevator, mission trigger and all other floors unchanged.
+ const officeTrial=createFinchRoomTrial022(scene,lot,ground,physics);
  const finchPosition={x:x+2.9,y:y+.93,z:z+8.98};
  let finchRoot:TransformNode|null=null,groups:AnimationGroup[]=[];
  let finchMeshes:Mesh[]=[],loaded=false,requested=false,disposed=false;
@@ -84,6 +84,7 @@ export function createFinchSuite005(scene:Scene,lots:readonly BuildingSpec[],
   getFinchLocation:()=>({...finchPosition}),
   dispose(){
    disposed=true;loaded=false;groups.forEach(g=>g.dispose());idleClip=null;talkingClip=null;
+   officeTrial.dispose();
    finchRoot?.dispose(false,true);
    finchMeshes.forEach(m=>m.dispose());
 
