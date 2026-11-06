@@ -150,15 +150,12 @@ export function createFinchCafeFloor024(
   }
  };
  const createSign=()=>{
-  if(!root||typeof document==="undefined")return;
-  const title="FINCH CAFÉ";
-  canvasTexture=new DynamicTexture("finch024:cafe-sign-text",{
-   width:512,height:128},scene,false);
-  // Babylon's typed DynamicTexture API also supports headless rendering.
-  canvasTexture.drawText(title,null,81,"bold 44px Arial",
-   "#f1d3a6","#1e2a28",true);
+  if(!root)return;
+  // Always mount a valid sign panel, including in headless NullEngine tests.
+  // A canvas-backed label is progressive enhancement: NullEngine may expose
+  // a DOM document without providing a real 2D rendering context.
   const signMat=new StandardMaterial("finch024:sign-type",scene);
-  signMat.diffuseTexture=canvasTexture;
+  signMat.diffuseColor=new Color3(.12,.16,.15);
   signMat.emissiveColor=new Color3(.14,.13,.09);
   lease.push(signMat);
   const label=MeshBuilder.CreatePlane("finch024:cafe-name",
@@ -167,6 +164,19 @@ export function createFinchCafeFloor024(
   label.rotation.y=Math.PI;
   label.material=signMat;
   label.isPickable=false;meshes++;
+  if(typeof document==="undefined")return;
+  const texture=new DynamicTexture("finch024:cafe-sign-text",{
+   width:512,height:128},scene,false);
+  if(!texture.getContext()){
+   // The geometry and all room functions remain valid without text drawing.
+   texture.dispose();
+   return;
+  }
+  texture.drawText("FINCH CAFÉ",null,81,"bold 44px Arial",
+   "#f1d3a6","#1e2a28",true);
+  signMat.diffuseColor=Color3.White();
+  signMat.diffuseTexture=texture;
+  canvasTexture=texture;
  };
  const activate=()=>{
   if(disposed||root)return;
