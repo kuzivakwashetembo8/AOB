@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {Mesh,NullEngine,Scene} from "@babylonjs/core";
+import {FreeCamera,Mesh,NullEngine,Scene,Vector3} from "@babylonjs/core";
 import type {BuildingSpec} from "../game/world-generation/schema";
 import {
  createFinchFloorSurfaces023,FINCH_TILE_VARIANTS_023,finchFloorTileVariant023
@@ -34,7 +34,21 @@ describe("FINCH-FLOORS-023 all-floor tile system",()=>{
   expect(floor.variants).toBe(9);
   expect(floor.surfaces).toBe(209); // 52 upper floors x 4 sections + ground lobby
   expect(skinMeshes.reduce((sum,m)=>sum+(m as Mesh).thinInstanceCount,0)).toBe(209);
+  const direct=scene.meshes.filter(m=>m.name.startsWith("finch023:occupied-floor-"));
+  expect(direct).toHaveLength(4);
   expect(scene.meshes.filter(m=>m.name.startsWith("finch022:floor-skin-"))).toHaveLength(0);
+  // Regression: Floor 3 must have a DIRECT visible tile skin above its
+  // original physical slab, irrespective of distant thin-instance visibility.
+  const supportY=11.27+.8+2*3.1+.07;
+  const camera=new FreeCamera("test:floor3",new Vector3(
+   building.position.x,supportY+2.0,building.position.z+10),scene);
+  camera.computeWorldMatrix(true);
+  scene.activeCamera=camera;
+  scene.onBeforeRenderObservable.notifyObservers(scene);
+  expect(floor.occupiedFloor()).toBe(3);
+  expect(direct.every(m=>m.isEnabled())).toBe(true);
+  const worldY=direct[0]!.getAbsolutePosition().y;
+  expect(worldY).toBeCloseTo(supportY+.035,3);
   floor.dispose();
   expect(scene.meshes.filter(m=>m.name.startsWith("finch023:floor-skin-"))).toHaveLength(0);
   scene.dispose();
