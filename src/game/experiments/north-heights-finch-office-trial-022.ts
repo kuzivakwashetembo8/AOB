@@ -92,12 +92,15 @@ export function createFinchRoomTrial022(
  // A quiet carpet runner visually links the lift to the furnished suite.
  // Two touching rectangles make one continuous L-shaped path without
  // z-fighting. The horizontal arm turns WEST toward the library shelves.
- box("lift-runner",.05,.051,-2.535,1.74,.042,12.63,"runner");
+ // The runner runs past the lift and turns left WITHIN the first bookshelf
+ // bay (z >= 5.75) rather than stopping in the empty approach area.
+ // Horizontal west end is 14cm before the bookcase front, visually attached.
+ box("lift-runner",.05,.051,-1.475,1.74,.042,14.75,"runner");
  for(const rx of [-.81,.81])
-  box("lift-runner-edging",rx,.075,-2.535,.036,.012,12.63,"brass");
- box("library-runner-turn",-2.32,.051,4.64,4.74,.042,1.72,"runner");
- for(const rz of [3.80,5.48])
-  box("library-runner-turn-edging",-2.32,.075,rz,4.74,.012,.032,"brass");
+  box("lift-runner-edging",rx,.075,-1.475,.036,.012,14.75,"brass");
+ box("library-runner-turn",-2.12,.051,6.72,6.08,.042,1.74,"runner");
+ for(const rz of [5.85,7.59])
+  box("library-runner-turn-edging",-2.12,.075,rz,6.08,.012,.032,"brass");
  // Dark area rugs visually anchor furniture, replacing the floating-islands look.
  box("meeting-rug",2.85,.055,7.05,4.85,.042,4.45,"rug");
  box("rug-left-border",.44,.079,7.05,.036,.009,4.48,"rugEdge");
