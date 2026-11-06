@@ -2,7 +2,7 @@
   "schema": "game-room.room-final-report.v1",
   "roomId": "finch-hq-f03-cafe-review-v1",
   "gates": {
-    "function": false,
+    "function": true,
     "form": false,
     "runtime": false
   },
@@ -46,9 +46,9 @@
     "observations": [],
     "corrections": [],
     "remainingRisks": [
-      "Exact Babylon GLB/physics export remains unapproved",
-      "No opening mask or Blender audit yet",
-      "AppDeploy scene is provisional, not game-ready"
+      "Babylon gameplay integration preview pending owner test",
+      "AppDeploy prototype and Babylon reconstruction do not yet share one serialized manifest",
+      "No optimized GLB export or production merge authorized"
     ]
   },
   "proposedLessons": []
