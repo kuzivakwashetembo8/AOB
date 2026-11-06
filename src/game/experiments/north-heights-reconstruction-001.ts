@@ -59,7 +59,7 @@ const palette: Record<string, string> = {
   "trunk": "#675346", "leaf-a": "#3c684f", "leaf-b": "#568462", "leaf-c": "#78946a",
   "door": "#243139", "lamp": "#e7ddb8", "interior": "#151b22", "crosswalk": "#deded8",
   "interior-white": "#ffffff",
-  // Floor-53-only transparent glass; the rest of the tower keeps its original tint.
+  // Finch HQ tower glazing (all 53 floors), distinct from the rest of the district.
   "finch-office-clear": "#c7e3ed",
 };
 const random = (seed: number) => {
@@ -306,11 +306,12 @@ class InstancedCity {
 function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
   height:number,w:number,d:number,mode:Family,accent:number,mobile:boolean,wall:string){
   const isHigh=mode==="glass"||mode==="office";
-  const pane=(isHigh?["glass","glass-mid","glass-dark"]:["glass-warm","glass-dark","glass-mid"])[accent]!;
-  // Split ONLY Finch HQ's 53rd-floor glazing from the otherwise unchanged
-  // full-height sheets. This prevents cumulative tint/reflection over the office
-  // and ensures the top sheet terminates exactly at the facade header.
+  // All 53 levels of Finch HQ use the same clear, non-reflective glazing.
+  // Keep the approved top-floor split so the highest panes stay flush with
+  // the header. Other North Heights buildings keep their existing glass.
   const finchOffice=lot.id==="NH-04-06-L2"&&lot.floors===53;
+  const inheritedPane=(isHigh?["glass","glass-mid","glass-dark"]:["glass-warm","glass-dark","glass-mid"])[accent]!;
+  const pane=finchOffice?"finch-office-clear":inheritedPane;
   const officeGlassStart=height-lot.floorHeight;
   const regularGlassHeight=finchOffice?officeGlassStart:height;
   const frame=isHigh?"mullion":wall;
