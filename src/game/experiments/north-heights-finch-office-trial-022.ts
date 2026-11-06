@@ -24,6 +24,7 @@ export const FINCH_ROOM_TRIAL_022={
 export type FinchRoomTrial022={
  dispose:()=>void;
  getStats:()=>{meshes:number;colliders:number;visible:boolean};
+ setOccupiedFloor:(floor:number|null)=>void;
 };
 
 export function createFinchRoomTrial022(
@@ -279,6 +280,7 @@ export function createFinchRoomTrial022(
  practicals.forEach(light=>light.setEnabled(false));
  return {
   getStats:()=>({meshes:meshCount,colliders:physical.length,visible}),
+  setOccupiedFloor:(floor)=>allFloorTiles.setOccupiedFloor(floor),
   dispose(){
    if(closed)return;
    closed=true;
