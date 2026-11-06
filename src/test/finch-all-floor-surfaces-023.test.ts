@@ -42,9 +42,9 @@ describe("FINCH-FLOORS-023 all-floor tile system",()=>{
   const supportY=11.27+.8+2*3.1+.07;
   const camera=new FreeCamera("test:floor3",new Vector3(
    building.position.x,supportY+2.0,building.position.z+10),scene);
-  camera.computeWorldMatrix(true);
+  camera.computeWorldMatrix();
   scene.activeCamera=camera;
-  scene.onBeforeRenderObservable.notifyObservers();
+  scene.onBeforeRenderObservable.notifyObservers(scene);
   expect(floor.occupiedFloor()).toBe(3);
   expect(direct.every(m=>m.isEnabled())).toBe(true);
   const worldY=direct[0]!.getAbsolutePosition().y;
