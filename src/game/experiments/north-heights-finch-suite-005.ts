@@ -83,7 +83,27 @@ export function createFinchSuite005(scene:Scene,lots:readonly BuildingSpec[],
  };
  return {
   loadFinch,
-  updateInterior(person,traveling){cafeFloor3.update(person,traveling);},
+  updateInterior(person,traveling){
+   // Physical Reese capsule (not the elevated third-person camera) governs
+   // visual floor skins. The lift may still be opening when Reese reaches the
+   // Floor 3 landing, so tiles are visible even before movement is enabled.
+   let occupied:number|null=null;
+   if(person
+     &&Math.abs(person.x-x)<(lot.overrides?.width??22.669)/2-.30
+     &&Math.abs(person.z-z)<(lot.overrides?.depth??33.889)/2-.30){
+    const base=ground(x,z);
+    const playerFeet=person.y-.92;
+    const near=Math.max(1,Math.min(shaft.floors,
+      Math.round((playerFeet-base-.87)/shaft.fh)+1));
+    const support=near===1?base+shaft.bottomFloorOffset
+      :base+shaft.topFloorOffset-(shaft.floors-near)*shaft.fh;
+    // Strict slab proximity rejects a floating/jumping character. Rendering
+    // during a stationary elevator door opening is fine: no furniture loaded.
+    if(Math.abs(playerFeet-support)<.60)occupied=near;
+   }
+   officeTrial.setOccupiedFloor(occupied);
+   cafeFloor3.update(person,traveling);
+  },
   isNearFinch:p=>finchProximity005(p,finchPosition,loaded),
    setTalking(active:boolean){speakingRequested=active;switchFinchClip();},
   getFinchLocation:()=>({...finchPosition}),
