@@ -133,9 +133,9 @@ export function createFinchRoomTrial022(
  // A quiet carpet runner visually links the lift to the furnished suite.
  // Two touching rectangles make one continuous L-shaped path without
  // z-fighting. The horizontal arm turns WEST toward the library shelves.
- box("lift-runner",.05,.051,-1.76,1.74,.042,11.08,"runner");
+ box("lift-runner",.05,.051,-2.535,1.74,.042,12.63,"runner");
  for(const rx of [-.81,.81])
-  box("lift-runner-edging",rx,.075,-1.76,.036,.012,11.08,"brass");
+  box("lift-runner-edging",rx,.075,-2.535,.036,.012,12.63,"brass");
  box("library-runner-turn",-2.32,.051,4.64,4.74,.042,1.72,"runner");
  for(const rz of [3.80,5.48])
   box("library-runner-turn-edging",-2.32,.075,rz,4.74,.012,.032,"brass");
@@ -284,7 +284,7 @@ export function createFinchRoomTrial022(
   cylinder("pendant-stem",wireX,2.93,wireZ,.018,.5,"metal");
  cylinder("ceiling-rose",2.85,3.02,6.28,.28,.045,"brass");
  // Library wall light is physically mounted into the authored timber panel.
- box("wall-sconce-west",-5.76,2.41,5.9,.12,.17,.42,"warm");
+ box("wall-sconce-west",-5.88,2.41,5.9,.12,.17,.42,"warm");
  // The previous right sconce was free-floating, not attached to a wall.
  // Replace it with the floor lamp from the original proof-of-concept demo.
  cylinder("lounge-floor-lamp-foot",8.75,.10,8.08,.30,.12,"black");
