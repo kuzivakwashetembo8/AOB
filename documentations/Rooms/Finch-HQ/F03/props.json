@@ -1,0 +1,239 @@
+{
+  "schema": "game-room.prop-manifest.v1",
+  "roomId": "finch-hq-f03-cafe-review-v1",
+  "generation": {
+    "provider": "meshy",
+    "apiModel": "meshy-5",
+    "pricingSource": "https://docs.meshy.ai/en/api/pricing",
+    "pricingVerifiedAt": "",
+    "creditsPerTexturedTask": 15,
+    "hardCreditCeiling": 0,
+    "maxChargedAttemptsPerAsset": 2
+  },
+  "assets": [
+    {
+      "id": "cafe-counter",
+      "function": "Customer service and espresso serving",
+      "class": "hero",
+      "description": "straight timber and stone cafe counter with espresso zone",
+      "dimensionsMeters": [
+        4.75,
+        1.3,
+        1.12
+      ],
+      "attachmentFace": "floor",
+      "semanticFront": "negative-z",
+      "intendedInstances": 1,
+      "image": {
+        "prompt": "Isolated orthographic mesh-ready straight timber and stone cafe counter with espresso zone, full silhouette, neutral background and visible attachment face",
+        "generator": "pending",
+        "model": "",
+        "source": "pending owner approved concept references",
+        "approved": false,
+        "approvedBy": ""
+      },
+      "targetPolycount": 2500,
+      "texturePrompt": "Muted wood, brushed metal, warm neutral fabric, reusable texture atlas",
+      "rejectionCriteria": [
+        "unsupported or floating geometry",
+        "wrong scale or orientation",
+        "mesh exceeds target budget",
+        "no clear support face"
+      ],
+      "attempts": [],
+      "acceptedMesh": null
+    },
+    {
+      "id": "cafe-table",
+      "function": "Four-seat dining cluster",
+      "class": "reusable",
+      "description": "round marble café table with metal pedestal",
+      "dimensionsMeters": [
+        1.2,
+        0.77,
+        1.2
+      ],
+      "attachmentFace": "floor",
+      "semanticFront": "positive-y",
+      "intendedInstances": 6,
+      "image": {
+        "prompt": "Isolated orthographic mesh-ready round marble café table with metal pedestal, full silhouette, neutral background and visible attachment face",
+        "generator": "pending",
+        "model": "",
+        "source": "pending owner approved concept references",
+        "approved": false,
+        "approvedBy": ""
+      },
+      "targetPolycount": 700,
+      "texturePrompt": "Muted wood, brushed metal, warm neutral fabric, reusable texture atlas",
+      "rejectionCriteria": [
+        "unsupported or floating geometry",
+        "wrong scale or orientation",
+        "mesh exceeds target budget",
+        "no clear support face"
+      ],
+      "attempts": [],
+      "acceptedMesh": null
+    },
+    {
+      "id": "cafe-chair",
+      "function": "Seating",
+      "class": "reusable",
+      "description": "upholstered dining chair with freestanding metal legs",
+      "dimensionsMeters": [
+        0.6,
+        1.15,
+        0.68
+      ],
+      "attachmentFace": "floor",
+      "semanticFront": "positive-z",
+      "intendedInstances": 24,
+      "image": {
+        "prompt": "Isolated orthographic mesh-ready upholstered dining chair with freestanding metal legs, full silhouette, neutral background and visible attachment face",
+        "generator": "pending",
+        "model": "",
+        "source": "pending owner approved concept references",
+        "approved": false,
+        "approvedBy": ""
+      },
+      "targetPolycount": 800,
+      "texturePrompt": "Muted wood, brushed metal, warm neutral fabric, reusable texture atlas",
+      "rejectionCriteria": [
+        "unsupported or floating geometry",
+        "wrong scale or orientation",
+        "mesh exceeds target budget",
+        "no clear support face"
+      ],
+      "attempts": [],
+      "acceptedMesh": null
+    },
+    {
+      "id": "meeting-table",
+      "function": "Conference seating focus",
+      "class": "reusable",
+      "description": "compact walnut meeting table",
+      "dimensionsMeters": [
+        2.1,
+        0.75,
+        1.16
+      ],
+      "attachmentFace": "floor",
+      "semanticFront": "positive-y",
+      "intendedInstances": 1,
+      "image": {
+        "prompt": "Isolated orthographic mesh-ready compact walnut meeting table, full silhouette, neutral background and visible attachment face",
+        "generator": "pending",
+        "model": "",
+        "source": "pending owner approved concept references",
+        "approved": false,
+        "approvedBy": ""
+      },
+      "targetPolycount": 1100,
+      "texturePrompt": "Muted wood, brushed metal, warm neutral fabric, reusable texture atlas",
+      "rejectionCriteria": [
+        "unsupported or floating geometry",
+        "wrong scale or orientation",
+        "mesh exceeds target budget",
+        "no clear support face"
+      ],
+      "attempts": [],
+      "acceptedMesh": null
+    },
+    {
+      "id": "meeting-chair",
+      "function": "Meeting seating",
+      "class": "reusable",
+      "description": "small upholstered armchair with wooden legs",
+      "dimensionsMeters": [
+        0.85,
+        1,
+        0.75
+      ],
+      "attachmentFace": "floor",
+      "semanticFront": "positive-z",
+      "intendedInstances": 2,
+      "image": {
+        "prompt": "Isolated orthographic mesh-ready small upholstered armchair with wooden legs, full silhouette, neutral background and visible attachment face",
+        "generator": "pending",
+        "model": "",
+        "source": "pending owner approved concept references",
+        "approved": false,
+        "approvedBy": ""
+      },
+      "targetPolycount": 1100,
+      "texturePrompt": "Muted wood, brushed metal, warm neutral fabric, reusable texture atlas",
+      "rejectionCriteria": [
+        "unsupported or floating geometry",
+        "wrong scale or orientation",
+        "mesh exceeds target budget",
+        "no clear support face"
+      ],
+      "attempts": [],
+      "acceptedMesh": null
+    },
+    {
+      "id": "prep-counter",
+      "function": "Food preparation surface",
+      "class": "reusable",
+      "description": "stone-topped sink and preparation bench",
+      "dimensionsMeters": [
+        2.35,
+        1,
+        0.84
+      ],
+      "attachmentFace": "floor",
+      "semanticFront": "positive-z",
+      "intendedInstances": 1,
+      "image": {
+        "prompt": "Isolated orthographic mesh-ready stone-topped sink and preparation bench, full silhouette, neutral background and visible attachment face",
+        "generator": "pending",
+        "model": "",
+        "source": "pending owner approved concept references",
+        "approved": false,
+        "approvedBy": ""
+      },
+      "targetPolycount": 1200,
+      "texturePrompt": "Muted wood, brushed metal, warm neutral fabric, reusable texture atlas",
+      "rejectionCriteria": [
+        "unsupported or floating geometry",
+        "wrong scale or orientation",
+        "mesh exceeds target budget",
+        "no clear support face"
+      ],
+      "attempts": [],
+      "acceptedMesh": null
+    },
+    {
+      "id": "pendant-light",
+      "function": "Warm task lighting",
+      "class": "reusable",
+      "description": "brass suspended ceiling lamp with visible stem",
+      "dimensionsMeters": [
+        0.7,
+        0.7,
+        0.7
+      ],
+      "attachmentFace": "ceiling",
+      "semanticFront": "negative-y",
+      "intendedInstances": 7,
+      "image": {
+        "prompt": "Isolated orthographic mesh-ready brass suspended ceiling lamp with visible stem, full silhouette, neutral background and visible attachment face",
+        "generator": "pending",
+        "model": "",
+        "source": "pending owner approved concept references",
+        "approved": false,
+        "approvedBy": ""
+      },
+      "targetPolycount": 800,
+      "texturePrompt": "Muted wood, brushed metal, warm neutral fabric, reusable texture atlas",
+      "rejectionCriteria": [
+        "unsupported or floating geometry",
+        "wrong scale or orientation",
+        "mesh exceeds target budget",
+        "no clear support face"
+      ],
+      "attempts": [],
+      "acceptedMesh": null
+    }
+  ]
+}
