@@ -4,7 +4,7 @@
  * Exclude from main until owner tests the preview and authorizes a merge.
  */
 import {
-  Color3,MeshBuilder,PointLight,Scene,StandardMaterial,TransformNode,
+  Color3,MeshBuilder,PointLight,Scene,StandardMaterial,TransformNode,Vector3,
 } from "@babylonjs/core";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
@@ -181,7 +181,7 @@ export function createFinchRoomTrial022(
  }
  collision(7.55,.38,9.45,1.57,.76,.78);
  // Two indoor plants; stems and leaves are ornaments, not physical blockers.
- for(const [px,pz] of [[8.8,13.7],[-4.9,13.7]]){
+ for(const [px,pz] of ([[8.8,13.7],[-4.9,13.7]] as const)){
   cylinder("planter",px,.29,pz,.45,.56,"pot");
   cylinder("pot-soil",px,.58,pz,.40,.04,"walnut");
   cylinder("plant-stem",px,1.03,pz,.05,.96,"green");
@@ -196,8 +196,9 @@ export function createFinchRoomTrial022(
  const practicals:PointLight[]=[];
  for(const [cx,cz,power] of [[2.8,12.55,.85],[-6.9,9.4,.55],[7.7,9.3,.58]] as const){
   const bulb=new PointLight("finch022:practical-"+cz,
-   new Color3(1,.77,.50),scene);
-  bulb.parent=root;bulb.position.set(cx,2.65,cz);
+   new Vector3(cx,2.65,cz),scene);
+  bulb.diffuse=new Color3(1,.77,.50);
+  bulb.parent=root;
   bulb.intensity=power;bulb.range=8.5;practicals.push(bulb);
  }
  const observer=scene.onBeforeRenderObservable.add(()=>{
