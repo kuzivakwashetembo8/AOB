@@ -37,13 +37,20 @@ describe("FINCH-ROOM-022 pilot polishing",()=>{
   expect(visitorWest.position.z).toBeLessThan(desk.position.z);
   expect(visitorEast.position.z).toBeCloseTo(visitorWest.position.z,4);
   expect(visitorEast.position.x-visitorWest.position.x).toBeCloseTo(1.7,4);
-  // Lift-to-library L: first leg ends at the same Z as the west-facing arm.
+  // Continuous lift-to-library L: overlap at the bend and terminate
+  // within the first bookcase bay at the actual shelf front (not empty wall).
   const mainRunner=find("lift-runner");
   const westRunner=find("library-runner-turn");
-  expect(mainRunner.position.z+12.63/2)
-   .toBeCloseTo(westRunner.position.z-1.72/2,4);
+  expect(mainRunner.position.z+14.75/2)
+   .toBeGreaterThanOrEqual(westRunner.position.z-1.74/2);
   expect(westRunner.position.x).toBeLessThan(mainRunner.position.x);
-  expect(mainRunner.position.z-12.63/2).toBeLessThan(-8.8);
+  expect(mainRunner.position.z-14.75/2).toBeLessThan(-8.8);
+  const nearShelf=find("bookshelf-back");
+  const westEdge=westRunner.position.x-6.08/2;
+  const shelfFace=nearShelf.position.x+.22;
+  expect(Math.abs(westEdge-shelfFace)).toBeLessThan(.30);
+  // The turn reaches the first bookshelf span starting z~5.75.
+  expect(westRunner.position.z).toBeGreaterThan(6.0);
   expect(find("pendant-ring").position.y).toBeGreaterThan(2.5);
   expect(find("lounge-floor-lamp-shade").position.y).toBeGreaterThan(1.8);
   expect(find("wall-sconce-west").position.x).toBeLessThan(-5.8);
