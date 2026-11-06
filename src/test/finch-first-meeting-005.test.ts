@@ -60,7 +60,10 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   const decor=scene.meshes.filter(m=>m.name.startsWith("finch022:"));
   expect(decor.length).toBeGreaterThan(100);
   expect(scene.materials.some(m=>m.name==="finch022:walnut")).toBe(true);
-  expect(count).toBe(4);
+  expect(count).toBe(5);
+  expect(scene.meshes.filter(m=>m.name.startsWith("finch022:floor-skin-"))).toHaveLength(4);
+  expect(scene.meshes.some(m=>m.name==="finch022:pendant-ring")).toBe(true);
+  expect(scene.meshes.some(m=>m.name==="finch022:library-architectural-panel")).toBe(true);
   expect(suite.isNearFinch(suite.getFinchLocation())).toBe(false);
   expect(suite.getFinchLocation().y).toBeGreaterThan(160);
   expect(suite.getFinchLocation().x).toBeCloseTo(building.position.x+2.9,4);
