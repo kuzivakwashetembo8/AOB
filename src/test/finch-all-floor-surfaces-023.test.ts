@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {NullEngine,Scene} from "@babylonjs/core";
+import {Mesh,NullEngine,Scene} from "@babylonjs/core";
 import type {BuildingSpec} from "../game/world-generation/schema";
 import {
  createFinchFloorSurfaces023,FINCH_TILE_VARIANTS_023,finchFloorTileVariant023
@@ -33,7 +33,7 @@ describe("FINCH-FLOORS-023 all-floor tile system",()=>{
   expect(floor.floorCount).toBe(53);
   expect(floor.variants).toBe(9);
   expect(floor.surfaces).toBe(209); // 52 upper floors x 4 sections + ground lobby
-  expect(skinMeshes.reduce((sum,m)=>sum+m.thinInstanceCount,0)).toBe(209);
+  expect(skinMeshes.reduce((sum,m)=>sum+(m as Mesh).thinInstanceCount,0)).toBe(209);
   expect(scene.meshes.filter(m=>m.name.startsWith("finch022:floor-skin-"))).toHaveLength(0);
   floor.dispose();
   expect(scene.meshes.filter(m=>m.name.startsWith("finch023:floor-skin-"))).toHaveLength(0);
