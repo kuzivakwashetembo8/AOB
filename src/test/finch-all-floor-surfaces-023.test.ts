@@ -40,15 +40,26 @@ describe("FINCH-FLOORS-023 all-floor tile system",()=>{
   // Regression: Floor 3 must have a DIRECT visible tile skin above its
   // original physical slab, irrespective of distant thin-instance visibility.
   const supportY=11.27+.8+2*3.1+.07;
+  // Lower room camera can be as low as slab + .42m. The old camera-based
+  // floor heuristic misclassified this Floor 3 viewpoint as Floor 2.
   const camera=new FreeCamera("test:floor3",new Vector3(
-   building.position.x,supportY+2.0,building.position.z+10),scene);
+   building.position.x,supportY+.42,building.position.z+10),scene);
   camera.computeWorldMatrix();
   scene.activeCamera=camera;
+  floor.setOccupiedFloor(3);
   scene.onBeforeRenderObservable.notifyObservers(scene);
   expect(floor.occupiedFloor()).toBe(3);
   expect(direct.every(m=>m.isEnabled())).toBe(true);
+  direct[0]!.computeWorldMatrix(true);
   const worldY=direct[0]!.getAbsolutePosition().y;
   expect(worldY).toBeCloseTo(supportY+.035,3);
+  floor.setOccupiedFloor(null);
+  expect(floor.occupiedFloor()).toBeNull();
+  expect(direct.every(m=>!m.isEnabled())).toBe(true);
+  floor.setOccupiedFloor(53);
+  expect(floor.occupiedFloor()).toBe(53);
+  expect(direct[0]!.isEnabled()).toBe(true);
+  expect(()=>floor.setOccupiedFloor(54)).toThrow();
   floor.dispose();
   expect(scene.meshes.filter(m=>m.name.startsWith("finch023:floor-skin-"))).toHaveLength(0);
   scene.dispose();
