@@ -59,6 +59,8 @@ const palette: Record<string, string> = {
   "trunk": "#675346", "leaf-a": "#3c684f", "leaf-b": "#568462", "leaf-c": "#78946a",
   "door": "#243139", "lamp": "#e7ddb8", "interior": "#151b22", "crosswalk": "#deded8",
   "interior-white": "#ffffff",
+  // Floor-53-only transparent glass; the rest of the tower keeps its original tint.
+  "finch-office-clear": "#c7e3ed",
 };
 const random = (seed: number) => {
   let value = seed >>> 0;
@@ -137,6 +139,15 @@ function paint(scene: Scene, name: string, hex: string) {
   mat.specularColor = name.includes("glass") ? new Color3(0.33,0.37,0.39) : new Color3(0.07,0.08,0.08);
   mat.specularPower = name.includes("glass") ? 85 : 22;
   if (name === "glass-lit" || name === "lamp") mat.emissiveColor = mat.diffuseColor.scale(0.2);
+  if (name === "finch-office-clear") {
+    // Unlike reflective city glazing, this one office-level sheet shows the
+    // real exterior. Depth writes are off so skyline meshes remain visible.
+    mat.alpha=.12;
+    mat.transparencyMode=Material.MATERIAL_ALPHABLEND;
+    mat.disableDepthWrite=true;
+    mat.specularColor=new Color3(.04,.06,.07);
+    mat.specularPower=22;
+  }
   if (name === "glass" || name === "glass-mid" || name === "glass-dark" || name === "glass-warm") {
     mat.alpha = 0.74;
     mat.transparencyMode = Material.MATERIAL_ALPHABLEND;
@@ -296,6 +307,12 @@ function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
   height:number,w:number,d:number,mode:Family,accent:number,mobile:boolean,wall:string){
   const isHigh=mode==="glass"||mode==="office";
   const pane=(isHigh?["glass","glass-mid","glass-dark"]:["glass-warm","glass-dark","glass-mid"])[accent]!;
+  // Split ONLY Finch HQ's 53rd-floor glazing from the otherwise unchanged
+  // full-height sheets. This prevents cumulative tint/reflection over the office
+  // and ensures the top sheet terminates exactly at the facade header.
+  const finchOffice=lot.id==="NH-04-06-L2"&&lot.floors===53;
+  const officeGlassStart=height-lot.floorHeight;
+  const regularGlassHeight=finchOffice?officeGlassStart:height;
   const frame=isHigh?"mullion":wall;
   const floors=Math.max(2,lot.floors);
   const sill=isHigh?.38:.62;
@@ -311,18 +328,27 @@ function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
     const entranceFace=side==="z"&&sign===1;
     const openingWidth=Math.min(NORTH_HEIGHTS_PORTAL_WIDTH_010,w*.45);
     if(entranceFace){
-      // GLASS MAIN PRESERVED: identical pane material, only remove the real
-      // physical window surface from the doorway rectangle at ground level.
+      // Preserve the real ground-floor entrance, splitting only the upper
+      // Finch level off so it can be genuinely transparent.
       const panelSpan=(length-.5-openingWidth)/2;
       for(const direction of [-1,1])
-        city.box(pane,x+direction*(openingWidth/2+panelSpan/2),base+height/2,zg,
-          panelSpan,height-.50,.055);
-      if(height>NORTH_HEIGHTS_PORTAL_HEIGHT_010+.6)
+        city.box(pane,x+direction*(openingWidth/2+panelSpan/2),
+          base+regularGlassHeight/2,zg,panelSpan,regularGlassHeight-.24,.055);
+      if(regularGlassHeight>NORTH_HEIGHTS_PORTAL_HEIGHT_010+.6)
         city.box(pane,x,base+NORTH_HEIGHTS_PORTAL_HEIGHT_010+
-          (height-.50-NORTH_HEIGHTS_PORTAL_HEIGHT_010)/2,zg,
-          openingWidth,height-.50-NORTH_HEIGHTS_PORTAL_HEIGHT_010,.055);
-    }else city.box(pane,xg,base+height/2,zg,
-      side==="z"?length-.5:.055,height-.50,side==="z"?.055:length-.5);
+          (regularGlassHeight-.24-NORTH_HEIGHTS_PORTAL_HEIGHT_010)/2,zg,
+          openingWidth,regularGlassHeight-.24-NORTH_HEIGHTS_PORTAL_HEIGHT_010,.055);
+    }else city.box(pane,xg,base+regularGlassHeight/2,zg,
+      side==="z"?length-.5:.055,regularGlassHeight-.24,
+      side==="z"?.055:length-.5);
+    if(finchOffice){
+      // Continuous top sheet: flush with the upper facade perimeter. The
+      // horizontal mullion masks its lower seam at the Floor-53 boundary.
+      city.box("finch-office-clear",xg,
+        base+officeGlassStart+lot.floorHeight/2,zg,
+        side==="z"?length-.5:.055,lot.floorHeight,
+        side==="z"?.055:length-.5);
+    }
     const xf=(at:number)=>side==="z"?x+at:x+sign*(w/2+.06);
     const zf=(at:number)=>side==="z"?z+sign*(d/2+.06):z+at;
     // Vertical piers (true facade solids) terminate at each window edge.
@@ -347,7 +373,8 @@ function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
     }
     // Continuous physical sills/spandrels with apertures between; horizontal
     // grid level remains 1:1-ish with 3.35/3.10m storey heights.
-    const stride=mobile&&floors>20?2:1;
+    // Finch's 53rd-floor top header must never be skipped by mobile stride=2.
+    const stride=finchOffice?1:mobile&&floors>20?2:1;
     for(let floor=0;floor<=floors;floor+=stride){
       const y=base+Math.min(floor,floors)*lot.floorHeight+.13;
       if(y>base+height+.2)break;
