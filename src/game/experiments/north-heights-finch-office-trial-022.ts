@@ -116,8 +116,8 @@ export function createFinchRoomTrial022(
   const uv=groundMesh.getVerticesData(VertexBuffer.UVKind);
   if(uv){
    for(let k=0;k<uv.length;k+=2){
-    uv[k]!*=(part.width/.76);
-    uv[k+1]!*=(part.depth/.76);
+    uv[k]=(uv[k]??0)*(part.width/.76);
+    uv[k+1]=(uv[k+1]??0)*(part.depth/.76);
    }
    groundMesh.setVerticesData(VertexBuffer.UVKind,uv);
   }
