@@ -154,12 +154,9 @@ export function createFinchCafeFloor024(
   const title="FINCH CAFÉ";
   canvasTexture=new DynamicTexture("finch024:cafe-sign-text",{
    width:512,height:128},scene,false);
-  const context=canvasTexture.getContext();
-  context.fillStyle="#1e2a28";context.fillRect(0,0,512,128);
-  context.fillStyle="#f1d3a6";
-  context.font="bold 44px Arial";context.textAlign="center";
-  context.fillText(title,256,81);
-  canvasTexture.update();
+  // Babylon's typed DynamicTexture API also supports headless rendering.
+  canvasTexture.drawText(title,null,81,"bold 44px Arial",
+   "#f1d3a6","#1e2a28",true);
   const signMat=new StandardMaterial("finch024:sign-type",scene);
   signMat.diffuseTexture=canvasTexture;
   signMat.emissiveColor=new Color3(.14,.13,.09);
