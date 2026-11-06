@@ -449,7 +449,13 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
     const pierY=pierBase+pierHeight/2;
     for(const sx of [-1,1])for(const sz of [-1,1])
       city.box("stone-c",x+sx*(w/2+.7),pierY,z+sz*(d/2+.7),1.1,pierHeight,1.1);
-    if(shaft){
+    if(shaft?.finch){
+      // Finch HQ already has a structural Floor 3 ring: its slab top is
+      // y + .8 + 2*3.1 + .07 = y + 7.07m.
+      // The legacy podium cap, centred at y + 7.3m with .55m thickness,
+      // reached y + 7.575m, obscuring tiles and clipping character feet.
+      // Omit this visual-only overlap; preserve the real floor and shaft.
+    }else if(shaft){
       for(const part of finchFloorRing004(x,z,w+2.4,d+2.4,shaft))
         city.box("stone-c",part.x,y+podiumH+.9,part.z,part.width,.55,part.depth);
     }else city.box("stone-c",x,y+podiumH+.9,z,w+2.4,.55,d+2.4);
