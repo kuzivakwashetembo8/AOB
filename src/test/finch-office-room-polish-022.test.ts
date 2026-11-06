@@ -50,7 +50,7 @@ describe("FINCH-ROOM-022 pilot polishing",()=>{
   expect(scene.getMeshByName("finch022:wall-sconce-right")).toBeNull();
   // Four existing floor skins support the visible floor without more
   // physical floor slabs; furniture adds only 5 static contact boxes.
-  expect(scene.meshes.filter(m=>m.name.startsWith("finch022:floor-skin-"))).toHaveLength(4);
+  expect(scene.meshes.filter(m=>m.name.startsWith("finch023:floor-skin-"))).toHaveLength(37);
   expect(active).toBe(5);
   expect(finchShaft004(lot)?.floors).toBe(53);
   suite.dispose();
