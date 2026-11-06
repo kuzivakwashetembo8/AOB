@@ -131,18 +131,23 @@ export function createFinchRoomTrial022(
  };
  // The transparent elevator landing remains open and walkable.
  // A quiet carpet runner visually links the lift to the furnished suite.
- box("lift-runner",.05,.051,-1.3,1.74,.042,12.0,"runner");
+ // Two touching rectangles make one continuous L-shaped path without
+ // z-fighting. The horizontal arm turns WEST toward the library shelves.
+ box("lift-runner",.05,.051,-1.76,1.74,.042,11.08,"runner");
  for(const rx of [-.81,.81])
-  box("lift-runner-edging",rx,.075,-1.3,.036,.012,12.0,"brass");
+  box("lift-runner-edging",rx,.075,-1.76,.036,.012,11.08,"brass");
+ box("library-runner-turn",-2.32,.051,4.64,4.74,.042,1.72,"runner");
+ for(const rz of [3.80,5.48])
+  box("library-runner-turn-edging",-2.32,.075,rz,4.74,.012,.032,"brass");
  // Dark area rugs visually anchor furniture, replacing the floating-islands look.
- box("meeting-rug",2.7,.055,10.20,5.0,.042,4.65,"rug");
- box("rug-left-border",.23,.079,10.20,.036,.009,4.69,"rugEdge");
- box("rug-right-border",5.17,.079,10.20,.036,.009,4.69,"rugEdge");
+ box("meeting-rug",2.85,.055,7.05,4.85,.042,4.45,"rug");
+ box("rug-left-border",.44,.079,7.05,.036,.009,4.48,"rugEdge");
+ box("rug-right-border",5.26,.079,7.05,.036,.009,4.48,"rugEdge");
  box("lounge-rug",7.05,.055,9.3,3.5,.042,3.25,"rug");
- // A tighter editorial layout around the immovable Finch mission anchor:
- // desk is 1.7 m closer, leaving ample standing room at Finch's original
- // x+2.9,z+8.98 (the mission trigger remains unchanged).
- const deskOffsetZ=-1.70;
+ // Orient the desk toward the entrance (negative Z) so the existing Finch
+ // mission anchor at x+2.9,z+8.98 is BEHIND the desk, not in the visitor
+ // area. The player still walks to Finch; his trigger is not repositioned.
+ const deskOffsetZ=-5.70;
  const deskBox=(name:string,x:number,y:number,z:number,w:number,h:number,d:number,color:string)=>
   box(name,x,y,z+deskOffsetZ,w,h,d,color);
  deskBox("executive-desk-top",2.85,.81,13.15,3.0,.12,1.25,"timber");
@@ -153,7 +158,7 @@ export function createFinchRoomTrial022(
  }
  for(const z of [12.8,13.15,13.5])
   deskBox("executive-desk-handle",1.45,.52,z,.016,.022,.20,"brass");
- collision(2.85,.43,11.45,3.02,.86,1.3);
+ collision(2.85,.43,7.45,3.02,.86,1.3);
  const chair=(id:string,x:number,z:number,boss=false,turn=false)=>{
   const w=boss?.79:.66;
   box(id+"-seat",x,.55,z,w,.16,.61,"leather");
@@ -166,23 +171,24 @@ export function createFinchRoomTrial022(
   cylinder(id+"-stem",x,.28,z,.075,.41,"metal");
   box(id+"-base",x,.085,z,.55,.06,.09,"metal");
  };
- chair("finch-desk-chair",2.85,12.53,true,true);
- // The two visitors sit to the sides of the clear route to Finch.
- chair("visitor-west",.65,9.25,false,false);
- chair("visitor-east",5.1,9.25,false,false);
+ // Finch stays at the fixed mission anchor; the chair is offset to avoid
+ // clipping his standing mesh. Visitor seats form a balanced pair.
+ chair("finch-desk-chair",4.35,9.15,true,true);
+ chair("visitor-west",2.0,5.52,false,false);
+ chair("visitor-east",3.7,5.52,false,false);
  // Desktop apparatus: computers, keyboard, dossiers and task lamp.
  for(const dx of [-.48,.26]){
   deskBox("monitor-frame",2.85+dx,1.26,13.63,.59,.39,.065,"black");
-  deskBox("monitor-screen",2.85+dx,1.27,13.585,.51,.31,.012,"screen");
+  deskBox("monitor-screen",2.85+dx,1.27,13.682,.51,.31,.012,"screen");
   for(const dy of [1.19,1.27,1.34])
-   deskBox("monitor-code",2.85+dx,dy,13.573,.37,.012,.006,"screenLine");
+   deskBox("monitor-code",2.85+dx,dy,13.695,.37,.012,.006,"screenLine");
   deskBox("monitor-neck",2.85+dx,1.008,13.65,.034,.23,.038,"metal");
   deskBox("monitor-foot",2.85+dx,.884,13.65,.28,.019,.17,"metal");
  }
- deskBox("keyboard",2.65,.885,12.94,.52,.035,.19,"black");
- deskBox("paper-stack",3.93,.89,12.85,.34,.045,.25,"paper");
- cylinder("lamp-base",4.05,.9,11.85,.16,.07,"brass");
- cylinder("lamp-upright",4.05,1.14,11.85,.044,.43,"brass");
+ deskBox("keyboard",2.65,.885,13.43,.52,.035,.19,"black");
+ deskBox("paper-stack",3.93,.89,13.28,.34,.045,.25,"paper");
+ cylinder("lamp-base",4.05,.9,7.85,.16,.07,"brass");
+ cylinder("lamp-upright",4.05,1.14,7.85,.044,.43,"brass");
  deskBox("lamp-shade",3.95,1.37,13.52,.34,.08,.23,"warm");
  // Build a coherent western wall: library rather than isolated bookcases.
  // The panel provides architectural enclosure without blocking the elevator
@@ -266,20 +272,29 @@ export function createFinchRoomTrial022(
   box("ceiling-coffer-north-south",cx,3.02,10.13,.16,.09,9.3,"walnut");
   box("ceiling-cove-warm",cx,2.965,10.13,.024,.022,9.12,"warm");
  }
+ // Suspend a visible luminous ring over the two visitor chairs, as in the
+ // 3D template. Torus lies horizontally in Babylon's XZ plane by default.
  const pendant=MeshBuilder.CreateTorus("finch022:pendant-ring",{
-  diameter:1.75,thickness:.045,tessellation:48
+  diameter:1.8,thickness:.065,tessellation:48
  },scene);
  pendant.material=material("warm");
- pendant.parent=root;pendant.position.set(2.45,2.88,9.7);
+ pendant.parent=root;pendant.position.set(2.85,2.68,6.28);
  pendant.isPickable=false;pendant.checkCollisions=false;meshCount++;
- for(const [wireX,wireZ] of [[1.63,9.7],[3.27,9.7],[2.45,10.5]] as const)
-  cylinder("pendant-stem",wireX,3.015,wireZ,.018,.27,"metal");
- box("wall-sconce-west",-5.73,2.41,5.9,.12,.17,.42,"warm");
- box("wall-sconce-right",8.68,2.40,13.7,.10,.15,.44,"warm");
+ for(const [wireX,wireZ] of [[2.01,6.28],[3.69,6.28],[2.85,7.10]] as const)
+  cylinder("pendant-stem",wireX,2.93,wireZ,.018,.5,"metal");
+ cylinder("ceiling-rose",2.85,3.02,6.28,.28,.045,"brass");
+ // Library wall light is physically mounted into the authored timber panel.
+ box("wall-sconce-west",-5.76,2.41,5.9,.12,.17,.42,"warm");
+ // The previous right sconce was free-floating, not attached to a wall.
+ // Replace it with the floor lamp from the original proof-of-concept demo.
+ cylinder("lounge-floor-lamp-foot",8.75,.10,8.08,.30,.12,"black");
+ cylinder("lounge-floor-lamp-pole",8.75,1.03,8.08,.042,1.82,"brass");
+ cylinder("lounge-floor-lamp-shade",8.75,2.03,8.08,.53,.39,"cream");
+ cylinder("lounge-floor-lamp-glow",8.75,1.82,8.08,.37,.055,"warm");
  // Low-overhead practical lighting; only enabled if camera is on Floor 53.
  const practicals:PointLight[]=[];
  for(const [cx,cz,power] of [
-  [2.85,10.92,1.7],[-4.45,9.6,1.35],[7.15,9.3,1.3],[2.45,9.7,1.65]
+  [2.85,7.75,1.45],[-5.18,8.85,1.10],[8.75,8.08,1.35],[2.85,6.28,1.85]
  ] as const){
   const bulb=new PointLight("finch022:practical-"+cz,
    new Vector3(cx,2.65,cz),scene);
