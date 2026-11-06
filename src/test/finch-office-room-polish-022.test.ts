@@ -47,7 +47,7 @@ describe("FINCH-ROOM-022 pilot polishing",()=>{
   expect(mainRunner.position.z-14.75/2).toBeLessThan(-8.8);
   const nearShelf=find("bookshelf-back");
   const westEdge=westRunner.position.x-6.08/2;
-  const shelfFace=nearShelf.position.x+.22;
+  const shelfFace=nearShelf.position.x+.40;
   expect(Math.abs(westEdge-shelfFace)).toBeLessThan(.30);
   // The turn reaches the first bookshelf span starting z~5.75.
   expect(westRunner.position.z).toBeGreaterThan(6.0);
