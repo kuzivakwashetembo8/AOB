@@ -15,7 +15,7 @@ export type RoomComponentRule024=Readonly<{
  id:string;zoneId:string;kind:RoomComponentKind024;
  // Curated anchors for accepted landmarks; grids for repetitive furnishings.
  layout:"anchors"|"grid";
- anchors?:readonly Readonly<{x:number;z:number;yaw?:number}>[];
+ anchors?:readonly Readonly<{x:number;z:number;yaw?:number;elevation?:number}>[];
  count?:number;columns?:number;
  width?:number;depth?:number;height?:number;
 }>;
@@ -38,7 +38,6 @@ export type OrganizedRoomFloor024=Readonly<{
  placements:readonly RoomComponentRequest024[];
 }>;
 
-const near=(a:number,b:number)=>Math.abs(a-b)<.0001;
 export function organizeRoomFloor024(spec:RoomFloorRequest024):OrganizedRoomFloor024{
  if(!spec.id||!spec.buildingId||!Number.isInteger(spec.floor)
   ||spec.floor<1||spec.width<=0||spec.depth<=0)
@@ -57,7 +56,7 @@ export function organizeRoomFloor024(spec:RoomFloorRequest024):OrganizedRoomFloo
  for(const recipe of spec.rules){
   const zone=zoneMap.get(recipe.zoneId);
   if(!zone)throw new Error("Unknown component zone: "+recipe.zoneId);
-  const anchors:readonly {x:number;z:number;yaw?:number}[]=
+  const anchors:readonly {x:number;z:number;yaw?:number;elevation?:number}[]=
    recipe.layout==="anchors"
     ?(recipe.anchors??[])
     :gridAnchors024(zone,recipe.count??0,recipe.columns??1);
@@ -66,6 +65,7 @@ export function organizeRoomFloor024(spec:RoomFloorRequest024):OrganizedRoomFloo
    const placement:RoomComponentRequest024={
     id:spec.id+":"+recipe.id+":"+i,kind:recipe.kind,
     x:anchor.x,z:anchor.z,yaw:anchor.yaw??0,
+    ...(anchor.elevation!==undefined?{elevation:anchor.elevation}:{}),
     ...(recipe.width!==undefined?{width:recipe.width}:{}),
     ...(recipe.depth!==undefined?{depth:recipe.depth}:{}),
     ...(recipe.height!==undefined?{height:recipe.height}:{}),
