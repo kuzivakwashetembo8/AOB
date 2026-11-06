@@ -25,6 +25,7 @@ export type RoomPrimitive024=Readonly<{
 export type RoomComponentRequest024=Readonly<{
   id:string;kind:RoomComponentKind024;
   x:number;z:number;
+  elevation?:number; // mount on a counter, shelf or another approved support
   yaw?:number;
   width?:number;depth?:number;height?:number;
 }>;
@@ -148,7 +149,7 @@ export function describeRoomComponent024(p:RoomComponentRequest024):readonly Roo
  case "partition-glass":{
   const material:RoomMaterial024=p.kind==="partition-glass"?"glass":"wall";
   return [
-   box(id+":panel",0,(p.height??2.90)/2,0,p.width??2,(p.height??2.90),p.depth??.10,material,p.kind==="wall-segment"),
+   box(id+":panel",0,(p.height??2.90)/2,0,p.width??2,(p.height??2.90),p.depth??.10,material,true),
   ];
  }
  case "storage-cabinet":return [
@@ -165,7 +166,7 @@ export function validateRoomComponent024(p:RoomComponentRequest024):void{
  if(!ROOM_COMPONENT_CATALOG_024.includes(p.kind))
   throw new Error("Unsupported room component "+p.kind);
  if(!p.id||!Number.isFinite(p.x)||!Number.isFinite(p.z)
-  ||!Number.isFinite(p.yaw??0))
+  ||!Number.isFinite(p.yaw??0)||!Number.isFinite(p.elevation??0))
   throw new Error("Invalid room component transform");
  for(const d of [p.width,p.depth,p.height])
   if(d!==undefined&&(!Number.isFinite(d)||d<=0))
