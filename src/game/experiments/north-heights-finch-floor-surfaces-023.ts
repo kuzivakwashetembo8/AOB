@@ -33,6 +33,7 @@ export type FinchFloorSurfaces023={
  readonly surfaces:number;
  readonly floorCount:number;
  readonly variants:number;
+ readonly occupiedFloor:()=>number|null;
 };
 export function createFinchFloorSurfaces023(
  scene:Scene,lot:BuildingSpec,ground:(x:number,z:number)=>number,
@@ -128,14 +129,55 @@ export function createFinchFloorSurfaces023(
  }]),16,true);
  lobby.thinInstanceRefreshBoundingInfo();
  instanced+=1;
+ // A four-mesh occupied-floor pass is drawn directly, not through
+ // thin instances. This gives every visited level reliable visible tiles,
+ // even where long-range thin-instance culling fails on the lower floors.
+ // All structural floor slabs and the elevator void remain untouched.
+ const activeRoot=new TransformNode("finch023:occupied-floor-root",scene);
+ activeRoot.parent=root;
+ const activeMeshes=footprint.map((part,index)=>{
+  const mesh=groundPlane("finch023:occupied-floor-"+index,
+   part.width,part.depth,mats[0]!);
+  mesh.parent=activeRoot;
+  mesh.position.set(part.x-lot.position.x,0,part.z-lot.position.z);
+  mesh.alwaysSelectAsActiveMesh=false;
+  return mesh;
+ });
+ let occupied:number|null=null;
+ const baseY=ground(lot.position.x,lot.position.z);
+ const observer=scene.onBeforeRenderObservable.add(()=>{
+  const camera=scene.activeCamera?.globalPosition;
+  if(!camera){activeRoot.setEnabled(false);occupied=null;return;}
+  // The player-focused camera sits above the physical slab. Allow enough
+  // eye-height headroom to avoid selecting the floor above the player's.
+  const index=Math.floor((camera.y-baseY-.8-1.2)/shaft.fh)+1;
+  const floor=Math.max(1,Math.min(53,index));
+  const surface=floor===1?baseY+shaft.bottomFloorOffset
+    :baseY+.8+(floor-1)*shaft.fh+.07;
+  // Do not render the temporary tile overlay at street elevation or inside
+  // the ground lobby, where the accepted glass cabin floor takes precedence.
+  const shouldShow=floor>=2&&camera.y>surface+.4&&camera.y<surface+6.2;
+  if(!shouldShow){activeRoot.setEnabled(false);occupied=null;return;}
+  if(floor===occupied&&activeRoot.isEnabled())return;
+  occupied=floor;
+  // The ground skin sits 35mm above the support slab and 12mm above the
+  // background thin-instance visual, preventing coplanar artefacts.
+  activeRoot.position.y=surface-topY+.035;
+  for(const mesh of activeMeshes)mesh.material=mats[finchFloorTileVariant023(floor)]!;
+  activeRoot.setEnabled(true);
+ });
+ activeRoot.setEnabled(false);
  return {
   surfaces:instanced,
   floorCount:53,
   variants:FINCH_TILE_VARIANTS_023.length,
+  occupiedFloor:()=>occupied,
   dispose(){
+   scene.onBeforeRenderObservable.remove(observer);
    root.dispose(false,true);
    mats.forEach(mat=>mat.dispose());
    texture.dispose();
   },
  };
+
 }
