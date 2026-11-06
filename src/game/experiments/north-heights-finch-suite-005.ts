@@ -5,6 +5,7 @@ import "@babylonjs/loaders/glTF";
 import {finchProximity005} from "./north-heights-finch-intro-005";
 import {finchShaft004} from "./north-heights-finch-elevator-structure-004";
 import {createFinchRoomTrial022} from "./north-heights-finch-office-trial-022";
+import {createFinchCafeFloor024} from "./finch-hq-floor3-cafe-024";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
 
@@ -12,6 +13,7 @@ export interface FinchSuite005{
  loadFinch:()=>Promise<void>;
  isNearFinch:(player:{x:number;y:number;z:number}|null)=>boolean;
  setTalking:(active:boolean)=>void;
+ updateInterior:(person:{x:number;y:number;z:number}|null,traveling:boolean)=>void;
  getFinchLocation:()=>{x:number;y:number;z:number};
  dispose:()=>void;
 }
@@ -27,6 +29,8 @@ export function createFinchSuite005(scene:Scene,lots:readonly BuildingSpec[],
  // 53rd floor around the existing Finch position. Keep the white structural
  // slab, glass elevator, mission trigger and all other floors unchanged.
  const officeTrial=createFinchRoomTrial022(scene,lot,ground,physics);
+ // Floor 3 uses the reusable component catalogue + pure organization rules.
+ const cafeFloor3=createFinchCafeFloor024(scene,lot,ground,physics);
  const finchPosition={x:x+2.9,y:y+.93,z:z+8.98};
  let finchRoot:TransformNode|null=null,groups:AnimationGroup[]=[];
  let finchMeshes:Mesh[]=[],loaded=false,requested=false,disposed=false;
@@ -79,11 +83,13 @@ export function createFinchSuite005(scene:Scene,lots:readonly BuildingSpec[],
  };
  return {
   loadFinch,
+  updateInterior(person,traveling){cafeFloor3.update(person,traveling);},
   isNearFinch:p=>finchProximity005(p,finchPosition,loaded),
    setTalking(active:boolean){speakingRequested=active;switchFinchClip();},
   getFinchLocation:()=>({...finchPosition}),
   dispose(){
    disposed=true;loaded=false;groups.forEach(g=>g.dispose());idleClip=null;talkingClip=null;
+   cafeFloor3.dispose();
    officeTrial.dispose();
    finchRoot?.dispose(false,true);
    finchMeshes.forEach(m=>m.dispose());
