@@ -34,6 +34,7 @@ export type FinchFloorSurfaces023={
  readonly floorCount:number;
  readonly variants:number;
  readonly occupiedFloor:()=>number|null;
+ setOccupiedFloor:(floor:number|null)=>void;
 };
 export function createFinchFloorSurfaces023(
  scene:Scene,lot:BuildingSpec,ground:(x:number,z:number)=>number,
@@ -144,40 +145,33 @@ export function createFinchFloorSurfaces023(
   return mesh;
  });
  let occupied:number|null=null;
- const baseY=ground(lot.position.x,lot.position.z);
- const observer=scene.onBeforeRenderObservable.add(()=>{
-  const camera=scene.activeCamera?.globalPosition;
-  if(!camera){activeRoot.setEnabled(false);occupied=null;return;}
-  // The player-focused camera sits above the physical slab. Allow enough
-  // eye-height headroom to avoid selecting the floor above the player's.
-  const index=Math.floor((camera.y-baseY-.8-1.2)/shaft.fh)+1;
-  const floor=Math.max(1,Math.min(53,index));
-  const surface=floor===1?baseY+shaft.bottomFloorOffset
-    :baseY+.8+(floor-1)*shaft.fh+.07;
-  // Do not render the temporary tile overlay at street elevation or inside
-  // the ground lobby, where the accepted glass cabin floor takes precedence.
-  const shouldShow=floor>=2&&camera.y>surface+.4&&camera.y<surface+6.2;
-  if(!shouldShow){activeRoot.setEnabled(false);occupied=null;return;}
-  if(floor===occupied&&activeRoot.isEnabled())return;
+ // Third-person camera height is not an authoritative floor selector.
+ // The physics-backed player/cabin level owns the visible occupied skin.
+ const setOccupiedFloor=(selected:number|null)=>{
+  if(selected!==null&&(!Number.isInteger(selected)||selected<1||selected>53))
+   throw new Error("Occupied Finch floor must be an integer from 1 to 53");
+  const floor=selected!==null&&selected>=2?selected:null;
+  if(occupied===floor&&activeRoot.isEnabled()===(floor!==null))return;
   occupied=floor;
-  // The ground skin sits 35mm above the support slab and 12mm above the
-  // background thin-instance visual, preventing coplanar artefacts.
-  activeRoot.position.y=surface-topY+.035;
-  for(const mesh of activeMeshes)mesh.material=mats[finchFloorTileVariant023(floor)]!;
+  if(floor===null){activeRoot.setEnabled(false);return;}
+  // The actual lift stop/physical support top, never camera projection.
+  const supportY=topY-(shaft.floors-floor)*shaft.fh;
+  activeRoot.position.y=supportY-topY+.035;
+  for(const mesh of activeMeshes)
+   mesh.material=mats[finchFloorTileVariant023(floor)]!;
   activeRoot.setEnabled(true);
- });
+ };
  activeRoot.setEnabled(false);
  return {
   surfaces:instanced,
   floorCount:53,
   variants:FINCH_TILE_VARIANTS_023.length,
   occupiedFloor:()=>occupied,
+  setOccupiedFloor,
   dispose(){
-   scene.onBeforeRenderObservable.remove(observer);
    root.dispose(false,true);
    mats.forEach(mat=>mat.dispose());
    texture.dispose();
   },
  };
-
 }
