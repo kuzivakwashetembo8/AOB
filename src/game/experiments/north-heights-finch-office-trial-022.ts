@@ -4,13 +4,13 @@
  * Exclude from main until owner tests the preview and authorizes a merge.
  */
 import {
-  Color3,MeshBuilder,PointLight,RawTexture,Scene,StandardMaterial,Texture,
-  TransformNode,Vector3,VertexBuffer,
+  Color3,MeshBuilder,PointLight,Scene,StandardMaterial,TransformNode,Vector3,
 } from "@babylonjs/core";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
-import {finchFloorRing004,finchShaft004}
- from "./north-heights-finch-elevator-structure-004";
+import {finchShaft004} from "./north-heights-finch-elevator-structure-004";
+import {createFinchFloorSurfaces023}
+ from "./north-heights-finch-floor-surfaces-023";
 
 export const FINCH_ROOM_TRIAL_022={
  buildingId:"NH-04-06-L2",
@@ -78,51 +78,10 @@ export function createFinchRoomTrial022(
   mesh.isPickable=false;mesh.checkCollisions=false;meshCount++;
   return mesh;
  };
- // Wood finish is an optical skin, not a new structural floor or Rapier slab.
- // The existing authored floor ring remains the sole walkable support.
- const tilePixels=new Uint8Array(64*64*4);
- for(let v=0;v<64;v++)for(let u=0;u<64;u++){
-  const index=(v*64+u)*4;
-  const joint=u<2||v<2;
-  const grain=(u*17+v*7)%13;
-  const variation=grain<3?-6:grain>10?5:0;
-  tilePixels[index]=joint?55:131+variation;
-  tilePixels[index+1]=joint?40:88+variation;
-  tilePixels[index+2]=joint?32:63+variation;
-  tilePixels[index+3]=255;
- }
- const tileTexture=RawTexture.CreateRGBATexture(
-  tilePixels,64,64,scene,false,false,Texture.NEAREST_SAMPLINGMODE);
- tileTexture.wrapU=Texture.WRAP_ADDRESSMODE;
- tileTexture.wrapV=Texture.WRAP_ADDRESSMODE;
- const floorMaterial=new StandardMaterial("finch022:warm-wood-floor",scene);
- floorMaterial.diffuseTexture=tileTexture;
- floorMaterial.diffuseColor=new Color3(1,1,1);
- floorMaterial.specularColor=new Color3(.12,.085,.055);
- floorMaterial.specularPower=64;
- mats.push(floorMaterial);
- const floorParts=finchFloorRing004(
-  lot.position.x,lot.position.z,
-  (lot.overrides?.width??22.669)-.60,
-  (lot.overrides?.depth??33.889)-.60,shaft);
- for(const [i,part] of floorParts.entries()){
-  const groundMesh=MeshBuilder.CreateGround("finch022:floor-skin-"+i,
-   {width:part.width,height:part.depth,subdivisions:1},scene);
-  groundMesh.parent=root;
-  groundMesh.position.set(part.x-lot.position.x,.024,part.z-lot.position.z);
-  groundMesh.material=floorMaterial;
-  groundMesh.isPickable=false;
-  groundMesh.checkCollisions=false;
-  const uv=groundMesh.getVerticesData(VertexBuffer.UVKind);
-  if(uv){
-   for(let k=0;k<uv.length;k+=2){
-    uv[k]=(uv[k]??0)*(part.width/.76);
-    uv[k+1]=(uv[k+1]??0)*(part.depth/.76);
-   }
-   groundMesh.setVerticesData(VertexBuffer.UVKind,uv);
-  }
-  meshCount++;
- }
+ // The floor-surface system decorates all 53 pre-existing slabs with one
+ // texture grammar and nine hue variants. It remains outside this room's
+ // proximity-culling root so other floors retain their floor finish.
+ const allFloorTiles=createFinchFloorSurfaces023(scene,lot,ground);
  const collision=(x:number,y:number,z:number,w:number,h:number,d:number)=>{
   physical.push(physics.addStaticBox(
    {x:lot.position.x+x,y:floorY+y,z:lot.position.z+z},
@@ -325,7 +284,7 @@ export function createFinchRoomTrial022(
    for(const light of practicals)light.dispose();
    root.dispose(false,true);
    mats.forEach(mat=>mat.dispose());
-   tileTexture.dispose();
+   allFloorTiles.dispose();
   },
  };
 }
