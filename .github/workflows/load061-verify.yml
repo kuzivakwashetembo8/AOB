@@ -26,4 +26,9 @@ jobs:
       - name: Regression tests
         run: npm run test
       - name: Production build
+        env:
+          VERCEL: "1"
+          NITRO_PRESET: vercel
+          VERCEL_ENV: preview
+          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
         run: npm run build
