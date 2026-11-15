@@ -21,6 +21,13 @@ describe("In-game settings without destroying the active world", () => {
     );
   });
 
+  it("exposes local gameplay analytics in the shared settings navigation", async () => {
+    render(<SettingsEditor inGame initialSettings={defaults} onApply={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /gameplay analytics/i }));
+    expect(await screen.findByRole("region", { name: "Local gameplay analytics" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /refresh/i })).toBeTruthy();
+  });
+
   it("keeps one GameRuntime attached across pause, graphics command and resume", () => {
     let lifecycle: GameSnapshot = { ...initialSnapshot, lifecycle: "running" };
     const destroy = vi.fn();

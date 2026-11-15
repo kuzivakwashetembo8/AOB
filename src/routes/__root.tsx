@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -14,6 +15,7 @@ import appCss from "../styles.css?url";
 import { LandscapeBoundary } from "@/ui/menus/shell";
 import { registerShellWorker } from "@/lib/pwa";
 import { captureInstallPrompt, useStandalone } from "@/lib/standalone";
+import { startGameplayAnalytics } from "@/lib/gameplay-analytics/client";
 
 function NotFoundComponent() {
   return (
@@ -125,10 +127,13 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useStandalone();
   useEffect(() => {
+    startGameplayAnalytics();
     captureInstallPrompt();
-    void registerShellWorker().catch(() => {
-      /* Shell remains usable without install support. */
-    });
+    if (!Capacitor.isNativePlatform()) {
+      void registerShellWorker().catch(() => {
+        /* Shell remains usable without install support. */
+      });
+    }
   }, []);
 
   return (

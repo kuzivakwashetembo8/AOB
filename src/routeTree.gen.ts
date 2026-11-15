@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as GameRouteImport } from './routes/game'
 import { Route as FirstLightComparisonRouteImport } from './routes/first-light-comparison'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SettingsAnalyticsRouteImport } from './routes/settings.analytics'
 import { Route as VehiclesRouteImport } from './routes/vehicles'
 import { Route as WorldRouteImport } from './routes/world'
 import { Route as NorthHeightsPreviewRouteImport } from './routes/north-heights-preview'
@@ -37,6 +38,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsAnalyticsRoute = SettingsAnalyticsRouteImport.update({
+  id: '/settings/analytics',
+  path: '/settings/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VehiclesRoute = VehiclesRouteImport.update({
   id: '/vehicles',
   path: '/vehicles',
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/game': typeof GameRoute
   '/first-light-comparison': typeof FirstLightComparisonRoute
   '/settings': typeof SettingsRoute
+  '/settings/analytics': typeof SettingsAnalyticsRoute
   '/vehicles': typeof VehiclesRoute
   '/world': typeof WorldRoute
   '/north-heights-preview': typeof NorthHeightsPreviewRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/game': typeof GameRoute
   '/first-light-comparison': typeof FirstLightComparisonRoute
   '/settings': typeof SettingsRoute
+  '/settings/analytics': typeof SettingsAnalyticsRoute
   '/vehicles': typeof VehiclesRoute
   '/world': typeof WorldRoute
   '/north-heights-preview': typeof NorthHeightsPreviewRoute
@@ -77,16 +85,17 @@ export interface FileRoutesById {
   '/game': typeof GameRoute
   '/first-light-comparison': typeof FirstLightComparisonRoute
   '/settings': typeof SettingsRoute
+  '/settings/analytics': typeof SettingsAnalyticsRoute
   '/vehicles': typeof VehiclesRoute
   '/world': typeof WorldRoute
   '/north-heights-preview': typeof NorthHeightsPreviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/game' | '/first-light-comparison' | '/settings' | '/vehicles' | '/world' | '/north-heights-preview'
+  fullPaths: '/' | '/game' | '/first-light-comparison' | '/settings' | '/settings/analytics' | '/vehicles' | '/world' | '/north-heights-preview'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/game' | '/first-light-comparison' | '/settings' | '/vehicles' | '/world' | '/north-heights-preview'
-  id: '__root__' | '/' | '/game' | '/first-light-comparison' | '/settings' | '/vehicles' | '/world' | '/north-heights-preview'
+  to: '/' | '/game' | '/first-light-comparison' | '/settings' | '/settings/analytics' | '/vehicles' | '/world' | '/north-heights-preview'
+  id: '__root__' | '/' | '/game' | '/first-light-comparison' | '/settings' | '/settings/analytics' | '/vehicles' | '/world' | '/north-heights-preview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -94,6 +103,7 @@ export interface RootRouteChildren {
   GameRoute: typeof GameRoute
   FirstLightComparisonRoute: typeof FirstLightComparisonRoute
   SettingsRoute: typeof SettingsRoute
+  SettingsAnalyticsRoute: typeof SettingsAnalyticsRoute
   VehiclesRoute: typeof VehiclesRoute
   WorldRoute: typeof WorldRoute
   NorthHeightsPreviewRoute: typeof NorthHeightsPreviewRoute
@@ -129,6 +139,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/analytics': {
+      id: '/settings/analytics'
+      path: '/settings/analytics'
+      fullPath: '/settings/analytics'
+      preLoaderRoute: typeof SettingsAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vehicles': {
       id: '/vehicles'
       path: '/vehicles'
@@ -158,6 +175,7 @@ const rootRouteChildren: RootRouteChildren = {
   GameRoute: GameRoute,
   FirstLightComparisonRoute: FirstLightComparisonRoute,
   SettingsRoute: SettingsRoute,
+  SettingsAnalyticsRoute: SettingsAnalyticsRoute,
   VehiclesRoute: VehiclesRoute,
   WorldRoute: WorldRoute,
   NorthHeightsPreviewRoute: NorthHeightsPreviewRoute,

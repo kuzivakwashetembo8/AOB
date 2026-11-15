@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/select";
 import { defaults, type Settings } from "@/ui/menus/settings-state";
 import {updateGtdToPublishedRelease001,type GtdUpdateStage001} from "@/lib/gtd-update-001";
+import { GameplayAnalyticsPanel } from "@/ui/menus/gameplay-analytics-panel";
 
 declare const __GTD_RELEASE_ID__: string;
 
@@ -24,6 +25,7 @@ const categories = [
   { name: "Interface", icon: PanelsTopLeft },
   { name: "Mobile Controls", icon: Smartphone },
   { name: "System", icon: RefreshCw },
+  { name: "Gameplay Analytics", icon: Activity },
 ];
 export function SettingsEditor({
   initialSettings, onApply, inGame = false,
@@ -260,6 +262,7 @@ export function SettingsEditor({
                 {toggle("autoHide", "Hide when keyboard is active")}
               </>
             )}
+            {category === "Gameplay Analytics" && <GameplayAnalyticsPanel />}
             {category === "System" && (
               <section className="space-y-3" aria-label="G.T.D release update">
                 <div className="setting-row">

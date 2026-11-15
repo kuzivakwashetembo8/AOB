@@ -18,7 +18,9 @@
     "offline:stage": "node scripts/stage-offline001-runtime.mjs",
     "offline:audit": "node scripts/offline001-build-inventory.mjs",
     "offline:shell": "node scripts/offline002-package-shell.mjs",
-    "offline:pack": "node scripts/offline003-package-game.mjs"
+    "offline:pack": "node scripts/offline003-package-game.mjs",
+    "android:prepare": "node scripts/android/prepare-web-bundle.mjs",
+    "android:configure": "node scripts/android/configure-project.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -81,7 +83,8 @@
     "@babylonjs/loaders": "9.29.0",
     "@gltf-transform/core": "^4.2.1",
     "@gltf-transform/extensions": "^4.2.1",
-    "draco3dgltf": "^1.5.7"
+    "draco3dgltf": "^1.5.7",
+    "@capacitor/core": "8.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
@@ -104,7 +107,10 @@
     "typescript-eslint": "^8.56.1",
     "vite": "8.1.5",
     "vite-plugin-pwa": "^2.0.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "ajv": "8.20.0",
+    "@capacitor/cli": "8.6.0",
+    "@capacitor/android": "8.6.0"
   },
   "packageManager": "npm@11.6.2"
 }

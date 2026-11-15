@@ -87,6 +87,7 @@ import {
 } from "../character/voight-humanoid-trial";
 
 import { MovementInputArbiter } from "../input/movement-input-arbiter";
+import { recordGameplayAnalytics } from "@/lib/gameplay-analytics/client";
 const FIXED_STEP = 1 / 60;
 const MAX_FRAME_DELTA = 0.1;
 const WALK_SPEED = 3.8;
@@ -167,6 +168,7 @@ export class GTDGameRuntime implements GameRuntime {
   private accumulator = 0;
   private snapshotAccumulator = 0;
   private previousTime = 0;
+  private analyticsSampleAt = 0;
   private preferredCameraRadius = CAMERA_DISTANCE_DEFAULT;
   private onFootCameraRadius = CAMERA_DISTANCE_DEFAULT;
   private frameHandle: number | null = null;
@@ -1129,6 +1131,20 @@ export class GTDGameRuntime implements GameRuntime {
       const renderStart = performance.now();
       this.scene?.render();
       this.fl4Diagnostics?.recordFrame(time, performance.now() - renderStart);
+      if (time - this.analyticsSampleAt >= 1000) {
+        this.analyticsSampleAt = time;
+        const scene = this.scene;
+        recordGameplayAnalytics("game.runtime-window", {
+          fps: this.engine?.getFps() ?? null,
+          sceneMeshCount: scene?.meshes.length ?? null,
+          activeMeshCount: scene?.getActiveMeshes().length ?? null,
+          hardwareScalingLevel: this.engine?.getHardwareScalingLevel() ?? null,
+          lifecycle: this.lifecycle,
+          context: this.context,
+          vehicle: this.snapshot.vehicle,
+          location: this.snapshot.location,
+        });
+      }
       this.schedule();
     });
   }
@@ -1469,6 +1485,7 @@ export class GTDGameRuntime implements GameRuntime {
   }
 
   private emit(event: GameEvent) {
+    recordGameplayAnalytics("game." + event.type, event as unknown as Record<string, unknown>);
     this.eventListeners.forEach((listener) => listener(event));
   }
 }

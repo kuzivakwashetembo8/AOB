@@ -1,0 +1,84 @@
+name: Gameplay analytics reliability validation
+
+on:
+  push:
+    branches:
+      - feature/gtd-gameplay-analytics-001-local-recorder
+      - integration/gtd-gameplay-analytics-reliability-2026-11-15
+    paths:
+      - "src/lib/gameplay-analytics/**"
+      - "src/workers/gameplay-analytics.worker.ts"
+      - "src/ui/menus/gameplay-analytics-panel.tsx"
+      - "src/test/gameplay-analytics-reliability.test.ts"
+      - "package.json"
+      - "capacitor.config.ts"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "vite.config.ts"
+      - ".github/workflows/analytics-reliability-verify.yml"
+      - ".github/workflows/android-apk.yml"
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/lib/gameplay-analytics/**"
+      - "src/workers/gameplay-analytics.worker.ts"
+      - "src/ui/menus/gameplay-analytics-panel.tsx"
+      - "src/test/gameplay-analytics-reliability.test.ts"
+      - "src/game/core/gtd-runtime.ts"
+      - "src/routes/__root.tsx"
+      - "src/routes/settings.analytics.tsx"
+      - "src/ui/menus/settings-editor.tsx"
+      - "src/routeTree.gen.ts"
+      - "src/test/in-game-settings-continuity.test.tsx"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "vite.config.ts"
+      - ".github/workflows/analytics-reliability-verify.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gameplay-analytics-validation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+
+      - name: Install pinned npm
+        run: npm install --global npm@11.6.2
+
+      - name: Install dependencies from the current package manifest
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Focused analytics reliability tests
+        run: npx vitest run src/test/gameplay-analytics-reliability.test.ts
+
+      - name: Full test suite
+        run: npm run test
+
+      - name: Production build
+        env:
+          VERCEL: "1"
+          NITRO_PRESET: vercel
+          VERCEL_ENV: preview
+          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+        run: npm run build
