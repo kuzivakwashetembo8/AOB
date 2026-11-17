@@ -1,5 +1,5 @@
-/** NH-014 — taxi is a visual identity of eight existing NH-012 agents.
- * Does not instantiate independent traffic AI, routes or parked cars. */
+/** NH-014 — retain eight deterministic logical taxi-role identities.
+ * No Taxi GLB is loaded; the accepted North Heights renderer uses Sedan visuals. */
 import type {NH012TrafficSimulator} from "./nh012-traffic-simulator";
 export const NH014_TAXI_MODEL_ID="gtd-traffic-taxi-014";
 export const NH014_TAXI_COUNT=8;

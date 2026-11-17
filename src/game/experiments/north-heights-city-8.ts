@@ -1101,6 +1101,7 @@ export async function createNorthHeightsCity8(
       solidField.isCarClear(pose,agent.length,agent.width,agent.id));
     traffic.configureContactImpulses((agent,pose)=>
       solidField.carImpactAt(pose,agent.id));
+    // Logical traffic-role assignments remain for deterministic fleet accounting; all moving traffic uses Sedan visuals.
     const pilotIds=assignNH013SedanPilot(traffic,8);
     const hatchIds=assignNH013HatchbackPilot(traffic,12);
     const taxiIds=assignNH014TaxiPilot(traffic,NH014_TAXI_COUNT);

@@ -1,5 +1,5 @@
-/** NH-013 G2: preserve NH-012 125-agent traffic decisions while making
- * twelve existing logical agents visible as user-provided hatchbacks. */
+/** NH-013 G2: retain twelve deterministic logical traffic-role identities.
+ * The accepted North Heights renderer currently uses the Sedan GLB for every agent. */
 import type {NH012TrafficSimulator} from "./nh012-traffic-simulator";
 export const NH013_HATCHBACK_ID="gtd-traffic-hatchback-013";
 export const NH013_HATCHBACK_PAINTS=["WHITE","SILVER","GRAPHITE","NAVY","METALLIC_BLUE"] as const;

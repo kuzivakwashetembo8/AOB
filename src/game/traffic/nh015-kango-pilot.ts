@@ -1,4 +1,5 @@
-/** NH-015: the Kangoo is a new mesh type on SIX PRE-EXISTING NH-012 agents. */
+/** NH-015: retain six deterministic logical delivery-van traffic-role identities.
+ * No Kangoo GLB is loaded; the accepted North Heights renderer uses Sedan visuals. */
 import type {NH012TrafficSimulator} from "./nh012-traffic-simulator";
 export const NH015_KANGO_ID="gtd-traffic-kango-015";
 export const NH015_KANGO_COUNT=6;
