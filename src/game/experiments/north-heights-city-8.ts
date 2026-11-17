@@ -188,6 +188,9 @@ export async function createNorthHeightsCity8(
   let liftCollisionDisabled=false;
   let finchArrivedAnnounced=false;
   let traffic3D:NH009SedanTraffic|null=null;
+  // Temporary A/B test: keep all 125 cars rendered at their initial poses,
+  // but stop the NH012 movement solver and its dependent traffic work.
+  const TRAFFIC_SIMULATION_PAUSED_FOR_PERFORMANCE_TEST=true;
   let trafficAccumulator=0,visibleTrafficCars=0,visibleAuthenticCars=0;
   const solidVehicleHandles=new Map<string,{
     update:(pose:{x:number;y:number;z:number;heading:number})=>void;
@@ -462,7 +465,7 @@ export async function createNorthHeightsCity8(
       traffic?.setDriverBrake(ridingSedanId,passengerBrake);
       traffic?.setDriverThrottle(ridingSedanId,passengerThrottle);
     }
-    if(traffic&&traffic3D){
+    if(traffic&&traffic3D&&!TRAFFIC_SIMULATION_PAUSED_FOR_PERFORMANCE_TEST){
       trafficAccumulator=Math.min(.15,trafficAccumulator+dt);
       let steps=0;
       while(trafficAccumulator>=NH012_SIMULATION_DT-1e-7&&steps<3){
@@ -526,7 +529,7 @@ export async function createNorthHeightsCity8(
     // Detect a pedestrian in the forward swept corridor of an approaching
     // car; horn only when obstructed, with one burst per car cooldown.
     hornCheck+=dt;
-    if(hornCheck>=.30&&traffic&&pedestrians&&vehicleAudio.isUnlocked){
+    if(!TRAFFIC_SIMULATION_PAUSED_FOR_PERFORMANCE_TEST&&hornCheck>=.30&&traffic&&pedestrians&&vehicleAudio.isUnlocked){
       hornCheck=0;
       const visiblePeople=pedestrians.agents.filter(p=>p.state!=="inside");
       const reese=!ridingSedanId&&walk?walk.physics.playerPosition():null;
@@ -717,7 +720,7 @@ export async function createNorthHeightsCity8(
       if(audioAccumulator>=.05){
         const soundDt=audioAccumulator;audioAccumulator=0;
         const forward=camera.getForwardRay().direction;
-        vehicleAudio.sync(traffic.agents.map(agent=>{
+        const audioCars=TRAFFIC_SIMULATION_PAUSED_FOR_PERFORMANCE_TEST?[]:traffic.agents.map(agent=>{
           const isPlayer=agent.id===ridingSedanId;
           return {id:agent.id,x:agent.x,
             y:northHeightsGround(agent.x,agent.z),z:agent.z,
@@ -727,7 +730,8 @@ export async function createNorthHeightsCity8(
             throttle:isPlayer?passengerThrottle:0,
             braking:isPlayer&&passengerBrake?1:0,
             isPlayer};
-        }),{
+        });
+        vehicleAudio.sync(audioCars,{
           x:camera.position.x,y:camera.position.y,z:camera.position.z,
           forwardX:forward.x,forwardY:forward.y,forwardZ:forward.z,
         },soundDt);
