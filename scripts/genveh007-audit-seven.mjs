@@ -1,4 +1,4 @@
-/** GEN-VEH-007, offline census for ALL remaining owner vehicle sources. */
+/** GEN-VEH-007, offline census for rendered owner vehicle sources. */
 import {readFile} from "node:fs/promises";
 import {NodeIO} from "@gltf-transform/core";
 import {ALL_EXTENSIONS} from "@gltf-transform/extensions";
@@ -11,9 +11,6 @@ export const models=[
  {id:"defender",path:"public/GLBs/Cars/Land rover defender 001.glb",length:4.75,width:2.1,height:2.02},
  {id:"dodge",path:"public/GLBs/Cars/dodge_HP.glb",length:5.10,width:2.06,height:1.87},
  {id:"sedan",path:"public/GLBs/Cars/Four Door Sedan.glb",length:4.75,width:1.85,height:1.48},
- {id:"hatchback",path:"public/GLBs/Cars/Fourd Confusion Hatchback.glb",length:4.35,width:1.78,height:1.55},
- {id:"taxi",path:"public/GLBs/Cars/Taxi.glb",length:4.5,width:1.85,height:1.55},
- {id:"kangoo",path:"public/GLBs/Cars/Renault Kango Optimized.glb",length:4.45,width:1.85,height:1.85},
 ];
 const xf=(p,m)=>[m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],
  m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],

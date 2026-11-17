@@ -1,8 +1,6 @@
 /** NH-015: the Kangoo is a new mesh type on SIX PRE-EXISTING NH-012 agents. */
 import type {NH012TrafficSimulator} from "./nh012-traffic-simulator";
 export const NH015_KANGO_ID="gtd-traffic-kango-015";
-export const NH015_KANGO_ORIGINAL="/GLBs/Cars/Renault%20Kango%20Optimized.glb";
-export const NH015_KANGO_DERIVED="/GLBs/Cars/TrafficOptimized/Renault-Kango-Source-Rigged.glb";
 export const NH015_KANGO_COUNT=6;
 export function assignNH015KangoPilot(sim:NH012TrafficSimulator,count=NH015_KANGO_COUNT):ReadonlySet<string>{
  if(!Number.isInteger(count)||count<0||count>NH015_KANGO_COUNT)

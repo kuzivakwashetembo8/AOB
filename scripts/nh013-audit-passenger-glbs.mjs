@@ -1,7 +1,7 @@
 /** NH-013 G0 reproducible, read-only inspection of user-committed GLB binaries. */
 import {readFileSync} from "node:fs";
 import {join} from "node:path";
-const files=["Four Door Sedan.glb","Fourd Confusion Hatchback.glb","Renault Kango.glb","Renault Kango Optimized.glb","Taxi.glb"];
+const files=["Four Door Sedan.glb"];
 for(const file of files){
  const buf=readFileSync(join("public/GLBs/Cars",file));
  if(buf.toString("ascii",0,4)!=="glTF"||buf.readUInt32LE(4)!==2||buf.readUInt32LE(8)!==buf.length)

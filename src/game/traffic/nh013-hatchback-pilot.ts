@@ -2,7 +2,6 @@
  * twelve existing logical agents visible as user-provided hatchbacks. */
 import type {NH012TrafficSimulator} from "./nh012-traffic-simulator";
 export const NH013_HATCHBACK_ID="gtd-traffic-hatchback-013";
-export const NH013_HATCHBACK_SOURCE="/GLBs/Cars/Fourd%20Confusion%20Hatchback.glb";
 export const NH013_HATCHBACK_PAINTS=["WHITE","SILVER","GRAPHITE","NAVY","METALLIC_BLUE"] as const;
 export type NH013HatchbackPaint=typeof NH013_HATCHBACK_PAINTS[number];
 

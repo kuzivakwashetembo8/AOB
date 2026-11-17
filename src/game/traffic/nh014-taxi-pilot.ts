@@ -2,7 +2,6 @@
  * Does not instantiate independent traffic AI, routes or parked cars. */
 import type {NH012TrafficSimulator} from "./nh012-traffic-simulator";
 export const NH014_TAXI_MODEL_ID="gtd-traffic-taxi-014";
-export const NH014_TAXI_SOURCE="/GLBs/Cars/Taxi.glb";
 export const NH014_TAXI_COUNT=8;
 export function assignNH014TaxiPilot(sim:NH012TrafficSimulator,count=NH014_TAXI_COUNT):ReadonlySet<string>{
  if(!Number.isInteger(count)||count<0||count>NH014_TAXI_COUNT)
