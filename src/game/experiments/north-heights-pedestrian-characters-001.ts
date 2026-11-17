@@ -35,6 +35,7 @@ export interface PedestrianCharacterRenderer001{
  readonly skeletons:number;readonly loadedAppearances:number;
  readonly failedAppearances:number;readonly pendingAppearances:number;
  update:(sim:NorthHeightsPedestrianSimulator001,camera:Camera)=>void;
+ pauseAnimations:()=>void;
  dispose:()=>void;
 }
 export async function loadNorthHeightsPedestrianCharacters001(
@@ -49,7 +50,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
  const lastUsed=new Map<number,number>();
  const maxInactiveAssets=mobile?12:24;
  const maxConcurrentLoads=mobile?1:2;
- let disposed=false,createdSkeletons=0,frame=0;
+ let disposed=false,createdSkeletons=0,frame=0,animationsPaused=false;
  const cancelled=()=>disposed||!!isClosed?.();
  const release=(slot:Slot)=>{
    if(slot.assigned)assigned.delete(slot.assigned);
@@ -142,6 +143,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
    if(group){
      group.start(true,1,group.from,group.to,false);
      group.goToFrame(group.from+(group.to-group.from)*slot.phase);
+     if(animationsPaused)group.pause();
    }
    slot.clip=clip;
  };
@@ -184,6 +186,10 @@ export async function loadNorthHeightsPedestrianCharacters001(
    get loadedAppearances(){return containers.size;},
    get failedAppearances(){return failed.size;},
    get pendingAppearances(){return pending.size;},
+   pauseAnimations(){
+     animationsPaused=true;
+     for(const slot of pool)slot.groups.forEach(group=>group.pause());
+   },
    update(sim,camera){
      if(cancelled())return;
      frame++;
