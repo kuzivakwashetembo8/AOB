@@ -194,6 +194,10 @@ export async function createNorthHeightsCity8(
     dispose:()=>void;
   }>();
   let pedestrians:NorthHeightsPedestrianSimulator001|null=null;
+  // Temporary A/B test: freeze pedestrian movement and animation while keeping
+  // existing nearby models visible; vehicle traffic remains fully active.
+  const PEDESTRIAN_SIMULATION_PAUSED_FOR_PERFORMANCE_TEST=true;
+  let pedestrianAnimationsPaused=false;
   let pedestrianAccumulator=0;
   let pedestrianCharacters:PedestrianCharacterRenderer001|null=null;
   let pedestrianLoading=false,pedestrianLoadError="";
@@ -503,10 +507,12 @@ export async function createNorthHeightsCity8(
       liftTraveling,
     );
     if(pedestrians){
-      pedestrianAccumulator=Math.min(.15,pedestrianAccumulator+dt);
-      let pedSteps=0;
-      while(pedestrianAccumulator>=.05-1e-7&&pedSteps++<3){
-        pedestrians.step(.05);pedestrianAccumulator-=.05;
+      if(!PEDESTRIAN_SIMULATION_PAUSED_FOR_PERFORMANCE_TEST){
+        pedestrianAccumulator=Math.min(.15,pedestrianAccumulator+dt);
+        let pedSteps=0;
+        while(pedestrianAccumulator>=.05-1e-7&&pedSteps++<3){
+          pedestrians.step(.05);pedestrianAccumulator-=.05;
+        }
       }
       // Before Reese's next Rapier movement, register nearby NPC capsules.
       if(walk){
@@ -694,6 +700,9 @@ export async function createNorthHeightsCity8(
     // PED-002 checklist 01: characters only. Pending/failed GLBs stay absent.
     if(pedestrians&&pedestrianCharacters){
       pedestrianCharacters.update(pedestrians,camera);
+      if(PEDESTRIAN_SIMULATION_PAUSED_FOR_PERFORMANCE_TEST&&!pedestrianAnimationsPaused){
+        pedestrianCharacters.pauseAnimations();pedestrianAnimationsPaused=true;
+      }
     }
     if(dianeLevel&&dianeLabel){
       dianeLabel.update(dianeLevel.npcPosition,
