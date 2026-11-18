@@ -40,8 +40,10 @@ export function sedanSignedWheelTravel009(
 }
 
 export interface NH009SedanTraffic{
- update(snapshot:NH012TrafficSnapshot,exclude:ReadonlySet<string>,camera?:Camera):{
+ update(snapshot:NH012TrafficSnapshot,exclude:ReadonlySet<string>,camera?:Camera,
+   activityCentre?:Readonly<{x:number;z:number}>,pinned?:ReadonlySet<string>):{
    vehicles3D:number;sourceGLBs:0;lowDetail:number;defaultFleet:number;dots:0;
+   resident:number;culled:number;full:number;medium:number;distant:number;renderMs:number;
  };
  dispose():void;
 }
@@ -101,6 +103,11 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
    world.copyToArray(entry.matrix,entry.count*16);entry.count++;
  }
  const positions=new Map<string,{x:number;z:number;spin:number;tick:number}>();
+ // Render residency is independent of logical existence, route progression,
+ // reservations and Rapier collision ownership.
+ const residentAgents=new Set<string>();
+ const PLAYER_ENTER_RADIUS=92;
+ const PLAYER_EXIT_RADIUS=112;
   // Resident distant Sedan-shaped geometry, scaled from accepted wheelbase/track.
   function distantPart(part:"body"|"cabin"|"glass"|"wheels",paint:string) {
     const key="distant:"+part+":"+(part==="body"?paint:"common");
@@ -117,7 +124,8 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
   }
   let lastCamera={x:NaN,y:NaN,z:NaN};
   let lastCameraAt=0;
-  let lastCounts={full:0,medium:0,distant:0,culled:0};
+  let lastActivityCentre={x:NaN,z:NaN};
+  let lastCounts={full:0,medium:0,distant:0,culled:0,resident:0,renderMs:0};
   function visibilityTier(a:{x:number;z:number},poseY:number,camera?:Camera) {
     if(!camera)return 0;
     const location=new Vector3(a.x,poseY+1,a.z);
@@ -138,30 +146,49 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
     return apparent>(rapidDescent?14:42)?0:apparent>10?1:2;
   }
  let tick=-1;
- let last={vehicles3D:0,sourceGLBs:0 as const,lowDetail:0,defaultFleet:0,dots:0 as const};
+ let last={vehicles3D:0,sourceGLBs:0 as const,lowDetail:0,defaultFleet:0,dots:0 as const,
+   resident:0,culled:0,full:0,medium:0,distant:0,renderMs:0};
  return {
-  update(snapshot,_exclude,camera){
+  update(snapshot,_exclude,camera,activityCentre,pinned=new Set<string>()){
     const moved=camera?Math.hypot(camera.position.x-lastCamera.x,camera.position.y-lastCamera.y,camera.position.z-lastCamera.z):0;
-    if(snapshot.tick===tick && (!camera||moved<.45))return last;
+    const centreMoved=activityCentre&&Number.isFinite(lastActivityCentre.x)
+      ?Math.hypot(activityCentre.x-lastActivityCentre.x,activityCentre.z-lastActivityCentre.z):Infinity;
+    if(snapshot.tick===tick && (!camera||moved<.45) && (!activityCentre||centreMoved<.45))return last;
+    const renderStarted=performance.now();
     sedanFleetAudit009(snapshot);
     tick=snapshot.tick;
-    lastCounts={full:0,medium:0,distant:0,culled:0};
+    lastCounts={full:0,medium:0,distant:0,culled:0,resident:0,renderMs:0};
     for(const b of buckets.values())b.count=0;
     for(const a of snapshot.agents){
+      const previous=positions.get(a.id);
+      const dx=activityCentre?a.x-activityCentre.x:0;
+      const dz=activityCentre?a.z-activityCentre.z:0;
+      const distanceSquared=dx*dx+dz*dz;
+      const pinnedAgent=pinned.has(a.id);
+      const wasResident=residentAgents.has(a.id);
+      const eligible=!activityCentre||pinnedAgent||
+        (wasResident?distanceSquared<=PLAYER_EXIT_RADIUS*PLAYER_EXIT_RADIUS:
+          distanceSquared<=PLAYER_ENTER_RADIUS*PLAYER_ENTER_RADIUS);
+      if(eligible)residentAgents.add(a.id);else residentAgents.delete(a.id);
+      if(!eligible){
+        // Refresh logical position without accumulating wheel rotation while
+        // absent. Re-entry resumes from the current pose without a spin jump.
+        positions.set(a.id,{x:a.x,z:a.z,spin:previous?.spin??0,tick:snapshot.tick});
+        lastCounts.culled++;
+        continue;
+      }
+      lastCounts.resident++;
+      const longitudinalTravel=previous
+        ?sedanSignedWheelTravel009(previous,{x:a.x,z:a.z,heading:a.heading}):0;
+      const spin=(previous?.spin??0)+(previous?.tick===snapshot.tick
+        ?0:longitudinalTravel/front.radius);
+      positions.set(a.id,{x:a.x,z:a.z,spin,tick:snapshot.tick});
       const color=a.id==="NH012:gtd-veh006-mercer-range-rover:WHITE:0"
         ?"#D7A83E":sedanPaint009(a.id);
       const pose=sampleTrafficVehicleRoadPose013({
         x:a.x,z:a.z,heading:a.heading,wheelbase,track,ground:northHeightsGround
       });
       const world=Matrix.Compose(Vector3.One(),pose.rotation,new Vector3(a.x,pose.y,a.z));
-      const previous=positions.get(a.id);
-      const longitudinalTravel=previous
-        ?sedanSignedWheelTravel009(previous,{x:a.x,z:a.z,heading:a.heading}):0;
-      // Extractor now puts all four source Siped tread shells in the SAME
-      // tire bucket as the carcass. Tire and rim both share this signed roll.
-      const spin=(previous?.spin??0)+(previous?.tick===snapshot.tick
-        ?0:longitudinalTravel/front.radius);
-      positions.set(a.id,{x:a.x,z:a.z,spin,tick:snapshot.tick});
       const tier=visibilityTier(a,pose.y,camera);
       if(tier<0){lastCounts.culled++;continue;}
       if(tier===2){
@@ -210,15 +237,19 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
       lastCamera={x:camera.position.x,y:camera.position.y,z:camera.position.z};
       lastCameraAt=performance.now();
     }
+    if(activityCentre)lastActivityCentre={x:activityCentre.x,z:activityCentre.z};
+    lastCounts.renderMs=performance.now()-renderStarted;
     last={vehicles3D:lastCounts.full+lastCounts.medium+lastCounts.distant,
       sourceGLBs:0,lowDetail:lastCounts.medium+lastCounts.distant,
-      defaultFleet:snapshot.count,dots:0};
+      defaultFleet:snapshot.count,dots:0,resident:lastCounts.resident,
+      culled:lastCounts.culled,full:lastCounts.full,medium:lastCounts.medium,
+      distant:lastCounts.distant,renderMs:lastCounts.renderMs};
     return last;
   },
   dispose(){
      for(const bucket of buckets.values())bucket.mesh.dispose(false,false);
      for(const material of materials)material.dispose();
-     buckets.clear();positions.clear();
+     buckets.clear();positions.clear();residentAgents.clear();
    }
  };
 }
