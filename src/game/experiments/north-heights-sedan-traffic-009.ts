@@ -104,7 +104,8 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
  }
  const positions=new Map<string,{x:number;z:number;spin:number;tick:number}>();
  // Render residency is independent of logical existence, route progression,
- // reservations and Rapier collision ownership.
+ // reservations and Rapier collision ownership. Initial radii are conservative
+ // tuning hypotheses; benchmark before treating them as final platform values.
  const residentAgents=new Set<string>();
  const PLAYER_ENTER_RADIUS=92;
  const PLAYER_EXIT_RADIUS=112;
@@ -159,6 +160,7 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
     tick=snapshot.tick;
     lastCounts={full:0,medium:0,distant:0,culled:0,resident:0,renderMs:0};
     for(const b of buckets.values())b.count=0;
+    if(!activityCentre)residentAgents.clear();
     for(const a of snapshot.agents){
       const previous=positions.get(a.id);
       const dx=activityCentre?a.x-activityCentre.x:0;
@@ -169,8 +171,9 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
       const eligible=!activityCentre||pinnedAgent||
         (wasResident?distanceSquared<=PLAYER_EXIT_RADIUS*PLAYER_EXIT_RADIUS:
           distanceSquared<=PLAYER_ENTER_RADIUS*PLAYER_ENTER_RADIUS);
-      if(!activityCentre)residentAgents.clear();
-      else if(eligible)residentAgents.add(a.id);else residentAgents.delete(a.id);
+      if(activityCentre){
+        if(eligible)residentAgents.add(a.id);else residentAgents.delete(a.id);
+      }
       if(!eligible){
         // Refresh logical position without accumulating wheel rotation while
         // absent. Re-entry resumes from the current pose without a spin jump.
