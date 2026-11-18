@@ -753,6 +753,9 @@ export async function createNorthHeightsCity8(
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
+        " RESIDENT "+trafficRenderStats.resident+" CULLED "+trafficRenderStats.culled+
+        " LOD "+trafficRenderStats.full+"/"+trafficRenderStats.medium+"/"+trafficRenderStats.distant+
+        " RENDER "+trafficRenderStats.renderMs.toFixed(2)+"ms"+
         " MOVING GLB "+visibleAuthenticCars+" DOTS 0 SIM "+(traffic?.tick??0)+
         " · PED "+(pedestrians?.population??0)+" LOGICAL · JOURNEYS "+(pedestrians?.completed??0)+" · ROUTE FAIL "+(pedestrians?.routeFailures??0)+
         " · REROUTES "+(pedestrians?.reroutes??0)+" · STRANDED "+(pedestrians?.stranded??0)+
