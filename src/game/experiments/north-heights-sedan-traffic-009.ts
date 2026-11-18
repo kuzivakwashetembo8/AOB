@@ -162,9 +162,6 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
     if(!activityCentre)residentAgents.clear();
     for(const a of snapshot.agents){
       const previous=positions.get(a.id);
-      const dx=activityCentre?a.x-activityCentre.x:0;
-      const dz=activityCentre?a.z-activityCentre.z:0;
-      const distanceSquared=dx*dx+dz*dz;
       const pinnedAgent=pinned.has(a.id);
       const wasResident=residentAgents.has(a.id);
       const eligible=nh012IsRenderResident(a,activityCentre,wasResident,pinnedAgent);
