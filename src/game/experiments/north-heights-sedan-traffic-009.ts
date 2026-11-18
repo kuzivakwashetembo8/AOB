@@ -169,7 +169,8 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
       const eligible=!activityCentre||pinnedAgent||
         (wasResident?distanceSquared<=PLAYER_EXIT_RADIUS*PLAYER_EXIT_RADIUS:
           distanceSquared<=PLAYER_ENTER_RADIUS*PLAYER_ENTER_RADIUS);
-      if(eligible)residentAgents.add(a.id);else residentAgents.delete(a.id);
+      if(!activityCentre)residentAgents.clear();
+      else if(eligible)residentAgents.add(a.id);else residentAgents.delete(a.id);
       if(!eligible){
         // Refresh logical position without accumulating wheel rotation while
         // absent. Re-entry resumes from the current pose without a spin jump.
