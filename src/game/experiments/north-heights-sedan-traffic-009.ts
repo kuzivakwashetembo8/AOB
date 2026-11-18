@@ -19,6 +19,7 @@ import {northHeightsGround} from "./north-heights-reconstruction-001";
 import {
  NH009_SEDAN_COUNT,NH009_SEDAN_MODEL,sedanPaint009,sedanFleetAudit009
 } from "@/game/traffic/nh009-sedan-only-policy";
+import {nh012IsRenderResident} from "@/game/traffic/nh012-player-residency";
 
 const corners:readonly SevenSourceCorner007[]=[
  "frontLeft","frontRight","rearLeft","rearRight"
@@ -104,11 +105,9 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
  }
  const positions=new Map<string,{x:number;z:number;spin:number;tick:number}>();
  // Render residency is independent of logical existence, route progression,
- // reservations and Rapier collision ownership. Initial radii are conservative
+ // reservations and Rapier collision ownership. Policy radii are provisional
  // tuning hypotheses; benchmark before treating them as final platform values.
  const residentAgents=new Set<string>();
- const PLAYER_ENTER_RADIUS=92;
- const PLAYER_EXIT_RADIUS=112;
   // Resident distant Sedan-shaped geometry, scaled from accepted wheelbase/track.
   function distantPart(part:"body"|"cabin"|"glass"|"wheels",paint:string) {
     const key="distant:"+part+":"+(part==="body"?paint:"common");
@@ -168,9 +167,7 @@ export function createNorthHeightsSedanTraffic009(scene:Scene,graph:TrafficGraph
       const distanceSquared=dx*dx+dz*dz;
       const pinnedAgent=pinned.has(a.id);
       const wasResident=residentAgents.has(a.id);
-      const eligible=!activityCentre||pinnedAgent||
-        (wasResident?distanceSquared<=PLAYER_EXIT_RADIUS*PLAYER_EXIT_RADIUS:
-          distanceSquared<=PLAYER_ENTER_RADIUS*PLAYER_ENTER_RADIUS);
+      const eligible=nh012IsRenderResident(a,activityCentre,wasResident,pinnedAgent);
       if(activityCentre){
         if(eligible)residentAgents.add(a.id);else residentAgents.delete(a.id);
       }
