@@ -73,7 +73,9 @@ describe("NH-OPT2-SDN-001 Stage 1: existing Sedan passenger session",()=>{
     const renderer=readFileSync("src/game/experiments/north-heights-sedan-traffic-009.ts","utf8");
     expect(city).toContain("ridingSedanId=agent.id");
     expect(city).toContain('onVehicleChange?.("Sedan · Autopilot",agent.speed)');
-    expect(city).toContain("traffic3D.update(traffic.snapshot(),new Set(),camera)");
+    expect(city).toContain("traffic3D.update(traffic.snapshot(),new Set(),camera,");
+    expect(city).toContain("playerPosition?{x:playerPosition.x,z:playerPosition.z}:undefined");
+    expect(city).toContain("pinnedTrafficAgents");
     expect(renderer).toContain("createNativeWheel007");
     expect(renderer).toContain("sourceWheelFit007");
     expect(renderer).not.toContain("FirstDriveTrial");
