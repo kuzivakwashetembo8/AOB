@@ -708,9 +708,12 @@ export async function createNorthHeightsCity8(
         full:views.full,medium:views.medium,distant:views.distant,
         renderMs:views.renderMs};
     }
-    // PED-002 checklist 01: characters only. Pending/failed GLBs stay absent.
+    // NH-012 Stage 2: visual residency follows the controlled actor, never camera orbit.
     if(pedestrians&&pedestrianCharacters){
-      pedestrianCharacters.update(pedestrians,camera);
+      const residencyPlayer=ridingAgent()
+        ?sedanRoadPosition(ridingAgent()!)
+        :(!machineView&&mode==="walk"&&walk?walk.physics.playerPosition():null);
+      pedestrianCharacters.update(pedestrians,residencyPlayer);
     }
     if(dianeLevel&&dianeLabel){
       dianeLabel.update(dianeLevel.npcPosition,
@@ -763,6 +766,8 @@ export async function createNorthHeightsCity8(
         " · NPC "+(pedestrianCharacters?.active??0)+" ACTIVE / "+(pedestrianCharacters?.pooled??0)+" POOLED / "+(pedestrianCharacters?.loadedAppearances??0)+" OPTIMIZED GLBs"+
         " · NPC PENDING "+(pedestrianCharacters?.pendingAppearances??0)+
         " FAILED "+(pedestrianCharacters?.failedAppearances??0)+
+        " · NPC EVICTED "+(pedestrianCharacters?.evictedAppearances??0)+
+        " · NPC ASSIGN ms "+(pedestrianCharacters?.lastUpdateMs??0).toFixed(2)+
         (pedestrianLoadError?" · NPC LOAD ERROR "+pedestrianLoadError:"")+
         " · AUDIO-021 "+vehicleAudio.statistics.active+"/"+vehicleAudio.statistics.budget+
         " "+vehicleAudio.statistics.context+" · GEN-VEH-009 125 SOURCE SEDANS · "+
