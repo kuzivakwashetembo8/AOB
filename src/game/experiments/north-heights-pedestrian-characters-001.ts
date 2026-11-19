@@ -210,7 +210,17 @@ export async function loadNorthHeightsPedestrianCharacters001(
      // Keep the last actor position briefly through boarding/mode transitions.
      // Never substitute camera position; after the grace window freeze residency.
      const point=lastValidCentre&&now-lastValidCentreAt<=2000?lastValidCentre:null;
-     if(!point){lastUpdateMs=performance.now()-started;return;}
+     if(!point){
+       // No controlled actor position is available: stop active rigs in a bounded
+       // way rather than leaving remote-camera/fly-mode skeletons running forever.
+       let released=0;
+       for(const slot of assigned.values()){
+         if(released>=maxReleasesPerFrame)break;
+         release(slot);released++;
+       }
+       lastUpdateMs=performance.now()-started;
+       return;
+     }
      const supportY=(a:PedAgent001)=>groundSupport(sim,a);
      const byId=new Map(sim.agents.map(a=>[a.id,a]));
      let releasedThisFrame=0;
