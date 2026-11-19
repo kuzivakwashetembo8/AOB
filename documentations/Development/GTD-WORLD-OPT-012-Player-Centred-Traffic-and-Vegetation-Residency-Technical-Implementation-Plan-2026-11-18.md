@@ -1,6 +1,6 @@
 # GTD-WORLD-OPT-012 — Player-Centred Traffic and Vegetation Residency
 **Date:** 2026-11-18  
-**Status:** DOCUMENTATION ONLY — awaiting explicit owner implementation approval  
+**Status:** IMPLEMENTATION APPROVED — Stage 1 accepted; Stage 2 implementation in progress  
 **Repository:** `kuzivakwashetembo8/AOB`  
 **Scope:** Three ordered work packages: moving Sedan traffic, pedestrian characters, and static tree GLB instances.  
 **Intent:** Preserve the complete authored world and its deterministic population while limiting expensive rendering and simulation work to entities relevant to the player's current location.
