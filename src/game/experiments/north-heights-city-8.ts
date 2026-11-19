@@ -729,7 +729,14 @@ export async function createNorthHeightsCity8(
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
     signalHandle021?.update(camera.position);
-    treeHandle?.update(camera.position,dt);
+    // Tree residency follows the authoritative player, not the orbit camera.
+    const treePassenger=ridingAgent();
+    if(treePassenger){
+      const treePlayer=sedanRoadPosition(treePassenger);
+      treeHandle?.update(new Vector3(treePlayer.x,treePlayer.y,treePlayer.z),dt);
+    }else{
+      treeHandle?.update(mode==="walk"&&walk?walk.physics.playerPosition():camera.position,dt);
+    }
     // 20Hz sound telemetry, gated behind the actual unlocked AudioContext.
     // Query NH012's authoritative positions; never infer engine load from
     // Babylon wheel animation or spawn another car for positional audio.
