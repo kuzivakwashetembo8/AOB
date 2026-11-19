@@ -1227,7 +1227,7 @@ export async function createNorthHeightsCity8(
     yaw=initialYaw;pitch=initialPitch;
     const spawn=walk.physics.playerPosition();
     setCameraAt(spawn);
-    treeHandle?.update(camera.position,1);
+    treeHandle?.update(spawn,1);
     updateLocation(true);
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
