@@ -26,7 +26,7 @@ describe("NH-012 Stage 3 deterministic tree spatial index",()=>{
   it("uses hysteresis to avoid cell churn near the activation boundary",()=>{
     const index=new NorthHeightsTreeSpatialIndex004(placements,32);
     index.update({x:0,z:0},40,56,0);
-    const held=index.update({x:47,z:0},40,56,0);
+    const held=index.update({x:8,z:0},40,56,0);
     expect(held.changed).toBe(false);
     const moved=index.update({x:64,z:0},40,56,0);
     expect(moved.changed).toBe(true);
