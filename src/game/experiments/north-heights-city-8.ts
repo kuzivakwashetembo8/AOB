@@ -735,7 +735,8 @@ export async function createNorthHeightsCity8(
       const treePlayer=sedanRoadPosition(treePassenger);
       treeHandle?.update(new Vector3(treePlayer.x,treePlayer.y,treePlayer.z),dt);
     }else{
-      treeHandle?.update(mode==="walk"&&walk?walk.physics.playerPosition():camera.position,dt);
+      const treeCenter=mode==="walk"&&walk?walk.physics.playerPosition():camera.position;
+      treeHandle?.update(new Vector3(treeCenter.x,treeCenter.y,treeCenter.z),dt);
     }
     // 20Hz sound telemetry, gated behind the actual unlocked AudioContext.
     // Query NH012's authoritative positions; never infer engine load from
@@ -1227,7 +1228,7 @@ export async function createNorthHeightsCity8(
     yaw=initialYaw;pitch=initialPitch;
     const spawn=walk.physics.playerPosition();
     setCameraAt(spawn);
-    treeHandle?.update(spawn,1);
+    treeHandle?.update(new Vector3(spawn.x,spawn.y,spawn.z),1);
     updateLocation(true);
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
