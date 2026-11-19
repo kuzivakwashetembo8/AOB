@@ -11,8 +11,9 @@ describe("NH-012 Stage 3 deterministic tree spatial index",()=>{
     const index=new NorthHeightsTreeSpatialIndex004(placements,32);
     expect(index.totalPlacements).toBe(placements.length);
     expect(index.cellCount).toBeGreaterThan(1);
-    const all=Array.from({length:index.cellCount},(_,i)=>i);
-    expect(all).toHaveLength(index.cellCount);
+    const resident=index.update({x:0,z:0},1000,1000,0);
+    const indices=resident.resident.flatMap(cell=>cell.indices).sort((a,b)=>a-b);
+    expect(indices).toEqual(Array.from({length:placements.length},(_,i)=>i));
   });
   it("queries nearby cells and keeps residency bounded to the player radius",()=>{
     const index=new NorthHeightsTreeSpatialIndex004(placements,32);
