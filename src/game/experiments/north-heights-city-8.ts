@@ -710,9 +710,10 @@ export async function createNorthHeightsCity8(
     }
     // NH-012 Stage 2: visual residency follows the controlled actor, never camera orbit.
     if(pedestrians&&pedestrianCharacters){
-      const residencyPlayer=ridingAgent()
-        ?sedanRoadPosition(ridingAgent()!)
-        :(!machineView&&mode==="walk"&&walk?walk.physics.playerPosition():null);
+      const controlledVehicle=ridingAgent();
+      const residencyPlayer=controlledVehicle
+        ?sedanRoadPosition(controlledVehicle)
+        :(walk?walk.physics.playerPosition():null);
       pedestrianCharacters.update(pedestrians,residencyPlayer);
     }
     if(dianeLevel&&dianeLabel){
