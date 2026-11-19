@@ -8,9 +8,9 @@ describe("PED-002 pre-merge checklist 01: no pedestrian proxy dots",()=>{
    expect(city).not.toMatch(/createNorthHeightsPedestrianDots001|pedestrianDots|visiblePedestrianDots/);
    expect(city).not.toContain("pedestrianVisualMode");
  });
- it("keeps 100 logical pedestrians and updates only animated character models",()=>{
+ it("keeps 100 logical pedestrians and updates animated characters from player-centred residency",()=>{
    expect(city).toContain("new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations)");
-   expect(city).toContain("pedestrianCharacters.update(pedestrians,camera)");
+   expect(city).toContain("pedestrianCharacters.update(pedestrians,residencyPlayer)");
    expect(city).not.toContain("pedestrianCharacters?.setVisible(");
  });
  it("removes the pedestrian dot toggle from the game HUD",()=>{
