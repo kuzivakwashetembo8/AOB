@@ -159,14 +159,6 @@ export function createReesePlayer001(scene:Scene,
   for(const mesh of meshes){
    if(mesh.getTotalVertices()<=0)continue;
    mesh.computeWorldMatrix(true);
-   const box=mesh.getBoundingInfo().boundingBox;
-   minX=Math.min(minX,box.minimumWorld.x);
-   minY=Math.min(minY,box.minimumWorld.y);
-   minZ=Math.min(minZ,box.minimumWorld.z);
-   maxX=Math.max(maxX,box.maximumWorld.x);
-   maxY=Math.max(maxY,box.maximumWorld.y);
-   maxZ=Math.max(maxZ,box.maximumWorld.z);
-   mesh.isPickable=false;mesh.receiveShadows=true;
    const names=[mesh.name];
    let parent=mesh.parent;
    while(parent){names.push(parent.name);parent=parent.parent;}
@@ -182,6 +174,14 @@ export function createReesePlayer001(scene:Scene,
     mesh.dispose(false,false);
     continue;
    }
+   const box=mesh.getBoundingInfo().boundingBox;
+   minX=Math.min(minX,box.minimumWorld.x);
+   minY=Math.min(minY,box.minimumWorld.y);
+   minZ=Math.min(minZ,box.minimumWorld.z);
+   maxX=Math.max(maxX,box.maximumWorld.x);
+   maxY=Math.max(maxY,box.maximumWorld.y);
+   maxZ=Math.max(maxZ,box.maximumWorld.z);
+   mesh.isPickable=false;mesh.receiveShadows=true;
    meshCount++;
   }
   if(removedLegacyWeaponMeshes.length){
