@@ -46,7 +46,9 @@ describe("LMS weapon grip landmark placement",()=>{
  ])("places the %s grip landmark at the hand-mount origin",(_,grip)=>{
   const rotation=Quaternion.RotationYawPitchRoll(1.1,-0.2,0.15);
   const rootOffset=solveReeseWeaponGripOffset001(grip,rotation);
-  const rotatedGrip=Vector3.TransformNormal(grip,Matrix.FromQuaternion(rotation));
+  const rotationMatrix=Matrix.Identity();
+  rotation.toRotationMatrix(rotationMatrix);
+  const rotatedGrip=Vector3.TransformNormal(grip,rotationMatrix);
   expect(Vector3.Distance(rootOffset.add(rotatedGrip),Vector3.Zero())).toBeLessThan(1e-6);
  });
 });
