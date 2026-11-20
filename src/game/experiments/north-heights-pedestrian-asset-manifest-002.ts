@@ -1,4 +1,4 @@
-/** PED-002: Verified 100 distinct committed NPC GLBs; source comparison files excluded. */
+/** PED-002: Verified 60 distinct committed NPC GLBs; source comparison files excluded. */
 export const PED002_NPC_FILES = [
  "GTD_NPC_001_S42027.glb",
  "GTD_NPC_002_S49946.glb",
