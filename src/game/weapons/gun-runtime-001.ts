@@ -42,7 +42,6 @@ function makeMaterial(scene: Scene, key: string) {
   material.diffuseColor = Color3.FromHexString(COLORS[key] ?? "#59636D");
   material.specularColor = new Color3(0.32, 0.34, 0.37);
   material.specularPower = /alu|steel|brass|copper/.test(key) ? 72 : 28;
-  material.roughness = /rubber|cavity/.test(key) ? 0.86 : 0.48;
   return material;
 }
 function appendAssembly(
@@ -73,7 +72,6 @@ function appendAssembly(
     mesh.material = makeMaterial(scene, key);
     mesh.parent = parent;
     mesh.isPickable = false;
-    mesh.alwaysSelectAsActiveMesh = false;
     geometry.dispose();
   }
 }
