@@ -22,7 +22,7 @@ export function solveReeseWeaponMountRotation001(
 ): Quaternion {
  const inverseMount = mountWorld.clone();
  inverseMount.invert();
- const localBack = Vector3.TransformNormal(characterForward.scale(-1), inverseMount).normalize();
+ const localBack = Vector3.TransformNormal(characterForward, inverseMount).normalize();
  const rawUp = Vector3.TransformNormal(Vector3.Up(), inverseMount).normalize();
  const localUp = rawUp.subtract(localBack.scale(Vector3.Dot(rawUp, localBack))).normalize();
  if (localBack.lengthSquared() < 0.99 || localUp.lengthSquared() < 0.99) throw new Error('LMS weapon mount basis is degenerate');
