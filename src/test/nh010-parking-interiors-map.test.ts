@@ -3,15 +3,14 @@ import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {
  NORTH_HEIGHTS_PARKING_LOTS_010, NORTH_HEIGHTS_RESERVED_PARKING_BLOCKS_010,
- NORTH_HEIGHTS_PORTAL_HEIGHT_010,NORTH_HEIGHTS_PORTAL_WIDTH_010,
- northHeightsDoorway010,validateNorthHeightsParking010,
+ validateNorthHeightsParking010,
 } from "../game/experiments/north-heights-spatial-plan-010";
 import {
  NORTH_HEIGHTS_MAP_ROADS_010,NORTH_HEIGHTS_MAP_BLOCKS_010,
  NORTH_HEIGHTS_MAP_PARKING_010,northHeightsMapPoint010,
 } from "../game/experiments/north-heights-map-data-010";
 const read=(path:string)=>readFileSync(resolve(process.cwd(),path),"utf8");
-describe("NH-010 parking, enterable interiors and map",()=>{
+describe("NH-010 parking, sealed building exteriors and map",()=>{
  it("reserves one genuinely vacant city block before buildings, parks or parking",()=>{
   const lot=NORTH_HEIGHTS_PARKING_LOTS_010[0]!;
   expect(lot.blockId).toBe("NH-03-05");
@@ -32,20 +31,16 @@ describe("NH-010 parking, enterable interiors and map",()=>{
    overrides:{width:16,depth:16},
   }],fleet)).toThrow(/overlaps a building/);
  });
- it("has a doorway that is a real physical opening without a door mesh",()=>{
-  expect(NORTH_HEIGHTS_PORTAL_WIDTH_010).toBeGreaterThan(2.3);
-  expect(NORTH_HEIGHTS_PORTAL_HEIGHT_010).toBeGreaterThan(2.8);
-  const p=northHeightsDoorway010({position:{x:6,z:9},overrides:{width:18,depth:24}});
-  expect(p).toEqual({x:6,z:21,width:NORTH_HEIGHTS_PORTAL_WIDTH_010,
-   height:NORTH_HEIGHTS_PORTAL_HEIGHT_010});
+ it("uses uninterrupted window glazing and closed physical walls with no pedestrian portal",()=>{
   const src=read("src/game/experiments/north-heights-reconstruction-001.ts");
+  expect(src).toContain("const entranceFace=false;");
+  expect(src).toContain("All facade bays are closed glazing");
   expect(src).not.toMatch(/city\.box\("door"/);
-  expect(src).not.toMatch(/city\.box\("interior"/);
-  expect(src).toContain('city.box("interior-white"');
   const collisions=read("src/game/experiments/north-heights-physics-005.ts");
-  expect(collisions).toContain("northHeightsDoorway010");
-  expect(collisions).toContain("physics.addVehiclePlanarBarrier");
+  expect(collisions).toContain("Four continuous walls");
+  expect(collisions).not.toContain("northHeightsDoorway010");
   expect(collisions).not.toContain("handles.push(physics.addStaticBox(lot.position,lot.halfExtents");
+  expect(read("src/game/experiments/north-heights-city-8.ts")).toContain("buildingInteriors=[]");
  });
  it("projects district streets and owner-approved white marker without any live map service",()=>{
   expect(NORTH_HEIGHTS_MAP_ROADS_010).toHaveLength(11);

@@ -14,7 +14,7 @@ const lot={
 } as BuildingSpec;
 
 describe("FINCH-ROOM-022 pilot polishing",()=>{
- it("keeps the 53rd-floor meeting geometry navigable and the mission anchor fixed",()=>{
+ it("keeps the Finch mission anchor but creates no office or furniture inside HQ",()=>{
   const engine=new NullEngine();
   const scene=new Scene(engine);
   let active=0;
@@ -22,43 +22,12 @@ describe("FINCH-ROOM-022 pilot polishing",()=>{
    active++;return {dispose:()=>{active--;}};
   }} as unknown as MeridianPhysics;
   const suite=createFinchSuite005(scene,[lot],()=>11.27,physics);
-  const find=(name:string)=>{
-   const mesh=scene.getMeshByName("finch022:"+name);
-   expect(mesh, "Missing mesh "+name).toBeTruthy();
-   return mesh!;
-  };
-  const desk=find("executive-desk-top");
-  const visitorWest=find("visitor-west-seat");
-  const visitorEast=find("visitor-east-seat");
+  expect(scene.meshes.filter(m=>m.name.startsWith("finch022:"))).toHaveLength(0);
+  expect(scene.meshes.filter(m=>m.name.startsWith("finch023:"))).toHaveLength(0);
+  expect(active).toBe(0);
   const finch=suite.getFinchLocation();
-  const localFinchZ=finch.z-lot.position.z;
-  expect(localFinchZ).toBeCloseTo(8.98,4);
-  expect(desk.position.z).toBeLessThan(localFinchZ-1);
-  expect(visitorWest.position.z).toBeLessThan(desk.position.z);
-  expect(visitorEast.position.z).toBeCloseTo(visitorWest.position.z,4);
-  expect(visitorEast.position.x-visitorWest.position.x).toBeCloseTo(1.7,4);
-  // Continuous lift-to-library L: overlap at the bend and terminate
-  // within the first bookcase bay at the actual shelf front (not empty wall).
-  const mainRunner=find("lift-runner");
-  const westRunner=find("library-runner-turn");
-  expect(mainRunner.position.z+14.75/2)
-   .toBeGreaterThanOrEqual(westRunner.position.z-1.74/2);
-  expect(westRunner.position.x).toBeLessThan(mainRunner.position.x);
-  expect(mainRunner.position.z-14.75/2).toBeLessThan(-8.8);
-  const nearShelf=find("bookshelf-back");
-  const westEdge=westRunner.position.x-6.08/2;
-  const shelfFace=nearShelf.position.x+.40;
-  expect(Math.abs(westEdge-shelfFace)).toBeLessThan(.30);
-  // The turn reaches the first bookshelf span starting z~5.75.
-  expect(westRunner.position.z).toBeGreaterThan(6.0);
-  expect(find("pendant-ring").position.y).toBeGreaterThan(2.5);
-  expect(find("lounge-floor-lamp-shade").position.y).toBeGreaterThan(1.8);
-  expect(find("wall-sconce-west").position.x).toBeLessThan(-5.8);
-  expect(scene.getMeshByName("finch022:wall-sconce-right")).toBeNull();
-  // Four existing floor skins support the visible floor without more
-  // physical floor slabs; furniture adds only 5 static contact boxes.
-  expect(scene.meshes.filter(m=>m.name.startsWith("finch023:floor-skin-"))).toHaveLength(37);
-  expect(active).toBe(5);
+  expect(finch.z-lot.position.z).toBeCloseTo(8.98,4);
+  expect(finch.y).toBeGreaterThan(160);
   expect(finchShaft004(lot)?.floors).toBe(53);
   suite.dispose();
   expect(active).toBe(0);

@@ -51,10 +51,11 @@ describe("Level 001 preview refinement 011",()=>{
   expect(traffic).not.toContain("if(!this.dianePace001)return;");
   expect(traffic).toContain("this.recoveredOrphans++");
  });
- it("leaves the receptionist posed without a chair and retains rounded pavement faces",()=>{
+ it("removes the receptionist and lobby props while retaining rounded pavement faces",()=>{
   const lobby=file("src/game/experiments/north-heights-finch-lobby-004.ts");
-  expect(lobby).not.toContain('box("reception-seat"');
-  expect(lobby).toContain("sit.*idle");
+  expect(lobby).not.toContain("receptionist");
+  expect(lobby).not.toContain("sit.*idle");
+  expect(lobby).not.toContain('box("desk-front"');
   const roads=file("src/game/experiments/north-heights-roads-003.ts");
   expect(roads).toContain("roundedJunctionPavement");
   expect(roads).toContain('if(name!=="curb")');

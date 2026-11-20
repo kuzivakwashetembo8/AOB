@@ -78,10 +78,11 @@ describe("POI-004 full-height Finch HQ elevator",()=>{
   expect(visual).toContain("excludedGrass:");
   expect(grass).toContain("if(xx===1&&zz===1)continue");
  });
- it("uses an existing office-professional formal receptionist and accessible lift arrows",()=>{
+ it("keeps the glass elevator but removes lobby furnishings and receptionist assets",()=>{
   const code=readFileSync(resolve(process.cwd(),"src/game/experiments/north-heights-finch-lobby-004.ts"),"utf8");
   const route=readFileSync(resolve(process.cwd(),"src/routes/north-heights-preview.tsx"),"utf8");
-  expect(code).toContain("PED002_NPC_FILES[24]");
+  expect(code).not.toContain("PED002_NPC_FILES[24]");
+  expect(code).not.toContain('box("desk-front"');
   expect(code).toContain("car-side-glass");
   expect(code).toContain("requestTravel");
   const touch=readFileSync(resolve(process.cwd(),"src/ui/hud/touch-controls.tsx"),"utf8");

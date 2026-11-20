@@ -1,8 +1,6 @@
 /** POI-004. Single centered glass elevator, 53-level continuous physical travel.
  * Shares the shaft coordinates with both Rapier and the authored floor cutouts. */
-import {AnimationGroup,Color3,MeshBuilder,Scene,SceneLoader,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
-import "@babylonjs/loaders/glTF";
-import {PED002_NPC_FILES} from "./north-heights-pedestrian-asset-manifest-002";
+import {Color3,MeshBuilder,Scene,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
 import {finchShaft004,finchFloorStopFraction004,FINCH_ELEVATOR_TRAVEL_SECONDS_004} from "./north-heights-finch-elevator-structure-004";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
@@ -33,7 +31,6 @@ export interface FinchLobby004{
   cameraCabin:FinchCabinCamera006|null;
  };
  requestTravel:(selectedFloor?:number)=>boolean;
- loadReceptionist:()=>Promise<void>;
  dispose:()=>void;
 }
 
@@ -92,15 +89,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  box("shaft-glass-back",x,shaftY,z-2.45,4.9,shaftH,.07,glass);
  box("shaft-glass-front-upper",x,bottom+3.2+(top-bottom-3.2)/2,front,
   4.85,top-bottom-3.2,.06,glass);
- // A simple white reception counter to the right of the entrance sightline.
- const deskX=cx+width*.26,deskZ=cz+3.6;
- // No reception chair until a correctly fitted seated asset is available.
- box("desk-front",deskX,bottom+.56,deskZ,3.65,1.08,.67,white);
- box("desk-counter",deskX,bottom+1.13,deskZ,4.05,.14,1.09,white);
- box("desk-left-side",deskX-1.75,bottom+.56,deskZ-.27,.16,1.1,.75,white);
- box("desk-right-side",deskX+1.75,bottom+.56,deskZ-.27,.16,1.1,.75,white);
- staticBox(deskX,bottom+.56,deskZ,1.83,.56,.34);
- staticBox(deskX,bottom+1.13,deskZ,2.03,.07,.55);
+ // Interior furnishings and reception props are intentionally not created.
  // Carriage parts use one transform only: mesh & player ascend together.
  box("car-floor",x,bottom-.075,z,4.35,.15,4.35,deckGlass,true);
  box("car-ceiling",x,bottom+height,z,4.35,.13,4.35,doorGlass,true);
@@ -121,29 +110,6 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  let mode:"idle"|"closing"|"riding"|"opening"="idle";
  let heightFraction=0,doorFraction=0,available=false,closed=false;
  let personInCar:{x:number;y:number;z:number}|null=null;
- const receptionistNodes:TransformNode[]=[];let groups:AnimationGroup[]=[];
- let requested=false;
- let receptionistAnchor:TransformNode|null=null;
- let seatedIdle:AnimationGroup|null=null;
- let receptionistGestures:AnimationGroup[]=[];
- let gestureElapsed=0,gestureActive=0,gestureIndex=0;
- const animateReceptionist=(dt:number)=>{
-  const anchor=receptionistAnchor;if(!anchor)return;
-  gestureElapsed+=dt;
-  // Natural continuous seated micro-motion, with no Y or scale changes.
-  anchor.rotation.y=.025*Math.sin(gestureElapsed*.65)+.012*Math.sin(gestureElapsed*1.6);
-  anchor.rotation.z=.007*Math.sin(gestureElapsed*.9);
-  if(!receptionistGestures.length)return;
-  if(gestureActive>0){
-   gestureActive-=dt;
-   if(gestureActive<=0){for(const g of receptionistGestures)g.stop();seatedIdle?.start(true);}
-  }else if(gestureElapsed>5+gestureIndex%4*2.3){
-   gestureElapsed=0;seatedIdle?.stop();
-   const gesture=receptionistGestures[gestureIndex++%receptionistGestures.length]!;
-   gesture.start(false,1,gesture.from,gesture.to,false);
-   gestureActive=Math.max(1,Math.min(3,(gesture.to-gesture.from)/30));
-  }
- };
  const status=():FinchElevatorState004=>({
   floor,floors:53,buildingId:building.id,currentFloor:finchElevatorFloorCounter007(heightFraction),
    direction:floor===1?"up":"down",available:mode==="idle"&&available,
@@ -165,7 +131,6 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  const update=(p:{x:number;y:number;z:number}|null,dt:number)=>{
   if(closed)return {positionOverride:null,traveling:false,state:status(),cameraCabin:null};
   const step=Math.min(.05,Math.max(0,dt));
-  animateReceptionist(step);
   const offset=heightFraction*(top-bottom);
   const px=(p?.x??Infinity)-x,pz=(p?.z??Infinity)-front;
   const sameLevel=!!p&&Math.abs(p.y-(bottom+offset+.92))<2.2;
@@ -218,52 +183,9 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
       height,halfX:2.17-.18,halfZ:2.17-.18}:null;
   return {positionOverride:override,traveling:mode!=="idle",state:status(),cameraCabin};
  };
- const loadReceptionist=async()=>{
-  if(closed||requested)return;requested=true;
-  try{
-   // Office Professionals: 025, formally dressed insurance broker.
-   const file=PED002_NPC_FILES[24]!;
-   const data=await SceneLoader.ImportMeshAsync("","/GLBs/Characters/",file,scene);
-   if(closed){data.meshes.forEach(m=>m.dispose());return;}
-   const anchor=new TransformNode("poi004:receptionist-office-professional-025",scene);
-   receptionistNodes.push(anchor);receptionistAnchor=anchor;
-   const roots=data.meshes.filter(m=>!m.parent);
-   roots.forEach(m=>m.parent=anchor);
-   const low=new Vector3(Infinity,Infinity,Infinity),high=new Vector3(-Infinity,-Infinity,-Infinity);
-   for(const m of data.meshes){
-    if(m.getTotalVertices()===0)continue;
-    m.computeWorldMatrix(true);
-    const b=m.getBoundingInfo().boundingBox;
-    low.minimizeInPlace(b.minimumWorld);high.maximizeInPlace(b.maximumWorld);
-    m.isPickable=false;m.checkCollisions=false;
-   }
-   const h=high.y-low.y;
-   if(!Number.isFinite(h)||h<.1)throw Error("POI-004 invalid suit NPC geometry");
-   const scale=(h<1.25||h>2.25)?1.74/h:1;
-   anchor.scaling.setAll(scale);
-   // The former negative offset buried her waist below the white seat.
-   anchor.position.set(deskX-(low.x+high.x)*.5*scale,bottom-low.y*scale+.15,
-    deskZ-1.42-(low.z+high.z)*.5*scale);
-   anchor.rotation.y=0;
-   groups=data.animationGroups;
-   const seated=groups.find(g=>/(sit.*idle|sit.*loop|seated|sitting)/i.test(g.name));
-   for(const g of groups)if(g!==seated)g.stop();
-   seatedIdle=seated??null;
-   receptionistGestures=groups.filter(g=>g!==seated&&/(talk|speak|wave|gesture|nod|greet|hello)/i.test(g.name));
-   if(seated)seated.start(true);
-   else for(const skeleton of data.skeletons)for(const bone of skeleton.bones){
-     const n=bone.name.toLowerCase().replace(/[^a-z]/g,"");
-     if(/(left|right)(upleg|thigh)$/.test(n))
-       bone.setRotation(new Vector3(-Math.PI/2,0,0));
-     if(/(left|right)(leg|calf|shin)$/.test(n))
-       bone.setRotation(new Vector3(Math.PI/2,0,0));
-   }
-  }catch(error){if(!closed)console.error("[POI-004] Formal receptionist failed",error);}
- };
- return {update,requestTravel,loadReceptionist,dispose(){
+ return {update,requestTravel,dispose(){
   closed=true;doorCollider?.dispose();platformCollider?.dispose();
-  colliders.forEach(h=>h.dispose());groups.forEach(g=>g.stop());
-  for(const node of receptionistNodes)node.dispose(false,true);
+  colliders.forEach(h=>h.dispose());
   root.dispose(false,true);mats.forEach(m=>m.dispose());
  }};
 }

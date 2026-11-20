@@ -16,11 +16,14 @@ import type {MeridianPhysics} from "../game/physics/rapier-world";
 const source=(p:string)=>readFileSync(resolve(process.cwd(),p),"utf8");
 
 describe("GTD-LEVEL001-WORLD-019 — owner follow-up refinements",()=>{
- it("keeps the receptionist seated without a constructed chair",()=>{
+ it("keeps the Finch elevator while removing reception furniture and actors",()=>{
   const code=source("src/game/experiments/north-heights-finch-lobby-004.ts");
   expect(code).not.toContain('box("reception-seat"');
   expect(code).not.toContain('box("reception-seat-base"');
-  expect(code).toContain('bottom-low.y*scale+.15');
+  expect(code).not.toContain('box("desk-counter"');
+  expect(code).not.toContain("receptionist");
+  expect(code).toContain('box("car-side-glass-"');
+  expect(code).toContain("requestTravel");
  });
  it("renders a focused square map with only the game behind the blur",()=>{
   const code=source("src/ui/hud/north-heights-map-010.tsx");

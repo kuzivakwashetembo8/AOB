@@ -65,16 +65,19 @@ describe("POI-003 Finch targeted auto-drive and lobby foundation",()=>{
   expect(Math.hypot(sedan.x-NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.entrance.x,
     sedan.z-NORTH_HEIGHTS_FINCH_HEADQUARTERS_001.entrance.z)).toBeGreaterThan(5);
  });
-  it("keeps a genuine solid reception with 53-floor lift isolated from missions",()=>{
+  it("keeps the closed, unfurnished HQ facade and 53-floor glass lift isolated from missions",()=>{
   const code=read("src/game/experiments/north-heights-finch-lobby-004.ts");
   expect(code).toContain('box("door-left"');
   expect(code).toContain('box("door-right"');
-  expect(code).toContain("nearDoor");
+  expect(code).toContain("requestTravel");
   expect(code).toContain("physics.addStaticBox");
-  expect(code).toContain('box("desk-counter"');
-  expect(code).toContain("PED002_NPC_FILES[24]");
+  expect(code).not.toContain('box("desk-counter"');
+  expect(code).not.toContain("PED002_NPC_FILES");
+  expect(code).not.toContain("loadReceptionist=async()=>{");
   expect(code).not.toContain("setPlayerPosition(");
-  expect(read("src/game/experiments/north-heights-city-8.ts")).toContain("finchLobby?.update(");
+  const facade=read("src/game/experiments/north-heights-reconstruction-001.ts");
+  expect(facade).toContain("const entranceFace=false;");
+  expect(read("src/game/experiments/north-heights-city-8.ts")).toContain("buildingInteriors=[]");
  });
  it("wires only the clicked HQ marker and the currently occupied vehicle",()=>{
   const map=read("src/ui/hud/north-heights-map-010.tsx");
