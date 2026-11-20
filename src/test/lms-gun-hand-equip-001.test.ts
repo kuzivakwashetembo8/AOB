@@ -1,7 +1,7 @@
 import {describe,expect,it} from "vitest";
-import {NullEngine,Scene} from "@babylonjs/core";
+import {Matrix,NullEngine,Quaternion,Scene,Vector3} from "@babylonjs/core";
 import {GUNS_001} from "../game/weapons/gun-inspection-registry-001";
-import {createReeseWeapon001} from "../game/weapons/gun-runtime-001";
+import {createReeseWeapon001,solveReeseWeaponMountRotation001} from "../game/weapons/gun-runtime-001";
 
 describe("LMS extracted weapon runtime adapter",()=>{
  it("converts each gallery weapon into Babylon meshes without a second renderer",()=>{
@@ -18,5 +18,22 @@ describe("LMS extracted weapon runtime adapter",()=>{
   for(const weapon of created)weapon.dispose(false,true);
   scene.dispose();
   engine.dispose();
+ });
+});
+
+describe("LMS weapon coordinate contract",()=>{
+ it.each([
+  [0,new Vector3(0,0,1)],
+  [Math.PI/2,new Vector3(1,0,0)],
+  [-Math.PI/2,new Vector3(-1,0,0)],
+ ] as const)("maps weapon -Z to character forward at yaw %s",(yaw,expected)=>{
+  const mountWorld=Matrix.Compose(Vector3.One(),Quaternion.RotationYawPitchRoll(0.7,-0.45,0.3),new Vector3(2,1,-3));
+  const forward=new Vector3(Math.sin(yaw),0,Math.cos(yaw));
+  const solved=solveReeseWeaponMountRotation001(mountWorld,forward);
+  const weaponWorld=Matrix.Compose(Vector3.One(),solved,Vector3.Zero()).multiply(mountWorld);
+  const worldForward=Vector3.TransformNormal(new Vector3(0,0,-1),weaponWorld).normalize();
+  expect(Vector3.Dot(worldForward,expected)).toBeGreaterThan(0.999);
+  const worldUp=Vector3.TransformNormal(Vector3.Up(),weaponWorld).normalize();
+  expect(worldUp.y).toBeGreaterThan(0.999);
  });
 });
