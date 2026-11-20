@@ -83,7 +83,7 @@ export function createReeseWeapon001(scene: Scene, id: ReeseWeaponId001) {
   // its thumb-web origin. Rotate that target by the 180-degree forward-axis
   // correction, then offset the root so the target coincides with the hand bone.
   root.rotation.set(0, Math.PI, 0);
-  const wrist = model.nodes.gripR?.pos ?? [0, 0, 0];
+  const wrist = model.nodes["gripR"]?.pos ?? [0, 0, 0];
   root.position.set(wrist[0] ?? 0, -(wrist[1] ?? 0), wrist[2] ?? 0);
   appendAssembly(scene, model.body, root, id, "body");
   for (const [partName, assembly] of Object.entries(model.moving)) {
