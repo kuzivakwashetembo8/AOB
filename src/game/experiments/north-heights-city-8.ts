@@ -1157,7 +1157,7 @@ export async function createNorthHeightsCity8(
       nodes:traffic.graph.nodes.size,directedLanes:traffic.graph.edges.size,
       turns:traffic.graph.connectors.size,agents:traffic.population,
     });
-    // PED-002: preserve 100 logical agents and their original routes.
+    // PED-002: preserve 60 logical agents and their original routes.
     // No colored proxies; GLBs appear only when their unique asset is ready.
     // Crossings remain geometric-only until the dedicated yielding stage.
     pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
@@ -1213,7 +1213,7 @@ export async function createNorthHeightsCity8(
     updateLocation(true);
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+
-      "PED-001 "+(pedestrians?.population??0)+" logical pedestrians · 100 unique NPC appearances stream after first frame · "+
+      "PED-001 "+(pedestrians?.population??0)+" logical pedestrians · 60 unique NPC appearances stream after first frame · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
       treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 62 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · 0 parked GLB vehicle loads · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
@@ -1239,7 +1239,7 @@ export async function createNorthHeightsCity8(
         }).catch(error=>{
           if(!closed)console.error("[NH-LAMP-012] Owner GLB streetlights unavailable",error);
         });
-      // Do not extend North Heights' critical first-playable load with 100 GLBs.
+      // Do not extend North Heights' critical first-playable load with 60 GLBs.
       // Pedestrians without a loaded valid GLB remain visually absent.
       if(pedestrianLoading||pedestrianCharacters)return;
       pedestrianLoading=true;
@@ -1248,8 +1248,8 @@ export async function createNorthHeightsCity8(
         .then(renderer=>{
           if(closed){renderer.dispose();return;}
           pedestrianCharacters=renderer;
-          console.info("[PED-002] 100 logical agents each have a unique NPC appearance",{
-            available:100,resident:renderer.loadedAppearances,pool:renderer.pooled,
+          console.info("[PED-002] 60 logical agents each have a unique NPC appearance",{
+            available:60,resident:renderer.loadedAppearances,pool:renderer.pooled,
             sourceBytes:PED002_NPC_TOTAL_BYTES,vehicleAgents:traffic?.population,
           });
         }).catch(error=>{
