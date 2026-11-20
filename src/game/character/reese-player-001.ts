@@ -11,6 +11,7 @@ import {
   Vector3, type AssetContainer, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
+import {createReeseWeapon001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
 import { gtdLoadingLedger as audit } from "../../lib/real-loading-ledger";
 
@@ -74,6 +75,9 @@ export function createReesePlayer001(scene:Scene,
  let stableGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let pendingGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let handItem:"hand"|"gun"="hand";
+ let selectedWeapon:ReeseWeaponId001|null=null;
+ let weaponMount:TransformNode|null=null;
+ let weaponRoot:TransformNode|null=null;
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
@@ -82,12 +86,14 @@ export function createReesePlayer001(scene:Scene,
  const weaponMaterials=new Map<Material,{alpha:number;transparencyMode:number|null}>();
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
  function applyWeaponVisibility(){
-  const visible=handItem==="gun"&&controlled&&!hiddenDriving;
-  for(const mesh of weaponMeshes)mesh.setEnabled(visible);
-  for(const [material,original] of weaponMaterials){
-   material.alpha=visible?original.alpha:0;
-   material.transparencyMode=visible?original.transparencyMode:Material.MATERIAL_ALPHABLEND;
+  // The old embedded GLB pistol is not the LMS weapon source. Keep it hidden;
+  // the extracted Babylon weapon is the only visible equipped model.
+  for(const mesh of weaponMeshes)mesh.setEnabled(false);
+  for(const material of weaponMaterials.keys()){
+   material.alpha=0;
+   material.transparencyMode=Material.MATERIAL_ALPHABLEND;
   }
+  weaponRoot?.setEnabled(handItem==="gun"&&controlled&&!hiddenDriving);
  }
  const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
   idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
@@ -189,6 +195,16 @@ export function createReesePlayer001(scene:Scene,
   fit.scaling.setAll(scale);
   // Ara exports +Y up, +Z forward. No Voight-specific PI flip.
   fit.position.set(-(minX+maxX)*.5*scale,-minY*scale,-(minZ+maxZ)*.5*scale);
+  // Link a stable Babylon transform to Reese's actual right-hand bone. The
+  // procedural LMS weapons use the web-of-thumb as their local origin.
+  const rightHand=instance.skeletons.flatMap(skeleton=>skeleton.bones)
+   .find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
+  if(rightHand){
+   weaponMount=new TransformNode("reese-lms-right-hand-mount",scene);
+   rightHand.linkTransformNode(weaponMount);
+  }else{
+   console.error("[LMS-GUN-001] Reese right-hand bone was not found; extracted weapons will remain unequipped.");
+  }
   // Limit only imported PBR shader light count, not city lights.
   for(const m of source.materials){
    if(!m.getClassName().startsWith("PBR"))continue;
@@ -343,10 +359,28 @@ export function createReesePlayer001(scene:Scene,
    play(groups.idle);
    advance(input.dt);
   },
-  setHandItem(item:"hand"|"gun"){
-   handItem=item;combatRemaining=0;muzzleEffect.clear();applyWeaponVisibility();
-   if(item==="gun"&&groups.pistolAim)play(groups.pistolAim);
+  setWeapon(id:"hand"|ReeseWeaponId001){
+   combatRemaining=0;muzzleEffect.clear();
+   if(id==="hand"){
+    handItem="hand";
+    weaponRoot?.dispose(false,true);weaponRoot=null;
+   }else{
+    selectedWeapon=id;handItem="gun";
+    weaponRoot?.dispose(false,true);weaponRoot=null;
+    if(weaponMount){
+     weaponRoot=createReeseWeapon001(scene,id);
+     weaponRoot.parent=weaponMount;
+    }else{
+     console.error("[LMS-GUN-001] Cannot equip "+id+": right-hand mount unavailable.");
+     handItem="hand";
+    }
+   }
+   applyWeaponVisibility();
+   if(handItem==="gun"&&groups.pistolAim)play(groups.pistolAim);
    else play(groups.idle);
+  },
+  setHandItem(item:"hand"|"gun"){
+   this.setWeapon(item==="hand"?"hand":selectedWeapon??"m4a1");
   },
   /** Animation-and-audio-only: never performs damage, rays or projectile simulation. */
   triggerCombat(): "punch"|"shoot"|null {
@@ -382,6 +416,7 @@ export function createReesePlayer001(scene:Scene,
    if(closed)return;
    closed=true;
    active?.stop();outgoing?.stop();muzzleEffect.dispose();
+   weaponMount?.dispose(false,true);weaponMount=null;weaponRoot=null;
    instance?.dispose();instance=null;
    asset?.dispose();asset=null;
    fit?.dispose();offset?.dispose();tilt?.dispose();
