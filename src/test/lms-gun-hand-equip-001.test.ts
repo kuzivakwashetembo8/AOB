@@ -1,4 +1,4 @@
-import {afterEach,describe,expect,it} from "vitest";
+import {describe,expect,it} from "vitest";
 import {NullEngine,Scene} from "@babylonjs/core";
 import {GUNS_001} from "../game/weapons/gun-inspection-registry-001";
 import {createReeseWeapon001} from "../game/weapons/gun-runtime-001";
