@@ -7,11 +7,11 @@
  * capsule and controller; replace only the visual actor and its clip driver.
  */
 import {
-  AbstractMesh, AnimationGroup, Material, Matrix, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
+  AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
   Vector3, type AssetContainer, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
-import {createReeseWeapon001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
+import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
 import { gtdLoadingLedger as audit } from "../../lib/real-loading-ledger";
 
@@ -320,7 +320,6 @@ export function createReesePlayer001(scene:Scene,
   weaponMount.computeWorldMatrix(true);
   const forward=new Vector3(Math.sin(anchor.rotation.y),0,Math.cos(anchor.rotation.y));
   const solved=solveReeseWeaponMountRotation001(weaponMount.getWorldMatrix(),forward);
-  const rotationMatrix=Matrix.FromQuaternion(solved);
   for(const root of Object.values(weaponRoots)){
    if(!root)continue;
    root.rotationQuaternion=solved.clone();
@@ -329,7 +328,7 @@ export function createReesePlayer001(scene:Scene,
    const gripOffset=new Vector3(grip[0]??0,grip[1]??0,grip[2]??0);
    // Place the grip landmark at the hand-mount origin without changing
    // the solved weapon orientation: p + Qg = 0.
-   root.position.copyFrom(Vector3.TransformNormal(gripOffset,rotationMatrix).scale(-1));
+   root.position.copyFrom(solveReeseWeaponGripOffset001(gripOffset,solved));
   }
   if(!weaponGripDiagnosticsLogged){
    weaponMount.computeWorldMatrix(true);
