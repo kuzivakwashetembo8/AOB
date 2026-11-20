@@ -834,22 +834,8 @@ export class NH012TrafficSimulator {
      if(t?.arrived){agent.speed=0;agent.state="stopped";continue;}
      const destinationStop=t&&t.route.edges[t.index]===agent.edgeId&&
        t.index===t.route.edges.length-1?t.route.stopS:null;
-     const signalHere=signal021?.plan.nodeId===edge.to?signal021:null;
-     // Pilot crosswalks are around 8–11m from the junction centre.
-     // Stop the vehicle *front bumper* before them. On a permissive green,
-     // only proceed past the stop bar if downstream space and the exclusive
-     // junction reservation are physically available.
-     const stopBarS=Math.max(0,edge.length-(agent.length/2+2.3));
-     let heldAtSignal=false;
-     if(signalHere&&agent.s>=stopBarS-12){
-       const allowedPhase=signalHere.mayEnter021(edge.dx,edge.dz);
-       const selected=this.chooseConnector(agent);
-       const clearExit=this.hasExitSpace(selected.outgoing,agent);
-       heldAtSignal=!allowedPhase||!clearExit||this.reservations.has(edge.to);
-     }
-     const toStop=Math.min(
-       safe((heldAtSignal?stopBarS:edge.length)-agent.s),
-       destinationStop===null?Infinity:safe(destinationStop-agent.s));
+     const toStop=safe(Math.min(edge.length,
+       destinationStop===null?edge.length:destinationStop)-agent.s);
      const safeStopSpeed=Math.sqrt(2*BRAKE*toStop);
      const safeFollowSpeed=Number.isFinite(available)
        ?Math.sqrt(2*BRAKE*Math.max(0,available)):Infinity;
@@ -895,12 +881,7 @@ export class NH012TrafficSimulator {
    }
    // Deterministic all-way-stop priority, exclusive across conflicting turns.
    const queues=new Map<string,NH012Agent[]>();
-   for(const agent of this.agents)if(!agent.connectorId&&
-     (agent.waitTicks>=4||
-       (signal021!==null&&signal021.plan.nodeId===this.graph.edges.get(agent.edgeId)?.to&&
-        agent.s>=this.graph.edges.get(agent.edgeId)!.length-.06&&
-        signal021.mayEnter021(this.graph.edges.get(agent.edgeId)!.dx,
-          this.graph.edges.get(agent.edgeId)!.dz)))
+   for(const agent of this.agents)if(!agent.connectorId&&agent.waitTicks>=4
      &&this.driverBrakeId!==agent.id&&this.manual?.agentId!==agent.id
      &&!this.freeParkedAgents.has(agent.id)&&
        !this.impactMotion.has(agent.id)&&!this.impactRecovery.has(agent.id)){
@@ -914,11 +895,6 @@ export class NH012TrafficSimulator {
      // Keep each queued car's route fixed while allowing the first safe exit.
      for(const agent of queue){
        if(this.targeted?.agentId===agent.id&&this.targeted.arrived)continue;
-       // A pilot signal replaces all-way-stop admission only at this node.
-       // A car already queued when a phase turns red must NOT enter.
-       const entryEdge=this.graph.edges.get(agent.edgeId)!;
-       if(signal021?.plan.nodeId===junction&&!signal021.mayEnter021(entryEdge.dx,entryEdge.dz))
-         continue;
        let connector=this.chooseConnector(agent);
        // A permanently blocked preferred turn can starve a whole junction.
        // Before acquiring a reservation, ordinary AI may take another legal
