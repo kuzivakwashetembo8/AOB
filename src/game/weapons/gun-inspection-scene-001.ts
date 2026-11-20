@@ -1,6 +1,6 @@
 /** LMS-GUN-001: isolated Three.js inspection scene for extracted procedural weapons. */
 import * as THREE from "three";
-import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+import {OrbitControls} from "three/examples/jsm/controls/OrbitControls.js";
 import {buildRifle} from "./source/models/rifle.js";
 import {buildSmg} from "./source/models/smg.js";
 import {buildPistol} from "./source/models/pistol.js";
@@ -40,7 +40,8 @@ function attachAssembly(assembly:any,parent:THREE.Group,materials:Map<string,THR
 function nodeFor(model:SourceModel001,key:string){
  const names:Record<string,string>={magazine:"magSeat",charging:"chargeRest",bolt:"boltRest",
   trigger:"triggerPivot",selector:"selectorPivot",slide:"slideRest"};
- return model.nodes[names[key]]??{pos:[0,0,0],rot:[0,0,0]};
+ const nodeName=names[key];
+ return (nodeName?model.nodes[nodeName]:undefined)??{pos:[0,0,0],rot:[0,0,0]};
 }
 export function createGunInspectionScene001(canvas:HTMLCanvasElement):GunInspectionScene001{
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:"low-power"});
@@ -79,7 +80,7 @@ export function createGunInspectionScene001(canvas:HTMLCanvasElement):GunInspect
  const clearActive=()=>{
   if(!activeRoot)return;
   scene.remove(activeRoot);
-  activeRoot.traverse(object=>{
+  activeRoot.traverse((object:THREE.Object3D)=>{
    const mesh=object as THREE.Mesh;
    if(mesh.geometry)mesh.geometry.dispose();
   });
@@ -105,7 +106,7 @@ export function createGunInspectionScene001(canvas:HTMLCanvasElement):GunInspect
    const bounds=new THREE.Box3().setFromObject(root),center=bounds.getCenter(new THREE.Vector3());
    root.position.set(-center.x,-center.y+.045,-center.z);root.scale.setScalar(1.18);
    if(current!==version||closed){
-    root.traverse(object=>{const mesh=object as THREE.Mesh;if(mesh.geometry)mesh.geometry.dispose();});
+    root.traverse((object:THREE.Object3D)=>{const mesh=object as THREE.Mesh;if(mesh.geometry)mesh.geometry.dispose();});
     for(const material of materialMap.values())material.dispose();
     return "MODEL SWITCHED";
    }
