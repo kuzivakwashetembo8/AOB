@@ -102,7 +102,7 @@ function Launcher() {
           </div>
           <div className="menu-entry">
             <Button variant="menu" asChild>
-              <Link to="/guns" onFocus={() => setSelection("Inspect the extracted LMS weapon models.")}>
+              <Link to="/guns" search={{}} onFocus={() => setSelection("Inspect the extracted LMS weapon models.")}>
                 <Crosshair size={14} /> Guns <ChevronRight size={13} />
               </Link>
             </Button>
