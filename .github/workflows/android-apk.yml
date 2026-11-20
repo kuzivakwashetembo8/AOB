@@ -1,3 +1,4 @@
+# On-demand rebuilds are also available through workflow_dispatch.
 name: Build P.O.I Android APK
 
 on:
