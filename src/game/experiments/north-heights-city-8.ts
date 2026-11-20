@@ -189,6 +189,8 @@ export async function createNorthHeightsCity8(
   let finchArrivedAnnounced=false;
   let traffic3D:NH009SedanTraffic|null=null;
   let trafficAccumulator=0,visibleTrafficCars=0,visibleAuthenticCars=0;
+  const pinnedTrafficAgents=new Set<string>();
+  let trafficRenderStats={resident:0,culled:0,full:0,medium:0,distant:0,renderMs:0};
   const solidVehicleHandles=new Map<string,{
     update:(pose:{x:number;y:number;z:number;heading:number})=>void;
     dispose:()=>void;
@@ -687,9 +689,24 @@ export async function createNorthHeightsCity8(
     // avoiding one-frame stale full-detail promotion during rapid flight descent.
     if(traffic&&traffic3D){
       scene.updateTransformMatrix();
-      const views=traffic3D.update(traffic.snapshot(),new Set(),camera);
+      // Residency follows the actual player or occupied Sedan, never the
+      // detached/orbit camera. Camera projection remains a secondary LOD gate.
+      const occupiedAgent=ridingAgent();
+      const playerPosition=occupiedAgent
+        ?{x:occupiedAgent.x,z:occupiedAgent.z}
+        :walk?walk.physics.playerPosition():null;
+      pinnedTrafficAgents.clear();
+      if(ridingSedanId)pinnedTrafficAgents.add(ridingSedanId);
+      if(dianeLevel&&(dianeLevel.stage==="follow"||dianeLevel.stage==="observe"))
+        pinnedTrafficAgents.add(dianeLevel.carId);
+      const views=traffic3D.update(traffic.snapshot(),new Set(),camera,
+        playerPosition?{x:playerPosition.x,z:playerPosition.z}:undefined,
+        pinnedTrafficAgents);
       visibleAuthenticCars=0;
       visibleTrafficCars=views.vehicles3D;
+      trafficRenderStats={resident:views.resident,culled:views.culled,
+        full:views.full,medium:views.medium,distant:views.distant,
+        renderMs:views.renderMs};
     }
     // PED-002 checklist 01: characters only. Pending/failed GLBs stay absent.
     if(pedestrians&&pedestrianCharacters){
@@ -736,6 +753,9 @@ export async function createNorthHeightsCity8(
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
+        " RESIDENT "+trafficRenderStats.resident+" CULLED "+trafficRenderStats.culled+
+        " LOD "+trafficRenderStats.full+"/"+trafficRenderStats.medium+"/"+trafficRenderStats.distant+
+        " RENDER "+trafficRenderStats.renderMs.toFixed(2)+"ms"+
         " MOVING GLB "+visibleAuthenticCars+" DOTS 0 SIM "+(traffic?.tick??0)+
         " · PED "+(pedestrians?.population??0)+" LOGICAL · JOURNEYS "+(pedestrians?.completed??0)+" · ROUTE FAIL "+(pedestrians?.routeFailures??0)+
         " · REROUTES "+(pedestrians?.reroutes??0)+" · STRANDED "+(pedestrians?.stranded??0)+
