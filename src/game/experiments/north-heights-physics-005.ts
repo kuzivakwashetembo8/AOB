@@ -10,8 +10,6 @@ import type { BuildingSpec } from "@/game/world-generation/schema";
 import { northHeightsGround } from "./north-heights-reconstruction-001";
 import {finchFloorRing004} from "./north-heights-finch-elevator-structure-004";
 import {northHeightsBuildingShaft019} from "./north-heights-building-lift-plan-019";
-import {northHeightsDoorway010,NORTH_HEIGHTS_PORTAL_HEIGHT_010}
-  from "./north-heights-spatial-plan-010";
 
 export interface NorthHeightsWalk005 {
   readonly physics: MeridianPhysics;
@@ -86,10 +84,9 @@ export async function createNorthHeightsWalk005(
       const floors=lot.overrides?.floors??4,fh=lot.overrides?.floorHeight??3.1;
       const h=Math.max(2,floors*fh);
       const x=lot.position.x,z=lot.position.z,y=northHeightsGround(x,z)+.8;
-      const portal=northHeightsDoorway010(lot),gap=portal.width,openingH=Math.min(h-.2,NORTH_HEIGHTS_PORTAL_HEIGHT_010);
       // Visual facades start 0.8m above terrain, but the walkable ground
-      // floor is only 0.27m above terrain. Extend physical shell down so a
-      // person cannot walk beneath windows, keeping the doorway unblocked.
+      // floor is only 0.27m above terrain. Extend the closed physical shell
+      // down so a person cannot walk beneath the window glazing.
       const shellBase=y-.62,shellH=h+.62;
       const t=.22;
       const wall=(px:number,py:number,pz:number,hw:number,hh:number,hd:number)=>{
