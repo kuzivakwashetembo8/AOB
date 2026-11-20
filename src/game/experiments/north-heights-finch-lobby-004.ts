@@ -92,15 +92,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  box("shaft-glass-back",x,shaftY,z-2.45,4.9,shaftH,.07,glass);
  box("shaft-glass-front-upper",x,bottom+3.2+(top-bottom-3.2)/2,front,
   4.85,top-bottom-3.2,.06,glass);
- // A simple white reception counter to the right of the entrance sightline.
- const deskX=cx+width*.26,deskZ=cz+3.6;
- // No reception chair until a correctly fitted seated asset is available.
- box("desk-front",deskX,bottom+.56,deskZ,3.65,1.08,.67,white);
- box("desk-counter",deskX,bottom+1.13,deskZ,4.05,.14,1.09,white);
- box("desk-left-side",deskX-1.75,bottom+.56,deskZ-.27,.16,1.1,.75,white);
- box("desk-right-side",deskX+1.75,bottom+.56,deskZ-.27,.16,1.1,.75,white);
- staticBox(deskX,bottom+.56,deskZ,1.83,.56,.34);
- staticBox(deskX,bottom+1.13,deskZ,2.03,.07,.55);
+ // Interior furnishings and reception props are intentionally not created.
  // Carriage parts use one transform only: mesh & player ascend together.
  box("car-floor",x,bottom-.075,z,4.35,.15,4.35,deckGlass,true);
  box("car-ceiling",x,bottom+height,z,4.35,.13,4.35,doorGlass,true);
@@ -218,48 +210,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
       height,halfX:2.17-.18,halfZ:2.17-.18}:null;
   return {positionOverride:override,traveling:mode!=="idle",state:status(),cameraCabin};
  };
- const loadReceptionist=async()=>{
-  if(closed||requested)return;requested=true;
-  try{
-   // Office Professionals: 025, formally dressed insurance broker.
-   const file=PED002_NPC_FILES[24]!;
-   const data=await SceneLoader.ImportMeshAsync("","/GLBs/Characters/",file,scene);
-   if(closed){data.meshes.forEach(m=>m.dispose());return;}
-   const anchor=new TransformNode("poi004:receptionist-office-professional-025",scene);
-   receptionistNodes.push(anchor);receptionistAnchor=anchor;
-   const roots=data.meshes.filter(m=>!m.parent);
-   roots.forEach(m=>m.parent=anchor);
-   const low=new Vector3(Infinity,Infinity,Infinity),high=new Vector3(-Infinity,-Infinity,-Infinity);
-   for(const m of data.meshes){
-    if(m.getTotalVertices()===0)continue;
-    m.computeWorldMatrix(true);
-    const b=m.getBoundingInfo().boundingBox;
-    low.minimizeInPlace(b.minimumWorld);high.maximizeInPlace(b.maximumWorld);
-    m.isPickable=false;m.checkCollisions=false;
-   }
-   const h=high.y-low.y;
-   if(!Number.isFinite(h)||h<.1)throw Error("POI-004 invalid suit NPC geometry");
-   const scale=(h<1.25||h>2.25)?1.74/h:1;
-   anchor.scaling.setAll(scale);
-   // The former negative offset buried her waist below the white seat.
-   anchor.position.set(deskX-(low.x+high.x)*.5*scale,bottom-low.y*scale+.15,
-    deskZ-1.42-(low.z+high.z)*.5*scale);
-   anchor.rotation.y=0;
-   groups=data.animationGroups;
-   const seated=groups.find(g=>/(sit.*idle|sit.*loop|seated|sitting)/i.test(g.name));
-   for(const g of groups)if(g!==seated)g.stop();
-   seatedIdle=seated??null;
-   receptionistGestures=groups.filter(g=>g!==seated&&/(talk|speak|wave|gesture|nod|greet|hello)/i.test(g.name));
-   if(seated)seated.start(true);
-   else for(const skeleton of data.skeletons)for(const bone of skeleton.bones){
-     const n=bone.name.toLowerCase().replace(/[^a-z]/g,"");
-     if(/(left|right)(upleg|thigh)$/.test(n))
-       bone.setRotation(new Vector3(-Math.PI/2,0,0));
-     if(/(left|right)(leg|calf|shin)$/.test(n))
-       bone.setRotation(new Vector3(Math.PI/2,0,0));
-   }
-  }catch(error){if(!closed)console.error("[POI-004] Formal receptionist failed",error);}
- };
+ const loadReceptionist=async()=>{};
  return {update,requestTravel,loadReceptionist,dispose(){
   closed=true;doorCollider?.dispose();platformCollider?.dispose();
   colliders.forEach(h=>h.dispose());groups.forEach(g=>g.stop());
