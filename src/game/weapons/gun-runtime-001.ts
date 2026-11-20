@@ -78,7 +78,8 @@ function appendAssembly(
 export function createReeseWeapon001(scene: Scene, id: ReeseWeaponId001) {
   const model = BUILDERS[id]();
   const root = new TransformNode("reese-lms-weapon-" + id, scene);
-  root.rotation.set(Math.PI / 2, 0, Math.PI);
+  // Source weapon space is +Y up with the muzzle along -Z. Reese faces +Z.
+  root.rotation.set(0, Math.PI, 0);
   appendAssembly(scene, model.body, root, id, "body");
   for (const [partName, assembly] of Object.entries(model.moving)) {
     const part = new TransformNode("reese-lms-weapon-" + id + "-" + partName, scene);
