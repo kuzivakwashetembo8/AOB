@@ -1147,7 +1147,8 @@ export async function createNorthHeightsCity8(
     trafficWheelbase=Math.abs((front.center[2]??0)-(rear.center[2]??0));
     trafficTrack=Math.abs((front.center[0]??0)-(other.center[0]??0));
     console.info("[GEN-VEH-009] Accepted sedan-only 62-agent native traffic",{
-       sedans:pilotIds.size,hatchbacks:hatchIds.size,taxis:taxiIds.size,kango:kangoIds.size,
+       liveSedans:traffic.population,
+       legacyIdentityTags:pilotIds.size+hatchIds.size+taxiIds.size+kangoIds.size,
        remainingDefaultAgents:traffic.population-pilotIds.size-hatchIds.size-taxiIds.size-kangoIds.size,
        vehicleViews:traffic.population,renderModel:"sedan",dots:0,movingGLBs:0,
     });
