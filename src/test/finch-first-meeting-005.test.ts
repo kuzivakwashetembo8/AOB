@@ -51,25 +51,22 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   sim.parkManualOffRoad(id);
   expect(sim.isStage6FreeParked(id)).toBe(true);
  });
- it("mounts the isolated FINCH-ROOM-022 test without changing Finch mission placement",()=>{
+ it("retains Finch mission placement without generating interior decor or furniture",()=>{
   const engine=new NullEngine(),scene=new Scene(engine);
   let count=0;
   const physics={addStaticBox:()=>{count++;return {dispose:()=>{count--;}};}} as unknown as MeridianPhysics;
   const suite=createFinchSuite005(scene,[building],()=>11.27,physics);
   expect(scene.meshes.filter(m=>m.name.startsWith("poi005:"))).toHaveLength(0);
-  const decor=scene.meshes.filter(m=>m.name.startsWith("finch022:"));
-  expect(decor.length).toBeGreaterThan(100);
-  expect(scene.materials.some(m=>m.name==="finch022:walnut")).toBe(true);
-  expect(count).toBe(5);
-  expect(scene.meshes.filter(m=>m.name.startsWith("finch023:floor-skin-"))).toHaveLength(37);
-  expect(scene.meshes.some(m=>m.name==="finch022:pendant-ring")).toBe(true);
-  expect(scene.meshes.some(m=>m.name==="finch022:library-architectural-panel")).toBe(true);
+  expect(scene.meshes.filter(m=>m.name.startsWith("finch022:"))).toHaveLength(0);
+  expect(scene.meshes.filter(m=>m.name.startsWith("finch023:floor-skin-"))).toHaveLength(0);
+  expect(count).toBe(0);
   expect(suite.isNearFinch(suite.getFinchLocation())).toBe(false);
   expect(suite.getFinchLocation().y).toBeGreaterThan(160);
   expect(suite.getFinchLocation().x).toBeCloseTo(building.position.x+2.9,4);
   expect(suite.getFinchLocation().z).toBeCloseTo(building.position.z+8.98,4);
   const source=read("src/game/experiments/north-heights-finch-suite-005.ts");
-  expect(source).toContain("createFinchRoomTrial022");
+  expect(source).not.toContain("createFinchRoomTrial022");
+  expect(source).not.toContain("createFinchCafeFloor024");
   suite.dispose();expect(count).toBe(0);
   scene.dispose();engine.dispose();
  });
