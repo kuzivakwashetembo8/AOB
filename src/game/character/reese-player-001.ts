@@ -11,7 +11,7 @@ import {
   Vector3, type AssetContainer, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
-import {createReeseWeapon001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
+import {createReeseWeapon001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
 import { gtdLoadingLedger as audit } from "../../lib/real-loading-ledger";
 
@@ -298,6 +298,7 @@ export function createReesePlayer001(scene:Scene,
    console.error("[LMS-GUN-001] Cannot equip "+id+": right-hand mount unavailable.");
    handItem="hand";
   }
+  alignWeaponMountToCharacterForward();
   applyWeaponVisibility();
   if(handItem==="gun"&&groups.pistolAim)play(groups.pistolAim);
   else play(groups.idle);
@@ -309,6 +310,14 @@ export function createReesePlayer001(scene:Scene,
  function positionAt(p:{x:number;y:number;z:number},yaw:number){
   anchor.position.set(p.x,p.y-.92,p.z);
   anchor.rotation.y=yaw;
+ }
+ function alignWeaponMountToCharacterForward(){
+  if(!weaponMount)return;
+  weaponMount.computeWorldMatrix(true);
+  const forward=new Vector3(Math.sin(anchor.rotation.y),0,Math.cos(anchor.rotation.y));
+  const solved=solveReeseWeaponMountRotation001(weaponMount.getWorldMatrix(),forward);
+  for(const root of Object.values(weaponRoots))
+   if(root)root.rotationQuaternion=solved.clone();
  }
  return {
   anchor,ready,
@@ -330,6 +339,7 @@ export function createReesePlayer001(scene:Scene,
   syncHiddenDrivingPose(p:{x:number;y:number;z:number},yaw:number){
    if(closed||!controlled||!hiddenDriving)return;
    positionAt(p,yaw);
+   alignWeaponMountToCharacterForward();
   },
   updateControlled(
    p:{x:number;y:number;z:number},yaw:number,speed:number,dt:number,
@@ -338,6 +348,7 @@ export function createReesePlayer001(scene:Scene,
    if(!controlled||closed)return;
    if(flight)resetFlight();
    positionAt(p,yaw);
+   alignWeaponMountToCharacterForward();
    muzzleEffect.update(dt);
    // The Rapier capsule determines physical Y; glTF clips only articulate bones.
    const airborne=!grounded||verticalVelocity>.65;
