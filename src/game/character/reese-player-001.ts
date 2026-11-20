@@ -82,7 +82,6 @@ export function createReesePlayer001(scene:Scene,
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
  const muzzleEffect=createReeseMuzzleSpark010(scene);
- const weaponMeshes=new Set<AbstractMesh>();
  const removedLegacyWeaponMeshes:string[]=[];
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
  function applyWeaponVisibility(){
@@ -259,25 +258,14 @@ export function createReesePlayer001(scene:Scene,
   report.activeClip=active.name;
  }
  function muzzleWorld():Vector3|null{
-  const forward=new Vector3(Math.sin(anchor.rotation.y),0,Math.cos(anchor.rotation.y));
-  for(const mesh of weaponMeshes){
-   if(!mesh.isEnabled()||mesh.isDisposed())continue;
-   mesh.computeWorldMatrix(true);
-   let best=-Infinity,point:Vector3|null=null;
-   for(const p of mesh.getBoundingInfo().boundingBox.vectorsWorld){
-    const projection=p.x*forward.x+p.z*forward.z;
-    if(projection>best){best=projection;point=p;}
-   }
-   if(point)return point.clone();
-  }
-  // Use the real skinned right hand when the gun is part of a body material.
-  for(const skeleton of instance?.skeletons??[]){
-   const hand=skeleton.bones.find(b=>/(right.?hand|hand[._-]?r|r[._-]?hand)$/i.test(b.name));
-   const all=(instance?.rootNodes??[]).flatMap(n=>n.getChildMeshes(false));
-   const mesh=all.find(candidate=>(candidate as typeof candidate&{skeleton?:typeof skeleton}).skeleton===skeleton);
-   if(hand&&mesh){const p=hand.getAbsolutePosition(mesh);
-    if(Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.z))
-     return p.add(forward.scale(.34));
+  const root=selectedWeapon?weaponRoots[selectedWeapon]:null;
+  if(root&&!root.isDisposed()){
+   root.computeWorldMatrix(true);
+   const muzzle=root.metadata?.muzzle as number[]|undefined;
+   if(muzzle&&muzzle.length>=3){
+    const point=Vector3.TransformCoordinates(
+     new Vector3(muzzle[0]??0,muzzle[1]??0,muzzle[2]??0),root.getWorldMatrix());
+    if(Number.isFinite(point.x)&&Number.isFinite(point.y)&&Number.isFinite(point.z))return point;
    }
   }
   return null;
