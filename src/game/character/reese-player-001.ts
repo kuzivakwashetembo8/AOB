@@ -7,7 +7,7 @@
  * capsule and controller; replace only the visual actor and its clip driver.
  */
 import {
-  AbstractMesh, AnimationGroup, Material, MultiMaterial, TransformNode, loadAssetContainerAsync,
+  AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
   Vector3, type AssetContainer, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
@@ -76,7 +76,7 @@ export function createReesePlayer001(scene:Scene,
  let pendingGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let handItem:"hand"|"gun"="hand";
  let selectedWeapon:ReeseWeaponId001|null=null;
- let weaponMount:TransformNode|null=null;
+ let weaponMount:Mesh|null=null;
  const weaponRoots:Partial<Record<ReeseWeaponId001,TransformNode>>={};
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
@@ -201,8 +201,16 @@ export function createReesePlayer001(scene:Scene,
   const rightHand=instance.skeletons.flatMap(skeleton=>skeleton.bones)
    .find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
   if(rightHand){
-   weaponMount=new TransformNode("reese-lms-right-hand-mount",scene);
-   rightHand.linkTransformNode(weaponMount);
+   const handSkeleton=rightHand.getSkeleton();
+   const referenceMesh=instance.meshes
+    .filter(mesh=>mesh.skeleton===handSkeleton&&mesh.getTotalVertices()>0)
+    .sort((a,b)=>b.getTotalVertices()-a.getTotalVertices())[0];
+   if(!referenceMesh)throw Error("REESE-001 right-hand skeleton has no skinned reference mesh");
+   // attachToBone keeps the GLB's existing linked bone TransformNode intact.
+   // The mount has no geometry; it only provides a rigid parent for the guns.
+   weaponMount=new Mesh("reese-lms-right-hand-mount",scene);
+   weaponMount.isPickable=false;weaponMount.checkCollisions=false;
+   weaponMount.attachToBone(rightHand,referenceMesh);
    // Prebuild once: rapid taps only switch visibility and never allocate meshes.
    for(const id of ["m4a1","mpx9","p19"] as const){
     const root=createReeseWeapon001(scene,id);
