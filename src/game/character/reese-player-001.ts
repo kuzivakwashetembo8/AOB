@@ -271,6 +271,26 @@ export function createReesePlayer001(scene:Scene,
    if(transition>=1){outgoing.stop();outgoing=null;}
   }
  }
+ function selectWeapon(id:"hand"|ReeseWeaponId001){
+  combatRemaining=0;muzzleEffect.clear();
+  if(id==="hand"){
+   handItem="hand";
+   weaponRoot?.dispose(false,true);weaponRoot=null;
+  }else{
+   selectedWeapon=id;handItem="gun";
+   weaponRoot?.dispose(false,true);weaponRoot=null;
+   if(weaponMount){
+    weaponRoot=createReeseWeapon001(scene,id);
+    weaponRoot.parent=weaponMount;
+   }else{
+    console.error("[LMS-GUN-001] Cannot equip "+id+": right-hand mount unavailable.");
+    handItem="hand";
+   }
+  }
+  applyWeaponVisibility();
+  if(handItem==="gun"&&groups.pistolAim)play(groups.pistolAim);
+  else play(groups.idle);
+ }
  function resetFlight(){
   flight=false;flightPitch=0;flightRoll=0;
   if(tilt)tilt.rotation.set(0,0,0);
@@ -360,27 +380,10 @@ export function createReesePlayer001(scene:Scene,
    advance(input.dt);
   },
   setWeapon(id:"hand"|ReeseWeaponId001){
-   combatRemaining=0;muzzleEffect.clear();
-   if(id==="hand"){
-    handItem="hand";
-    weaponRoot?.dispose(false,true);weaponRoot=null;
-   }else{
-    selectedWeapon=id;handItem="gun";
-    weaponRoot?.dispose(false,true);weaponRoot=null;
-    if(weaponMount){
-     weaponRoot=createReeseWeapon001(scene,id);
-     weaponRoot.parent=weaponMount;
-    }else{
-     console.error("[LMS-GUN-001] Cannot equip "+id+": right-hand mount unavailable.");
-     handItem="hand";
-    }
-   }
-   applyWeaponVisibility();
-   if(handItem==="gun"&&groups.pistolAim)play(groups.pistolAim);
-   else play(groups.idle);
+   selectWeapon(id);
   },
   setHandItem(item:"hand"|"gun"){
-   this.setWeapon(item==="hand"?"hand":selectedWeapon??"m4a1");
+   selectWeapon(item==="hand"?"hand":selectedWeapon??"m4a1");
   },
   /** Animation-and-audio-only: never performs damage, rays or projectile simulation. */
   triggerCombat(): "punch"|"shoot"|null {
