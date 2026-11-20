@@ -1205,7 +1205,8 @@ export async function createNorthHeightsCity8(
     });
     // Stage 6: the six parked GLBs are not imported, preloaded, instantiated
     // or added to Rapier in North Heights. Parking pads may remain empty.
-    buildingInteriors=world.lotSpecs;
+    // Exterior-only buildings: keep structural floors/lifts but register no traversable interiors.
+    buildingInteriors=[];
     status("Loading Agent Reese and his embedded animations");
     actor=createReesePlayer001(scene);
     await actor.ready;
