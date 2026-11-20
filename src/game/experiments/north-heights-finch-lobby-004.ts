@@ -1,7 +1,6 @@
 /** POI-004. Single centered glass elevator, 53-level continuous physical travel.
  * Shares the shaft coordinates with both Rapier and the authored floor cutouts. */
 import {Color3,MeshBuilder,Scene,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
-import "@babylonjs/loaders/glTF";
 import {finchShaft004,finchFloorStopFraction004,FINCH_ELEVATOR_TRAVEL_SECONDS_004} from "./north-heights-finch-elevator-structure-004";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
