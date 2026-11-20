@@ -52,7 +52,7 @@ describe("NH-YARD-014 safe additional street trees",()=>{
     const city=src("src/game/experiments/north-heights-city-8.ts");
     expect(trees).toContain('thinInstanceSetBuffer("matrix"');
     expect(world).toContain("const parkPlan=[...establishedTrees,...addedYardTrees]");
-    expect(city).toContain("treeHandle?.update(camera.position,dt)");
+    expect(city).toContain("treeHandle?.update(new Vector3(treeCenter.x,treeCenter.y,treeCenter.z),dt)");
     expect(city).toContain("NH012TrafficSimulator");
   });
 });
