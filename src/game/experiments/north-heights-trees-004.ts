@@ -13,7 +13,7 @@ import {
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import {sampleSouthWardGrassPixel} from "@/game/world-generation/ground-land-surface";
-import {createNorthHeightsVisibilityGate015} from "./north-heights-visibility-gate-015";
+import {NorthHeightsTreeSpatialIndex004} from "./north-heights-tree-spatial-index-004";
 
 export const NORTH_HEIGHTS_TREE_URI="/GLBs/Infrastructure/tree_low_poly_lowpoly.glb";
 export type TreeLocation={x:number;y:number;z:number;size:number;angle:number};
@@ -100,28 +100,30 @@ export async function placeNorthHeightsTrees004(
         place.z-(-Math.sin(angle)*midX+Math.cos(angle)*midZ)*scale,
       ));
   });
-  const maxRadius=mobile?125:180;
-  const maxDistanceSq=maxRadius*maxRadius;
+  const residencyRadius=mobile?125:180;
+  const spatialIndex=new NorthHeightsTreeSpatialIndex004(placements,48);
+  const matrixArrays=matrices.map(matrix=>matrix.toArray());
   let disposed=false;
-  const visibilityGate=createNorthHeightsVisibilityGate015();
-  function refresh(camera:Vector3){
-    if(disposed||!visibilityGate.shouldRefresh(camera))return;
-    const data:number[]=[];
-    for(let i=0;i<placements.length;i++){
-      const p=placements[i]!;
-      if((p.x-camera.x)**2+(p.z-camera.z)**2>maxDistanceSq)continue;
-      data.push(...matrices[i]!.toArray());
+  function refresh(center:Vector3){
+    if(disposed)return;
+    const delta=spatialIndex.update(center,residencyRadius,residencyRadius+24,24);
+    if(!delta.changed)return;
+    // Rebuild GPU buffers only when player-centred cell residency changes.
+    // Work is proportional to resident placements, not the full city forest.
+    const buffer=new Float32Array(delta.residentInstances*16);
+    let offset=0;
+    for(const cell of delta.resident)for(const index of cell.indices){
+      buffer.set(matrixArrays[index]!,offset);
+      offset+=16;
     }
-    const buffer=new Float32Array(data);
     for(const mesh of meshes){
       mesh.thinInstanceSetBuffer("matrix",buffer,16,true);
       mesh.thinInstanceRefreshBoundingInfo();
       mesh.setEnabled(buffer.length>0);
     }
   }
-  // Only crossing a camera movement threshold triggers new GPU buffers;
-  // standing, turning and vertical-only flight never rebuild this static forest.
-  refresh(scene.activeCamera?.position??Vector3.Zero());
+  // The first update is supplied by the world after the authoritative player
+  // spawn is known; camera position is deliberately not a residency input.
   return {
     trees:placements.length,
     meshInstances:placements.length*meshes.length,

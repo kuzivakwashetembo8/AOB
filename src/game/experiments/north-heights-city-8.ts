@@ -189,6 +189,8 @@ export async function createNorthHeightsCity8(
   let finchArrivedAnnounced=false;
   let traffic3D:NH009SedanTraffic|null=null;
   let trafficAccumulator=0,visibleTrafficCars=0,visibleAuthenticCars=0;
+  const pinnedTrafficAgents=new Set<string>();
+  let trafficRenderStats={resident:0,culled:0,full:0,medium:0,distant:0,renderMs:0};
   const solidVehicleHandles=new Map<string,{
     update:(pose:{x:number;y:number;z:number;heading:number})=>void;
     dispose:()=>void;
@@ -687,13 +689,32 @@ export async function createNorthHeightsCity8(
     // avoiding one-frame stale full-detail promotion during rapid flight descent.
     if(traffic&&traffic3D){
       scene.updateTransformMatrix();
-      const views=traffic3D.update(traffic.snapshot(),new Set(),camera);
+      // Residency follows the actual player or occupied Sedan, never the
+      // detached/orbit camera. Camera projection remains a secondary LOD gate.
+      const occupiedAgent=ridingAgent();
+      const playerPosition=occupiedAgent
+        ?{x:occupiedAgent.x,z:occupiedAgent.z}
+        :walk?walk.physics.playerPosition():null;
+      pinnedTrafficAgents.clear();
+      if(ridingSedanId)pinnedTrafficAgents.add(ridingSedanId);
+      if(dianeLevel&&(dianeLevel.stage==="follow"||dianeLevel.stage==="observe"))
+        pinnedTrafficAgents.add(dianeLevel.carId);
+      const views=traffic3D.update(traffic.snapshot(),new Set(),camera,
+        playerPosition?{x:playerPosition.x,z:playerPosition.z}:undefined,
+        pinnedTrafficAgents);
       visibleAuthenticCars=0;
       visibleTrafficCars=views.vehicles3D;
+      trafficRenderStats={resident:views.resident,culled:views.culled,
+        full:views.full,medium:views.medium,distant:views.distant,
+        renderMs:views.renderMs};
     }
-    // PED-002 checklist 01: characters only. Pending/failed GLBs stay absent.
+    // NH-012 Stage 2: visual residency follows the controlled actor, never camera orbit.
     if(pedestrians&&pedestrianCharacters){
-      pedestrianCharacters.update(pedestrians,camera);
+      const controlledVehicle=ridingAgent();
+      const residencyPlayer=controlledVehicle
+        ?sedanRoadPosition(controlledVehicle)
+        :(walk?walk.physics.playerPosition():null);
+      pedestrianCharacters.update(pedestrians,residencyPlayer);
     }
     if(dianeLevel&&dianeLabel){
       dianeLabel.update(dianeLevel.npcPosition,
@@ -708,7 +729,15 @@ export async function createNorthHeightsCity8(
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
     signalHandle021?.update(camera.position);
-    treeHandle?.update(camera.position,dt);
+    // Tree residency follows the authoritative player, not the orbit camera.
+    const treePassenger=ridingAgent();
+    if(treePassenger){
+      const treePlayer=sedanRoadPosition(treePassenger);
+      treeHandle?.update(new Vector3(treePlayer.x,treePlayer.y,treePlayer.z),dt);
+    }else{
+      const treeCenter=mode==="walk"&&walk?walk.physics.playerPosition():camera.position;
+      treeHandle?.update(new Vector3(treeCenter.x,treeCenter.y,treeCenter.z),dt);
+    }
     // 20Hz sound telemetry, gated behind the actual unlocked AudioContext.
     // Query NH012's authoritative positions; never infer engine load from
     // Babylon wheel animation or spawn another car for positional audio.
@@ -736,6 +765,9 @@ export async function createNorthHeightsCity8(
     if(++frames%40===0){
       statistics("FPS "+Math.round(engine.getFps())+" · MODE "+mode.toUpperCase()+
         " · TRAFFIC "+(traffic?.population??0)+" NATIVE "+visibleTrafficCars+
+        " RESIDENT "+trafficRenderStats.resident+" CULLED "+trafficRenderStats.culled+
+        " LOD "+trafficRenderStats.full+"/"+trafficRenderStats.medium+"/"+trafficRenderStats.distant+
+        " RENDER "+trafficRenderStats.renderMs.toFixed(2)+"ms"+
         " MOVING GLB "+visibleAuthenticCars+" DOTS 0 SIM "+(traffic?.tick??0)+
         " · PED "+(pedestrians?.population??0)+" LOGICAL · JOURNEYS "+(pedestrians?.completed??0)+" · ROUTE FAIL "+(pedestrians?.routeFailures??0)+
         " · REROUTES "+(pedestrians?.reroutes??0)+" · STRANDED "+(pedestrians?.stranded??0)+
@@ -743,6 +775,8 @@ export async function createNorthHeightsCity8(
         " · NPC "+(pedestrianCharacters?.active??0)+" ACTIVE / "+(pedestrianCharacters?.pooled??0)+" POOLED / "+(pedestrianCharacters?.loadedAppearances??0)+" OPTIMIZED GLBs"+
         " · NPC PENDING "+(pedestrianCharacters?.pendingAppearances??0)+
         " FAILED "+(pedestrianCharacters?.failedAppearances??0)+
+        " · NPC EVICTED "+(pedestrianCharacters?.evictedAppearances??0)+
+        " · NPC ASSIGN ms "+(pedestrianCharacters?.lastUpdateMs??0).toFixed(2)+
         (pedestrianLoadError?" · NPC LOAD ERROR "+pedestrianLoadError:"")+
         " · AUDIO-021 "+vehicleAudio.statistics.active+"/"+vehicleAudio.statistics.budget+
         " "+vehicleAudio.statistics.context+" · GEN-VEH-009 125 SOURCE SEDANS · "+
@@ -1194,7 +1228,7 @@ export async function createNorthHeightsCity8(
     yaw=initialYaw;pitch=initialPitch;
     const spawn=walk.physics.playerPosition();
     setCameraAt(spawn);
-    treeHandle?.update(camera.position,1);
+    treeHandle?.update(new Vector3(spawn.x,spawn.y,spawn.z),1);
     updateLocation(true);
     status("North Heights WALK physics ready · "+world.count+
       " original buildings · "+world.streetCount+" connected street axes · "+

@@ -1,6 +1,6 @@
 # GTD-WORLD-OPT-012 — Player-Centred Traffic and Vegetation Residency
 **Date:** 2026-11-18  
-**Status:** DOCUMENTATION ONLY — awaiting explicit owner implementation approval  
+**Status:** IMPLEMENTATION APPROVED — Stage 1 accepted; Stage 2 implementation in progress  
 **Repository:** `kuzivakwashetembo8/AOB`  
 **Scope:** Three ordered work packages: moving Sedan traffic, pedestrian characters, and static tree GLB instances.  
 **Intent:** Preserve the complete authored world and its deterministic population while limiting expensive rendering and simulation work to entities relevant to the player's current location.
@@ -280,14 +280,14 @@ Do not begin Stage 2 until Stage 1 has passed its acceptance gate. Do not begin 
 | Preserve all 100 pedestrian logical agents | Locked by existing world optimization doctrine |
 | Preserve all deterministic tree placements and source asset | Locked by existing tree/asset records |
 | Use player/controlled-vehicle position, not camera, as activity centre | Proposed by this plan; owner confirmation implicit in the player-centred directive |
-| Exact enter/exit radii and update rates | OPEN — derive from profiling |
+| Exact enter/exit radii and update rates | OPEN — Stage 1 starts with provisional 92m enter / 112m exit render-residency radii; validate and tune against profiling before acceptance |
 | Exact simulation reduction strategy for distant traffic/pedestrians | OPEN — prove deterministic continuity and safety before implementation |
 | Tree cell size and buffer strategy | OPEN — benchmark candidate configurations |
-| Implementation authorization | NOT GRANTED |
+| Implementation authorization | GRANTED — Stage 1 only, North Heights experiment target, 2026-11-18 |
 | Preview, merge, production deployment | NOT GRANTED |
 
 ## 9. Definition of completion
 
 All three stages are complete only when the full logical populations and deterministic world layout are preserved, expensive render/asset/update work is bounded by player proximity, transitions are visually stable, desktop/mobile regressions are absent, and before/after evidence demonstrates measurable benefit.
 
-**Owner approval required before implementation.**
+**Owner approval required before implementation.** Stage 1 implementation authorization was subsequently granted for the North Heights experiment on 2026-11-18. Stages 2 and 3 remain gated on acceptance of the preceding stage.

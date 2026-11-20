@@ -1,6 +1,7 @@
-/** PED-002: 100 independent pedestrians use 100 unique GLBs.
- * Nearby appearance streaming and inactive LRU caching; no proxy meshes. */
-import {AbstractMesh,AnimationGroup,AssetContainer,Camera,InstantiatedEntries,Scene,SceneLoader,TransformNode,Vector3} from "@babylonjs/core";
+/** PED-002 / GTD-WORLD-OPT-012 Stage 2: player-centred character residency.
+ * Logical pedestrian simulation remains authoritative and independent of GLBs.
+ * Unique appearances stream through bounded loads, pooled rigs, and an LRU. */
+import {AbstractMesh,AnimationGroup,AssetContainer,InstantiatedEntries,Scene,SceneLoader,TransformNode,Vector3} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 import type {NorthHeightsPedestrianSimulator001,PedAgent001,PedState001} from "./north-heights-pedestrian-simulator-001";
 import {northHeightsPedestrianSurfaceOffset001} from "./north-heights-pedestrian-surface-001";
@@ -10,22 +11,27 @@ export const PED001_OPTIMIZED_FILES=PED002_NPC_FILES;
 export const PED001_OPTIMIZED_SOURCE_BYTES=PED002_NPC_BYTES;
 export const PED001_OPTIMIZED_TOTAL_BYTES=PED002_NPC_TOTAL_BYTES;
 type Clip="idle"|"walk"|"run";
+type PlayerPoint=Readonly<{x:number;z:number}>;
 type Slot={
  appearance:number;anchor:TransformNode;model:TransformNode;
  entries:InstantiatedEntries;groups:AnimationGroup[];clip:Clip|null;
  assigned:string|null;phase:number;
 };
 const angleDelta=(a:number,b:number)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
-/** Projection-free conservative activation envelope; no view-dependent deletion.
- * Hysteresis ensures turning the camera cannot repeatedly instantiate rigs. */
+/** Planar player-distance envelope. Camera/frustum state is deliberately absent.
+ * Active rigs use the larger exit radius to prevent boundary load churn. */
 export function pedestrianCharacterEligible001(
- a:Pick<PedAgent001,"x"|"z"|"state">,point:{x:number;z:number},
+ a:Pick<PedAgent001,"x"|"z"|"state">,point:PlayerPoint,
  active:boolean,mobile:boolean,
 ){
  if(a.state==="inside")return false;
  const d2=(a.x-point.x)**2+(a.z-point.z)**2;
  const radius=mobile?(active?170:105):(active?205:135);
- return d2<radius*radius;
+ return d2<=radius*radius;
+}
+/** Waiting/crossing pedestrians are presented before ordinary walkers. */
+export function pedestrianCharacterPriority001(state:PedState001):number{
+ return state==="cross"||state==="wait"?0:1;
 }
 export function pedestrianCharacterClip001(state:PedState001):Clip{
  return state==="wait"?"idle":"walk";
@@ -34,7 +40,8 @@ export interface PedestrianCharacterRenderer001{
  readonly ready:boolean;readonly active:number;readonly pooled:number;
  readonly skeletons:number;readonly loadedAppearances:number;
  readonly failedAppearances:number;readonly pendingAppearances:number;
- update:(sim:NorthHeightsPedestrianSimulator001,camera:Camera)=>void;
+ readonly evictedAppearances:number;readonly lastUpdateMs:number;
+ update:(sim:NorthHeightsPedestrianSimulator001,playerPosition:PlayerPoint|null)=>void;
  dispose:()=>void;
 }
 export async function loadNorthHeightsPedestrianCharacters001(
@@ -49,7 +56,10 @@ export async function loadNorthHeightsPedestrianCharacters001(
  const lastUsed=new Map<number,number>();
  const maxInactiveAssets=mobile?12:24;
  const maxConcurrentLoads=mobile?1:2;
- let disposed=false,createdSkeletons=0,frame=0;
+ const maxActivationsPerFrame=mobile?1:2;
+ const maxReleasesPerFrame=mobile?2:4;
+ let disposed=false,createdSkeletons=0,frame=0,evicted=0,lastUpdateMs=0;
+ let lastValidCentre:PlayerPoint|null=null,lastValidCentreAt=0;
  const cancelled=()=>disposed||!!isClosed?.();
  const release=(slot:Slot)=>{
    if(slot.assigned)assigned.delete(slot.assigned);
@@ -58,7 +68,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
    slot.clip=null;slot.anchor.setEnabled(false);
  };
  const discardAsset=(id:number)=>{
-   // Never evict an appearance whose character remains visible.
+   // Never evict an appearance whose character remains resident.
    if(pool.some(p=>p.appearance===id&&p.assigned!==null))return;
    for(let i=pool.length-1;i>=0;i--){
      const slot=pool[i]!;
@@ -68,6 +78,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
      slot.entries.dispose();slot.anchor.dispose(false,false);
      pool.splice(i,1);
    }
+   if(containers.has(id))evicted++;
    containers.get(id)?.dispose();containers.delete(id);lastUsed.delete(id);
  };
  const prune=()=>{
@@ -85,6 +96,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
    pool.length=0;assigned.clear();
    for(const container of containers.values())container.dispose();
    containers.clear();lastUsed.clear();pending.clear();failed.clear();
+   lastValidCentre=null;
  };
  const createSlot=(appearance:number):Slot=>{
    const container=containers.get(appearance);
@@ -151,7 +163,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
    const file=ped002FileForAppearance(appearance);
    if(!file){failed.add(appearance);return;}
    pending.add(appearance);
-   // Never block the render loop; report failed assets without altering routes.
+   // Never block the render loop; logical routes are unaffected by load failure.
    void SceneLoader.LoadAssetContainerAsync("/GLBs/Characters/",file,scene)
      .then(container=>{
        pending.delete(appearance);
@@ -175,7 +187,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
      ?start:end?.kind==="entrance"&&Math.hypot(a.x-end.x,a.z-end.z)<=1?end:null;
    return ground(a.x,a.z)+northHeightsPedestrianSurfaceOffset001(a.x,a.z,door);
  };
- report?.("100 unique NPC appearances available for proximity streaming");
+ report?.("100 unique NPC appearances available for player-centred proximity streaming");
  return{
    get ready(){return !disposed;},
    get active(){return assigned.size;},
@@ -184,29 +196,58 @@ export async function loadNorthHeightsPedestrianCharacters001(
    get loadedAppearances(){return containers.size;},
    get failedAppearances(){return failed.size;},
    get pendingAppearances(){return pending.size;},
-   update(sim,camera){
+   get evictedAppearances(){return evicted;},
+   get lastUpdateMs(){return lastUpdateMs;},
+   update(sim,playerPosition){
      if(cancelled())return;
+     const started=performance.now();
      frame++;
+     const now=started;
+     if(playerPosition&&Number.isFinite(playerPosition.x)&&Number.isFinite(playerPosition.z)){
+       lastValidCentre={x:playerPosition.x,z:playerPosition.z};
+       lastValidCentreAt=now;
+     }
+     // Keep the last actor position briefly through boarding/mode transitions.
+     // Never substitute camera position; after the grace window freeze residency.
+     const point=lastValidCentre&&now-lastValidCentreAt<=2000?lastValidCentre:null;
+     if(!point){
+       // No controlled actor position is available: stop active rigs in a bounded
+       // way rather than leaving remote-camera/fly-mode skeletons running forever.
+       let released=0;
+       for(const slot of assigned.values()){
+         if(released>=maxReleasesPerFrame)break;
+         release(slot);released++;
+       }
+       lastUpdateMs=performance.now()-started;
+       return;
+     }
      const supportY=(a:PedAgent001)=>groundSupport(sim,a);
-     const point=camera.position;
      const byId=new Map(sim.agents.map(a=>[a.id,a]));
+     let releasedThisFrame=0;
      for(const [id,slot] of [...assigned]){
        const agent=byId.get(id);
-       if(!agent||!pedestrianCharacterEligible001(agent,point,true,mobile))release(slot);
+       if((!agent||!pedestrianCharacterEligible001(agent,point,true,mobile))&&
+          releasedThisFrame<maxReleasesPerFrame){
+         release(slot);releasedThisFrame++;
+       }
      }
      const candidates=sim.agents.filter(a=>
        !assigned.has(a.id)&&pedestrianCharacterEligible001(a,point,false,mobile));
-     candidates.sort((a,b)=>
-       ((a.x-point.x)**2+(a.z-point.z)**2)-
-       ((b.x-point.x)**2+(b.z-point.z)**2));
-     let createdThisFrame=0;
+     candidates.sort((a,b)=>{
+       const priority=pedestrianCharacterPriority001(a.state)-pedestrianCharacterPriority001(b.state);
+       if(priority)return priority;
+       return ((a.x-point.x)**2+(a.z-point.z)**2)-
+         ((b.x-point.x)**2+(b.z-point.z)**2);
+     });
+     let activatedThisFrame=0,createdThisFrame=0;
      for(const a of candidates){
        if(!containers.has(a.appearanceId)){
          requestAsset(a.appearanceId);continue;
        }
+       if(activatedThisFrame>=maxActivationsPerFrame)continue;
        let slot=pool.find(p=>p.assigned===null&&p.appearance===a.appearanceId);
        if(!slot){
-         if(createdThisFrame>=1)continue;
+         if(createdThisFrame>=maxActivationsPerFrame)continue;
          try{slot=createSlot(a.appearanceId);createdThisFrame++;}
          catch(error){
            failed.add(a.appearanceId);
@@ -220,6 +261,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
        slot.anchor.rotation.y=a.heading;
        slot.anchor.setEnabled(true);
        play(slot,pedestrianCharacterClip001(a.state));
+       activatedThisFrame++;
      }
      for(const [id,slot] of assigned){
        const a=byId.get(id);
@@ -230,6 +272,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
        play(slot,pedestrianCharacterClip001(a.state));
      }
      if(frame%90===0)prune();
+     lastUpdateMs=performance.now()-started;
    },
    dispose,
  };
