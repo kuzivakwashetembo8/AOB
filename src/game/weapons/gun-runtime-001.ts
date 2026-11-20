@@ -31,7 +31,9 @@ export function solveReeseWeaponMountRotation001(
 
 /** Root offset that brings an authored weapon-local grip point to its parent origin. */
 export function solveReeseWeaponGripOffset001(grip: Vector3, rotation: Quaternion): Vector3 {
-  return Vector3.TransformNormal(grip, Matrix.FromQuaternion(rotation)).scale(-1);
+  const rotationMatrix = Matrix.Identity();
+  rotation.toRotationMatrix(rotationMatrix);
+  return Vector3.TransformNormal(grip, rotationMatrix).scale(-1);
 }
 
 type SourceModel = {
