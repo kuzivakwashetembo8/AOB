@@ -97,17 +97,12 @@ export async function createNorthHeightsWalk005(
         handles.push(physics.addStaticBox({x:px,y:py,z:pz},
           {x:hw,y:hh,z:hd},lot.yawRadians??0));
       };
-      // Four walls, +Z face split to leave a real door-width gap.
+      // Four continuous walls. The +Z facade is physically closed to match
+      // the uninterrupted window glazing; no pedestrian opening is retained.
       wall(x,shellBase+shellH/2,z-d/2,w/2,shellH/2,t/2);
       wall(x-w/2,shellBase+shellH/2,z,t/2,shellH/2,d/2);
       wall(x+w/2,shellBase+shellH/2,z,t/2,shellH/2,d/2);
-      const flank=(w-gap)/2;
-      wall(x-(gap+flank)/2,shellBase+shellH/2,z+d/2,flank/2,shellH/2,t/2);
-      wall(x+(gap+flank)/2,shellBase+shellH/2,z+d/2,flank/2,shellH/2,t/2);
-      const openingTop=y+openingH;
-      const shellTop=shellBase+shellH;
-      if(shellTop>openingTop)
-        wall(x,(openingTop+shellTop)/2,z+d/2,gap/2,(shellTop-openingTop)/2,t/2);
+      wall(x,shellBase+shellH/2,z+d/2,w/2,shellH/2,t/2);
       // The 0.27m-high white floor can be reached via Rapier 0.28m step.
       wall(x,y-.58,z,(w-.6)/2,.05,(d-.6)/2);
       const shaft=northHeightsBuildingShaft019(lot);
