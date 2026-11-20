@@ -111,7 +111,8 @@
     "vitest": "^4.1.10",
     "ajv": "8.20.0",
     "@capacitor/cli": "8.6.0",
-    "@capacitor/android": "8.6.0"
+    "@capacitor/android": "8.6.0",
+    "@types/three": "^0.180.0"
   },
   "packageManager": "npm@11.6.2"
 }
