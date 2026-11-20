@@ -3,7 +3,7 @@
  * Color is immutable per identity and independent of simulation frame/position.
  */
 import type {NH012TrafficSnapshot} from "./nh012-traffic-simulator";
-export const NH009_SEDAN_COUNT=125;
+export const NH009_SEDAN_COUNT=62;
 export const NH009_SEDAN_MODEL="sedan" as const;
 export const NH009_SEDAN_PAINTS=[
  "#F0EFEA", // pearl white
@@ -29,7 +29,7 @@ export function sedanPaint009(agentId:string):string{
 }
 export function sedanFleetAudit009(snapshot:NH012TrafficSnapshot){
  if(snapshot.count!==NH009_SEDAN_COUNT||snapshot.agents.length!==NH009_SEDAN_COUNT)
-   throw Error("GEN-VEH-009 sedan fleet must retain all 125 NH-012 agents");
+   throw Error("GEN-VEH-009 sedan fleet must contain exactly 62 live NH-012 agents");
  const uniqueIds=new Set(snapshot.agents.map(a=>a.id));
  if(uniqueIds.size!==NH009_SEDAN_COUNT)
    throw Error("GEN-VEH-009 duplicate/missing traffic identities");
