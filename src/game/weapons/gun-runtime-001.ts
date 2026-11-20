@@ -3,7 +3,7 @@
  * North Heights scene keeps its single renderer and character rig.
  */
 import {
-  Color3, Mesh, Quaternion, StandardMaterial, TransformNode, Vector3, VertexData,
+  Color3, Matrix, Mesh, Quaternion, StandardMaterial, TransformNode, Vector3, VertexData,
   type Scene,
 } from "@babylonjs/core";
 import type * as THREE from "three";
@@ -27,6 +27,11 @@ export function solveReeseWeaponMountRotation001(
  const localUp = rawUp.subtract(localBack.scale(Vector3.Dot(rawUp, localBack))).normalize();
  if (localBack.lengthSquared() < 0.99 || localUp.lengthSquared() < 0.99) throw new Error('LMS weapon mount basis is degenerate');
  return Quaternion.FromLookDirectionLH(localBack, localUp);
+}
+
+/** Root offset that brings an authored weapon-local grip point to its parent origin. */
+export function solveReeseWeaponGripOffset001(grip: Vector3, rotation: Quaternion): Vector3 {
+  return Vector3.TransformNormal(grip, Matrix.FromQuaternion(rotation)).scale(-1);
 }
 
 type SourceModel = {
