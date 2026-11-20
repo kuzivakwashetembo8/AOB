@@ -31,7 +31,6 @@ export interface FinchLobby004{
   cameraCabin:FinchCabinCamera006|null;
  };
  requestTravel:(selectedFloor?:number)=>boolean;
- loadReceptionist:()=>Promise<void>;
  dispose:()=>void;
 }
 
@@ -184,8 +183,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
       height,halfX:2.17-.18,halfZ:2.17-.18}:null;
   return {positionOverride:override,traveling:mode!=="idle",state:status(),cameraCabin};
  };
- const loadReceptionist=async()=>{};
- return {update,requestTravel,loadReceptionist,dispose(){
+ return {update,requestTravel,dispose(){
   closed=true;doorCollider?.dispose();platformCollider?.dispose();
   colliders.forEach(h=>h.dispose());
   root.dispose(false,true);mats.forEach(m=>m.dispose());
