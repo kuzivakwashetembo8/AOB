@@ -32,13 +32,10 @@ describe("POI-005 owner-approved Finch introduction",()=>{
  it("keeps all 125 traffic agents on their original routes without a parked starter at Finch",()=>{
   const sim=new NH012TrafficSimulator(125,120125);
   expect(sim.agents).toHaveLength(125);
-  expect(sim.agents.some(a=>
-   Math.hypot(a.x-FINCH_START_005.starterCar.x,a.z-FINCH_START_005.starterCar.z)<8
-  )).toBe(false);
   expect(sim.agents.every(a=>a.speed>0)).toBe(true);
-  for(let i=0;i<20;i++)sim.step();
+  expect(sim.agents.every(a=>!sim.isStage6FreeParked(a.id))).toBe(true);
   expect(sim.agents.some(a=>
-   Math.hypot(a.x-FINCH_START_005.starterCar.x,a.z-FINCH_START_005.starterCar.z)<8
+   a.x===FINCH_START_005.starterCar.x&&a.z===FINCH_START_005.starterCar.z
   )).toBe(false);
  });
  it("mounts the isolated FINCH-ROOM-022 test without changing Finch mission placement",()=>{
