@@ -79,6 +79,6 @@ describe("NH-OPT2-SDN-001 Stage 1: existing Sedan passenger session",()=>{
     expect(renderer).toContain("createNativeWheel007");
     expect(renderer).toContain("sourceWheelFit007");
     expect(renderer).not.toContain("FirstDriveTrial");
-    expect(city).toContain("new NH012TrafficSimulator(125,120125)");
+    expect(city).toContain("new NH012TrafficSimulator(62,120125)");
   });
 });

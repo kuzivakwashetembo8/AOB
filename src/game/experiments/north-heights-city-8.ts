@@ -43,7 +43,6 @@ import {loadNorthHeightsPedestrianCharacters001,type PedestrianCharacterRenderer
 import {PED002_NPC_TOTAL_BYTES} from "./north-heights-pedestrian-asset-manifest-002";
 import {NH012_SIMULATION_DT} from "@/game/traffic/nh012-lane-network";
 import {createNorthHeightsSedanTraffic009,type NH009SedanTraffic} from "./north-heights-sedan-traffic-009";
-import {verifyCompleteFleet016} from "@/game/traffic/nh016-fleet-manifest";
 import {assignNH013SedanPilot} from "@/game/traffic/nh013-sedan-pilot";
 import {assignNH013HatchbackPilot} from "@/game/traffic/nh013-hatchback-pilot";
 import {assignNH014TaxiPilot,NH014_TAXI_COUNT} from "@/game/traffic/nh014-taxi-pilot";
@@ -771,7 +770,7 @@ export async function createNorthHeightsCity8(
         " · NPC ASSIGN ms "+(pedestrianCharacters?.lastUpdateMs??0).toFixed(2)+
         (pedestrianLoadError?" · NPC LOAD ERROR "+pedestrianLoadError:"")+
         " · AUDIO-021 "+vehicleAudio.statistics.active+"/"+vehicleAudio.statistics.budget+
-        " "+vehicleAudio.statistics.context+" · GEN-VEH-009 125 SOURCE SEDANS · "+
+        " "+vehicleAudio.statistics.context+" · GEN-VEH-009 62 SOURCE SEDANS · "+
         (ridingSedanId?" RIDING "+ridingSedanId+" "+(
           traffic?.isManualDriving(ridingSedanId)
             ?"MANUAL V "+traffic.manualSignedSpeed(ridingSedanId).toFixed(2)
@@ -1094,10 +1093,10 @@ export async function createNorthHeightsCity8(
     buildingLifts=createNorthHeightsBuildingLifts019(
       scene,world.lotSpecs,northHeightsGround,walk.physics);
     console.info("[NH-LIFT-019] generic lift shafts",buildingLifts.count);
-    // GEN-VEH-009: retain all 125 NH-012 routes/identities, but render every
-    // moving traffic agent as the single owner-accepted sedan in varied paint.
-    // Other car models remain review-only; no proximity GLB swapping.
-    traffic=new NH012TrafficSimulator(125,120125);
+    // GEN-VEH-009: instantiate exactly 62 live NH-012 traffic agents.
+    // The other 63 vehicles are not created, simulated, collided or rendered.
+    // Every live agent uses the accepted source-native Sedan renderer.
+    traffic=new NH012TrafficSimulator(62,120125);
     // NH-SOLID-017: the same hull for every accepted source Sedan, regardless
     // of original fleet tags, proximity, camera LOD or driver ownership.
     const measuredSedanHull=sedanNativeContactHull007();
@@ -1121,7 +1120,6 @@ export async function createNorthHeightsCity8(
     const hatchIds=assignNH013HatchbackPilot(traffic,12);
     const taxiIds=assignNH014TaxiPilot(traffic,NH014_TAXI_COUNT);
     const kangoIds=assignNH015KangoPilot(traffic,NH015_KANGO_COUNT);
-    const circuit=verifyCompleteFleet016(traffic.snapshot());
     // Historical model identity overlay pilots replace agent IDs and geometry
     // tags. Register physical hulls only AFTER identity assignment completes.
     for(let i=0;i<traffic.agents.length;i++){
@@ -1148,9 +1146,10 @@ export async function createNorthHeightsCity8(
     const other=sourceWheelFit007("sedan","frontRight");
     trafficWheelbase=Math.abs((front.center[2]??0)-(rear.center[2]??0));
     trafficTrack=Math.abs((front.center[0]??0)-(other.center[0]??0));
-    console.info("[GEN-VEH-009] Accepted sedan-only 125-agent native traffic",{
-       sedans:pilotIds.size,hatchbacks:hatchIds.size,taxis:taxiIds.size,kango:kangoIds.size,
-       defaultVehicleModels:circuit.models,defaultVehicles:circuit.original,
+    console.info("[GEN-VEH-009] Accepted sedan-only 62-agent native traffic",{
+       liveSedans:traffic.population,
+       legacyIdentityTags:pilotIds.size+hatchIds.size+taxiIds.size+kangoIds.size,
+       remainingDefaultAgents:traffic.population-pilotIds.size-hatchIds.size-taxiIds.size-kangoIds.size,
        vehicleViews:traffic.population,renderModel:"sedan",dots:0,movingGLBs:0,
     });
     traffic3D.update(traffic.snapshot(),new Set());
@@ -1165,7 +1164,7 @@ export async function createNorthHeightsCity8(
     pedestrians.setVehicleOccupancy((x,z)=>solidField.personClear({x,z}));
     pedestrians.setPlayerOccupancy(()=>ridingSedanId||machineView||!walk
       ?null:walk.physics.playerPosition(),northHeightsGround);
-    const assignedDianeCar=traffic.agents[110];
+    const assignedDianeCar=traffic.agents[61];
     if(!assignedDianeCar)throw Error("LVL-001 car identity missing");
     dianeLevel=new DianeLevel001(pedestrians,traffic,assignedDianeCar.id,
       readDianeProgress001(),view=>onDianeMissionChange?.(view));
@@ -1216,7 +1215,7 @@ export async function createNorthHeightsCity8(
       " original buildings · "+world.streetCount+" connected street axes · "+
       "PED-001 "+(pedestrians?.population??0)+" logical pedestrians · 100 unique NPC appearances stream after first frame · "+
       (world.instanceCount+treeInstances).toLocaleString()+" geometry instances · "+
-      treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 125 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · 0 parked GLB vehicle loads · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
+      treeCount+" GLB trees · "+(traffic?.population??0)+ " logical traffic agents / 62 accepted source-native sedans, deterministic paint variation, zero dots, no traffic GLB swapping · 0 parked GLB vehicle loads · "+actorCount+" character meshes · "+walk.buildingCount+" solid buildings · "+walk.surfaceCount+" walkable ground layers"+(treeError?" · TREE IMPORT FAILED: "+treeError:"")+
       " · "+Math.round(performance.now()-started)+" ms");
     // Loading completes only after the initialized world actually draws.
     scene.onAfterRenderObservable.addOnce(()=>{
