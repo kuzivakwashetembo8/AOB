@@ -1,8 +1,7 @@
 /** POI-004. Single centered glass elevator, 53-level continuous physical travel.
  * Shares the shaft coordinates with both Rapier and the authored floor cutouts. */
-import {AnimationGroup,Color3,MeshBuilder,Scene,SceneLoader,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
+import {Color3,MeshBuilder,Scene,StandardMaterial,TransformNode,Vector3} from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
-import {PED002_NPC_FILES} from "./north-heights-pedestrian-asset-manifest-002";
 import {finchShaft004,finchFloorStopFraction004,FINCH_ELEVATOR_TRAVEL_SECONDS_004} from "./north-heights-finch-elevator-structure-004";
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {MeridianPhysics} from "@/game/physics/rapier-world";
@@ -113,29 +112,6 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  let mode:"idle"|"closing"|"riding"|"opening"="idle";
  let heightFraction=0,doorFraction=0,available=false,closed=false;
  let personInCar:{x:number;y:number;z:number}|null=null;
- const receptionistNodes:TransformNode[]=[];let groups:AnimationGroup[]=[];
- let requested=false;
- let receptionistAnchor:TransformNode|null=null;
- let seatedIdle:AnimationGroup|null=null;
- let receptionistGestures:AnimationGroup[]=[];
- let gestureElapsed=0,gestureActive=0,gestureIndex=0;
- const animateReceptionist=(dt:number)=>{
-  const anchor=receptionistAnchor;if(!anchor)return;
-  gestureElapsed+=dt;
-  // Natural continuous seated micro-motion, with no Y or scale changes.
-  anchor.rotation.y=.025*Math.sin(gestureElapsed*.65)+.012*Math.sin(gestureElapsed*1.6);
-  anchor.rotation.z=.007*Math.sin(gestureElapsed*.9);
-  if(!receptionistGestures.length)return;
-  if(gestureActive>0){
-   gestureActive-=dt;
-   if(gestureActive<=0){for(const g of receptionistGestures)g.stop();seatedIdle?.start(true);}
-  }else if(gestureElapsed>5+gestureIndex%4*2.3){
-   gestureElapsed=0;seatedIdle?.stop();
-   const gesture=receptionistGestures[gestureIndex++%receptionistGestures.length]!;
-   gesture.start(false,1,gesture.from,gesture.to,false);
-   gestureActive=Math.max(1,Math.min(3,(gesture.to-gesture.from)/30));
-  }
- };
  const status=():FinchElevatorState004=>({
   floor,floors:53,buildingId:building.id,currentFloor:finchElevatorFloorCounter007(heightFraction),
    direction:floor===1?"up":"down",available:mode==="idle"&&available,
@@ -157,7 +133,6 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  const update=(p:{x:number;y:number;z:number}|null,dt:number)=>{
   if(closed)return {positionOverride:null,traveling:false,state:status(),cameraCabin:null};
   const step=Math.min(.05,Math.max(0,dt));
-  animateReceptionist(step);
   const offset=heightFraction*(top-bottom);
   const px=(p?.x??Infinity)-x,pz=(p?.z??Infinity)-front;
   const sameLevel=!!p&&Math.abs(p.y-(bottom+offset+.92))<2.2;
@@ -213,8 +188,7 @@ export function createFinchLobby004(scene:Scene,lots:readonly BuildingSpec[],
  const loadReceptionist=async()=>{};
  return {update,requestTravel,loadReceptionist,dispose(){
   closed=true;doorCollider?.dispose();platformCollider?.dispose();
-  colliders.forEach(h=>h.dispose());groups.forEach(g=>g.stop());
-  for(const node of receptionistNodes)node.dispose(false,true);
+  colliders.forEach(h=>h.dispose());
   root.dispose(false,true);mats.forEach(m=>m.dispose());
  }};
 }
