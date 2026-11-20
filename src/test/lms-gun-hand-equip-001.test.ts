@@ -1,7 +1,7 @@
 import {describe,expect,it} from "vitest";
 import {Matrix,NullEngine,Quaternion,Scene,Vector3} from "@babylonjs/core";
 import {GUNS_001} from "../game/weapons/gun-inspection-registry-001";
-import {createReeseWeapon001,solveReeseWeaponMountRotation001} from "../game/weapons/gun-runtime-001";
+import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001} from "../game/weapons/gun-runtime-001";
 
 describe("LMS extracted weapon runtime adapter",()=>{
  it("converts each gallery weapon into Babylon meshes without a second renderer",()=>{
@@ -35,5 +35,18 @@ describe("LMS weapon coordinate contract",()=>{
   expect(Vector3.Dot(worldForward,expected)).toBeGreaterThan(0.999);
   const worldUp=Vector3.TransformNormal(Vector3.Up(),weaponWorld).normalize();
   expect(worldUp.y).toBeGreaterThan(0.999);
+ });
+});
+
+describe("LMS weapon grip landmark placement",()=>{
+ it.each([
+  ["M4A1",new Vector3(0.0251,0.06,0.1223)],
+  ["MPX-9",new Vector3(0.024,0.028,0.064)],
+  ["P-19",new Vector3(0.028,0.003,0.07)],
+ ])("places the %s grip landmark at the hand-mount origin",(_,grip)=>{
+  const rotation=Quaternion.RotationYawPitchRoll(1.1,-0.2,0.15);
+  const rootOffset=solveReeseWeaponGripOffset001(grip,rotation);
+  const rotatedGrip=Vector3.TransformNormal(grip,Matrix.FromQuaternion(rotation));
+  expect(Vector3.Distance(rootOffset.add(rotatedGrip),Vector3.Zero())).toBeLessThan(1e-6);
  });
 });
