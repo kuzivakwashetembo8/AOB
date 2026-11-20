@@ -202,7 +202,7 @@ export function createReesePlayer001(scene:Scene,
    .find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
   if(rightHand){
    const handSkeleton=rightHand.getSkeleton();
-   const referenceMesh=instance.meshes
+   const referenceMesh=[...meshes]
     .filter(mesh=>mesh.skeleton===handSkeleton&&mesh.getTotalVertices()>0)
     .sort((a,b)=>b.getTotalVertices()-a.getTotalVertices())[0];
    if(!referenceMesh)throw Error("REESE-001 right-hand skeleton has no skinned reference mesh");
