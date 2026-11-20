@@ -2130,3 +2130,42 @@ html[data-display="standalone"] body > * {
  .poi010-camera-status{font-size:9px;padding:0 5px;max-width:calc(100vw - 355px);}
  .poi010-context-button{width:44px;height:44px;}
 }
+
+
+/* LMS-GUN-001 — isolated weapon inspection gallery; separate from North Heights runtime. */
+.gun-gallery-page{position:relative;z-index:1;width:min(1220px,94vw);margin:12px auto 20px;color:var(--foreground)}
+.gun-gallery-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.gun-gallery-title{font:800 clamp(26px,3.5vw,47px)/1 var(--font-display);letter-spacing:.07em}
+.gun-gallery-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(205px,260px);gap:14px}
+.gun-gallery-stage{height:clamp(270px,58dvh,650px);min-width:0;position:relative;border:1px solid var(--primary);background:#0e141e;overflow:hidden}
+.gun-gallery-canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
+.gun-gallery-label{pointer-events:none;position:absolute;left:12px;top:10px;display:flex;flex-direction:column;gap:2px;font:11px var(--font-mono);color:#e6e9ed}
+.gun-gallery-label strong{font:800 19px var(--font-display)}
+.gun-gallery-status{pointer-events:none;position:absolute;bottom:10px;left:10px;right:10px;font:10px/1.4 var(--font-mono);color:#d8dce2;background:#151c26dd;padding:7px}
+.gun-gallery-side{background:#141a22ef;border:1px solid var(--border);padding:14px;display:flex;flex-direction:column;gap:9px}
+.gun-gallery-side>strong{font:800 15px var(--font-mono);color:var(--primary)}
+.gun-gallery-side p{font:12px/1.45 var(--font-sans);color:var(--foreground)}
+.gun-gallery-switch{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:7px 0 10px}
+.gun-gallery-switch span{font:700 10px var(--font-mono);letter-spacing:.06em}
+.gun-gallery-switch button,.gun-gallery-views button{background:#222b36;border:1px solid #59616b;color:#fff;min-height:36px;cursor:pointer;display:grid;place-items:center;padding:5px 10px}
+.gun-gallery-switch button:focus-visible,.gun-gallery-views button:focus-visible{outline:2px solid var(--primary)}
+.gun-gallery-views{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.gun-gallery-views button{font:700 10px var(--font-mono);display:flex;justify-content:center;gap:3px}
+.gun-gallery-hint{font:10px/1.35 var(--font-mono)!important;color:var(--muted-foreground)!important;margin-top:auto}
+@media(max-width:950px) and (orientation:landscape){
+ .gun-gallery-page{width:96vw;margin:5px auto 10px}
+ .gun-gallery-title{font-size:25px}
+ .gun-gallery-head{margin-bottom:4px}
+ .gun-gallery-main{grid-template-columns:minmax(0,1fr) minmax(190px,26%);gap:7px}
+ .gun-gallery-stage{height:calc(100dvh - 142px);min-height:218px}
+ .gun-gallery-side{padding:7px;gap:5px;overflow-y:auto;max-height:calc(100dvh - 142px)}
+ .gun-gallery-side p{font-size:10px}
+ .gun-gallery-switch{margin:1px 0}
+ .gun-gallery-views button{font-size:9px;min-height:30px;padding:3px}
+ .gun-gallery-label strong{font-size:15px}
+}
+@media(max-width:700px) and (orientation:portrait){
+ .gun-gallery-main{grid-template-columns:minmax(0,1fr)}
+ .gun-gallery-stage{height:48dvh;min-height:270px}
+ .gun-gallery-side{display:grid;grid-template-columns:1fr;gap:7px}
+}
