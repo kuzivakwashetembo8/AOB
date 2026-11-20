@@ -5,8 +5,6 @@ import {buildPedestrianGraph001,pedestrianRoute001,type PedGraph001,type PedEdge
 import type {BuildingSpec} from "@/game/world-generation/schema";
 import type {TreeLocation} from "./north-heights-trees-004";
 import {pedestrianObstacleStep020} from "./north-heights-pedestrian-avoidance-020";
-import type {TrafficSignalController021} from "@/game/traffic/nh021-traffic-signal-controller";
-import {pilotZebraEdge021} from "@/game/traffic/nh021-traffic-signal-plan";
 
 export type PedState001="depart"|"walk"|"park"|"wait"|"cross"|"arrive"|"inside";
 export type PedAgent001={
@@ -65,15 +63,6 @@ export class NorthHeightsPedestrianSimulator001{
   * occupancy provider is wired. Graph-only lifecycle simulators retain their
   * deterministic routing semantics and avoid allocating a crowd grid. */
  private peopleAvoidanceEnabled=false;
- private pilotSignal021:TrafficSignalController021|null=null;
- configureTrafficSignal021(controller:TrafficSignalController021|null):void{
-  this.pilotSignal021=controller;
- }
- /** Partial in-road crossers, excluding people waiting on the sidewalk. */
- activePilotCrossers021():number{
-  return this.agents.filter(a=>a.state!=="inside"&&
-   a.progress>EPS&&pilotZebraEdge021(a.route[a.segment]??"",a.route[a.segment+1]??"")).length;
- }
  avoids=0;
  yields=0;
  private readonly missionReserved001=new Set<string>();
@@ -295,14 +284,6 @@ export class NorthHeightsPedestrianSimulator001{
        }
        const length=link.length;
        if(length<EPS){a.segment++;a.progress=0;continue;}
-       // Enter only during the pilot WALK phase. Mid-crossing agents
-       // keep moving through clearance until safely on the far pavement.
-       if(link.kind==="crossing"&&this.pilotSignal021&&
-          pilotZebraEdge021(p.id,q.id)&&a.progress<=EPS&&
-          !this.pilotSignal021.pedestrianMayEnter021){
-        this.pilotSignal021.requestPedestrian021();
-        this.setState(a,"wait");break;
-       }
        const motion=pedestrianObstacleStep020(a,p,q,link.kind,remaining,
          (x,z)=>clearPerson(a,x,z),a.appearanceId%2===0?1:-1);
        if(motion.blocked||motion.traveled<EPS){
