@@ -28,14 +28,15 @@ describe("NH-VIS-015: one movement-gated GPU instance-buffer optimization",()=>{
     const lamps=read("src/game/experiments/north-heights-street-lamps-012.ts");
     const city=read("src/game/experiments/north-heights-city-8.ts");
     const yards=read("src/game/experiments/north-heights-yard-trees-014.ts");
-    expect(trees).toContain("createNorthHeightsVisibilityGate015()");
+    expect(trees).toContain("NorthHeightsTreeSpatialIndex004");
+    expect(trees).toContain("spatialIndex.update(center,residencyRadius,residencyRadius+24,24)");
     expect(lamps).toContain("createNorthHeightsVisibilityGate015()");
     expect(lamps).toContain("visibilityGate.invalidate()");
     expect(trees).toContain('tree_low_poly_lowpoly.glb');
     expect(lamps).toContain('medellin:"Medellin Street Lamp Optimized.glb"');
     expect(lamps).toContain('modern:"Modern Street Lamp.glb"');
     expect(yards).toContain("planNorthHeightsYardTrees014");
-    expect(city).toContain("treeHandle?.update(camera.position,dt)");
+    expect(city).toContain("treeHandle?.update(new Vector3(treeCenter.x,treeCenter.y,treeCenter.z),dt)");
     expect(city).toContain("lampHandle?.update(camera.position,dt)");
   });
 });
