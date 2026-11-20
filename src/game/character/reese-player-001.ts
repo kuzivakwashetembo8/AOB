@@ -83,16 +83,11 @@ export function createReesePlayer001(scene:Scene,
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
  const muzzleEffect=createReeseMuzzleSpark010(scene);
  const weaponMeshes=new Set<AbstractMesh>();
- const weaponMaterials=new Map<Material,{alpha:number;transparencyMode:number|null}>();
+ const removedLegacyWeaponMeshes:string[]=[];
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
  function applyWeaponVisibility(){
-  // The old embedded GLB pistol is not the LMS weapon source. Keep it hidden;
-  // the extracted Babylon weapon is the only visible equipped model.
-  for(const mesh of weaponMeshes)mesh.setEnabled(false);
-  for(const material of weaponMaterials.keys()){
-   material.alpha=0;
-   material.transparencyMode=Material.MATERIAL_ALPHABLEND;
-  }
+  // Legacy GLB weapon meshes are removed during import; only extracted LMS
+  // weapon roots participate in equipment visibility.
   for(const [id,root] of Object.entries(weaponRoots))
    root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
  }
@@ -175,16 +170,24 @@ export function createReesePlayer001(scene:Scene,
    const names=[mesh.name];
    let parent=mesh.parent;
    while(parent){names.push(parent.name);parent=parent.parent;}
-   if(names.some(name=>weaponPattern.test(name)))weaponMeshes.add(mesh);
-   else if(mesh.material){
-    const mats=mesh.material instanceof MultiMaterial
-      ?mesh.material.subMaterials.filter((m):m is Material=>m!==null)
-      :[mesh.material];
-    for(const material of mats)
-     if(weaponPattern.test(material.name)&&!weaponMaterials.has(material))
-      weaponMaterials.set(material,{alpha:material.alpha,transparencyMode:material.transparencyMode});
+   const namedWeapon=names.some(name=>weaponPattern.test(name));
+   const mats=mesh.material instanceof MultiMaterial
+    ?mesh.material.subMaterials.filter((m):m is Material=>m!==null)
+    :mesh.material?[mesh.material]:[];
+   const materialWeapon=mats.some(material=>weaponPattern.test(material.name));
+   if(namedWeapon||materialWeapon){
+    // Remove the embedded default pistol geometry, rather than merely hiding
+    // it or changing a potentially shared material's alpha.
+    removedLegacyWeaponMeshes.push(mesh.name);
+    mesh.dispose(false,false);
+    continue;
    }
    meshCount++;
+  }
+  if(removedLegacyWeaponMeshes.length){
+   console.info("[LMS-GUN-001] Removed embedded legacy weapon meshes",removedLegacyWeaponMeshes);
+  }else{
+   console.warn("[LMS-GUN-001] No legacy weapon mesh matched the import-name/material filter; inspect Reese GLB hierarchy before accepting pistol removal.");
   }
   const h=maxY-minY;
   if(!meshCount||!Number.isFinite(h)||h<.05)
