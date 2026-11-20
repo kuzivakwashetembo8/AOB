@@ -30,10 +30,10 @@ describe("PED-001 navigation and dot-only population",()=>{
    for(let i=1;i<route.length;i++)
      expect(graph.links.get(route[i-1]!)?.some(e=>e.to===route[i])).toBe(true);
  });
- it("simulates exactly 100 distinct identities without importing GLBs",()=>{
+ it("simulates exactly 60 distinct identities without importing GLBs",()=>{
    const sim=new NorthHeightsPedestrianSimulator001(buildings);
    expect(sim.population).toBe(PED001_POPULATION);
-   expect(new Set(sim.agents.map(a=>a.id)).size).toBe(100);
+   expect(new Set(sim.agents.map(a=>a.id)).size).toBe(60);
    for(let i=0;i<1000;i++)sim.step(.05);
    expect(sim.agents.some(a=>a.state!=="inside")).toBe(true);
    expect(sim.agents.every(a=>Number.isFinite(a.x)&&Number.isFinite(a.z))).toBe(true);

@@ -16,7 +16,7 @@ export type PedAgent001={
  lastArrival:string|null;stranded:boolean;
  avoidOffset:number;avoidTarget:number;
 };
-export const PED001_POPULATION=100;
+export const PED001_POPULATION=60;
 const EPS=1e-5;
 const nextRandom=(a:PedAgent001)=>{
  a.seed=(Math.imul(a.seed,1664525)+1013904223)>>>0;

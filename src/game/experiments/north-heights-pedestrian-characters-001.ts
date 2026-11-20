@@ -187,7 +187,7 @@ export async function loadNorthHeightsPedestrianCharacters001(
      ?start:end?.kind==="entrance"&&Math.hypot(a.x-end.x,a.z-end.z)<=1?end:null;
    return ground(a.x,a.z)+northHeightsPedestrianSurfaceOffset001(a.x,a.z,door);
  };
- report?.("100 unique NPC appearances available for player-centred proximity streaming");
+ report?.("60 unique NPC appearances available for player-centred proximity streaming");
  return{
    get ready(){return !disposed;},
    get active(){return assigned.size;},

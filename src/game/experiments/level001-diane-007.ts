@@ -1,5 +1,5 @@
 /** LVL-001 Diane: vehicle surveillance, roadside meeting, reboarding and report.
- * Owns four existing pedestrian identities and one of 125 accepted traffic cars.
+ * Owns four existing pedestrian identities and one of 62 accepted traffic cars.
  * All vehicle movement uses NH012 road traffic; no standalone car motion or GLB.
  */
 import type {PedGraph001} from "./north-heights-pedestrian-graph-001";
@@ -11,8 +11,8 @@ export type DianeProgress001={phase:DianePhase001;ssn:string};
 export type DianeMissionView001={phase:DianePhase001;poi:{x:number;z:number}|null;name:string;ssn:string;objective:string};
 export const DIANE_PROGRESS_KEY_001="gtd:level001:diane:progress:v1";
 export const DIANE_NAME_001="Diane";
-export const DIANE_APPEARANCE_001=63;
-export const DIANE_AGENT_ID_001="PED-063";
+export const DIANE_APPEARANCE_001=60;
+export const DIANE_AGENT_ID_001="PED-060";
 export const DIANE_OFFICERS_001=["PED-024","PED-033","PED-051"] as const;
 // Relocated to the far eastern sector: no more encounter on Finch's doorstep.
 export const DIANE_START_HINT_001={x:188,z:-230} as const;
