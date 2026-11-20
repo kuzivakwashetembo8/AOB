@@ -10,7 +10,6 @@ import {
 import "@babylonjs/loaders/glTF";
 import { configureLocalGameDecoders } from "@/game/core/local-decoders";
 import { buildNorthHeightsReconstruction, northHeightsGround } from "./north-heights-reconstruction-001";
-import {NORTH_HEIGHTS_SIDEWALK_ELEVATION_003} from "./north-heights-roads-003";
 import { placeNorthHeightsTrees004 } from "./north-heights-trees-004";
 import {loadNorthHeightsStreetLamps012,planNorthHeightsStreetLamps012,type NorthHeightsLampRenderer012} from "./north-heights-street-lamps-012";
 import { createNorthHeightsSky, type NorthHeightsTime } from "./north-heights-sky-002";
@@ -39,8 +38,6 @@ import type {NH012Agent} from "@/game/traffic/nh012-traffic-simulator";
 import {createNorthHeightsSolidField017}
   from "@/game/vehicles/nh-solid-vehicle-collision-017";
 import {NH012TrafficSimulator} from "@/game/traffic/nh012-traffic-simulator";
-import {TrafficSignalController021} from "@/game/traffic/nh021-traffic-signal-controller";
-import {loadFinchTrafficSignals021,type TrafficSignalRenderer021} from "./north-heights-traffic-signal-renderer-021";
 import {NorthHeightsPedestrianSimulator001} from "./north-heights-pedestrian-simulator-001";
 import {loadNorthHeightsPedestrianCharacters001,type PedestrianCharacterRenderer001} from "./north-heights-pedestrian-characters-001";
 import {PED002_NPC_TOTAL_BYTES} from "./north-heights-pedestrian-asset-manifest-002";
@@ -171,9 +168,6 @@ export async function createNorthHeightsCity8(
   let yaw = 0, pitch = 0, closed = false;
   let treeHandle: {dispose:()=>void;update:(camera:Vector3,dt:number)=>void} | null = null;
   let lampHandle:NorthHeightsLampRenderer012|null=null;
-  let signalHandle021:TrafficSignalRenderer021|null=null;
-  const signalPoleHandles021:{dispose:()=>void}[]=[];
-  const pilotSignal021=new TrafficSignalController021();
   let lampTime:NorthHeightsTime="dusk";
   let walk:NorthHeightsWalk005|null=null;
   let cameraBlockers:CameraBox[]=[];
@@ -181,7 +175,6 @@ export async function createNorthHeightsCity8(
   let finchLobby:FinchLobby004|null=null;
   let finchSuite:FinchSuite005|null=null;
   let lastFinchNear=false;
-  let starterSedanId:string|null=null;
   let liftFrame:ReturnType<FinchLobby004["update"]>|null=null;
   let buildingLifts:ReturnType<typeof createNorthHeightsBuildingLifts019>|null=null;
   let genericLiftFrame:BuildingLiftFrame019|null=null;
@@ -728,7 +721,6 @@ export async function createNorthHeightsCity8(
     }
     // Culling only; no per-frame GLB imports, meshes or physical actors.
     lampHandle?.update(camera.position,dt);
-    signalHandle021?.update(camera.position);
     // Tree residency follows the authoritative player, not the orbit camera.
     const treePassenger=ridingAgent();
     if(treePassenger){
@@ -868,7 +860,6 @@ export async function createNorthHeightsCity8(
       if(!agent)return;
       traffic?.clearDriverTurn();
       ridingSedanId=agent.id;
-      if(agent.id===starterSedanId)traffic?.beginManualDriving(agent.id);
       rideLastHeading=agent.heading;
       yaw=agent.heading;
       mode="walk";
@@ -877,13 +868,10 @@ export async function createNorthHeightsCity8(
       humanoid.root.setEnabled(false);
       clearKeys();physicsAccumulator=0;
       onModeChange?.("walk");
-      if(agent.id===starterSedanId)
-        onVehicleChange?.("Sedan · Manual",agent.speed);
-      else onVehicleChange?.("Sedan · Autopilot",agent.speed);
+      onVehicleChange?.("Sedan · Autopilot",agent.speed);
       onNearbyVehicleChange?.(false);
       updateLocation(true);
-      onFeedback?.(agent.id===starterSedanId
-        ?"Yellow starter Sedan · manual driving ready":"Sedan autopilot · ride along · exit when stopped");
+      onFeedback?.("Sedan autopilot · ride along · exit when stopped");
       return;
     }
   };
@@ -996,7 +984,7 @@ export async function createNorthHeightsCity8(
       onFeedback?.("Lift traveling to floor "+floor);
       clearKeys();physicsAccumulator=0;return true;
     },
-    setTime(time) { lampTime=time;sky.setTime(time);clouds.setTime(time);lampHandle?.setTime(time);signalHandle021?.setTime(time); },
+    setTime(time) { lampTime=time;sky.setTime(time);clouds.setTime(time);lampHandle?.setTime(time); },
     setAtmosphereClock(minuteOfDay,dayIndex,speed){
       atmosphere.syncClock(minuteOfDay,dayIndex,speed);
       sky.setMinuteOfDay(minuteOfDay);
@@ -1059,9 +1047,6 @@ export async function createNorthHeightsCity8(
       for(const hull of solidVehicleHandles.values())hull.dispose();
       solidVehicleHandles.clear();
       traffic=null;
-      signalHandle021?.dispose();signalHandle021=null;
-      for(const handle of signalPoleHandles021)handle.dispose();
-      signalPoleHandles021.length=0;
       lampHandle?.dispose();lampHandle=null;
       treeHandle?.dispose();
       actor?.dispose();
@@ -1113,9 +1098,6 @@ export async function createNorthHeightsCity8(
     // moving traffic agent as the single owner-accepted sedan in varied paint.
     // Other car models remain review-only; no proximity GLB swapping.
     traffic=new NH012TrafficSimulator(125,120125);
-    // Start unsignalized until the owner's actual heads are on screen:
-    // a failed visual GLB must never impose an invisible red light.
-    starterSedanId=traffic.parkFinchStarter005();
     // NH-SOLID-017: the same hull for every accepted source Sedan, regardless
     // of original fleet tags, proximity, camera LOD or driver ownership.
     const measuredSedanHull=sedanNativeContactHull007();
@@ -1180,7 +1162,6 @@ export async function createNorthHeightsCity8(
     // No colored proxies; GLBs appear only when their unique asset is ready.
     // Crossings remain geometric-only until the dedicated yielding stage.
     pedestrians=new NorthHeightsPedestrianSimulator001(world.lotSpecs,world.treeLocations);
-    pilotSignal021.setPedestrianOccupancy021(()=>pedestrians?.activePilotCrossers021()??0);
     pedestrians.setVehicleOccupancy((x,z)=>solidField.personClear({x,z}));
     pedestrians.setPlayerOccupancy(()=>ridingSedanId||machineView||!walk
       ?null:walk.physics.playerPosition(),northHeightsGround);
@@ -1240,34 +1221,6 @@ export async function createNorthHeightsCity8(
     scene.onAfterRenderObservable.addOnce(()=>{
       if(closed)return;
       onFirstPlayableFrame?.();
-      // Pilot GLBs cannot block first playable. Only activated signal poles
-      // become physical blockers after their authored meshes load successfully.
-      void loadFinchTrafficSignals021(scene,northHeightsGround,pilotSignal021)
-        .then(renderer=>{
-          if(closed){renderer.dispose();return;}
-          signalHandle021=renderer;renderer.setTime(lampTime);
-          renderer.update(camera.position);
-          solidField.activateSignalPoles021(renderer.supports);
-          for(const pole of renderer.supports){
-            const foot=northHeightsGround(pole.x,pole.z)+NORTH_HEIGHTS_SIDEWALK_ELEVATION_003;
-            signalPoleHandles021.push(walk!.physics.addStaticBox(
-              {x:pole.x,y:foot+2.8,z:pole.z},{x:.16,y:2.8,z:.16},0,
-              {vehicleNoStep:true}));
-          }
-          traffic?.configureTrafficSignal021(pilotSignal021);
-          pedestrians?.configureTrafficSignal021(pilotSignal021);
-          console.info("[POI-011] Finch HQ controlled pilot online",{
-            node:pilotSignal021.plan.nodeId,
-            heads:renderer.supports.length,
-            sources:renderer.sources,
-            snapshot:pilotSignal021.snapshot021(),
-          });
-        })
-        .catch(error=>{
-          traffic?.configureTrafficSignal021(null);
-          pedestrians?.configureTrafficSignal021(null);
-          console.error("[POI-011] Signals disabled; original all-way stop restored after visual asset failure",error);
-        });
       void finchLobby?.loadReceptionist();
       void finchSuite?.loadFinch();
       // Never hold the gameplay-ready signal for either GLB. The accepted
