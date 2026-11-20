@@ -10,8 +10,6 @@ import {
  stage6SteerStep,stage6SweepSedan,STAGE6_WHEELBASE_METERS,
  type SedanStage6Pose,
 } from "@/game/vehicles/nh-opt2-sedan-free-steering-stage6";
-import {FINCH_START_005} from "@/game/experiments/north-heights-finch-intro-005";
-import type {TrafficSignalController021} from "./nh021-traffic-signal-controller";
 import {planFinchTargetedRoute003,type TargetedRoadRoute003}
  from "@/game/experiments/north-heights-finch-routing-003";
 import {dianeCrossCityRoute008,type DianeRoadStop008}
@@ -72,14 +70,6 @@ export interface NH012TrafficSnapshot {
 export class NH012TrafficSimulator {
  readonly graph:TrafficGraph012;
  readonly agents:NH012Agent[]=[];
- /** POI-011: no other junction is signaled; optional attachment for the Finch pilot only. */
- private signalController021:TrafficSignalController021|null=null;
- configureTrafficSignal021(controller:TrafficSignalController021|null):void{
-  if(controller&&controller.plan.nodeId!=="NH012:N:6:4")
-   throw Error("POI-011 pilot is limited to Finch HQ junction");
-  this.signalController021=controller;
- }
- trafficSignalSnapshot021(){return this.signalController021?.snapshot021()??null;}
  readonly population:number;
  private readonly rng:()=>number;
  private readonly reservations=new Map<string,string>();
@@ -289,18 +279,6 @@ export class NH012TrafficSimulator {
    return this.manual?.agentId===agentId&&this.manual.free;
  }
  isStage6FreeParked(agentId:string):boolean{return this.freeParkedAgents.has(agentId);}
- /** POI-005: Reassign exactly one existing NH012 identity, not a 126th car.
-  * It is a static, boardable, solid Sedan at Finch's entrance until driven. */
- parkFinchStarter005():string{
-  const a=this.agents.find(v=>v.id==="NH012:gtd-veh006-mercer-range-rover:WHITE:0");
-  if(!a)throw Error("POI-005 starter vehicle missing from original 125");
-  const p=FINCH_START_005.starterCar;
-  a.x=p.x;a.z=p.z;a.heading=p.heading;
-  a.speed=0;a.state="stopped";a.connectorId=null;a.plannedConnectorId=null;
-  a.arrivalTick=-1;a.waitTicks=0;
-  this.freeParkedAgents.add(a.id);
-  return a.id;
- }
  /** LVL-001: reserve a real traffic sedan, with the same render and collision hull. */
  parkDianeVehicle001(id:string,stop:DianeRoadStop008):boolean{
   const a=this.agents.find(item=>item.id===id),edge=this.graph.edges.get(stop.edgeId);
@@ -779,14 +757,6 @@ export class NH012TrafficSimulator {
    this.stepImpactBodies(dt);
    this.stepImpactRecovery(dt);
    this.reconcileJunctionReservations001();
-   // Use the exact NH012 20Hz tick. A green light never overrides real
-   // connector occupancy, physical car clearance or pedestrian protection.
-   const signal021=this.signalController021;
-   if(signal021){
-    const occupied=this.agents.some(a=>a.connectorId!==null&&
-      this.graph.connectors.get(a.connectorId)?.junction===signal021.plan.nodeId);
-    signal021.advance021(occupied);
-   }
    const laneCars=new Map<string,NH012Agent[]>();
    // Recovering cars are still tangible lane leaders. Followers must retain
    // normal braking headways instead of accelerating into a temporary crash.
