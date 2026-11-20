@@ -29,27 +29,14 @@ describe("POI-005 owner-approved Finch introduction",()=>{
   expect(finchProximity005({x:49,y:173.4,z:-86},finch,false)).toBe(false);
   expect(finchProximity005(null,finch,true)).toBe(false);
  });
- it("reassigns just one of the 125 accepted NH012 agents as yellow parked starter",()=>{
+ it("keeps all 125 traffic agents on their original routes without a parked starter at Finch",()=>{
   const sim=new NH012TrafficSimulator(125,120125);
-  const old=sim.population;
-  const id=sim.parkFinchStarter005();
-  const starter=sim.agents.find(a=>a.id===id)!;
-  expect(sim.population).toBe(old);
   expect(sim.agents).toHaveLength(125);
-  expect(sim.isStage6FreeParked(id)).toBe(true);
-  expect(starter.speed).toBe(0);
-  expect(starter.state).toBe("stopped");
-  expect({x:starter.x,z:starter.z,heading:starter.heading}).toEqual(FINCH_START_005.starterCar);
-  for(let i=0;i<20;i++)sim.step();
-  expect(starter.x).toBe(FINCH_START_005.starterCar.x);
-  expect(starter.z).toBe(FINCH_START_005.starterCar.z);
-  expect(sim.beginFinchTargetDrive003(id).ok).toBe(false);
-  sim.configureStage6FreeDriving(()=>true);
-  sim.beginManualDriving(id);
-  expect(sim.isStage6FreeDriving(id)).toBe(true);
-  expect(sim.isStage6FreeParked(id)).toBe(false);
-  sim.parkManualOffRoad(id);
-  expect(sim.isStage6FreeParked(id)).toBe(true);
+  expect(sim.agents.every(a=>a.speed>0)).toBe(true);
+  expect(sim.agents.every(a=>!sim.isStage6FreeParked(a.id))).toBe(true);
+  expect(sim.agents.some(a=>
+   a.x===FINCH_START_005.starterCar.x&&a.z===FINCH_START_005.starterCar.z
+  )).toBe(false);
  });
  it("retains Finch mission placement without generating interior decor or furniture",()=>{
   const engine=new NullEngine(),scene=new Scene(engine);
