@@ -20,7 +20,10 @@ describe("Level 001 preview refinement 011",()=>{
   const screen=file("src/routes/north-heights-preview.tsx");
   expect(player).toContain('handItem:"hand"|"gun"="hand"');
   expect(screen).toContain('data-testid="reese-hand-selector"');
-  expect(screen).toContain("controller.current?.setReeseHandItem(next)");
+  expect(screen).toContain('["hand","m4a1","mpx9","p19"]');
+  expect(screen).toContain("controller.current?.setReeseWeapon(next)");
+  expect(player).toContain("setWeapon(id:");
+  expect(player).toContain("reese-lms-right-hand-mount");
  });
  it("enforces physical elevator camera bounds and independent lift control",()=>{
   const c=constrainFinchCabinCamera006({x:100,y:500,z:-100},
