@@ -7,7 +7,7 @@
  * capsule and controller; replace only the visual actor and its clip driver.
  */
 import {
-  AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
+  AbstractMesh, AnimationGroup, Material, Matrix, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
   Vector3, type AssetContainer, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
@@ -311,13 +311,39 @@ export function createReesePlayer001(scene:Scene,
   anchor.position.set(p.x,p.y-.92,p.z);
   anchor.rotation.y=yaw;
  }
+ let weaponGripDiagnosticsLogged=false;
  function alignWeaponMountToCharacterForward(){
   if(!weaponMount)return;
   weaponMount.computeWorldMatrix(true);
   const forward=new Vector3(Math.sin(anchor.rotation.y),0,Math.cos(anchor.rotation.y));
   const solved=solveReeseWeaponMountRotation001(weaponMount.getWorldMatrix(),forward);
-  for(const root of Object.values(weaponRoots))
-   if(root)root.rotationQuaternion=solved.clone();
+  const rotationMatrix=Matrix.FromQuaternion(solved);
+  for(const root of Object.values(weaponRoots)){
+   if(!root)continue;
+   root.rotationQuaternion=solved.clone();
+   const grip=root.metadata?.gripR as number[]|undefined;
+   if(!grip||grip.length<3)throw Error("LMS weapon is missing its authored gripR landmark");
+   const gripOffset=new Vector3(grip[0]??0,grip[1]??0,grip[2]??0);
+   // Place the grip landmark at the hand-mount origin without changing
+   // the solved weapon orientation: p + Qg = 0.
+   root.position.copyFrom(Vector3.TransformNormal(gripOffset,rotationMatrix).scale(-1));
+  }
+  if(!weaponGripDiagnosticsLogged){
+   weaponMount.computeWorldMatrix(true);
+   const handWorld=weaponMount.getAbsolutePosition().clone();
+   const measurements:Record<string,{hand:[number,number,number];grip:[number,number,number];error:number}>={};
+   for(const [id,root] of Object.entries(weaponRoots)){
+    if(!root)continue;
+    root.computeWorldMatrix(true);
+    const grip=root.metadata?.gripR as number[];
+    const gripWorld=Vector3.TransformCoordinates(new Vector3(grip[0]??0,grip[1]??0,grip[2]??0),root.getWorldMatrix());
+    measurements[id]={hand:[handWorld.x,handWorld.y,handWorld.z],
+     grip:[gripWorld.x,gripWorld.y,gripWorld.z],
+     error:Vector3.Distance(handWorld,gripWorld)};
+   }
+   console.info("[LMS-GUN-001] Runtime hand/grip alignment (world metres)",measurements);
+   weaponGripDiagnosticsLogged=true;
+  }
  }
  return {
   anchor,ready,
