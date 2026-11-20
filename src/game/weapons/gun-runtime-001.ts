@@ -98,8 +98,12 @@ export function createReeseWeapon001(scene: Scene, id: ReeseWeaponId001) {
   // Source weapon space is +Y up, muzzle -Z, stock +Z. The player adapter
   // solves rotation against the live hand-mount basis after bone attachment.
   root.rotation.set(0, Math.PI, 0);
-  const wrist = model.nodes["gripR"]?.pos ?? [0, 0, 0];
-  root.position.set(wrist[0] ?? 0, -(wrist[1] ?? 0), wrist[2] ?? 0);
+  // Keep the authored firing-grip landmark in weapon-local coordinates.
+  // The character adapter applies the inverse rotated offset after solving
+  // the weapon's orientation against the live hand-mount basis.
+  const gripR = model.nodes["gripR"]?.pos ?? [0, 0, 0];
+  root.metadata = { gripR: [...gripR] };
+  root.position.set(0, 0, 0);
   appendAssembly(scene, model.body, root, id, "body");
   for (const [partName, assembly] of Object.entries(model.moving)) {
     const part = new TransformNode("reese-lms-weapon-" + id + "-" + partName, scene);
