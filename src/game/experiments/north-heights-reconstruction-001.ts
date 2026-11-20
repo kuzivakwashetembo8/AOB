@@ -326,7 +326,8 @@ function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
     // geometry is generated over or behind individual square apertures.
     const xg=side==="z"?x:x+sign*(w/2+.005);
     const zg=side==="z"?z+sign*(d/2+.005):z;
-    const entranceFace=side==="z"&&sign===1;
+    // Every facade face uses the same closed glazing grammar; the former +Z entrance is an ordinary window bay.
+    const entranceFace=false;
     const openingWidth=Math.min(NORTH_HEIGHTS_PORTAL_WIDTH_010,w*.45);
     if(entranceFace){
       // Preserve the real ground-floor entrance, splitting only the upper
@@ -391,8 +392,7 @@ function addFacade(city: InstancedCity, lot:Lot, x:number,z:number,base:number,
       city.box(frame,xf(0),base+height-.02,zf(0),side==="z"?length:.20,sill,side==="z"?.20:length);
   };
   facade("z",1);facade("z",-1);facade("x",1);facade("x",-1);
-  // NH-010: deliberately NO door mesh. The centered +Z opening passes
-  // through the glass, mullions and physical perimeter, all sharing a portal.
+  // All facade bays are closed glazing. No pedestrian portal or visible entrance is generated.
 }
 function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
   const x=lot.x,z=lot.z,y=northHeightsGround(x,z),w=lot.width,d=lot.depth;
@@ -429,17 +429,12 @@ function buildBuilding(city:InstancedCity, lot:Lot, mobile:boolean) {
     }else city.box("interior-white",x,fy,z,w-.6,.14,d-.6);
   }
   city.box("interior-white",x,y+height+.63,z,w-.6,.14,d-.6);
-  // A low structural skirting makes solid walls meet the shallow foundation
-  // without filling the one real open entry slot. Window pattern stays intact.
+  // Continuous structural skirting closes the former +Z entrance footprint.
   const skirt=.62,skirtY=y+.18+skirt/2;
-  const opening=Math.min(NORTH_HEIGHTS_PORTAL_WIDTH_010,w*.45);
-  const side=(w-opening)/2;
   city.box("concrete",x,skirtY,z-d/2,w,skirt,.22);
-  for(const direction of [-1,1]){
-    city.box("concrete",x+direction*w/2,skirtY,z,.22,skirt,d);
-    city.box("concrete",x+direction*(opening+side)/2,skirtY,z+d/2,
-      side,skirt,.22);
-  }
+  city.box("concrete",x-w/2,skirtY,z,.22,skirt,d);
+  city.box("concrete",x+w/2,skirtY,z,.22,skirt,d);
+  city.box("concrete",x,skirtY,z+d/2,w,skirt,.22);
   if(podium) {
     // Open-sided podium: structural corner piers, not an opaque box hiding glass.
     // POI-010: the pier top meets the underside of the actual podium slab.
