@@ -77,7 +77,7 @@ export function createReesePlayer001(scene:Scene,
  let handItem:"hand"|"gun"="hand";
  let selectedWeapon:ReeseWeaponId001|null=null;
  let weaponMount:TransformNode|null=null;
- let weaponRoot:TransformNode|null=null;
+ const weaponRoots:Partial<Record<ReeseWeaponId001,TransformNode>>={};
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
@@ -93,7 +93,8 @@ export function createReesePlayer001(scene:Scene,
    material.alpha=0;
    material.transparencyMode=Material.MATERIAL_ALPHABLEND;
   }
-  weaponRoot?.setEnabled(handItem==="gun"&&controlled&&!hiddenDriving);
+  for(const [id,root] of Object.entries(weaponRoots))
+   root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
  }
  const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
   idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
@@ -202,6 +203,13 @@ export function createReesePlayer001(scene:Scene,
   if(rightHand){
    weaponMount=new TransformNode("reese-lms-right-hand-mount",scene);
    rightHand.linkTransformNode(weaponMount);
+   // Prebuild once: rapid taps only switch visibility and never allocate meshes.
+   for(const id of ["m4a1","mpx9","p19"] as const){
+    const root=createReeseWeapon001(scene,id);
+    root.parent=weaponMount;
+    root.setEnabled(false);
+    weaponRoots[id]=root;
+   }
   }else{
    console.error("[LMS-GUN-001] Reese right-hand bone was not found; extracted weapons will remain unequipped.");
   }
@@ -214,7 +222,8 @@ export function createReesePlayer001(scene:Scene,
     m.markAsDirty(Material.LightDirtyFlag);
    }
   }
-  // Only use the original GLB weapon; never manufacture a second pistol.
+  // Hide the legacy embedded pistol; the three extracted LMS models are
+  // prebuilt and managed by the right-hand mount above.
    applyWeaponVisibility();
    if(!weaponMeshes.size&&!weaponMaterials.size)
     console.warn("[REESE-002] Gun not independently separated in GLB: requires named weapon primitive for reliable holstering.");
@@ -275,17 +284,11 @@ export function createReesePlayer001(scene:Scene,
   combatRemaining=0;muzzleEffect.clear();
   if(id==="hand"){
    handItem="hand";
-   weaponRoot?.dispose(false,true);weaponRoot=null;
-  }else{
+  }else if(weaponMount&&weaponRoots[id]){
    selectedWeapon=id;handItem="gun";
-   weaponRoot?.dispose(false,true);weaponRoot=null;
-   if(weaponMount){
-    weaponRoot=createReeseWeapon001(scene,id);
-    weaponRoot.parent=weaponMount;
-   }else{
-    console.error("[LMS-GUN-001] Cannot equip "+id+": right-hand mount unavailable.");
-    handItem="hand";
-   }
+  }else{
+   console.error("[LMS-GUN-001] Cannot equip "+id+": right-hand mount unavailable.");
+   handItem="hand";
   }
   applyWeaponVisibility();
   if(handItem==="gun"&&groups.pistolAim)play(groups.pistolAim);
@@ -419,7 +422,8 @@ export function createReesePlayer001(scene:Scene,
    if(closed)return;
    closed=true;
    active?.stop();outgoing?.stop();muzzleEffect.dispose();
-   weaponMount?.dispose(false,true);weaponMount=null;weaponRoot=null;
+   weaponMount?.dispose(false,true);weaponMount=null;
+   for(const id of Object.keys(weaponRoots) as ReeseWeaponId001[])delete weaponRoots[id];
    instance?.dispose();instance=null;
    asset?.dispose();asset=null;
    fit?.dispose();offset?.dispose();tilt?.dispose();
