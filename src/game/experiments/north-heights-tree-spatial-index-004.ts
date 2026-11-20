@@ -70,7 +70,7 @@ export class NorthHeightsTreeSpatialIndex004 {
       throw new Error("Invalid tree residency radii");
     const cellX=Math.floor(center.x/this.cellSize),cellZ=Math.floor(center.z/this.cellSize);
     const moved=Math.hypot(center.x-this.lastX,center.z-this.lastZ);
-    if(finite(this.lastX)&&cellX===this.lastCellX&&cellZ===this.lastCellZ&&moved<8)
+    if(finite(this.lastX)&&cellX===this.lastCellX&&cellZ===this.lastCellZ&&moved<=8)
       return this.snapshot(false,0,[],[]);
     const dx=finite(this.lastX)?center.x-this.lastX:0;
     const dz=finite(this.lastZ)?center.z-this.lastZ:0;
