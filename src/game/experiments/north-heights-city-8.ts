@@ -1269,7 +1269,6 @@ export async function createNorthHeightsCity8(
           pedestrians?.configureTrafficSignal021(null);
           console.error("[POI-011] Signals disabled; original all-way stop restored after visual asset failure",error);
         });
-      void finchLobby?.loadReceptionist();
       void finchSuite?.loadFinch();
       // Never hold the gameplay-ready signal for either GLB. The accepted
       // mobile/desktop simulation starts independently of lighting assets.
