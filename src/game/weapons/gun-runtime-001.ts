@@ -79,7 +79,12 @@ export function createReeseWeapon001(scene: Scene, id: ReeseWeaponId001) {
   const model = BUILDERS[id]();
   const root = new TransformNode("reese-lms-weapon-" + id, scene);
   // Source weapon space is +Y up with the muzzle along -Z. Reese faces +Z.
+  // Each source model's gripR.pos is the authored wrist target relative to
+  // its thumb-web origin. Rotate that target by the 180-degree forward-axis
+  // correction, then offset the root so the target coincides with the hand bone.
   root.rotation.set(0, Math.PI, 0);
+  const wrist = model.nodes.gripR?.pos ?? [0, 0, 0];
+  root.position.set(wrist[0] ?? 0, -(wrist[1] ?? 0), wrist[2] ?? 0);
   appendAssembly(scene, model.body, root, id, "body");
   for (const [partName, assembly] of Object.entries(model.moving)) {
     const part = new TransformNode("reese-lms-weapon-" + id + "-" + partName, scene);
