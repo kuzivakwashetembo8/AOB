@@ -225,8 +225,8 @@ export function createReesePlayer001(scene:Scene,
   // Hide the legacy embedded pistol; the three extracted LMS models are
   // prebuilt and managed by the right-hand mount above.
    applyWeaponVisibility();
-   if(!weaponMeshes.size&&!weaponMaterials.size)
-    console.warn("[REESE-002] Gun not independently separated in GLB: requires named weapon primitive for reliable holstering.");
+   if(!Object.keys(weaponRoots).length)
+    console.warn("[LMS-GUN-001] Extracted weapons unavailable: Reese's right-hand bone was not found.");
    active=groups.idle;
   active.start(true);
   report.activeClip=active.name;
