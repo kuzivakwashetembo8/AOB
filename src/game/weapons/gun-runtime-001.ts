@@ -3,7 +3,7 @@
  * North Heights scene keeps its single renderer and character rig.
  */
 import {
-  Color3, Mesh, StandardMaterial, TransformNode, VertexData,
+  Color3, Mesh, Quaternion, StandardMaterial, TransformNode, Vector3, VertexData,
   type Scene,
 } from "@babylonjs/core";
 import type * as THREE from "three";
@@ -12,6 +12,23 @@ import { buildSmg } from "./source/models/smg.js";
 import { buildPistol } from "./source/models/pistol.js";
 
 export type ReeseWeaponId001 = "m4a1" | "mpx9" | "p19";
+/**
+ * Solve weapon-root rotation in the attached hand mount's local frame.
+ * Source weapon forward is -Z and its top is +Y. Babylon LH look rotation
+ * uses +Z as forward, so aim its +Z toward character-back.
+ */
+export function solveReeseWeaponMountRotation001(
+ mountWorld: import('@babylonjs/core').Matrix, characterForward: Vector3,
+): Quaternion {
+ const inverseMount = mountWorld.clone();
+ inverseMount.invert();
+ const localBack = Vector3.TransformNormal(characterForward.scale(-1), inverseMount).normalize();
+ const rawUp = Vector3.TransformNormal(Vector3.Up(), inverseMount).normalize();
+ const localUp = rawUp.subtract(localBack.scale(Vector3.Dot(rawUp, localBack))).normalize();
+ if (localBack.lengthSquared() < 0.99 || localUp.lengthSquared() < 0.99) throw new Error('LMS weapon mount basis is degenerate');
+ return Quaternion.FromLookDirectionLH(localBack, localUp);
+}
+
 type SourceModel = {
   body: { build: () => Map<string, THREE.BufferGeometry> };
   moving: Record<string, { build: () => Map<string, THREE.BufferGeometry> }>;
@@ -78,10 +95,8 @@ function appendAssembly(
 export function createReeseWeapon001(scene: Scene, id: ReeseWeaponId001) {
   const model = BUILDERS[id]();
   const root = new TransformNode("reese-lms-weapon-" + id, scene);
-  // Source weapon space is +Y up with the muzzle along -Z. Reese faces +Z.
-  // Each source model's gripR.pos is the authored wrist target relative to
-  // its thumb-web origin. Rotate that target by the 180-degree forward-axis
-  // correction, then offset the root so the target coincides with the hand bone.
+  // Source weapon space is +Y up, muzzle -Z, stock +Z. The player adapter
+  // solves rotation against the live hand-mount basis after bone attachment.
   root.rotation.set(0, Math.PI, 0);
   const wrist = model.nodes["gripR"]?.pos ?? [0, 0, 0];
   root.position.set(wrist[0] ?? 0, -(wrist[1] ?? 0), wrist[2] ?? 0);
