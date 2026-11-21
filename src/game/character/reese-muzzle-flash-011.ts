@@ -7,7 +7,7 @@
  * atlas dependencies are deliberately not imported into AOB's Babylon scene.
  */
 import {
-  Color3, Mesh, MeshBuilder, PointLight, Quaternion, StandardMaterial, Vector3,
+  Color3, Mesh, MeshBuilder, PointLight, Quaternion, StandardMaterial, TransformNode, Vector3,
   type Scene,
 } from "@babylonjs/core";
 
@@ -86,6 +86,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
           height: 1, diameterTop: .005, diameterBottom: 1, tessellation: 5,
         }, scene);
     mesh.material = material;
+    mesh.renderingGroupId = 1;
     mesh.isPickable = false;
     mesh.isVisible = false;
     mesh.rotationQuaternion = new Quaternion();
@@ -125,6 +126,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
 
   const bursts = Array.from({ length: 4 }, (_, i) => makeBurst(i));
   let cursor = 0;
+  let effectParent: TransformNode | null = null;
   let seed = 0x51f15e;
   let emitted = 0;
   const forward = new Vector3(0, 0, 1);
@@ -168,6 +170,15 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     b.lightLife = 0; b.light.intensity = 0;
   };
   const clear = () => { for (const b of bursts) clearBurst(b); };
+  const setParent = (parent: TransformNode | null) => {
+    if (effectParent === parent) return;
+    clear();
+    effectParent = parent;
+    for (const b of bursts) {
+      for (const p of b.particles) p.mesh.parent = parent;
+      b.light.parent = parent;
+    }
+  };
 
   const emit = (
     muzzle: Vector3, direction: Vector3, weapon: ReeseMuzzleWeapon001,
@@ -316,6 +327,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
   return {
     emit,
     update,
+    setParent,
     clear,
     get emitted() { return emitted; },
     dispose() {
