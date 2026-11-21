@@ -10,7 +10,7 @@ import {
   AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
   Vector3, type AssetContainer, type Scene,
 } from "@babylonjs/core";
-import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
+import {createReeseMuzzleFlash011} from "./reese-muzzle-flash-011";
 import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
 import { gtdLoadingLedger as audit } from "../../lib/real-loading-ledger";
@@ -81,7 +81,8 @@ export function createReesePlayer001(scene:Scene,
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
- const muzzleEffect=createReeseMuzzleSpark010(scene);
+ const muzzleEffect=createReeseMuzzleFlash011(scene);
+ const muzzleForward=new Vector3();
  const removedLegacyWeaponMeshes:string[]=[];
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
  function applyWeaponVisibility(){
@@ -439,7 +440,8 @@ export function createReesePlayer001(scene:Scene,
     if(active===clip){outgoing?.stop();outgoing=null;clip.stop();clip.start(false);
       clip.setWeightForAllAnimatables(1);transition=1;}
     else play(clip,false);
-    muzzleEffect.emit(muzzle,anchor.rotation.y);
+    muzzleForward.set(Math.sin(anchor.rotation.y),0,Math.cos(anchor.rotation.y));
+    muzzleEffect.emit(muzzle,muzzleForward,selectedWeapon??"m4a1");
     combatRemaining=.10;
    }else{combatRemaining=.55;play(clip,false);}
    lastAttackAt=now;
