@@ -582,7 +582,7 @@ export function createReesePlayer001(scene:Scene,
     if(active===clip){outgoing?.stop();outgoing=null;clip.stop();clip.start(false);
       clip.setWeightForAllAnimatables(1);transition=1;}
     else play(clip,false);
-    muzzleEffect.emit(muzzle,anchor.rotation.y);
+    if(!firstPersonActive)muzzleEffect.emit(muzzle,anchor.rotation.y);
     combatRemaining=.10;
    }else{combatRemaining=.55;play(clip,false);}
    lastAttackAt=now;
