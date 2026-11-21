@@ -23,6 +23,7 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(runtime).toContain("settings.firstPersonShooting&&settings.enableCharacter");
   expect(runtime).toContain('mode==="walk"&&!ridingSedanId&&!machineView&&!paused');
   expect(runtime).toContain("actor?.setFirstPersonPresentation(camera,firstPerson)");
+  expect(runtime).toContain("!liftFrame?.cameraCabin&&!genericLiftFrame?.cameraCabin");
   expect(runtime).toContain("resolveNorthHeightsThirdPersonCamera");
  });
  it("uses a camera-space viewmodel and authored weapon grip landmarks",()=>{
@@ -32,6 +33,7 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(player).toContain("MeshBuilder.CreateCapsule");
   expect(weapons).toContain("gripL: gripL ? [...gripL] : null");
   expect(player).toContain("solveReeseWeaponGripOffset001");
+  expect(player).toContain("firstPersonEmptyParts");
  });
  it("does not expand the existing animation-and-audio-only combat contract",()=>{
   const player=read("src/game/character/reese-player-001.ts");
