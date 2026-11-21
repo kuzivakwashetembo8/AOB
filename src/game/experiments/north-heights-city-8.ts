@@ -362,7 +362,7 @@ export async function createNorthHeightsCity8(
       // Reese is 1.78m tall; +.68m places the camera near the measured eye line.
       const eye=new Vector3(player.x,player.y+.68,player.z);
       camera.position.copyFrom(eye);
-      const direction=new Vector3(Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),
+      const direction=new Vector3(Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),
         Math.cos(yaw)*Math.cos(pitch));
       camera.setTarget(eye.add(direction));
       return;
