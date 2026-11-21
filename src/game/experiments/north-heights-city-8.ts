@@ -354,6 +354,7 @@ export async function createNorthHeightsCity8(
   const setCameraAt=(player:{x:number;y:number;z:number})=>{
     const firstPerson=Boolean(settings.firstPersonShooting&&settings.enableCharacter&&actor&&
       mode==="walk"&&!ridingSedanId&&!machineView&&!paused&&
+      !liftFrame?.cameraCabin&&!genericLiftFrame?.cameraCabin&&
       !liftFrame?.traveling&&!genericLiftFrame?.traveling);
     actor?.setFirstPersonPresentation(camera,firstPerson);
     if(firstPerson){
