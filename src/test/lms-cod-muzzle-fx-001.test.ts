@@ -6,9 +6,9 @@ const read=(path:string)=>readFileSync(path,"utf8");
 describe("LMS-COD-FX-001 extracted-weapon muzzle effects",()=>{
  it("maps each extracted gun to Claude of Duty's matching flash profile",()=>{
   const fx=read("src/game/character/reese-muzzle-flash-011.ts");
-  expect(fx).toContain('rifle: { scale: 1, lobes: 3, jet: 1, light: 200, smoke: 1, sparks: 8 }');
-  expect(fx).toContain('smg: { scale: .78, lobes: 3, jet: .75, light: 135, smoke: .7, sparks: 6 }');
-  expect(fx).toContain('pistol: { scale: .66, lobes: 2, jet: .6, light: 100, smoke: .55, sparks: 5 }');
+  expect(fx).toContain('rifle: { scale: 1, lobes: 3, jet: 1, light: 200, smoke: 1, temp: 1, sparks: 8 }');
+  expect(fx).toContain('smg: { scale: .78, lobes: 3, jet: .75, light: 135, smoke: .7, temp: 1.05, sparks: 6 }');
+  expect(fx).toContain('pistol: { scale: .66, lobes: 2, jet: .6, light: 100, smoke: .55, temp: 1.06, sparks: 5 }');
   expect(fx).toContain('id === "mpx9"');
   expect(fx).toContain('id === "p19"');
  });
@@ -18,6 +18,9 @@ describe("LMS-COD-FX-001 extracted-weapon muzzle effects",()=>{
    expect(fx).toContain(feature);
   expect(fx).toContain("b.light.range = 5 * scale");
   expect(fx).toContain("b.lightDuration = .09");
+  expect(fx).toContain("blackbodyKelvin");
+  expect(fx).toContain("profile.light * .18");
+  expect(fx).toContain("Math.exp(-16 * elapsed)");
   expect(fx).not.toContain("Math.random");
   expect(fx).not.toContain('from "three"');
   const player=read("src/game/character/reese-player-001.ts");
