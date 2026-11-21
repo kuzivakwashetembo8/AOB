@@ -193,6 +193,8 @@ export function createReesePlayer001(scene:Scene,
    firstPersonRoot?.setEnabled(true);
   }else{
    firstPersonActive=false;
+   firstPersonFlashRemaining=0;
+   for(const flash of Object.values(firstPersonFlashes))flash?.setEnabled(false);
    firstPersonRoot?.setEnabled(false);
    anchor.setEnabled(controlled&&!hiddenDriving);
   }
