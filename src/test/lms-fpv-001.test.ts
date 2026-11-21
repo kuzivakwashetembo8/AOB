@@ -29,20 +29,21 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(firstPersonBlock).toContain("Math.sin(pitch),");
   expect(firstPersonBlock).not.toContain("-Math.sin(pitch)");
  });
- it("uses a camera-space viewmodel and authored weapon grip landmarks",()=>{
+ it("uses Reese's live skinned arms and the same bone-mounted weapon in first person",()=>{
   const player=read("src/game/character/reese-player-001.ts");
   const weapons=read("src/game/weapons/gun-runtime-001.ts");
-  expect(player).toContain('new TransformNode("reese001-first-person-viewmodel"');
-  expect(player).toContain("MeshBuilder.CreateCapsule");
-  expect(player).toContain("const elbow=start.add(direction.scale(along)).add(perpendicular.scale(height))");
-  expect(player).toContain("if(enabled===firstPersonActive&&(!enabled||firstPersonRoot?.parent===camera))return;");
+  expect(player).toContain("firstPersonHiddenMeshes");
+  expect(player).toContain("firstPersonHeadPattern");
+  expect(player).toContain("entry.mesh.visibility=enabled?0:entry.visibility");
+  expect(player).toContain("anchor.setEnabled(controlled&&!hiddenDriving)");
+  expect(player).toContain("root?.setEnabled(handItem===\"gun\"&&selectedWeapon===id&&controlled&&!hiddenDriving)");
+  expect(player).toContain("weaponMount.attachToBone(rightHand,referenceMesh)");
+  expect(player).not.toContain("MeshBuilder.CreateCapsule");
+  expect(player).not.toContain("MeshBuilder.CreateSphere");
+  expect(player).not.toContain("reese001-first-person-viewmodel");
   expect(weapons).toContain("gripL: gripL ? [...gripL] : null");
   expect(player).toContain("solveReeseWeaponGripOffset001");
-  expect(player).toContain("solveReeseWeaponMountRotation001(firstPersonRoot.getWorldMatrix(),camera.getForwardRay().direction)");
-  expect(player).toContain("firstPersonEmptyParts");
-  expect(player).toContain("firstPersonFlashes[selectedWeapon??\"m4a1\"]");
-  expect(player).toContain("firstPersonRecoil=1");
-  expect(player).toContain("if(!firstPersonActive)muzzleEffect.emit(muzzle,anchor.rotation.y)");
+  expect(player).toContain("muzzleEffect.emit(muzzle,anchor.rotation.y)");
  });
  it("does not expand the existing animation-and-audio-only combat contract",()=>{
   const player=read("src/game/character/reese-player-001.ts");
