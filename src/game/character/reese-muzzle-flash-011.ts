@@ -133,9 +133,9 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     const jet = makeParticle(prefix + "-jet", "cone", jetMat);
     const sparks = Array.from({ length: 8 }, (_, i) =>
       makeParticle(prefix + "-ember-" + i, "cone", emberMat));
-    const puffs = Array.from({ length: 2 }, (_, i) =>
+    const puffs = Array.from({ length: 3 }, (_, i) =>
       makeParticle(prefix + "-powder-puff-" + i, "sphere", gasMat));
-    const smoke = Array.from({ length: 3 }, (_, i) =>
+    const smoke = Array.from({ length: 5 }, (_, i) =>
       makeParticle(prefix + "-barrel-smoke-" + i, "sphere", smokeMat, true));
     const light = new PointLight(prefix + "-flash-light", ZERO.clone(), scene);
     light.intensity = 0;
@@ -241,7 +241,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     heartMat.emissiveColor.copyFrom(coreColour);
     gasMat.emissiveColor.copyFrom(tipColour);
     jetMat.emissiveColor.copyFrom(gasColour);
-    emberMat.emissiveColor.copyFrom(gasColour);
+    emberMat.emissiveColor.copyFrom(blackbodyKelvin(2600 * temperature));
 
     // Three or four independent, off-axis tongues of burning gas.
     const ports = Math.min(4, Math.max(3,
@@ -308,7 +308,8 @@ export function createReeseMuzzleFlash011(scene: Scene) {
         muzzle.z + forward.z * .018 + right.z * side * .008,
         right.x * side * range(.6, 1.9), .12 + lift, right.z * side * range(.6, 1.9),
         .018 * scale, .075 * scale * (.7 + profile.smoke * .5),
-        range(.3, .55) * (.7 + profile.smoke * .5), 7, .5);
+        range(.3, .55) * (.7 + profile.smoke * .5), 7, .5,
+        undefined, 1, range(.012, .034));
     }
     for (let i = 0; i < b.smoke.length; i++) {
       const side = range(-1, 1);
