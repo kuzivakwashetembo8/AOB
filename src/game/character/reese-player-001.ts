@@ -79,163 +79,35 @@ export function createReesePlayer001(scene:Scene,
  let selectedWeapon:ReeseWeaponId001|null=null;
  let weaponMount:Mesh|null=null;
  const weaponRoots:Partial<Record<ReeseWeaponId001,TransformNode>>={};
- let firstPersonRoot:TransformNode|null=null;
  let firstPersonActive=false;
- const firstPersonWeapons:Partial<Record<ReeseWeaponId001,TransformNode>>={};
- const firstPersonParts:Partial<Record<ReeseWeaponId001,Mesh[]>>={};
- const firstPersonEmptyParts:Mesh[]=[];
- const firstPersonFlashes:Partial<Record<ReeseWeaponId001,Mesh>>={};
- let firstPersonFlashRemaining=0;
- const firstPersonMaterials:StandardMaterial[]=[];
- let firstPersonRecoil=0;
+ const firstPersonHiddenMeshes:{mesh:AbstractMesh;visibility:number;isVisible:boolean}[]=[];
+ const removedLegacyWeaponMeshes:string[]=[];
+ const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
+ const firstPersonHeadPattern=/(head|hair|eyebrow|eye|face|teeth|tongue)/i;
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
  const muzzleEffect=createReeseMuzzleSpark010(scene);
  const removedLegacyWeaponMeshes:string[]=[];
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
- function buildFirstPersonViewmodel(camera:Camera){
-  if(firstPersonRoot)return;
-  firstPersonRoot=new TransformNode("reese001-first-person-viewmodel",scene);
-  firstPersonRoot.parent=camera;
-  firstPersonRoot.position.set(0,0,0);
-  firstPersonRoot.rotation.set(0,0,0);
-  const sleeve=new StandardMaterial("reese001-fpv-sleeve",scene);
-  sleeve.diffuseColor=Color3.FromHexString("#202831");
-  sleeve.specularColor=new Color3(.12,.14,.16);
-  const glove=new StandardMaterial("reese001-fpv-glove",scene);
-  glove.diffuseColor=Color3.FromHexString("#101418");
-  glove.specularColor=new Color3(.08,.08,.08);
-  const flashMaterial=new StandardMaterial("reese001-fpv-muzzle-flash",scene);
-  flashMaterial.diffuseColor=Color3.FromHexString("#ff9b38");
-  flashMaterial.emissiveColor=Color3.FromHexString("#ff9b38");
-  firstPersonMaterials.push(sleeve,glove,flashMaterial);
-  const addArmSegment=(id:ReeseWeaponId001,start:Vector3,end:Vector3,label:string)=>{
-   const delta=end.subtract(start),length=delta.length();
-   if(length<.06)return null;
-   const mesh=MeshBuilder.CreateCapsule("reese001-fpv-"+id+"-"+label,{
-    height:length+.12,radius:.062,tessellation:8,
-   },scene);
-   mesh.parent=firstPersonRoot;
-   mesh.position.copyFrom(start.add(end).scale(.5));
-   const rotation=new Quaternion();
-   Quaternion.FromUnitVectorsToRef(Vector3.Up(),delta.normalize(),rotation);
-   mesh.rotationQuaternion=rotation;
-   mesh.material=sleeve;
-   mesh.renderingGroupId=1;mesh.isPickable=false;mesh.checkCollisions=false;
-   return mesh;
-  };
-  // Two-bone camera-space arm solve: grip landmarks are the wrist targets,
-  // while a lateral pole keeps elbows outside the weapon instead of making
-  // each sleeve a single straight rod.
-  const addArm=(id:ReeseWeaponId001,start:Vector3,end:Vector3,
-   upperLength=.34,forearmLength=.32):Mesh[]=>{
-   const delta=end.subtract(start),distance=delta.length();
-   if(distance<.06)return [];
-   const stretch=Math.max(1,distance/(upperLength+forearmLength-.015));
-   const upper=upperLength*stretch,forearm=forearmLength*stretch;
-   const direction=delta.scale(1/distance);
-   const pole=new Vector3(start.x>=0?1:-1,-.15,-.45);
-   const perpendicular=pole.subtract(direction.scale(Vector3.Dot(pole,direction)));
-   if(perpendicular.lengthSquared()<1e-6)perpendicular.set(0,0,-1);
-   perpendicular.normalize();
-   const along=(upper*upper-forearm*forearm+distance*distance)/(2*distance);
-   const height=Math.sqrt(Math.max(.001,upper*upper-along*along));
-   const elbow=start.add(direction.scale(along)).add(perpendicular.scale(height));
-   const upperArm=addArmSegment(id,start,elbow,"upper-arm");
-   const lowerArm=addArmSegment(id,elbow,end,"forearm");
-   return [upperArm,lowerArm].filter((part):part is Mesh=>part!==null);
-  };
-  const addGlove=(id:ReeseWeaponId001,position:Vector3)=>{
-   const mesh=MeshBuilder.CreateSphere("reese001-fpv-"+id+"-glove",{diameter:.15,segments:8},scene);
-   mesh.parent=firstPersonRoot;
-   mesh.position.copyFrom(position);
-   mesh.scaling.set(1,.78,1.22);
-   mesh.material=glove;
-   mesh.renderingGroupId=1;mesh.isPickable=false;mesh.checkCollisions=false;
-   return mesh;
-  };
-  firstPersonRoot.computeWorldMatrix(true);
-  const rotation=solveReeseWeaponMountRotation001(firstPersonRoot.getWorldMatrix(),camera.getForwardRay().direction);
-  const rotationMatrix=Matrix.Identity();
-  rotation.toRotationMatrix(rotationMatrix);
-  for(const id of ["m4a1","mpx9","p19"] as const){
-   const weapon=createReeseWeapon001(scene,id);
-   weapon.parent=firstPersonRoot;
-   weapon.rotationQuaternion=rotation.clone();
-   const grip=weapon.metadata?.gripR as number[]|undefined;
-   if(!grip||grip.length<3)throw Error("REESE-001 first-person weapon missing gripR");
-   const rightTarget=new Vector3(.205,-.265,.72);
-   const gripVector=new Vector3(grip[0]??0,grip[1]??0,grip[2]??0);
-   weapon.position.copyFrom(rightTarget.add(solveReeseWeaponGripOffset001(gripVector,rotation)));
-   weapon.metadata={...weapon.metadata,fpvBasePosition:weapon.position.clone(),fpvBaseRotation:rotation.clone()};
-   weapon.computeWorldMatrix(true);
-   const muzzle=weapon.metadata?.muzzle as number[]|undefined;
-   const flash=MeshBuilder.CreateSphere("reese001-fpv-"+id+"-muzzle-flash",{diameter:.075,segments:6},scene);
-   flash.parent=firstPersonRoot;
-   if(muzzle&&muzzle.length>=3){
-    flash.position.copyFrom(weapon.position.add(Vector3.TransformNormal(new Vector3(muzzle[0]??0,muzzle[1]??0,muzzle[2]??0),rotationMatrix)));
-   }else{flash.position.copyFrom(weapon.position.add(new Vector3(0,0,.55)));}
-   flash.scaling.set(.8,.8,1.7);flash.material=flashMaterial;flash.renderingGroupId=1;
-   flash.isPickable=false;flash.checkCollisions=false;flash.setEnabled(false);
-   firstPersonFlashes[id]=flash;
-   const gripL=weapon.metadata?.gripL as number[]|null|undefined;
-   const leftTarget=gripL&&gripL.length>=3
-    ?weapon.position.add(Vector3.TransformNormal(new Vector3(gripL[0]??0,gripL[1]??0,gripL[2]??0),rotationMatrix))
-    :new Vector3(-.16,-.34,.62);
-   const parts:Mesh[]=[];
-   const rightArm=addArm(id,new Vector3(.38,-.48,1.02),rightTarget);
-   const rightHand=addGlove(id,rightTarget);
-   const leftArm=addArm(id,new Vector3(-.38,-.49,1.02),leftTarget);
-   const leftHand=addGlove(id,leftTarget);
-   parts.push(...rightArm,rightHand,...leftArm,leftHand);
-   for(const mesh of weapon.getChildMeshes(false))mesh.renderingGroupId=1;
-   weapon.setEnabled(false);
-   for(const part of parts)part.setEnabled(false);
-   firstPersonWeapons[id]=weapon;
-   firstPersonParts[id]=parts;
+ function setFirstPersonPresentation(_camera:Camera|null,enabled:boolean){
+  if(closed||enabled===firstPersonActive)return;
+  firstPersonActive=enabled;
+  // Keep the real Reese GLB, skeleton and weapon hand mount alive. Only hide
+  // facial/head meshes on this local camera so the camera does not sit inside
+  // Reese's face. Other clients retain the complete character representation.
+  for(const entry of firstPersonHiddenMeshes){
+   entry.mesh.visibility=enabled?0:entry.visibility;
+   entry.mesh.isVisible=enabled?false:entry.isVisible;
   }
-  const emptyRight=new Vector3(.30,-.43,.84);
-  const emptyLeft=new Vector3(-.30,-.43,.84);
-  const emptyParts=[
-   ...addArm("m4a1",new Vector3(.38,-.48,1.02),emptyRight,.18,.18),
-   addGlove("m4a1",emptyRight),
-   ...addArm("m4a1",new Vector3(-.38,-.49,1.02),emptyLeft,.18,.18),
-   addGlove("m4a1",emptyLeft),
-  ];
-  for(const part of emptyParts){part.setEnabled(false);firstPersonEmptyParts.push(part);}
- }
- function setFirstPersonPresentation(camera:Camera|null,enabled:boolean){
-  if(closed)return;
-  // setCameraAt runs every frame; avoid recursively toggling weapon mesh trees
-  // when the presentation state and owning camera have not changed.
-  if(enabled===firstPersonActive&&(!enabled||firstPersonRoot?.parent===camera))return;
-  if(enabled&&camera){
-   buildFirstPersonViewmodel(camera);
-   if(firstPersonRoot&&firstPersonRoot.parent!==camera)firstPersonRoot.parent=camera;
-   firstPersonActive=true;
-   anchor.setEnabled(false);
-   firstPersonRoot?.setEnabled(true);
-  }else{
-   firstPersonActive=false;
-   firstPersonFlashRemaining=0;
-   for(const flash of Object.values(firstPersonFlashes))flash?.setEnabled(false);
-   firstPersonRoot?.setEnabled(false);
-   anchor.setEnabled(controlled&&!hiddenDriving);
-  }
+  anchor.setEnabled(controlled&&!hiddenDriving);
   applyWeaponVisibility();
  }
  function applyWeaponVisibility(){
-  // Legacy GLB weapon meshes are removed during import; only extracted LMS
-  // weapon roots participate in equipment visibility.
+  // One character and one weapon mount serve both camera modes. No duplicate
+  // camera-space gun, substitute arms, or substitute hands are created.
   for(const [id,root] of Object.entries(weaponRoots))
-   root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving&&!firstPersonActive);
-  for(const [id,root] of Object.entries(firstPersonWeapons))
-   root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving&&firstPersonActive);
-  for(const [id,parts] of Object.entries(firstPersonParts))
-   for(const part of parts??[])part.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving&&firstPersonActive);
-  for(const part of firstPersonEmptyParts)
-   part.setEnabled(handItem==="hand"&&controlled&&!hiddenDriving&&firstPersonActive);
+   root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
  }
  const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
   idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
@@ -319,6 +191,10 @@ export function createReesePlayer001(scene:Scene,
     removedLegacyWeaponMeshes.push(mesh.name);
     mesh.dispose(false,false);
     continue;
+   }
+   if(firstPersonHeadPattern.test(names.join(" "))||
+    mats.some(material=>firstPersonHeadPattern.test(material.name))){
+    firstPersonHiddenMeshes.push({mesh,visibility:mesh.visibility,isVisible:mesh.isVisible});
    }
    const box=mesh.getBoundingInfo().boundingBox;
    minX=Math.min(minX,box.minimumWorld.x);
@@ -418,21 +294,6 @@ export function createReesePlayer001(scene:Scene,
   return null;
  }
  function advance(dt:number){
-  firstPersonRecoil=Math.max(0,firstPersonRecoil-Math.max(0,dt)*8.5);
-  firstPersonFlashRemaining=Math.max(0,firstPersonFlashRemaining-Math.max(0,dt));
-  if(firstPersonFlashRemaining===0)
-   for(const flash of Object.values(firstPersonFlashes))flash?.setEnabled(false);
-  for(const root of Object.values(firstPersonWeapons)){
-   if(!root)continue;
-   const basePosition=root.metadata?.fpvBasePosition as Vector3|undefined;
-   const baseRotation=root.metadata?.fpvBaseRotation as Quaternion|undefined;
-   if(basePosition&&baseRotation){
-    root.position.copyFrom(basePosition);
-    root.position.z-=firstPersonRecoil*.055;
-    root.rotationQuaternion=baseRotation.multiply(
-     Quaternion.RotationAxis(new Vector3(1,0,0),firstPersonRecoil*.12));
-   }
-  }
   if(!active)return;
   if(outgoing){
    transition=Math.min(1,transition+Math.max(0,dt)/.075);
@@ -504,7 +365,7 @@ export function createReesePlayer001(scene:Scene,
    if(closed)return;
    controlled=enabled;hiddenDriving=false;combatRemaining=0;
    wasAirborne=false;takeoffRemaining=0;landingRemaining=0;muzzleEffect.clear();
-   anchor.setEnabled(enabled&&!firstPersonActive);
+   anchor.setEnabled(enabled&&!hiddenDriving);
    if(enabled){resetFlight();play(groups.idle);}
    applyWeaponVisibility();
   },
@@ -512,7 +373,7 @@ export function createReesePlayer001(scene:Scene,
    if(closed||!controlled)return;
    hiddenDriving=hidden;
    if(hidden)muzzleEffect.clear();
-   anchor.setEnabled(!hidden&&!firstPersonActive);
+   anchor.setEnabled(!hidden);
    applyWeaponVisibility();
   },
   syncHiddenDrivingPose(p:{x:number;y:number;z:number},yaw:number){
@@ -597,17 +458,12 @@ export function createReesePlayer001(scene:Scene,
    if(attack==="shoot"&&now-lastAttackAt<12)return null;
    if(attack==="shoot"){
     const muzzle=muzzleWorld();if(!muzzle)return null;
-    if(firstPersonActive){
-     firstPersonRecoil=1;
-     firstPersonFlashRemaining=.065;
-     firstPersonFlashes[selectedWeapon??"m4a1"]?.setEnabled(true);
-    }
     shotSerial++;
     // Rapid distinct taps restart one existing clip, never stack animation groups.
     if(active===clip){outgoing?.stop();outgoing=null;clip.stop();clip.start(false);
       clip.setWeightForAllAnimatables(1);transition=1;}
     else play(clip,false);
-    if(!firstPersonActive)muzzleEffect.emit(muzzle,anchor.rotation.y);
+    muzzleEffect.emit(muzzle,anchor.rotation.y);
     combatRemaining=.10;
    }else{combatRemaining=.55;play(clip,false);}
    lastAttackAt=now;
@@ -616,8 +472,7 @@ export function createReesePlayer001(scene:Scene,
   get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire;},
   get shotsFired(){return shotSerial;},
   clearCombatFX(){
-   muzzleEffect.clear();firstPersonFlashRemaining=0;
-   for(const flash of Object.values(firstPersonFlashes))flash?.setEnabled(false);
+   muzzleEffect.clear();
   },
   get handItem(){return handItem;},
   get poseReport(){
@@ -628,9 +483,6 @@ export function createReesePlayer001(scene:Scene,
    if(closed)return;
    closed=true;
    active?.stop();outgoing?.stop();muzzleEffect.dispose();
-   firstPersonRoot?.dispose(false,true);firstPersonRoot=null;
-   for(const material of firstPersonMaterials)material.dispose();
-   firstPersonMaterials.length=0;
    weaponMount?.dispose(false,true);weaponMount=null;
    for(const id of Object.keys(weaponRoots) as ReeseWeaponId001[])delete weaponRoots[id];
    instance?.dispose();instance=null;
