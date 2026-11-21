@@ -37,12 +37,19 @@ describe("POI-010 nine-work-package contracts",()=>{
   expect(reese).toContain("groups.jumpStart");
   expect(reese).toContain("landingRemaining=groups.land ? .35 : 0");
  });
- it("pairs each accepted rapid pistol shot with a pooled spark and existing audio event",()=>{
+ it("pairs accepted shots with COD-style weapon-class muzzle FX and existing audio",()=>{
   const reese=source("src/game/character/reese-player-001.ts");
   expect(reese).toContain("clip.stop();clip.start(false)");
-  expect(reese).toContain("muzzleEffect.emit(muzzle,anchor.rotation.y)");
+  expect(reese).toContain('muzzleEffect.emit(muzzle,muzzleForward,selectedWeapon??"m4a1")');
+  const fx=source("src/game/character/reese-muzzle-flash-011.ts");
+  expect(fx).toContain("COD_MUZZLE_PROFILES_001");
+  expect(fx).toContain("PointLight");
+  expect(fx).toContain("blackbodyKelvin");
+  expect(fx).toContain("barrel-smoke");
+  expect(fx).toContain("b.light.range = 5 * scale");
+  expect(fx).not.toContain("Math.random");
   expect(reese).not.toContain('attack==="shoot"?260:550');
-  expect(source("src/game/character/reese-muzzle-spark-010.ts")).toContain("length:10");
+  expect(reese).not.toContain("reese-muzzle-spark-010");
   expect(source("src/game/experiments/north-heights-city-8.ts")).toContain("vehicleAudio.playCombatCue(kind)");
  });
  it("reconciles stale junction reservations in ordinary traffic without collisions",()=>{
