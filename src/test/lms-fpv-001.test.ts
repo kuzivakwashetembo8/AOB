@@ -43,7 +43,7 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(player).not.toContain("reese001-first-person-viewmodel");
   expect(weapons).toContain("gripL: gripL ? [...gripL] : null");
   expect(player).toContain("solveReeseWeaponGripOffset001");
-  expect(player).toContain("muzzleEffect.emit(muzzle,anchor.rotation.y)");
+  expect(player).toContain('muzzleEffect.emit(muzzle,anchor.rotation.y,selectedWeapon??"m4a1")');
  });
  it("does not expand the existing animation-and-audio-only combat contract",()=>{
   const player=read("src/game/character/reese-player-001.ts");
