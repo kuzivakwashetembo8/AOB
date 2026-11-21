@@ -33,6 +33,7 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   const weapons=read("src/game/weapons/gun-runtime-001.ts");
   expect(player).toContain('new TransformNode("reese001-first-person-viewmodel"');
   expect(player).toContain("MeshBuilder.CreateCapsule");
+  expect(player).toContain("if(enabled===firstPersonActive&&(!enabled||firstPersonRoot?.parent===camera))return;");
   expect(weapons).toContain("gripL: gripL ? [...gripL] : null");
   expect(player).toContain("solveReeseWeaponGripOffset001");
   expect(player).toContain("solveReeseWeaponMountRotation001(firstPersonRoot.getWorldMatrix(),camera.getForwardRay().direction)");
