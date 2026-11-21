@@ -40,9 +40,12 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(player).toContain("solveReeseWeaponGripOffset001");
   expect(player).toContain("solveReeseWeaponMountRotation001(firstPersonRoot.getWorldMatrix(),camera.getForwardRay().direction)");
   expect(player).toContain("firstPersonEmptyParts");
-  expect(player).toContain("firstPersonFlashes[selectedWeapon??\"m4a1\"]");
+  expect(player).toContain("muzzleEffect.setParent(firstPersonRoot)");
+  expect(player).toContain("firstPersonMuzzle(weaponId)");
+  expect(player).not.toContain("fpv-muzzle-flash");
   expect(player).toContain("firstPersonRecoil=1");
-  expect(player).toContain("if(!firstPersonActive)muzzleEffect.emit(muzzle,anchor.rotation.y)");
+  expect(player).toContain("muzzleEffect.emit(fpMuzzle.position,fpMuzzle.direction,weaponId)");
+  expect(player).toContain("muzzleEffect.emit(muzzle,muzzleForward,weaponId)");
  });
  it("does not expand the existing animation-and-audio-only combat contract",()=>{
   const player=read("src/game/character/reese-player-001.ts");
