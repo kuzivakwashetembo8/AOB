@@ -13,9 +13,9 @@ import {
 
 export type ReeseMuzzleWeapon001 = "m4a1" | "mpx9" | "p19";
 export const COD_MUZZLE_PROFILES_001 = {
-  rifle: { scale: 1, lobes: 3, jet: 1, light: 200, smoke: 1, sparks: 8 },
-  smg: { scale: .78, lobes: 3, jet: .75, light: 135, smoke: .7, sparks: 6 },
-  pistol: { scale: .66, lobes: 2, jet: .6, light: 100, smoke: .55, sparks: 5 },
+  rifle: { scale: 1, lobes: 3, jet: 1, light: 200, smoke: 1, temp: 1, sparks: 8 },
+  smg: { scale: .78, lobes: 3, jet: .75, light: 135, smoke: .7, temp: 1.05, sparks: 6 },
+  pistol: { scale: .66, lobes: 2, jet: .6, light: 100, smoke: .55, temp: 1.06, sparks: 5 },
 } as const;
 
 const UP = new Vector3(0, 1, 0);
@@ -52,6 +52,23 @@ const profileFor = (id: ReeseMuzzleWeapon001) =>
   id === "mpx9" ? COD_MUZZLE_PROFILES_001.smg :
   id === "p19" ? COD_MUZZLE_PROFILES_001.pistol :
   COD_MUZZLE_PROFILES_001.rifle;
+
+function blackbodyKelvin(kelvin: number) {
+  const t = Math.max(1000, Math.min(6500, kelvin)) / 100;
+  let r: number, g: number, b: number;
+  if (t <= 66) { r = 255; g = 99.47 * Math.log(t) - 161.12; }
+  else { r = 329.7 * Math.pow(t - 60, -.1332); g = 288.12 * Math.pow(t - 60, -.0755); }
+  if (t >= 66) b = 255;
+  else if (t <= 19) b = 0;
+  else b = 138.52 * Math.log(t - 10) - 305.04;
+  const linear = (value: number) => {
+    const c = Math.max(0, Math.min(255, value)) / 255;
+    return c <= .04045 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4);
+  };
+  const lr = linear(r), lg = linear(g), lb = linear(b);
+  const peak = Math.max(lr, lg, lb, .0001);
+  return new Color3(lr / peak, lg / peak, lb / peak);
+}
 
 export function createReeseMuzzleFlash011(scene: Scene) {
   const coreMat = new StandardMaterial("lms-cod-fx-core", scene);
@@ -206,7 +223,11 @@ export function createReeseMuzzleFlash011(scene: Scene) {
 
     const gain = .86 + random() * .28;
     const scale = profile.scale * (.88 + random() * .24);
-    const coreColour = new Color3(1, .76 + random() * .12, .48 + random() * .1);
+    const temperature = profile.temp * (.96 + random() * .09);
+    const coreKelvin = 3800 + random() * 600;
+    const coreColour = blackbodyKelvin(coreKelvin * temperature);
+    const gasColour = blackbodyKelvin(coreKelvin * .62 * temperature);
+    const tipColour = blackbodyKelvin(2200);
     originOffset.copyFrom(forward).scaleInPlace(.1);
     b.light.position.copyFrom(muzzle).addInPlace(originOffset);
 
@@ -216,6 +237,11 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     spawn(b.heart, muzzle.x, muzzle.y, muzzle.z, 0, 0, 0,
       .036 * scale, .056 * scale, .046, 12);
     coreMat.emissiveColor.copyFrom(coreColour);
+    coreMat.diffuseColor.copyFrom(coreColour);
+    heartMat.emissiveColor.copyFrom(coreColour);
+    gasMat.emissiveColor.copyFrom(tipColour);
+    jetMat.emissiveColor.copyFrom(gasColour);
+    emberMat.emissiveColor.copyFrom(gasColour);
 
     // Three or four independent, off-axis tongues of burning gas.
     const ports = Math.min(4, Math.max(3,
@@ -303,7 +329,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     // A warm, short-range light pool: 90 ms, 5 m cutoff, weapon-class power.
     b.light.diffuse.copyFrom(coreColour);
     b.light.range = 5 * scale;
-    b.lightPeak = profile.light / 200 * 1.5 * gain;
+    b.lightPeak = (effectParent ? profile.light / 200 : profile.light * .18) * gain;
     b.lightDuration = .09;
     b.lightLife = b.lightDuration;
     b.light.intensity = b.lightPeak;
@@ -330,8 +356,8 @@ export function createReeseMuzzleFlash011(scene: Scene) {
       }
       if (b.lightLife > 0) {
         b.lightLife = Math.max(0, b.lightLife - step);
-        const t = b.lightLife / b.lightDuration;
-        b.light.intensity = b.lightPeak * t * t;
+        const elapsed = 1 - b.lightLife / b.lightDuration;
+        b.light.intensity = b.lightPeak * Math.exp(-16 * elapsed) * (1 - elapsed * elapsed);
       } else b.light.intensity = 0;
     }
   };
