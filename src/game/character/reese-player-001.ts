@@ -7,9 +7,9 @@
  * capsule and controller; replace only the visual actor and its clip driver.
  */
 import {
-  AbstractMesh, AnimationGroup, Camera, Color3, Material, Matrix, Mesh, MeshBuilder, MultiMaterial,
+  AbstractMesh, AnimationGroup, Color3, Material, Matrix, Mesh, MeshBuilder, MultiMaterial,
   Quaternion, StandardMaterial, TransformNode, loadAssetContainerAsync,
-  Vector3, type AssetContainer, type Scene,
+  Vector3, type AssetContainer, type Camera, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
 import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
@@ -153,7 +153,6 @@ export function createReesePlayer001(scene:Scene,
    const leftSleeve=addArm(id,new Vector3(-.38,-.49,1.02),leftTarget);
    const leftHand=addGlove(id,leftTarget);
    for(const part of [rightSleeve,rightHand,leftSleeve,leftHand])if(part)parts.push(part);
-   weapon.renderingGroupId=1;
    for(const mesh of weapon.getChildMeshes(false))mesh.renderingGroupId=1;
    weapon.setEnabled(false);
    for(const part of parts)part.setEnabled(false);
