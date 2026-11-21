@@ -1,5 +1,5 @@
 # On-demand rebuilds are also available through workflow_dispatch.
-name: Build P.O.I Android APK
+name: Build Age of Abundance Android APK
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: poi-android-apk-main
+  group: aob-android-apk-main
   cancel-in-progress: false
 
 jobs:
@@ -50,7 +50,7 @@ jobs:
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Build offline-ready P.O.I web runtime
+      - name: Build offline-ready Age of Abundance web runtime
         env:
           VERCEL: "1"
           NITRO_PRESET: vercel
@@ -80,7 +80,7 @@ jobs:
       - name: Publish APK artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: poi-android-debug-${{ github.sha }}
+          name: aob-android-debug-${{ github.sha }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
