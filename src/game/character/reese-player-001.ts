@@ -7,7 +7,8 @@
  * capsule and controller; replace only the visual actor and its clip driver.
  */
 import {
-  AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
+  AbstractMesh, AnimationGroup, Camera, Color3, Material, Matrix, Mesh, MeshBuilder, MultiMaterial,
+  Quaternion, StandardMaterial, TransformNode, loadAssetContainerAsync,
   Vector3, type AssetContainer, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
@@ -78,17 +79,100 @@ export function createReesePlayer001(scene:Scene,
  let selectedWeapon:ReeseWeaponId001|null=null;
  let weaponMount:Mesh|null=null;
  const weaponRoots:Partial<Record<ReeseWeaponId001,TransformNode>>={};
+ let firstPersonRoot:TransformNode|null=null;
+ let firstPersonActive=false;
+ const firstPersonWeapons:Partial<Record<ReeseWeaponId001,TransformNode>>={};
+ const firstPersonParts:Partial<Record<ReeseWeaponId001,Mesh[]>>={};
+ const firstPersonMaterials:StandardMaterial[]=[];
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
  const muzzleEffect=createReeseMuzzleSpark010(scene);
  const removedLegacyWeaponMeshes:string[]=[];
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
+ function buildFirstPersonViewmodel(camera:Camera){
+  if(firstPersonRoot)return;
+  firstPersonRoot=new TransformNode("reese001-first-person-viewmodel",scene);
+  firstPersonRoot.parent=camera;
+  firstPersonRoot.position.set(0,0,0);
+  firstPersonRoot.rotation.set(0,0,0);
+  const sleeve=new StandardMaterial("reese001-fpv-sleeve",scene);
+  sleeve.diffuseColor=Color3.FromHexString("#202831");
+  sleeve.specularColor=new Color3(.12,.14,.16);
+  const glove=new StandardMaterial("reese001-fpv-glove",scene);
+  glove.diffuseColor=Color3.FromHexString("#101418");
+  glove.specularColor=new Color3(.08,.08,.08);
+  firstPersonMaterials.push(sleeve,glove);
+  const addArm=(id:ReeseWeaponId001,start:Vector3,end:Vector3,hand:boolean)=>{
+   const delta=end.subtract(start),length=delta.length();
+   if(length<.08)return null;
+   const mesh=MeshBuilder.CreateCapsule("reese001-fpv-"+id+(hand?"-hand":"-sleeve"),{
+    height:length+.12,radius:hand?.075:.072,tessellation:8,
+   },scene);
+   mesh.parent=firstPersonRoot;
+   mesh.position.copyFrom(start.add(end).scale(.5));
+   const rotation=new Quaternion();
+   Quaternion.FromUnitVectorsToRef(Vector3.Up(),delta.normalize(),rotation);
+   mesh.rotationQuaternion=rotation;
+   mesh.material=hand?glove:sleeve;
+   mesh.renderingGroupId=1;mesh.isPickable=false;mesh.checkCollisions=false;
+   return mesh;
+  };
+  const rotation=Quaternion.RotationAxis(Vector3.Up(),Math.PI);
+  const rotationMatrix=Matrix.Identity();
+  rotation.toRotationMatrix(rotationMatrix);
+  for(const id of ["m4a1","mpx9","p19"] as const){
+   const weapon=createReeseWeapon001(scene,id);
+   weapon.parent=firstPersonRoot;
+   weapon.rotationQuaternion=rotation.clone();
+   const grip=weapon.metadata?.gripR as number[]|undefined;
+   if(!grip||grip.length<3)throw Error("REESE-001 first-person weapon missing gripR");
+   const rightTarget=new Vector3(.205,-.265,.72);
+   const gripVector=new Vector3(grip[0]??0,grip[1]??0,grip[2]??0);
+   weapon.position.copyFrom(rightTarget.add(solveReeseWeaponGripOffset001(gripVector,rotation)));
+   weapon.computeWorldMatrix(true);
+   const gripL=weapon.metadata?.gripL as number[]|null|undefined;
+   const leftTarget=gripL&&gripL.length>=3
+    ?weapon.position.add(Vector3.TransformNormal(new Vector3(gripL[0]??0,gripL[1]??0,gripL[2]??0),rotationMatrix))
+    :new Vector3(-.16,-.34,.62);
+   const parts:Mesh[]=[];
+   const rightSleeve=addArm(id,new Vector3(.38,-.48,1.02),rightTarget,false);
+   const rightHand=addArm(id,rightTarget.add(new Vector3(0,0,-.045)),rightTarget,true);
+   const leftSleeve=addArm(id,new Vector3(-.38,-.49,1.02),leftTarget,false);
+   const leftHand=addArm(id,leftTarget.add(new Vector3(0,0,-.045)),leftTarget,true);
+   for(const part of [rightSleeve,rightHand,leftSleeve,leftHand])if(part)parts.push(part);
+   weapon.renderingGroupId=1;
+   for(const mesh of weapon.getChildMeshes(false))mesh.renderingGroupId=1;
+   weapon.setEnabled(false);
+   for(const part of parts)part.setEnabled(false);
+   firstPersonWeapons[id]=weapon;
+   firstPersonParts[id]=parts;
+  }
+ }
+ function setFirstPersonPresentation(camera:Camera|null,enabled:boolean){
+  if(closed)return;
+  if(enabled&&camera){
+   buildFirstPersonViewmodel(camera);
+   if(firstPersonRoot&&firstPersonRoot.parent!==camera)firstPersonRoot.parent=camera;
+   firstPersonActive=true;
+   anchor.setEnabled(false);
+   firstPersonRoot?.setEnabled(true);
+  }else{
+   firstPersonActive=false;
+   firstPersonRoot?.setEnabled(false);
+   anchor.setEnabled(controlled&&!hiddenDriving);
+  }
+  applyWeaponVisibility();
+ }
  function applyWeaponVisibility(){
   // Legacy GLB weapon meshes are removed during import; only extracted LMS
   // weapon roots participate in equipment visibility.
   for(const [id,root] of Object.entries(weaponRoots))
-   root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
+   root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving&&!firstPersonActive);
+  for(const [id,root] of Object.entries(firstPersonWeapons))
+   root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving&&firstPersonActive);
+  for(const [id,parts] of Object.entries(firstPersonParts))
+   for(const part of parts??[])part.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving&&firstPersonActive);
  }
  const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
   idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
@@ -337,11 +421,12 @@ export function createReesePlayer001(scene:Scene,
  }
  return {
   anchor,ready,
+  setFirstPersonPresentation,
   setControlled(enabled:boolean){
    if(closed)return;
    controlled=enabled;hiddenDriving=false;combatRemaining=0;
    wasAirborne=false;takeoffRemaining=0;landingRemaining=0;muzzleEffect.clear();
-   anchor.setEnabled(enabled);
+   anchor.setEnabled(enabled&&!firstPersonActive);
    if(enabled){resetFlight();play(groups.idle);}
    applyWeaponVisibility();
   },
@@ -349,7 +434,7 @@ export function createReesePlayer001(scene:Scene,
    if(closed||!controlled)return;
    hiddenDriving=hidden;
    if(hidden)muzzleEffect.clear();
-   anchor.setEnabled(!hidden);
+   anchor.setEnabled(!hidden&&!firstPersonActive);
    applyWeaponVisibility();
   },
   syncHiddenDrivingPose(p:{x:number;y:number;z:number},yaw:number){
@@ -457,6 +542,9 @@ export function createReesePlayer001(scene:Scene,
    if(closed)return;
    closed=true;
    active?.stop();outgoing?.stop();muzzleEffect.dispose();
+   firstPersonRoot?.dispose(false,true);firstPersonRoot=null;
+   for(const material of firstPersonMaterials)material.dispose();
+   firstPersonMaterials.length=0;
    weaponMount?.dispose(false,true);weaponMount=null;
    for(const id of Object.keys(weaponRoots) as ReeseWeaponId001[])delete weaponRoots[id];
    instance?.dispose();instance=null;
