@@ -109,8 +109,9 @@ export function createReeseWeapon001(scene: Scene, id: ReeseWeaponId001) {
   // The character adapter applies the inverse rotated offset after solving
   // the weapon's orientation against the live hand-mount basis.
   const gripR = model.nodes["gripR"]?.pos ?? [0, 0, 0];
+  const gripL = model.nodes["gripL"]?.pos ?? null;
   const muzzle = (model.nodes["muzzle"] as unknown as number[] | undefined) ?? [0, 0, 0];
-  root.metadata = { gripR: [...gripR], muzzle: [...muzzle] };
+  root.metadata = { gripR: [...gripR], gripL: gripL ? [...gripL] : null, muzzle: [...muzzle] };
   root.position.set(0, 0, 0);
   appendAssembly(scene, model.body, root, id, "body");
   for (const [partName, assembly] of Object.entries(model.moving)) {
