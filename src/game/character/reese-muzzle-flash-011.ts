@@ -25,6 +25,7 @@ type Particle = {
   velocity: Vector3;
   life: number;
   duration: number;
+  delay: number;
   drag: number;
   gravity: number;
   startScale: number;
@@ -101,7 +102,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     const smokeMaterial = smoke ? material.clone(name + "-material") : null;
     if (smokeMaterial) mesh.material = smokeMaterial;
     return {
-      mesh, velocity: new Vector3(), life: 0, duration: 1, drag: 0,
+      mesh, velocity: new Vector3(), life: 0, duration: 1, delay: 0, drag: 0,
       gravity: 0, startScale: 0, endScale: 0, aspect: 1, smoke, material: smokeMaterial,
     };
   };
@@ -151,18 +152,19 @@ export function createReeseMuzzleFlash011(scene: Scene) {
   const hide = (p: Particle) => {
     p.life = 0;
     p.mesh.isVisible = false;
+    p.delay = 0;
     if (p.material) p.material.alpha = 0;
   };
   const spawn = (
     p: Particle, x: number, y: number, z: number,
     vx: number, vy: number, vz: number,
     start: number, end: number, life: number, drag: number, gravity = 0,
-    direction?: Vector3, aspect = 1,
+    direction?: Vector3, aspect = 1, delay = 0,
   ) => {
     p.mesh.position.set(x, y, z);
     p.velocity.set(vx, vy, vz);
     p.startScale = start; p.endScale = end;
-    p.life = life; p.duration = life; p.drag = drag; p.gravity = gravity; p.aspect = aspect;
+    p.life = life; p.duration = life; p.delay = delay; p.drag = drag; p.gravity = gravity; p.aspect = aspect;
     p.mesh.scaling.set(start, start * aspect, start);
     p.mesh.isVisible = true;
     if (direction) {
@@ -235,13 +237,14 @@ export function createReeseMuzzleFlash011(scene: Scene) {
       const push = range(.6, 2.2) * choke;
       const length = (.18 + .14 * Math.pow(random(), 1.5)) * scale * choke;
       const p = b.lobes[i]!;
+      const width = (.06 + .05 * random()) * scale * choke;
       spawn(p,
         muzzle.x + lobeDir.x * length * .34,
         muzzle.y + lobeDir.y * length * .34,
         muzzle.z + lobeDir.z * length * .34,
         lobeDir.x * push, lobeDir.y * push, lobeDir.z * push,
-        (.06 + .05 * random()) * scale * choke, length,
-        range(.04, .06), 12, 0, lobeDir, 1.5);
+        width, width * .88,
+        range(.04, .06), 12, 0, lobeDir, length / width);
     }
 
     // Short forward gas jet, aligned to the bore rather than a floating ball.
@@ -293,7 +296,8 @@ export function createReeseMuzzleFlash011(scene: Scene) {
         right.x * side * speed, .28 + lift * .2, right.z * side * speed,
         range(.03, .055) * profile.smoke,
         range(.16, .32) * profile.smoke,
-        range(.5, 1.15) * (.6 + profile.smoke * .6), 2.6, .36);
+        range(.5, 1.15) * (.6 + profile.smoke * .6), 2.6, .36,
+        undefined, 1, range(0, .05));
     }
 
     // A warm, short-range light pool: 90 ms, 5 m cutoff, weapon-class power.
@@ -310,6 +314,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     for (const b of bursts) {
       for (const p of b.particles) {
         if (p.life <= 0) continue;
+        if (p.delay > 0) { p.delay = Math.max(0, p.delay - step); continue; }
         p.life = Math.max(0, p.life - step);
         const age = 1 - p.life / p.duration;
         const drag = Math.exp(-p.drag * step);
