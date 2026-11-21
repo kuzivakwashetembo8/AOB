@@ -19,10 +19,14 @@ describe("GTD-REESE-FINCH-007 owner gameplay corrections",()=>{
  });
  it("toggles the existing GLB gun only, with no runtime pistol fabrication",()=>{
   const actor=src("src/game/character/reese-player-001.ts");
-  expect(actor).toContain("const weaponMeshes=new Set<AbstractMesh>()");
-  expect(actor).toContain("const weaponMaterials=new Map<Material");
+  // The current LMS path removes the imported pistol by mesh/ancestor/material
+  // identity, then equips only the three extracted weapon roots on Reese's hand.
+  expect(actor).toContain("const weaponRoots:Partial<Record<ReeseWeaponId001,TransformNode>>={}");
+  expect(actor).toContain("const weaponPattern=");
+  expect(actor).toContain("mesh.dispose(false,false)");
+  expect(actor).toContain("createReeseWeapon001(scene,id)");
+  expect(actor).toContain("solveReeseWeaponGripOffset001");
   expect(actor).toContain("applyWeaponVisibility()");
-  expect(actor).toContain("weaponMeshes");
   expect(actor).not.toContain('MeshBuilder.CreateBox("reese001-gun"');
   expect(actor).not.toContain("fallbackGun");
  });
