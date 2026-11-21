@@ -186,6 +186,9 @@ export function createReesePlayer001(scene:Scene,
  }
  function setFirstPersonPresentation(camera:Camera|null,enabled:boolean){
   if(closed)return;
+  // setCameraAt runs every frame; avoid recursively toggling weapon mesh trees
+  // when the presentation state and owning camera have not changed.
+  if(enabled===firstPersonActive&&(!enabled||firstPersonRoot?.parent===camera))return;
   if(enabled&&camera){
    buildFirstPersonViewmodel(camera);
    if(firstPersonRoot&&firstPersonRoot.parent!==camera)firstPersonRoot.parent=camera;
