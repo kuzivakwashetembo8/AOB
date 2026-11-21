@@ -54,3 +54,12 @@ The branch is two commits ahead. The final preview commit is `905ba95f9dae927f59
 | Further work on this attempt | **HALT** |
 
 **Procedure DDD outcome:** Attempt 002 is rejected. Preserve the incident analysis only; do not reuse its implementation as an accepted fix.
+
+
+## 6. Execution record — 2026-11-21
+
+- DDD record committed to `main` at `5066439effdf273b6c50b26f952388dbbd81a6e1`.
+- Rejected branch ref was moved to that accepted main commit using a guarded force-with-lease against expected old head `905ba95f9dae927f596a57c59c63a9f7d2fb6c71`.
+- Post-operation comparison confirms `fix/remove-reese-default-pistol-002` is **identical to main**: 0 commits ahead, 0 behind, 0 changed files. The branch name/ref still exists; the available GitHub actions do not expose physical branch deletion. This is a reset ref, **not a deleted branch**.
+- The Vercel preview remains READY and addressable. The available Vercel actions do not expose deletion of a completed deployment. It remains rejected and must not be used for testing or production.
+- No production deployment was created or promoted by this DDD operation.
