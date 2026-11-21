@@ -50,7 +50,7 @@ describe("POI-010 nine-work-package contracts",()=>{
   expect(fx).toContain("forward cone");
   expect(fx).toContain("range = 5 * scale");
   expect(fx).not.toContain("Math.random");
-  expect(fx).not.toContain("Three.js");
+  expect(fx).not.toContain('from "three"');
   expect(reese).not.toContain("fpv-muzzle-flash");
   expect(source("src/game/experiments/north-heights-city-8.ts")).toContain("vehicleAudio.playCombatCue(kind)");
  });
