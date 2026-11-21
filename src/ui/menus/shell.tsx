@@ -22,21 +22,20 @@ export function Scene({ game = false }: { game?: boolean }) {
         />
       </div>
       <div className="scene-edges" />
-      {/* The menu grid is cosmetic; scanline styling must never overlay Babylon gameplay. */}
       <div className="scene-grid" />
     </>
   );
 }
 export function Brand() {
   return (
-    <Link to="/" className="brand" aria-label="P.O.I main menu">
+    <Link to="/" className="brand" aria-label="Age of Abundance main menu">
       <span className="brand-symbol">
-        P.O.I<span className="text-primary">.</span>
+        AOB<span className="text-primary">.</span>
       </span>
       <span className="brand-name">
-        PERSON OF
+        AGE OF
         <br />
-        INTEREST
+        ABUNDANCE
       </span>
     </Link>
   );
@@ -67,16 +66,14 @@ export function ShellHeader() {
 export function LandscapeBoundary({ children }: { children: ReactNode }) {
   return (
     <>
-      <div className="landscape-app">
-        {children}
-      </div>
+      <div className="landscape-app">{children}</div>
       <div className="portrait-gate">
         <img src={city} alt="Meridian City at dusk" width={1920} height={1088} />
         <div className="portrait-content">
           <div className="portrait-mark">
-            P.O.I<span className="text-primary">.</span>
+            AOB<span className="text-primary">.</span>
           </div>
-          <div className="system-label">PERSON OF INTEREST</div>
+          <div className="system-label">AGE OF ABUNDANCE</div>
           <RotateCw size={36} className="rotate-icon" />
           <h1>ROTATE DEVICE TO CONTINUE</h1>
           <p>Meridian deserves a wider view.</p>
