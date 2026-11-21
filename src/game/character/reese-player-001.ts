@@ -11,7 +11,7 @@ import {
   Quaternion, StandardMaterial, TransformNode, loadAssetContainerAsync,
   Vector3, type AssetContainer, type Camera, type Scene,
 } from "@babylonjs/core";
-import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
+import {createReeseMuzzleFlash011} from "./reese-muzzle-flash-011";
 import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
 import { gtdLoadingLedger as audit } from "../../lib/real-loading-ledger";
@@ -84,14 +84,13 @@ export function createReesePlayer001(scene:Scene,
  const firstPersonWeapons:Partial<Record<ReeseWeaponId001,TransformNode>>={};
  const firstPersonParts:Partial<Record<ReeseWeaponId001,Mesh[]>>={};
  const firstPersonEmptyParts:Mesh[]=[];
- const firstPersonFlashes:Partial<Record<ReeseWeaponId001,Mesh>>={};
- let firstPersonFlashRemaining=0;
  const firstPersonMaterials:StandardMaterial[]=[];
  let firstPersonRecoil=0;
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
- const muzzleEffect=createReeseMuzzleSpark010(scene);
+ const muzzleEffect=createReeseMuzzleFlash011(scene);
+ const muzzleForward=new Vector3();
  const removedLegacyWeaponMeshes:string[]=[];
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
  function buildFirstPersonViewmodel(camera:Camera){
@@ -106,10 +105,7 @@ export function createReesePlayer001(scene:Scene,
   const glove=new StandardMaterial("reese001-fpv-glove",scene);
   glove.diffuseColor=Color3.FromHexString("#101418");
   glove.specularColor=new Color3(.08,.08,.08);
-  const flashMaterial=new StandardMaterial("reese001-fpv-muzzle-flash",scene);
-  flashMaterial.diffuseColor=Color3.FromHexString("#ff9b38");
-  flashMaterial.emissiveColor=Color3.FromHexString("#ff9b38");
-  firstPersonMaterials.push(sleeve,glove,flashMaterial);
+  firstPersonMaterials.push(sleeve,glove);
   const addArmSegment=(id:ReeseWeaponId001,start:Vector3,end:Vector3,label:string)=>{
    const delta=end.subtract(start),length=delta.length();
    if(length<.06)return null;
@@ -170,15 +166,8 @@ export function createReesePlayer001(scene:Scene,
    weapon.position.copyFrom(rightTarget.add(solveReeseWeaponGripOffset001(gripVector,rotation)));
    weapon.metadata={...weapon.metadata,fpvBasePosition:weapon.position.clone(),fpvBaseRotation:rotation.clone()};
    weapon.computeWorldMatrix(true);
-   const muzzle=weapon.metadata?.muzzle as number[]|undefined;
-   const flash=MeshBuilder.CreateSphere("reese001-fpv-"+id+"-muzzle-flash",{diameter:.075,segments:6},scene);
-   flash.parent=firstPersonRoot;
-   if(muzzle&&muzzle.length>=3){
-    flash.position.copyFrom(weapon.position.add(Vector3.TransformNormal(new Vector3(muzzle[0]??0,muzzle[1]??0,muzzle[2]??0),rotationMatrix)));
-   }else{flash.position.copyFrom(weapon.position.add(new Vector3(0,0,.55)));}
-   flash.scaling.set(.8,.8,1.7);flash.material=flashMaterial;flash.renderingGroupId=1;
-   flash.isPickable=false;flash.checkCollisions=false;flash.setEnabled(false);
-   firstPersonFlashes[id]=flash;
+   // Muzzle flash is emitted from the authored muzzle landmark at shot time;
+   // no static yellow sphere is attached to the barrel.
    const gripL=weapon.metadata?.gripL as number[]|null|undefined;
    const leftTarget=gripL&&gripL.length>=3
     ?weapon.position.add(Vector3.TransformNormal(new Vector3(gripL[0]??0,gripL[1]??0,gripL[2]??0),rotationMatrix))
@@ -216,10 +205,10 @@ export function createReesePlayer001(scene:Scene,
    firstPersonActive=true;
    anchor.setEnabled(false);
    firstPersonRoot?.setEnabled(true);
+   muzzleEffect.setParent(firstPersonRoot);
   }else{
    firstPersonActive=false;
-   firstPersonFlashRemaining=0;
-   for(const flash of Object.values(firstPersonFlashes))flash?.setEnabled(false);
+   muzzleEffect.setParent(null);
    firstPersonRoot?.setEnabled(false);
    anchor.setEnabled(controlled&&!hiddenDriving);
   }
@@ -417,11 +406,24 @@ export function createReesePlayer001(scene:Scene,
   }
   return null;
  }
+ function firstPersonMuzzle(id:ReeseWeaponId001):{position:Vector3;direction:Vector3}|null{
+  const weapon=firstPersonWeapons[id];
+  if(!weapon||!firstPersonRoot)return null;
+  const muzzle=weapon.metadata?.muzzle as number[]|undefined;
+  if(!muzzle||muzzle.length<3)return null;
+  weapon.computeWorldMatrix(true);
+  firstPersonRoot.computeWorldMatrix(true);
+  const inverse=firstPersonRoot.getWorldMatrix().clone();
+  inverse.invert();
+  const worldPoint=Vector3.TransformCoordinates(
+   new Vector3(muzzle[0]??0,muzzle[1]??0,muzzle[2]??0),weapon.getWorldMatrix());
+  const position=Vector3.TransformCoordinates(worldPoint,inverse);
+  const worldDirection=Vector3.TransformNormal(new Vector3(0,0,-1),weapon.getWorldMatrix()).normalize();
+  const direction=Vector3.TransformNormal(worldDirection,inverse).normalize();
+  return {position,direction};
+ }
  function advance(dt:number){
   firstPersonRecoil=Math.max(0,firstPersonRecoil-Math.max(0,dt)*8.5);
-  firstPersonFlashRemaining=Math.max(0,firstPersonFlashRemaining-Math.max(0,dt));
-  if(firstPersonFlashRemaining===0)
-   for(const flash of Object.values(firstPersonFlashes))flash?.setEnabled(false);
   for(const root of Object.values(firstPersonWeapons)){
    if(!root)continue;
    const basePosition=root.metadata?.fpvBasePosition as Vector3|undefined;
@@ -596,18 +598,21 @@ export function createReesePlayer001(scene:Scene,
    if(attack==="punch"&&(combatRemaining>0||now-lastAttackAt<550))return null;
    if(attack==="shoot"&&now-lastAttackAt<12)return null;
    if(attack==="shoot"){
-    const muzzle=muzzleWorld();if(!muzzle)return null;
+    const weaponId=selectedWeapon??"m4a1";
     if(firstPersonActive){
+     const fpMuzzle=firstPersonMuzzle(weaponId);if(!fpMuzzle)return null;
      firstPersonRecoil=1;
-     firstPersonFlashRemaining=.065;
-     firstPersonFlashes[selectedWeapon??"m4a1"]?.setEnabled(true);
+     muzzleEffect.emit(fpMuzzle.position,fpMuzzle.direction,weaponId);
+    }else{
+     const muzzle=muzzleWorld();if(!muzzle)return null;
+     muzzleForward.set(Math.sin(anchor.rotation.y),0,Math.cos(anchor.rotation.y));
+     muzzleEffect.emit(muzzle,muzzleForward,weaponId);
     }
     shotSerial++;
     // Rapid distinct taps restart one existing clip, never stack animation groups.
     if(active===clip){outgoing?.stop();outgoing=null;clip.stop();clip.start(false);
       clip.setWeightForAllAnimatables(1);transition=1;}
     else play(clip,false);
-    if(!firstPersonActive)muzzleEffect.emit(muzzle,anchor.rotation.y);
     combatRemaining=.10;
    }else{combatRemaining=.55;play(clip,false);}
    lastAttackAt=now;
@@ -616,8 +621,7 @@ export function createReesePlayer001(scene:Scene,
   get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire;},
   get shotsFired(){return shotSerial;},
   clearCombatFX(){
-   muzzleEffect.clear();firstPersonFlashRemaining=0;
-   for(const flash of Object.values(firstPersonFlashes))flash?.setEnabled(false);
+   muzzleEffect.clear();
   },
   get handItem(){return handItem;},
   get poseReport(){
