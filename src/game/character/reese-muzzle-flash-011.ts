@@ -72,6 +72,12 @@ export function createReeseMuzzleFlash011(scene: Scene) {
   jetMat.disableLighting = true;
   jetMat.emissiveColor = new Color3(1, .48, .16);
 
+  const smokeMat = new StandardMaterial("lms-cod-fx-smoke", scene);
+  smokeMat.diffuseColor = new Color3(.48, .47, .45);
+  smokeMat.emissiveColor = new Color3(.045, .04, .035);
+  smokeMat.specularColor = new Color3(.02, .02, .02);
+  smokeMat.alpha = .34;
+
   const emberMat = new StandardMaterial("lms-cod-fx-embers", scene);
   emberMat.disableLighting = true;
   emberMat.emissiveColor = new Color3(1, .58, .22);
@@ -111,7 +117,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     const puffs = Array.from({ length: 2 }, (_, i) =>
       makeParticle(prefix + "-powder-puff-" + i, "sphere", gasMat));
     const smoke = Array.from({ length: 3 }, (_, i) =>
-      makeParticle(prefix + "-barrel-smoke-" + i, "sphere", gasMat, true));
+      makeParticle(prefix + "-barrel-smoke-" + i, "sphere", smokeMat, true));
     const light = new PointLight(prefix + "-flash-light", ZERO.clone(), scene);
     light.intensity = 0;
     light.range = 5;
@@ -339,7 +345,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
         }
         b.light.dispose();
       }
-      coreMat.dispose(); heartMat.dispose(); gasMat.dispose(); jetMat.dispose(); emberMat.dispose();
+      coreMat.dispose(); heartMat.dispose(); gasMat.dispose(); smokeMat.dispose(); jetMat.dispose(); emberMat.dispose();
     },
   };
 }
