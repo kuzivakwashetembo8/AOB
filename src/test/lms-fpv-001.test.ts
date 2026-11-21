@@ -25,8 +25,9 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(runtime).toContain("actor?.setFirstPersonPresentation(camera,firstPerson)");
   expect(runtime).toContain("!liftFrame?.cameraCabin&&!genericLiftFrame?.cameraCabin");
   expect(runtime).toContain("resolveNorthHeightsThirdPersonCamera");
-  expect(runtime).toContain("Math.sin(pitch),");
-  expect(runtime).not.toContain(",-Math.sin(pitch)");
+  const firstPersonBlock=runtime.split("if(firstPerson){")[1]?.split("const computed=")[0]??"";
+  expect(firstPersonBlock).toContain("Math.sin(pitch),");
+  expect(firstPersonBlock).not.toContain("-Math.sin(pitch)");
  });
  it("uses a camera-space viewmodel and authored weapon grip landmarks",()=>{
   const player=read("src/game/character/reese-player-001.ts");
