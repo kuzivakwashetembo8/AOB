@@ -110,11 +110,11 @@ export function createReesePlayer001(scene:Scene,
   flashMaterial.diffuseColor=Color3.FromHexString("#ff9b38");
   flashMaterial.emissiveColor=Color3.FromHexString("#ff9b38");
   firstPersonMaterials.push(sleeve,glove,flashMaterial);
-  const addArm=(id:ReeseWeaponId001,start:Vector3,end:Vector3)=>{
+  const addArmSegment=(id:ReeseWeaponId001,start:Vector3,end:Vector3,label:string)=>{
    const delta=end.subtract(start),length=delta.length();
-   if(length<.08)return null;
-   const mesh=MeshBuilder.CreateCapsule("reese001-fpv-"+id+"-sleeve",{
-    height:length+.12,radius:.072,tessellation:8,
+   if(length<.06)return null;
+   const mesh=MeshBuilder.CreateCapsule("reese001-fpv-"+id+"-"+label,{
+    height:length+.12,radius:.062,tessellation:8,
    },scene);
    mesh.parent=firstPersonRoot;
    mesh.position.copyFrom(start.add(end).scale(.5));
@@ -124,6 +124,27 @@ export function createReesePlayer001(scene:Scene,
    mesh.material=sleeve;
    mesh.renderingGroupId=1;mesh.isPickable=false;mesh.checkCollisions=false;
    return mesh;
+  };
+  // Two-bone camera-space arm solve: grip landmarks are the wrist targets,
+  // while a lateral pole keeps elbows outside the weapon instead of making
+  // each sleeve a single straight rod.
+  const addArm=(id:ReeseWeaponId001,start:Vector3,end:Vector3,
+   upperLength=.34,forearmLength=.32):Mesh[]=>{
+   const delta=end.subtract(start),distance=delta.length();
+   if(distance<.06)return [];
+   const stretch=Math.max(1,distance/(upperLength+forearmLength-.015));
+   const upper=upperLength*stretch,forearm=forearmLength*stretch;
+   const direction=delta.scale(1/distance);
+   const pole=new Vector3(start.x>=0?1:-1,-.15,-.45);
+   const perpendicular=pole.subtract(direction.scale(Vector3.Dot(pole,direction)));
+   if(perpendicular.lengthSquared()<1e-6)perpendicular.set(0,0,-1);
+   perpendicular.normalize();
+   const along=(upper*upper-forearm*forearm+distance*distance)/(2*distance);
+   const height=Math.sqrt(Math.max(.001,upper*upper-along*along));
+   const elbow=start.add(direction.scale(along)).add(perpendicular.scale(height));
+   const upperArm=addArmSegment(id,start,elbow,"upper-arm");
+   const lowerArm=addArmSegment(id,elbow,end,"forearm");
+   return [upperArm,lowerArm].filter((part):part is Mesh=>part!==null);
   };
   const addGlove=(id:ReeseWeaponId001,position:Vector3)=>{
    const mesh=MeshBuilder.CreateSphere("reese001-fpv-"+id+"-glove",{diameter:.15,segments:8},scene);
@@ -163,11 +184,11 @@ export function createReesePlayer001(scene:Scene,
     ?weapon.position.add(Vector3.TransformNormal(new Vector3(gripL[0]??0,gripL[1]??0,gripL[2]??0),rotationMatrix))
     :new Vector3(-.16,-.34,.62);
    const parts:Mesh[]=[];
-   const rightSleeve=addArm(id,new Vector3(.38,-.48,1.02),rightTarget);
+   const rightArm=addArm(id,new Vector3(.38,-.48,1.02),rightTarget);
    const rightHand=addGlove(id,rightTarget);
-   const leftSleeve=addArm(id,new Vector3(-.38,-.49,1.02),leftTarget);
+   const leftArm=addArm(id,new Vector3(-.38,-.49,1.02),leftTarget);
    const leftHand=addGlove(id,leftTarget);
-   for(const part of [rightSleeve,rightHand,leftSleeve,leftHand])if(part)parts.push(part);
+   parts.push(...rightArm,rightHand,...leftArm,leftHand);
    for(const mesh of weapon.getChildMeshes(false))mesh.renderingGroupId=1;
    weapon.setEnabled(false);
    for(const part of parts)part.setEnabled(false);
@@ -177,12 +198,12 @@ export function createReesePlayer001(scene:Scene,
   const emptyRight=new Vector3(.30,-.43,.84);
   const emptyLeft=new Vector3(-.30,-.43,.84);
   const emptyParts=[
-   addArm("m4a1",new Vector3(.38,-.48,1.02),emptyRight),
+   ...addArm("m4a1",new Vector3(.38,-.48,1.02),emptyRight,.18,.18),
    addGlove("m4a1",emptyRight),
-   addArm("m4a1",new Vector3(-.38,-.49,1.02),emptyLeft),
+   ...addArm("m4a1",new Vector3(-.38,-.49,1.02),emptyLeft,.18,.18),
    addGlove("m4a1",emptyLeft),
   ];
-  for(const part of emptyParts)if(part){part.setEnabled(false);firstPersonEmptyParts.push(part);}
+  for(const part of emptyParts){part.setEnabled(false);firstPersonEmptyParts.push(part);}
  }
  function setFirstPersonPresentation(camera:Camera|null,enabled:boolean){
   if(closed)return;
