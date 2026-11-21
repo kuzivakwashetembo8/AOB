@@ -29,6 +29,7 @@ type Particle = {
   gravity: number;
   startScale: number;
   endScale: number;
+  aspect: number;
   smoke: boolean;
   material: StandardMaterial | null;
 };
@@ -101,7 +102,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     if (smokeMaterial) mesh.material = smokeMaterial;
     return {
       mesh, velocity: new Vector3(), life: 0, duration: 1, drag: 0,
-      gravity: 0, startScale: 0, endScale: 0, smoke, material: smokeMaterial,
+      gravity: 0, startScale: 0, endScale: 0, aspect: 1, smoke, material: smokeMaterial,
     };
   };
 
@@ -156,13 +157,13 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     p: Particle, x: number, y: number, z: number,
     vx: number, vy: number, vz: number,
     start: number, end: number, life: number, drag: number, gravity = 0,
-    direction?: Vector3,
+    direction?: Vector3, aspect = 1,
   ) => {
     p.mesh.position.set(x, y, z);
     p.velocity.set(vx, vy, vz);
     p.startScale = start; p.endScale = end;
-    p.life = life; p.duration = life; p.drag = drag; p.gravity = gravity;
-    p.mesh.scaling.setAll(start);
+    p.life = life; p.duration = life; p.drag = drag; p.gravity = gravity; p.aspect = aspect;
+    p.mesh.scaling.set(start, start * aspect, start);
     p.mesh.isVisible = true;
     if (direction) {
       p.mesh.rotationQuaternion ??= new Quaternion();
@@ -240,7 +241,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
         muzzle.z + lobeDir.z * length * .34,
         lobeDir.x * push, lobeDir.y * push, lobeDir.z * push,
         (.06 + .05 * random()) * scale * choke, length,
-        range(.04, .06), 12, 0, lobeDir);
+        range(.04, .06), 12, 0, lobeDir, 1.5);
     }
 
     // Short forward gas jet, aligned to the bore rather than a floating ball.
@@ -248,7 +249,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
       muzzle.x + forward.x * .04, muzzle.y + forward.y * .04, muzzle.z + forward.z * .04,
       forward.x * 7, forward.y * 7, forward.z * 7,
       .045 * scale * profile.jet, .018 * scale * profile.jet,
-      .044, 14, 0, forward);
+      .044, 14, 0, forward, 3.5);
 
     // Hot powder grains are constrained to a forward cone, never thrown back
     // toward the shooter's face.
@@ -265,7 +266,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
       spawn(b.sparks[i]!,
         muzzle.x + forward.x * .012, muzzle.y + forward.y * .012, muzzle.z + forward.z * .012,
         sparkDir.x * speed, sparkDir.y * speed, sparkDir.z * speed,
-        size, size * .4, range(.1, .4), 3.2, -11, sparkDir);
+        size, size * .4, range(.1, .4), 3.2, -11, sparkDir, 7);
     }
 
     // Brief warm powder puffs followed by softer, longer-lived barrel smoke.
@@ -318,7 +319,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
         p.mesh.position.y += p.velocity.y * step;
         p.mesh.position.z += p.velocity.z * step;
         const size = p.startScale + (p.endScale - p.startScale) * age;
-        p.mesh.scaling.setAll(Math.max(.001, size));
+        p.mesh.scaling.set(Math.max(.001, size), Math.max(.001, size * p.aspect), Math.max(.001, size));
         if (p.material) p.material.alpha = .34 * (1 - age) * (p.life > 0 ? 1 : 0);
         if (p.life === 0) p.mesh.isVisible = false;
       }
