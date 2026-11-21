@@ -66,7 +66,9 @@ function NorthHeightsPreview(){
   const previousClockSpeed=useRef(2);
   const [mode,setMode]=useState<"walk"|"fly">("walk");
   const [machineView,setMachineView]=useState(false);
-  const [heldItem,setHeldItem]=useState<"hand"|"gun">("hand");
+  const [heldItem,setHeldItem]=useState<"hand"|"m4a1"|"mpx9"|"p19">("hand");
+  const weaponCycle=["hand","m4a1","mpx9","p19"] as const;
+  const nextWeapon=()=>weaponCycle[(weaponCycle.indexOf(heldItem)+1)%weaponCycle.length]!;
   const [location,setLocation]=useState("NORTH HEIGHTS // MERIDIAN CITY");
   const [position,setPosition]=useState({x:0,z:-31});
   const [mapBuildings,setMapBuildings]=useState<readonly NorthHeightsMapBuilding011[]>([]);
@@ -417,10 +419,11 @@ function NorthHeightsPreview(){
          <Camera size={18}/>
        </Button>}
       {ready&&!paused&&!vehicle&&<Button type="button" variant="control"
-         data-testid="reese-hand-selector" aria-label={heldItem==="hand"?"Equip gun":"Put gun away"}
-         title={heldItem==="hand"?"Empty hands · select gun":"Gun equipped · holster"}
+         data-testid="reese-hand-selector"
+         aria-label={heldItem==="hand"?"Equip M4A1":heldItem==="m4a1"?"Switch to MPX-9":heldItem==="mpx9"?"Switch to P-19":"Holster weapon"}
+         title={heldItem==="hand"?"Empty hands · next M4A1":heldItem==="m4a1"?"Equipped M4A1 · next MPX-9":heldItem==="mpx9"?"Equipped MPX-9 · next P-19":"Equipped P-19 · next empty hand"}
          className="gtd-hand-always z-40 flex items-center justify-center border border-white/20 bg-black/55"
-         onClick={()=>{const next=heldItem==="hand"?"gun":"hand";setHeldItem(next);controller.current?.setReeseHandItem(next);}}>
+         onClick={()=>{const next=nextWeapon();setHeldItem(next);controller.current?.setReeseWeapon(next);}}>
          {heldItem==="hand"?<Hand size={18}/>:<Crosshair size={18}/>}
        </Button>}
       {ready&&!settings.hud&&<button type="button" className="absolute top-5 right-5 z-20"
@@ -505,12 +508,12 @@ function NorthHeightsPreview(){
           if(ok)setKeypadDismissedId(activeLift.buildingId);
          }}/>}
       {touchVisible&&!paused&&!mapOpen&&<TouchControls settings={settings} send={send}
-        driving={vehicle!==null} flying={machineView} armed={heldItem==="gun"}
+        driving={vehicle!==null} flying={machineView} armed={heldItem!=="hand"}
         combatEnabled={dialogueIndex===null&&!missionCompletedBanner&&(!activeLift?.available||keypadDismissedId===activeLift.buildingId)}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25} onAction={()=>undefined}/>}
       {desktopVisible&&!paused&&!mapOpen&&<DesktopControls send={send} onAction={()=>undefined}
-        driving={vehicle!==null} flying={machineView} armed={heldItem==="gun"}
+        driving={vehicle!==null} flying={machineView} armed={heldItem!=="hand"}
         combatEnabled={dialogueIndex===null&&!missionCompletedBanner&&(!activeLift?.available||keypadDismissedId===activeLift.buildingId)}
         passenger={sedanPassenger}
         canEnterVehicle={canEnterVehicle} canExitVehicle={Math.abs(vehicleSpeed)<.25}/>}

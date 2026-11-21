@@ -6,14 +6,12 @@ import {
   Globe2,
   SlidersHorizontal,
   CarFront,
-  Terminal,
+  Crosshair,
   Volume2,
   VolumeX,
   ChevronRight,
-  X,
 } from "lucide-react";
-import { useCallback, useState } from "react";
-import { useModalFocus } from "@/ui/menus/use-modal-focus";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/ui/menus/shell";
 import { pageHead } from "@/lib/page-head";
@@ -30,11 +28,8 @@ export const Route = createFileRoute("/")({
 });
 function Launcher() {
   const [selection, setSelection] = useState("A city worth protecting. A line worth holding.");
-  const [development, setDevelopment] = useState(false);
   const [muted, setMuted] = useState(true);
   const input = useInputMode();
-  const closeDevelopment = useCallback(() => setDevelopment(false), []);
-  useModalFocus(development, closeDevelopment);
   return (
     <PageShell>
       <section className="launcher-content">
@@ -101,13 +96,15 @@ function Launcher() {
           <div className="menu-entry">
             <Button variant="menu" asChild>
               <Link to="/vehicles" onFocus={() => setSelection("Inspect extracted vehicle geometry.")}>
-                <CarFront size={14} /> Vehicles <ChevronRight size={13} />
+                <CarFront size={14} /> Cars <ChevronRight size={13} />
               </Link>
             </Button>
           </div>
           <div className="menu-entry">
-            <Button variant="menu" onClick={() => setDevelopment(true)}>
-              <Terminal size={14} /> Development Build <ChevronRight size={13} />
+            <Button variant="menu" asChild>
+              <Link to="/guns" search={{}} onFocus={() => setSelection("Inspect the extracted LMS weapon models.")}>
+                <Crosshair size={14} /> Guns <ChevronRight size={13} />
+              </Link>
             </Button>
           </div>
         </div>
@@ -171,44 +168,7 @@ function Launcher() {
         <span aria-live="polite">{selection}</span>
         <span>AN ORIGINAL WORLD.</span>
       </div>
-      {development && (
-        <div className="overlay" role="dialog" aria-modal="true" aria-label="Development build">
-          <div className="overlay-content">
-            <div className="flex justify-between items-center">
-              <span className="system-label text-primary">P.O.I // BUILD 0.1.0</span>
-              <Button
-                autoFocus
-                variant="control"
-                aria-label="Close development details"
-                onClick={() => setDevelopment(false)}
-              >
-                <X />
-              </Button>
-            </div>
-            <h2 className="overlay-title">FOUNDATION BUILD</h2>
-            <div className="diagnostics">
-              <span>UI SYSTEM</span>
-              <span className="text-system">READY</span>
-              <span>RUNTIME BRIDGE</span>
-              <span className="text-system">READY</span>
-              <span>3D ENGINE</span>
-              <span>NOT ATTACHED</span>
-              <span>SAVE SYSTEM</span>
-              <span>NOT ATTACHED</span>
-            </div>
-            <p className="overlay-note">
-              Meridian City · Meridia
-              <br />
-              Reese · Person of Interest
-              <br />
-              Original world. Independent identity.
-            </p>
-            <Button variant="game" onClick={() => setDevelopment(false)}>
-              RETURN TO LAUNCHER <ArrowRight />
-            </Button>
-          </div>
-        </div>
-      )}
+
     </PageShell>
   );
 }

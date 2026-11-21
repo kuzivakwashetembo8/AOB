@@ -7,10 +7,11 @@
  * capsule and controller; replace only the visual actor and its clip driver.
  */
 import {
-  AbstractMesh, AnimationGroup, Material, MultiMaterial, TransformNode, loadAssetContainerAsync,
+  AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
   Vector3, type AssetContainer, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
+import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
 import { gtdLoadingLedger as audit } from "../../lib/real-loading-ledger";
 
@@ -74,20 +75,20 @@ export function createReesePlayer001(scene:Scene,
  let stableGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let pendingGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let handItem:"hand"|"gun"="hand";
+ let selectedWeapon:ReeseWeaponId001|null=null;
+ let weaponMount:Mesh|null=null;
+ const weaponRoots:Partial<Record<ReeseWeaponId001,TransformNode>>={};
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
  const muzzleEffect=createReeseMuzzleSpark010(scene);
- const weaponMeshes=new Set<AbstractMesh>();
- const weaponMaterials=new Map<Material,{alpha:number;transparencyMode:number|null}>();
+ const removedLegacyWeaponMeshes:string[]=[];
  const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
  function applyWeaponVisibility(){
-  const visible=handItem==="gun"&&controlled&&!hiddenDriving;
-  for(const mesh of weaponMeshes)mesh.setEnabled(visible);
-  for(const [material,original] of weaponMaterials){
-   material.alpha=visible?original.alpha:0;
-   material.transparencyMode=visible?original.transparencyMode:Material.MATERIAL_ALPHABLEND;
-  }
+  // Legacy GLB weapon meshes are removed during import; only extracted LMS
+  // weapon roots participate in equipment visibility.
+  for(const [id,root] of Object.entries(weaponRoots))
+   root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
  }
  const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
   idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
@@ -157,6 +158,21 @@ export function createReesePlayer001(scene:Scene,
   for(const mesh of meshes){
    if(mesh.getTotalVertices()<=0)continue;
    mesh.computeWorldMatrix(true);
+   const names=[mesh.name];
+   let parent=mesh.parent;
+   while(parent){names.push(parent.name);parent=parent.parent;}
+   const namedWeapon=names.some(name=>weaponPattern.test(name));
+   const mats=mesh.material instanceof MultiMaterial
+    ?mesh.material.subMaterials.filter((m):m is Material=>m!==null)
+    :mesh.material?[mesh.material]:[];
+   const materialWeapon=mats.some(material=>weaponPattern.test(material.name));
+   if(namedWeapon||materialWeapon){
+    // Remove the embedded default pistol geometry, rather than merely hiding
+    // it or changing a potentially shared material's alpha.
+    removedLegacyWeaponMeshes.push(mesh.name);
+    mesh.dispose(false,false);
+    continue;
+   }
    const box=mesh.getBoundingInfo().boundingBox;
    minX=Math.min(minX,box.minimumWorld.x);
    minY=Math.min(minY,box.minimumWorld.y);
@@ -165,19 +181,12 @@ export function createReesePlayer001(scene:Scene,
    maxY=Math.max(maxY,box.maximumWorld.y);
    maxZ=Math.max(maxZ,box.maximumWorld.z);
    mesh.isPickable=false;mesh.receiveShadows=true;
-   const names=[mesh.name];
-   let parent=mesh.parent;
-   while(parent){names.push(parent.name);parent=parent.parent;}
-   if(names.some(name=>weaponPattern.test(name)))weaponMeshes.add(mesh);
-   else if(mesh.material){
-    const mats=mesh.material instanceof MultiMaterial
-      ?mesh.material.subMaterials.filter((m):m is Material=>m!==null)
-      :[mesh.material];
-    for(const material of mats)
-     if(weaponPattern.test(material.name)&&!weaponMaterials.has(material))
-      weaponMaterials.set(material,{alpha:material.alpha,transparencyMode:material.transparencyMode});
-   }
    meshCount++;
+  }
+  if(removedLegacyWeaponMeshes.length){
+   console.info("[LMS-GUN-001] Removed embedded legacy weapon meshes",removedLegacyWeaponMeshes);
+  }else{
+   console.warn("[LMS-GUN-001] No legacy weapon mesh matched the import-name/material filter; inspect Reese GLB hierarchy before accepting pistol removal.");
   }
   const h=maxY-minY;
   if(!meshCount||!Number.isFinite(h)||h<.05)
@@ -189,6 +198,31 @@ export function createReesePlayer001(scene:Scene,
   fit.scaling.setAll(scale);
   // Ara exports +Y up, +Z forward. No Voight-specific PI flip.
   fit.position.set(-(minX+maxX)*.5*scale,-minY*scale,-(minZ+maxZ)*.5*scale);
+  // Link a stable Babylon transform to Reese's actual right-hand bone. The
+  // procedural LMS weapons use the web-of-thumb as their local origin.
+  const rightHand=instance.skeletons.flatMap(skeleton=>skeleton.bones)
+   .find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
+  if(rightHand){
+   const handSkeleton=rightHand.getSkeleton();
+   const referenceMesh=[...meshes]
+    .filter(mesh=>mesh.skeleton===handSkeleton&&mesh.getTotalVertices()>0)
+    .sort((a,b)=>b.getTotalVertices()-a.getTotalVertices())[0];
+   if(!referenceMesh)throw Error("REESE-001 right-hand skeleton has no skinned reference mesh");
+   // attachToBone keeps the GLB's existing linked bone TransformNode intact.
+   // The mount has no geometry; it only provides a rigid parent for the guns.
+   weaponMount=new Mesh("reese-lms-right-hand-mount",scene);
+   weaponMount.isPickable=false;weaponMount.checkCollisions=false;
+   weaponMount.attachToBone(rightHand,referenceMesh);
+   // Prebuild once: rapid taps only switch visibility and never allocate meshes.
+   for(const id of ["m4a1","mpx9","p19"] as const){
+    const root=createReeseWeapon001(scene,id);
+    root.parent=weaponMount;
+    root.setEnabled(false);
+    weaponRoots[id]=root;
+   }
+  }else{
+   console.error("[LMS-GUN-001] Reese right-hand bone was not found; extracted weapons will remain unequipped.");
+  }
   // Limit only imported PBR shader light count, not city lights.
   for(const m of source.materials){
    if(!m.getClassName().startsWith("PBR"))continue;
@@ -198,10 +232,11 @@ export function createReesePlayer001(scene:Scene,
     m.markAsDirty(Material.LightDirtyFlag);
    }
   }
-  // Only use the original GLB weapon; never manufacture a second pistol.
+  // Hide the legacy embedded pistol; the three extracted LMS models are
+  // prebuilt and managed by the right-hand mount above.
    applyWeaponVisibility();
-   if(!weaponMeshes.size&&!weaponMaterials.size)
-    console.warn("[REESE-002] Gun not independently separated in GLB: requires named weapon primitive for reliable holstering.");
+   if(!Object.keys(weaponRoots).length)
+    console.warn("[LMS-GUN-001] Extracted weapons unavailable: Reese's right-hand bone was not found.");
    active=groups.idle;
   active.start(true);
   report.activeClip=active.name;
@@ -223,25 +258,14 @@ export function createReesePlayer001(scene:Scene,
   report.activeClip=active.name;
  }
  function muzzleWorld():Vector3|null{
-  const forward=new Vector3(Math.sin(anchor.rotation.y),0,Math.cos(anchor.rotation.y));
-  for(const mesh of weaponMeshes){
-   if(!mesh.isEnabled()||mesh.isDisposed())continue;
-   mesh.computeWorldMatrix(true);
-   let best=-Infinity,point:Vector3|null=null;
-   for(const p of mesh.getBoundingInfo().boundingBox.vectorsWorld){
-    const projection=p.x*forward.x+p.z*forward.z;
-    if(projection>best){best=projection;point=p;}
-   }
-   if(point)return point.clone();
-  }
-  // Use the real skinned right hand when the gun is part of a body material.
-  for(const skeleton of instance?.skeletons??[]){
-   const hand=skeleton.bones.find(b=>/(right.?hand|hand[._-]?r|r[._-]?hand)$/i.test(b.name));
-   const all=(instance?.rootNodes??[]).flatMap(n=>n.getChildMeshes(false));
-   const mesh=all.find(candidate=>(candidate as typeof candidate&{skeleton?:typeof skeleton}).skeleton===skeleton);
-   if(hand&&mesh){const p=hand.getAbsolutePosition(mesh);
-    if(Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.z))
-     return p.add(forward.scale(.34));
+  const root=selectedWeapon?weaponRoots[selectedWeapon]:null;
+  if(root&&!root.isDisposed()){
+   root.computeWorldMatrix(true);
+   const muzzle=root.metadata?.muzzle as number[]|undefined;
+   if(muzzle&&muzzle.length>=3){
+    const point=Vector3.TransformCoordinates(
+     new Vector3(muzzle[0]??0,muzzle[1]??0,muzzle[2]??0),root.getWorldMatrix());
+    if(Number.isFinite(point.x)&&Number.isFinite(point.y)&&Number.isFinite(point.z))return point;
    }
   }
   return null;
@@ -255,6 +279,21 @@ export function createReesePlayer001(scene:Scene,
    if(transition>=1){outgoing.stop();outgoing=null;}
   }
  }
+ function selectWeapon(id:"hand"|ReeseWeaponId001){
+  combatRemaining=0;muzzleEffect.clear();
+  if(id==="hand"){
+   handItem="hand";
+  }else if(weaponMount&&weaponRoots[id]){
+   selectedWeapon=id;handItem="gun";
+  }else{
+   console.error("[LMS-GUN-001] Cannot equip "+id+": right-hand mount unavailable.");
+   handItem="hand";
+  }
+  alignWeaponMountToCharacterForward();
+  applyWeaponVisibility();
+  if(handItem==="gun"&&groups.pistolAim)play(groups.pistolAim);
+  else play(groups.idle);
+ }
  function resetFlight(){
   flight=false;flightPitch=0;flightRoll=0;
   if(tilt)tilt.rotation.set(0,0,0);
@@ -262,6 +301,39 @@ export function createReesePlayer001(scene:Scene,
  function positionAt(p:{x:number;y:number;z:number},yaw:number){
   anchor.position.set(p.x,p.y-.92,p.z);
   anchor.rotation.y=yaw;
+ }
+ let weaponGripDiagnosticsLogged=false;
+ function alignWeaponMountToCharacterForward(){
+  if(!weaponMount)return;
+  weaponMount.computeWorldMatrix(true);
+  const forward=new Vector3(Math.sin(anchor.rotation.y),0,Math.cos(anchor.rotation.y));
+  const solved=solveReeseWeaponMountRotation001(weaponMount.getWorldMatrix(),forward);
+  for(const root of Object.values(weaponRoots)){
+   if(!root)continue;
+   root.rotationQuaternion=solved.clone();
+   const grip=root.metadata?.gripR as number[]|undefined;
+   if(!grip||grip.length<3)throw Error("LMS weapon is missing its authored gripR landmark");
+   const gripOffset=new Vector3(grip[0]??0,grip[1]??0,grip[2]??0);
+   // Place the grip landmark at the hand-mount origin without changing
+   // the solved weapon orientation: p + Qg = 0.
+   root.position.copyFrom(solveReeseWeaponGripOffset001(gripOffset,solved));
+  }
+  if(!weaponGripDiagnosticsLogged){
+   weaponMount.computeWorldMatrix(true);
+   const handWorld=weaponMount.getAbsolutePosition().clone();
+   const measurements:Record<string,{hand:[number,number,number];grip:[number,number,number];error:number}>={};
+   for(const [id,root] of Object.entries(weaponRoots)){
+    if(!root)continue;
+    root.computeWorldMatrix(true);
+    const grip=root.metadata?.gripR as number[];
+    const gripWorld=Vector3.TransformCoordinates(new Vector3(grip[0]??0,grip[1]??0,grip[2]??0),root.getWorldMatrix());
+    measurements[id]={hand:[handWorld.x,handWorld.y,handWorld.z],
+     grip:[gripWorld.x,gripWorld.y,gripWorld.z],
+     error:Vector3.Distance(handWorld,gripWorld)};
+   }
+   console.info("[LMS-GUN-001] Runtime hand/grip alignment (world metres)",measurements);
+   weaponGripDiagnosticsLogged=true;
+  }
  }
  return {
   anchor,ready,
@@ -283,6 +355,7 @@ export function createReesePlayer001(scene:Scene,
   syncHiddenDrivingPose(p:{x:number;y:number;z:number},yaw:number){
    if(closed||!controlled||!hiddenDriving)return;
    positionAt(p,yaw);
+   alignWeaponMountToCharacterForward();
   },
   updateControlled(
    p:{x:number;y:number;z:number},yaw:number,speed:number,dt:number,
@@ -291,6 +364,7 @@ export function createReesePlayer001(scene:Scene,
    if(!controlled||closed)return;
    if(flight)resetFlight();
    positionAt(p,yaw);
+   alignWeaponMountToCharacterForward();
    muzzleEffect.update(dt);
    // The Rapier capsule determines physical Y; glTF clips only articulate bones.
    const airborne=!grounded||verticalVelocity>.65;
@@ -343,10 +417,11 @@ export function createReesePlayer001(scene:Scene,
    play(groups.idle);
    advance(input.dt);
   },
+  setWeapon(id:"hand"|ReeseWeaponId001){
+   selectWeapon(id);
+  },
   setHandItem(item:"hand"|"gun"){
-   handItem=item;combatRemaining=0;muzzleEffect.clear();applyWeaponVisibility();
-   if(item==="gun"&&groups.pistolAim)play(groups.pistolAim);
-   else play(groups.idle);
+   selectWeapon(item==="hand"?"hand":selectedWeapon??"m4a1");
   },
   /** Animation-and-audio-only: never performs damage, rays or projectile simulation. */
   triggerCombat(): "punch"|"shoot"|null {
@@ -382,6 +457,8 @@ export function createReesePlayer001(scene:Scene,
    if(closed)return;
    closed=true;
    active?.stop();outgoing?.stop();muzzleEffect.dispose();
+   weaponMount?.dispose(false,true);weaponMount=null;
+   for(const id of Object.keys(weaponRoots) as ReeseWeaponId001[])delete weaponRoots[id];
    instance?.dispose();instance=null;
    asset?.dispose();asset=null;
    fit?.dispose();offset?.dispose();tilt?.dispose();
