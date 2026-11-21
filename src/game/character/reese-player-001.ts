@@ -103,18 +103,27 @@ export function createReesePlayer001(scene:Scene,
   glove.diffuseColor=Color3.FromHexString("#101418");
   glove.specularColor=new Color3(.08,.08,.08);
   firstPersonMaterials.push(sleeve,glove);
-  const addArm=(id:ReeseWeaponId001,start:Vector3,end:Vector3,hand:boolean)=>{
+  const addArm=(id:ReeseWeaponId001,start:Vector3,end:Vector3)=>{
    const delta=end.subtract(start),length=delta.length();
    if(length<.08)return null;
-   const mesh=MeshBuilder.CreateCapsule("reese001-fpv-"+id+(hand?"-hand":"-sleeve"),{
-    height:length+.12,radius:hand?.075:.072,tessellation:8,
+   const mesh=MeshBuilder.CreateCapsule("reese001-fpv-"+id+"-sleeve",{
+    height:length+.12,radius:.072,tessellation:8,
    },scene);
    mesh.parent=firstPersonRoot;
    mesh.position.copyFrom(start.add(end).scale(.5));
    const rotation=new Quaternion();
    Quaternion.FromUnitVectorsToRef(Vector3.Up(),delta.normalize(),rotation);
    mesh.rotationQuaternion=rotation;
-   mesh.material=hand?glove:sleeve;
+   mesh.material=sleeve;
+   mesh.renderingGroupId=1;mesh.isPickable=false;mesh.checkCollisions=false;
+   return mesh;
+  };
+  const addGlove=(id:ReeseWeaponId001,position:Vector3)=>{
+   const mesh=MeshBuilder.CreateSphere("reese001-fpv-"+id+"-glove",{diameter:.15,segments:8},scene);
+   mesh.parent=firstPersonRoot;
+   mesh.position.copyFrom(position);
+   mesh.scaling.set(1,.78,1.22);
+   mesh.material=glove;
    mesh.renderingGroupId=1;mesh.isPickable=false;mesh.checkCollisions=false;
    return mesh;
   };
@@ -136,10 +145,10 @@ export function createReesePlayer001(scene:Scene,
     ?weapon.position.add(Vector3.TransformNormal(new Vector3(gripL[0]??0,gripL[1]??0,gripL[2]??0),rotationMatrix))
     :new Vector3(-.16,-.34,.62);
    const parts:Mesh[]=[];
-   const rightSleeve=addArm(id,new Vector3(.38,-.48,1.02),rightTarget,false);
-   const rightHand=addArm(id,rightTarget.add(new Vector3(0,0,-.045)),rightTarget,true);
-   const leftSleeve=addArm(id,new Vector3(-.38,-.49,1.02),leftTarget,false);
-   const leftHand=addArm(id,leftTarget.add(new Vector3(0,0,-.045)),leftTarget,true);
+   const rightSleeve=addArm(id,new Vector3(.38,-.48,1.02),rightTarget);
+   const rightHand=addGlove(id,rightTarget);
+   const leftSleeve=addArm(id,new Vector3(-.38,-.49,1.02),leftTarget);
+   const leftHand=addGlove(id,leftTarget);
    for(const part of [rightSleeve,rightHand,leftSleeve,leftHand])if(part)parts.push(part);
    weapon.renderingGroupId=1;
    for(const mesh of weapon.getChildMeshes(false))mesh.renderingGroupId=1;
