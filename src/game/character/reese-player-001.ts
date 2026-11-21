@@ -84,6 +84,7 @@ export function createReesePlayer001(scene:Scene,
  const firstPersonWeapons:Partial<Record<ReeseWeaponId001,TransformNode>>={};
  const firstPersonParts:Partial<Record<ReeseWeaponId001,Mesh[]>>={};
  const firstPersonMaterials:StandardMaterial[]=[];
+ let firstPersonRecoil=0;
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
@@ -139,6 +140,7 @@ export function createReesePlayer001(scene:Scene,
    const rightTarget=new Vector3(.205,-.265,.72);
    const gripVector=new Vector3(grip[0]??0,grip[1]??0,grip[2]??0);
    weapon.position.copyFrom(rightTarget.add(solveReeseWeaponGripOffset001(gripVector,rotation)));
+   weapon.metadata={...weapon.metadata,fpvBasePosition:weapon.position.clone(),fpvBaseRotation:rotation.clone()};
    weapon.computeWorldMatrix(true);
    const gripL=weapon.metadata?.gripL as number[]|null|undefined;
    const leftTarget=gripL&&gripL.length>=3
@@ -364,6 +366,18 @@ export function createReesePlayer001(scene:Scene,
   return null;
  }
  function advance(dt:number){
+  firstPersonRecoil=Math.max(0,firstPersonRecoil-Math.max(0,dt)*8.5);
+  for(const root of Object.values(firstPersonWeapons)){
+   if(!root)continue;
+   const basePosition=root.metadata?.fpvBasePosition as Vector3|undefined;
+   const baseRotation=root.metadata?.fpvBaseRotation as Quaternion|undefined;
+   if(basePosition&&baseRotation){
+    root.position.copyFrom(basePosition);
+    root.position.z-=firstPersonRecoil*.055;
+    root.rotationQuaternion=baseRotation.multiply(
+     Quaternion.RotationAxis(new Vector3(1,0,0),firstPersonRecoil*.12));
+   }
+  }
   if(!active)return;
   if(outgoing){
    transition=Math.min(1,transition+Math.max(0,dt)/.075);
@@ -528,6 +542,7 @@ export function createReesePlayer001(scene:Scene,
    if(attack==="shoot"&&now-lastAttackAt<12)return null;
    if(attack==="shoot"){
     const muzzle=muzzleWorld();if(!muzzle)return null;
+    if(firstPersonActive)firstPersonRecoil=1;
     shotSerial++;
     // Rapid distinct taps restart one existing clip, never stack animation groups.
     if(active===clip){outgoing?.stop();outgoing=null;clip.stop();clip.start(false);
