@@ -239,9 +239,9 @@ export function createReeseMuzzleFlash011(scene: Scene) {
       const p = b.lobes[i]!;
       const width = (.06 + .05 * random()) * scale * choke;
       spawn(p,
-        muzzle.x + lobeDir.x * length * .34,
-        muzzle.y + lobeDir.y * length * .34,
-        muzzle.z + lobeDir.z * length * .34,
+        muzzle.x + lobeDir.x * length * .5,
+        muzzle.y + lobeDir.y * length * .5,
+        muzzle.z + lobeDir.z * length * .5,
         lobeDir.x * push, lobeDir.y * push, lobeDir.z * push,
         width, width * .88,
         range(.04, .06), 12, 0, lobeDir, length / width);
