@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "P.O.I — Person of Interest",
-  "short_name": "P.O.I",
-  "description": "Meridian City. The Machine sees everything. Reese acts on the numbers.",
+  "name": "Age of Abundance",
+  "short_name": "AOB",
+  "description": "Age of Abundance. Meridian City. Reese acts on the numbers.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
