@@ -40,6 +40,7 @@ type Burst = {
   sparks: Particle[];
   puffs: Particle[];
   smoke: Particle[];
+  particles: Particle[];
   light: PointLight;
   lightLife: number;
   lightPeak: number;
@@ -115,8 +116,9 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     light.range = 5;
     light.diffuse = new Color3(1, .57, .28);
     light.specular = new Color3(1, .45, .18);
+    const particles = [core, heart, jet, ...lobes, ...sparks, ...puffs, ...smoke];
     return {
-      core, heart, lobes, jet, sparks, puffs, smoke, light,
+      core, heart, lobes, jet, sparks, puffs, smoke, particles, light,
       lightLife: 0, lightPeak: 0, lightDuration: .09,
     };
   };
@@ -162,7 +164,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
   };
   const clearBurst = (b: Burst) => {
     hide(b.core); hide(b.heart); hide(b.jet);
-    for (const p of [...b.lobes, ...b.sparks, ...b.puffs, ...b.smoke]) hide(p);
+    for (const p of b.particles) hide(p);
     b.lightLife = 0; b.light.intensity = 0;
   };
   const clear = () => { for (const b of bursts) clearBurst(b); };
@@ -185,8 +187,8 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     const gain = .86 + random() * .28;
     const scale = profile.scale * (.88 + random() * .24);
     const coreColour = new Color3(1, .76 + random() * .12, .48 + random() * .1);
-    b.light.position.copyFrom(muzzle).addInPlace(forward.scale(.1));
-    forward.scaleInPlace(1); // keep the shared direction unit length
+    originOffset.copyFrom(forward).scaleInPlace(.1);
+    b.light.position.copyFrom(muzzle).addInPlace(originOffset);
 
     // Incandescent crown and the smaller white-hot heart (COD muzzle.js).
     spawn(b.core, muzzle.x, muzzle.y, muzzle.z, 0, 0, 0,
@@ -288,8 +290,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
   const update = (dt: number) => {
     const step = Math.max(0, Math.min(dt, .1));
     for (const b of bursts) {
-      const all = [b.core, b.heart, b.jet, ...b.lobes, ...b.sparks, ...b.puffs, ...b.smoke];
-      for (const p of all) {
+      for (const p of b.particles) {
         if (p.life <= 0) continue;
         p.life = Math.max(0, p.life - step);
         const age = 1 - p.life / p.duration;
@@ -320,8 +321,7 @@ export function createReeseMuzzleFlash011(scene: Scene) {
     dispose() {
       clear();
       for (const b of bursts) {
-        const particles = [b.core, b.heart, b.jet, ...b.lobes, ...b.sparks, ...b.puffs, ...b.smoke];
-        for (const p of particles) {
+        for (const p of b.particles) {
           p.mesh.dispose();
           p.material?.dispose();
         }
