@@ -7,8 +7,7 @@
  * capsule and controller; replace only the visual actor and its clip driver.
  */
 import {
-  AbstractMesh, AnimationGroup, Color3, Material, Matrix, Mesh, MeshBuilder, MultiMaterial,
-  Quaternion, StandardMaterial, TransformNode, loadAssetContainerAsync,
+  AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
   Vector3, type AssetContainer, type Camera, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
@@ -88,8 +87,6 @@ export function createReesePlayer001(scene:Scene,
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
  const muzzleEffect=createReeseMuzzleSpark010(scene);
- const removedLegacyWeaponMeshes:string[]=[];
- const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
  function setFirstPersonPresentation(_camera:Camera|null,enabled:boolean){
   if(closed||enabled===firstPersonActive)return;
   firstPersonActive=enabled;
@@ -195,6 +192,7 @@ export function createReesePlayer001(scene:Scene,
    if(firstPersonHeadPattern.test(names.join(" "))||
     mats.some(material=>firstPersonHeadPattern.test(material.name))){
     firstPersonHiddenMeshes.push({mesh,visibility:mesh.visibility,isVisible:mesh.isVisible});
+    if(firstPersonActive){mesh.visibility=0;mesh.isVisible=false;}
    }
    const box=mesh.getBoundingInfo().boundingBox;
    minX=Math.min(minX,box.minimumWorld.x);
@@ -263,7 +261,8 @@ export function createReesePlayer001(scene:Scene,
    active=groups.idle;
   active.start(true);
   report.activeClip=active.name;
-  anchor.setEnabled(false);
+  anchor.setEnabled(controlled&&!hiddenDriving);
+  if(firstPersonHiddenMeshes.length===0)console.warn("[LMS-FPV-001] Reese head mesh was not identified by name/material; inspect first-person camera clipping.");
   audit.finish(instantiateId,`${meshCount} meshes; ${boneCount} rig bones; ${report.animations} embedded clips`);
   console.info("[REESE-001] playable GLB ready",report);
  })().catch(error=>{
