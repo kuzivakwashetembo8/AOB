@@ -134,7 +134,8 @@ export function createReesePlayer001(scene:Scene,
    mesh.renderingGroupId=1;mesh.isPickable=false;mesh.checkCollisions=false;
    return mesh;
   };
-  const rotation=Quaternion.RotationAxis(Vector3.Up(),Math.PI);
+  firstPersonRoot.computeWorldMatrix(true);
+  const rotation=solveReeseWeaponMountRotation001(firstPersonRoot.getWorldMatrix(),camera.getForwardRay().direction);
   const rotationMatrix=Matrix.Identity();
   rotation.toRotationMatrix(rotationMatrix);
   for(const id of ["m4a1","mpx9","p19"] as const){
