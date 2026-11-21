@@ -35,6 +35,7 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(player).toContain("MeshBuilder.CreateCapsule");
   expect(weapons).toContain("gripL: gripL ? [...gripL] : null");
   expect(player).toContain("solveReeseWeaponGripOffset001");
+  expect(player).toContain("solveReeseWeaponMountRotation001(firstPersonRoot.getWorldMatrix(),camera.getForwardRay().direction)");
   expect(player).toContain("firstPersonEmptyParts");
   expect(player).toContain("firstPersonFlashes[selectedWeapon??\"m4a1\"]");
   expect(player).toContain("firstPersonRecoil=1");
