@@ -416,6 +416,7 @@ function NorthHeightsPreview(){
          aria-label={settings.firstPersonShooting?"Switch to third-person view":"Switch to first-person shooting view"}
          title={settings.firstPersonShooting?"Return to third-person view":"Enable first-person shooting view"}
          aria-pressed={settings.firstPersonShooting}
+         disabled={!settings.enableCharacter}
          className="gtd-first-person-always flex items-center justify-center border border-white/20 bg-black/55"
          onClick={()=>{const next={...settings,firstPersonShooting:!settings.firstPersonShooting};save(next);controller.current?.applySettings(next);}}>
          <Camera size={18}/>
