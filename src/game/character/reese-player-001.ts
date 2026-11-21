@@ -83,6 +83,7 @@ export function createReesePlayer001(scene:Scene,
  let firstPersonActive=false;
  const firstPersonWeapons:Partial<Record<ReeseWeaponId001,TransformNode>>={};
  const firstPersonParts:Partial<Record<ReeseWeaponId001,Mesh[]>>={};
+ const firstPersonEmptyParts:Mesh[]=[];
  const firstPersonMaterials:StandardMaterial[]=[];
  let firstPersonRecoil=0;
  let combatRemaining=0;
@@ -159,6 +160,15 @@ export function createReesePlayer001(scene:Scene,
    firstPersonWeapons[id]=weapon;
    firstPersonParts[id]=parts;
   }
+  const emptyRight=new Vector3(.30,-.43,.84);
+  const emptyLeft=new Vector3(-.30,-.43,.84);
+  const emptyParts=[
+   addArm("m4a1",new Vector3(.38,-.48,1.02),emptyRight),
+   addGlove("m4a1",emptyRight),
+   addArm("m4a1",new Vector3(-.38,-.49,1.02),emptyLeft),
+   addGlove("m4a1",emptyLeft),
+  ];
+  for(const part of emptyParts)if(part){part.setEnabled(false);firstPersonEmptyParts.push(part);}
  }
  function setFirstPersonPresentation(camera:Camera|null,enabled:boolean){
   if(closed)return;
@@ -184,6 +194,8 @@ export function createReesePlayer001(scene:Scene,
    root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving&&firstPersonActive);
   for(const [id,parts] of Object.entries(firstPersonParts))
    for(const part of parts??[])part.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving&&firstPersonActive);
+  for(const part of firstPersonEmptyParts)
+   part.setEnabled(handItem==="hand"&&controlled&&!hiddenDriving&&firstPersonActive);
  }
  const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
   idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
