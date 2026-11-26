@@ -56,6 +56,19 @@ export function reeseGroundClip001(
 export function reeseSafeLocomotion007(speed:number,sprint:boolean):"idle"|"walk"|"run"{
  return speed<=.15?"idle":sprint||speed>5?"run":"walk";
 }
+
+/** M4A1 and MPX-9 share Reese's authored two-handed long-gun animation set. */
+export function reeseIsLongGun001(id:ReeseWeaponId001|null):boolean{
+ return id==="m4a1"||id==="mpx9";
+}
+export function reeseLongGunClipKey001(
+ gait:"idle"|"walk"|"run",sprint:boolean,
+):"rifleIdle"|"rifleWalk"|"rifleRun"|"rifleSprint"{
+ if(sprint)return "rifleSprint";
+ if(gait==="walk")return "rifleWalk";
+ if(gait==="run")return "rifleRun";
+ return "rifleIdle";
+}
 export function createReesePlayer001(scene:Scene,
  load?:(path:string,scene:Scene)=>Promise<AssetContainer>,
 ){
@@ -106,8 +119,10 @@ export function createReesePlayer001(scene:Scene,
   for(const [id,root] of Object.entries(weaponRoots))
    root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
  }
- const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
-  idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
+ const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire"|"rifleIdle"|"rifleAim"|"rifleFire"|"rifleWalk"|"rifleRun"|"rifleSprint",AnimationGroup|null>={
+  idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,
+  pistolAim:null,pistolFire:null,rifleIdle:null,rifleAim:null,rifleFire:null,
+  rifleWalk:null,rifleRun:null,rifleSprint:null,
  };
  const report={source:REESE_PLAYER_PATH_001,animations:0,scale:1,
   height:REESE_PLAYER_HEIGHT_001,activeClip:"idle"};
@@ -147,6 +162,24 @@ export function createReesePlayer001(scene:Scene,
   groups.punch=findReeseClip001(instance.animationGroups,"punch");
   groups.pistolAim=findReeseClip001(instance.animationGroups,"pistol_aim","Pistol aim");
   groups.pistolFire=findReeseClip001(instance.animationGroups,"pistol_fire","Pistol fire");
+  // These display names are authored by 3d-gen's shooter clip catalogue and
+  // exported verbatim into the existing Reese GLB. The clips bake both-arm IK.
+  groups.rifleIdle=findReeseClip001(instance.animationGroups,"rifle_idle","Rifle idle (low ready)");
+  groups.rifleAim=findReeseClip001(instance.animationGroups,"rifle_aim","Rifle aim idle");
+  groups.rifleFire=findReeseClip001(instance.animationGroups,"rifle_fire","Rifle fire (single)");
+  groups.rifleWalk=findReeseClip001(instance.animationGroups,"rifle_walk","Rifle walk (aiming)");
+  groups.rifleRun=findReeseClip001(instance.animationGroups,"rifle_run","Rifle run");
+  groups.rifleSprint=findReeseClip001(instance.animationGroups,"rifle_sprint","Rifle sprint");
+  console.info("[LMS-GUN-002] Reese long-gun clip binding",{
+   rifleIdle:groups.rifleIdle?.name??null,rifleAim:groups.rifleAim?.name??null,
+   rifleFire:groups.rifleFire?.name??null,rifleWalk:groups.rifleWalk?.name??null,
+   rifleRun:groups.rifleRun?.name??null,rifleSprint:groups.rifleSprint?.name??null,
+  });
+  if(!groups.rifleIdle||!groups.rifleAim||!groups.rifleFire)
+   console.warn("[LMS-GUN-002] Required Reese rifle clips are incomplete; long-gun presentation will use available rifle clips only.",{
+    idle:!!groups.rifleIdle,aim:!!groups.rifleAim,fire:!!groups.rifleFire,
+    available:instance.animationGroups.map(group=>group.name),
+   });
   if(!groups.jump||!groups.land)console.warn("[POI-010] Missing jump phases",instance.animationGroups.map(g=>g.name));
   if(!groups.punch||!groups.pistolAim||!groups.pistolFire)
    console.warn("[POI-009] combat animation group missing in Reese export",{
@@ -313,8 +346,11 @@ export function createReesePlayer001(scene:Scene,
   }
   alignWeaponMountToCharacterForward();
   applyWeaponVisibility();
-  if(handItem==="gun"&&groups.pistolAim)play(groups.pistolAim);
-  else play(groups.idle);
+  if(handItem==="gun"){
+   if(reeseIsLongGun001(selectedWeapon))
+    play(groups.rifleIdle??groups.rifleAim??groups.idle);
+   else play(groups.pistolAim??groups.idle);
+  }else play(groups.idle);
  }
  function resetFlight(){
   flight=false;flightPitch=0;flightRoll=0;
@@ -424,8 +460,13 @@ export function createReesePlayer001(scene:Scene,
     combatRemaining=Math.max(0,combatRemaining-Math.max(0,dt));
     if(combatRemaining>0){advance(dt);return;}
    }
-   play(handItem==="gun"&&stableGait==="idle"&&groups.pistolAim?groups.pistolAim:
-    groups[stableGait]??groups.idle);
+   if(handItem==="gun"&&reeseIsLongGun001(selectedWeapon)){
+    const key=reeseLongGunClipKey001(stableGait,sprint);
+    play(groups[key]??groups.rifleAim??groups.rifleIdle??groups.idle);
+   }else{
+    play(handItem==="gun"&&stableGait==="idle"&&groups.pistolAim?groups.pistolAim:
+     groups[stableGait]??groups.idle);
+   }
    advance(dt);
   },
   updateControlledFlight(
@@ -450,7 +491,9 @@ export function createReesePlayer001(scene:Scene,
   triggerCombat(): "punch"|"shoot"|null {
    if(!controlled||closed||hiddenDriving||flight||wasAirborne||landingRemaining>0)return null;
    const attack=handItem==="gun"?"shoot":"punch";
-   const clip=attack==="shoot"?groups.pistolFire:groups.punch;
+   const clip=attack==="shoot"
+    ?(reeseIsLongGun001(selectedWeapon)?groups.rifleFire:groups.pistolFire)
+    :groups.punch;
    if(!clip)return null;
    const now=typeof performance!=="undefined"?performance.now():Date.now();
    if(attack==="punch"&&(combatRemaining>0||now-lastAttackAt<550))return null;
@@ -468,7 +511,8 @@ export function createReesePlayer001(scene:Scene,
    lastAttackAt=now;
    return attack;
   },
-  get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire;},
+  get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire&&
+   !!groups.rifleIdle&&!!groups.rifleAim&&!!groups.rifleFire;},
   get shotsFired(){return shotSerial;},
   clearCombatFX(){
    muzzleEffect.clear();
