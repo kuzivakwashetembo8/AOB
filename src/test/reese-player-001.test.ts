@@ -43,6 +43,14 @@ describe("REESE-001 playable actor replacement",()=>{
   expect(reeseLongGunClipKey001("run",false)).toBe("rifleRun");
   expect(reeseLongGunClipKey001("run",true)).toBe("rifleSprint");
  });
+ it("uses rifle fire and the support weapon's authored gripL without changing P-19 selection",()=>{
+  const actor=read("src/game/character/reese-player-001.ts");
+  expect(actor).toContain('reeseIsLongGun001(selectedWeapon)?groups.rifleFire:groups.pistolFire');
+  expect(actor).toContain('groups[key]??groups.rifleAim??groups.rifleIdle??groups.idle');
+  expect(actor).toContain('root.metadata?.gripL');
+  expect(actor).toContain('supportHandBone.getAbsolutePosition(supportHandReferenceMesh)');
+  expect(actor).toContain('else play(groups.pistolAim??groups.idle)');
+ });
  it("derives gait and airborne states from the existing physical controller",()=>{
   expect(reeseGroundClip001(0,false,true,0)).toBe("idle");
   expect(reeseGroundClip001(2,false,true,0)).toBe("walk");
