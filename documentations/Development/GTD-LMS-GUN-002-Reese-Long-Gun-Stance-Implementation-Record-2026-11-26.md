@@ -106,7 +106,7 @@ If either weapon's support-hand error exceeds the threshold, or visual contact i
 - **Preview:** https://age-of-abundance-d080mk3sb-kuzivakwashetembo8s-projects.vercel.app/north-heights-preview
 - **Branch alias:** https://age-of-abundance-git-featur-1c7736-kuzivakwashetembo8s-projects.vercel.app/north-heights-preview
 
-The Vercel build ran the repository's configured asset audit/extraction, TypeScript check, prebuild scripts, Vitest suite, and production build. The Preview is available for owner review. Automated page inspection did not load the protected/preview URL, so this record does not claim runtime clip-binding or visual acceptance.
+The Vercel build ran the repository's configured asset audit/extraction, TypeScript check, prebuild scripts, Vitest suite, and production build. The Preview is available for owner review. The available web viewer could not retrieve the Preview URL, so this record does not claim runtime clip-binding or visual acceptance.
 
 ## 7. Scope and release boundary
 
