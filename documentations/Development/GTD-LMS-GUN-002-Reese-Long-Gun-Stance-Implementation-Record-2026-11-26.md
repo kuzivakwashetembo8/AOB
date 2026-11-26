@@ -1,7 +1,7 @@
 # GTD-LMS-GUN-002 — Reese Long-Gun Stance Implementation Record
 
 **Date:** 2026-11-26  
-**Status:** Implementation committed to feature branch; Preview/runtime verification pending  
+**Status:** Implementation committed; Vercel Preview READY; runtime visual review pending  
 **AOB source branch:** `main` at `4d01815a87cbde2002d1ea7f95714c88d1eb61e1`  
 **Working branch:** `feature/lms-reese-long-gun-stance-002`  
 **Scope:** M4A1 and MPX-9 two-handed long-gun handling; preserve P-19 pistol handling
@@ -50,7 +50,7 @@ Updated `src/test/reese-player-001.test.ts` to cover:
 - Rifle-fire versus pistol-fire routing.
 - Use of the authored support-grip landmark and preservation of the P-19 aim path.
 
-These tests have been added but have **not yet been executed**.
+The final Vercel build executed **809 tests across 197 test files: 809 passed, 0 failed**. TypeScript checking also passed. The first full run had one failed assertion in this new test file: the test expected non-optional `root.metadata?.gripL`, while the implementation correctly uses `root?.metadata?.gripL`. The assertion was corrected and the complete suite rerun successfully.
 
 ## 3. 3d-gen source inspection (read-only)
 
@@ -72,7 +72,7 @@ The AOB runtime uses the existing embedded Reese GLB and does not load a second 
 
 Before treating this implementation as accepted, verify the Preview build and actual runtime:
 
-1. Vercel Preview deployment for `feature/lms-reese-long-gun-stance-002` reaches `READY`.
+1. **Complete:** Vercel Preview deployment for `feature/lms-reese-long-gun-stance-002` reached `READY` for commit `c4bbc53411b9927715fc6c0bce4ed2a3e2d86d54`.
 2. The runtime diagnostic resolves all six rifle groups from the actual Reese GLB.
 3. M4A1 idle, walk, run, sprint and fire use the rifle clip family.
 4. MPX-9 idle, walk, run, sprint and fire use the rifle clip family.
@@ -83,7 +83,7 @@ Before treating this implementation as accepted, verify the Preview build and ac
 
 If either weapon's support-hand error exceeds the threshold, or visual contact is poor, do not mask the discrepancy with arbitrary weapon rotation. Revisit the per-weapon support target/animation fit and document any required 3d-gen change here before changing that repository.
 
-## 5. Current verification status
+## 6. Current verification status
 
 | Check | Status |
 | --- | --- |
@@ -91,13 +91,24 @@ If either weapon's support-hand error exceeds the threshold, or visual contact i
 | AOB long-gun animation selection implemented | Complete |
 | P-19 pistol route preserved in code | Complete; runtime regression pending |
 | 3d-gen source inspected | Complete; read-only |
-| AOB tests added | Complete; not run |
-| Typecheck/lint/build | Not run |
-| Vercel Preview deployment | Pending |
-| In-runtime clip binding confirmation | Pending |
-| Visual grip/shoulder/weapon-switch QA | Pending |
+| AOB tests | Complete; 809/809 passed across 197 files |
+| TypeScript check | Passed |
+| Lint | Not run |
+| Vercel build | Passed; deployment reached READY |
+| In-runtime clip binding confirmation | Pending; actual preview asset group names still need runtime confirmation |
+| Visual grip/shoulder/weapon-switch QA | Pending owner/runtime review |
 
-## 6. Scope and release boundary
+## 5. Preview deployment
+
+- **Status:** READY (Preview only; not production)
+- **Branch:** `feature/lms-reese-long-gun-stance-002`
+- **Built commit:** `c4bbc53411b9927715fc6c0bce4ed2a3e2d86d54`
+- **Preview:** https://age-of-abundance-d080mk3sb-kuzivakwashetembo8s-projects.vercel.app/north-heights-preview
+- **Branch alias:** https://age-of-abundance-git-featur-1c7736-kuzivakwashetembo8s-projects.vercel.app/north-heights-preview
+
+The Vercel build ran the repository's configured asset audit/extraction, TypeScript check, prebuild scripts, Vitest suite, and production build. The Preview is available for owner review. Automated page inspection did not load the protected/preview URL, so this record does not claim runtime clip-binding or visual acceptance.
+
+## 7. Scope and release boundary
 
 This implementation is limited to Reese's existing M4A1, MPX-9 and P-19 handling. It does not add weapons, ballistics, damage, projectiles, NPC combat, multiplayer behavior, new input bindings or a second character/arms rig.
 
