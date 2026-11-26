@@ -47,7 +47,7 @@ describe("REESE-001 playable actor replacement",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain('reeseIsLongGun001(selectedWeapon)?groups.rifleFire:groups.pistolFire');
   expect(actor).toContain('groups[key]??groups.rifleAim??groups.rifleIdle??groups.idle');
-  expect(actor).toContain('root.metadata?.gripL');
+  expect(actor).toContain('root?.metadata?.gripL');
   expect(actor).toContain('supportHandBone.getAbsolutePosition(supportHandReferenceMesh)');
   expect(actor).toContain('else play(groups.pistolAim??groups.idle)');
  });
