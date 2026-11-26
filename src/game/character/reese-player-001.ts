@@ -385,7 +385,7 @@ export function createReesePlayer001(scene:Scene,
   const wrist=supportHandBone.getAbsolutePosition(supportHandReferenceMesh);
   const error=Vector3.Distance(wrist,target);
   const result={weapon:selectedWeapon,errorMetres:Number(error.toFixed(4))};
-  if(error>.06)console.warn("[LMS-GUN-002] Support wrist is not on authored gripL target",result);
+  if(error>.04)console.warn("[LMS-GUN-002] Support wrist is not on authored gripL target",result);
   else console.info("[LMS-GUN-002] Support wrist/gripL alignment",result);
  }
  function alignWeaponMountToCharacterForward(){
