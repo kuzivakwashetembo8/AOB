@@ -489,7 +489,7 @@ export function createReesePlayer001(scene:Scene,
     if(combatRemaining>0){advance(dt);return;}
    }
    if(handItem==="gun"&&reeseIsLongGun001(selectedWeapon)){
-    const key=reeseLongGunClipKey001(stableGait,sprint);
+    const key=reeseLongGunClipKey001(stableGait==="walk"||stableGait==="run"?stableGait:"idle",sprint);
     play(groups[key]??groups.rifleAim??groups.rifleIdle??groups.idle);
    }else{
     play(handItem==="gun"&&stableGait==="idle"&&groups.pistolAim?groups.pistolAim:
