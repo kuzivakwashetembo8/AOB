@@ -8,7 +8,7 @@
  */
 import {
   AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
-  Vector3, type AssetContainer, type Camera, type Scene,
+  Bone, Vector3, type AssetContainer, type Camera, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
 import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
@@ -90,6 +90,9 @@ export function createReesePlayer001(scene:Scene,
  let handItem:"hand"|"gun"="hand";
  let selectedWeapon:ReeseWeaponId001|null=null;
  let weaponMount:Mesh|null=null;
+ let supportHandBone:Bone|null=null;
+ let supportHandReferenceMesh:AbstractMesh|null=null;
+ let supportGripDiagnosticSeconds=0;
  const weaponRoots:Partial<Record<ReeseWeaponId001,TransformNode>>={};
  let firstPersonActive=false;
  const firstPersonHiddenMeshes:{mesh:AbstractMesh;visibility:number;isVisible:boolean}[]=[];
@@ -254,14 +257,18 @@ export function createReesePlayer001(scene:Scene,
   fit.position.set(-(minX+maxX)*.5*scale,-minY*scale,-(minZ+maxZ)*.5*scale);
   // Link a stable Babylon transform to Reese's actual right-hand bone. The
   // procedural LMS weapons use the web-of-thumb as their local origin.
-  const rightHand=instance.skeletons.flatMap(skeleton=>skeleton.bones)
-   .find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
+  const bones=instance.skeletons.flatMap(skeleton=>skeleton.bones);
+  const rightHand=bones.find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
+  const leftHand=bones.find(bone=>/(left.?hand|hand[._:-]?l|l[._:-]?hand)$/i.test(bone.name));
   if(rightHand){
    const handSkeleton=rightHand.getSkeleton();
    const referenceMesh=[...meshes]
     .filter(mesh=>mesh.skeleton===handSkeleton&&mesh.getTotalVertices()>0)
     .sort((a,b)=>b.getTotalVertices()-a.getTotalVertices())[0];
    if(!referenceMesh)throw Error("REESE-001 right-hand skeleton has no skinned reference mesh");
+   supportHandBone=leftHand??null;
+   supportHandReferenceMesh=referenceMesh;
+   if(!supportHandBone)console.warn("[LMS-GUN-002] Reese left-hand bone was not found; support-grip alignment cannot be measured.");
    // attachToBone keeps the GLB's existing linked bone TransformNode intact.
    // The mount has no geometry; it only provides a rigid parent for the guns.
    weaponMount=new Mesh("reese-lms-right-hand-mount",scene);
@@ -344,6 +351,7 @@ export function createReesePlayer001(scene:Scene,
    console.error("[LMS-GUN-001] Cannot equip "+id+": right-hand mount unavailable.");
    handItem="hand";
   }
+  supportGripDiagnosticSeconds=0;
   alignWeaponMountToCharacterForward();
   applyWeaponVisibility();
   if(handItem==="gun"){
@@ -361,6 +369,25 @@ export function createReesePlayer001(scene:Scene,
   anchor.rotation.y=yaw;
  }
  let weaponGripDiagnosticsLogged=false;
+ function reportSupportGripAlignment(dt:number){
+  if(handItem!=="gun"||!reeseIsLongGun001(selectedWeapon)||
+   !supportHandBone||!supportHandReferenceMesh||!selectedWeapon)return;
+  supportGripDiagnosticSeconds+=Math.max(0,dt);
+  if(supportGripDiagnosticSeconds<1)return;
+  supportGripDiagnosticSeconds=0;
+  const root=weaponRoots[selectedWeapon];
+  const grip=root?.metadata?.gripL as number[]|null|undefined;
+  if(!root||!grip||grip.length<3)return;
+  root.computeWorldMatrix(true);
+  supportHandReferenceMesh.computeWorldMatrix(true);
+  const target=Vector3.TransformCoordinates(
+   new Vector3(grip[0]??0,grip[1]??0,grip[2]??0),root.getWorldMatrix());
+  const wrist=supportHandBone.getAbsolutePosition(supportHandReferenceMesh);
+  const error=Vector3.Distance(wrist,target);
+  const result={weapon:selectedWeapon,errorMetres:Number(error.toFixed(4))};
+  if(error>.06)console.warn("[LMS-GUN-002] Support wrist is not on authored gripL target",result);
+  else console.info("[LMS-GUN-002] Support wrist/gripL alignment",result);
+ }
  function alignWeaponMountToCharacterForward(){
   if(!weaponMount)return;
   weaponMount.computeWorldMatrix(true);
@@ -424,6 +451,7 @@ export function createReesePlayer001(scene:Scene,
    if(flight)resetFlight();
    positionAt(p,yaw);
    alignWeaponMountToCharacterForward();
+   reportSupportGripAlignment(dt);
    muzzleEffect.update(dt);
    // The Rapier capsule determines physical Y; glTF clips only articulate bones.
    const airborne=!grounded||verticalVelocity>.65;
