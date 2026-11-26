@@ -206,6 +206,8 @@ export function SettingsEditor({
                 </p>
                 {range("sensitivity", "Mouse look sensitivity", 100, 10)}
                 {range("thirdPersonCameraDistanceMeters", "Camera Distance", 8, 3, " m", .25)}
+                {toggle("firstPersonShooting", "First-person shooting view")}
+                <p className="overlay-note">Optional on-foot view for Reese. OFF keeps the standard third-person camera. Vehicle, elevator and Machine Camera contexts retain their own camera behavior.</p>
                 {toggle("invertY", "Invert look Y axis")}
                 {toggle("vibration", "Controller vibration")}
                 {toggle("desktopControls", "Show desktop on-screen controls")}

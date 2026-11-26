@@ -8,7 +8,7 @@
  */
 import {
   AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
-  Vector3, type AssetContainer, type Scene,
+  Vector3, type AssetContainer, type Camera, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
 import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
@@ -78,15 +78,31 @@ export function createReesePlayer001(scene:Scene,
  let selectedWeapon:ReeseWeaponId001|null=null;
  let weaponMount:Mesh|null=null;
  const weaponRoots:Partial<Record<ReeseWeaponId001,TransformNode>>={};
+ let firstPersonActive=false;
+ const firstPersonHiddenMeshes:{mesh:AbstractMesh;visibility:number;isVisible:boolean}[]=[];
+ const removedLegacyWeaponMeshes:string[]=[];
+ const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
+ const firstPersonHeadPattern=/(head|hair|eyebrow|eye|face|teeth|tongue)/i;
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
  let shotSerial=0,wasAirborne=false,takeoffRemaining=0,landingRemaining=0;
  const muzzleEffect=createReeseMuzzleSpark010(scene);
- const removedLegacyWeaponMeshes:string[]=[];
- const weaponPattern=/(?:^|[^a-z])(gun|pistol|weapon|revolver|firearm|handgun)(?:$|[^a-z])/i;
+ function setFirstPersonPresentation(_camera:Camera|null,enabled:boolean){
+  if(closed||enabled===firstPersonActive)return;
+  firstPersonActive=enabled;
+  // Keep the real Reese GLB, skeleton and weapon hand mount alive. Only hide
+  // facial/head meshes on this local camera so the camera does not sit inside
+  // Reese's face. Other clients retain the complete character representation.
+  for(const entry of firstPersonHiddenMeshes){
+   entry.mesh.visibility=enabled?0:entry.visibility;
+   entry.mesh.isVisible=enabled?false:entry.isVisible;
+  }
+  anchor.setEnabled(controlled&&!hiddenDriving);
+  applyWeaponVisibility();
+ }
  function applyWeaponVisibility(){
-  // Legacy GLB weapon meshes are removed during import; only extracted LMS
-  // weapon roots participate in equipment visibility.
+  // One character and one weapon mount serve both camera modes. No duplicate
+  // camera-space gun, substitute arms, or substitute hands are created.
   for(const [id,root] of Object.entries(weaponRoots))
    root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
  }
@@ -173,6 +189,11 @@ export function createReesePlayer001(scene:Scene,
     mesh.dispose(false,false);
     continue;
    }
+   if(firstPersonHeadPattern.test(names.join(" "))||
+    mats.some(material=>firstPersonHeadPattern.test(material.name))){
+    firstPersonHiddenMeshes.push({mesh,visibility:mesh.visibility,isVisible:mesh.isVisible});
+    if(firstPersonActive){mesh.visibility=0;mesh.isVisible=false;}
+   }
    const box=mesh.getBoundingInfo().boundingBox;
    minX=Math.min(minX,box.minimumWorld.x);
    minY=Math.min(minY,box.minimumWorld.y);
@@ -240,7 +261,8 @@ export function createReesePlayer001(scene:Scene,
    active=groups.idle;
   active.start(true);
   report.activeClip=active.name;
-  anchor.setEnabled(false);
+  anchor.setEnabled(controlled&&!hiddenDriving);
+  if(firstPersonHiddenMeshes.length===0)console.warn("[LMS-FPV-001] Reese head mesh was not identified by name/material; inspect first-person camera clipping.");
   audit.finish(instantiateId,`${meshCount} meshes; ${boneCount} rig bones; ${report.animations} embedded clips`);
   console.info("[REESE-001] playable GLB ready",report);
  })().catch(error=>{
@@ -337,11 +359,12 @@ export function createReesePlayer001(scene:Scene,
  }
  return {
   anchor,ready,
+  setFirstPersonPresentation,
   setControlled(enabled:boolean){
    if(closed)return;
    controlled=enabled;hiddenDriving=false;combatRemaining=0;
    wasAirborne=false;takeoffRemaining=0;landingRemaining=0;muzzleEffect.clear();
-   anchor.setEnabled(enabled);
+   anchor.setEnabled(enabled&&!hiddenDriving);
    if(enabled){resetFlight();play(groups.idle);}
    applyWeaponVisibility();
   },
@@ -439,7 +462,7 @@ export function createReesePlayer001(scene:Scene,
     if(active===clip){outgoing?.stop();outgoing=null;clip.stop();clip.start(false);
       clip.setWeightForAllAnimatables(1);transition=1;}
     else play(clip,false);
-    muzzleEffect.emit(muzzle,anchor.rotation.y);
+    muzzleEffect.emit(muzzle,anchor.rotation.y,selectedWeapon??"m4a1");
     combatRemaining=.10;
    }else{combatRemaining=.55;play(clip,false);}
    lastAttackAt=now;
@@ -447,7 +470,9 @@ export function createReesePlayer001(scene:Scene,
   },
   get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire;},
   get shotsFired(){return shotSerial;},
-  clearCombatFX(){muzzleEffect.clear();},
+  clearCombatFX(){
+   muzzleEffect.clear();
+  },
   get handItem(){return handItem;},
   get poseReport(){
    return {meshCount,boneCount,animations:report.animations,

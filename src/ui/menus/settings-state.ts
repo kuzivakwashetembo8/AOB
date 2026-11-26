@@ -32,6 +32,7 @@ export type Settings = {
   sensitivity: number;
   touchSensitivity: number;
   thirdPersonCameraDistanceMeters: number;
+  firstPersonShooting: boolean;
   invertY: boolean;
   vibration: boolean;
   reducedMotion: boolean;
@@ -71,6 +72,7 @@ export const defaults: Settings = {
   sensitivity: 50,
   touchSensitivity: 60,
   thirdPersonCameraDistanceMeters: CAMERA_DISTANCE_DEFAULT,
+  firstPersonShooting: false,
   invertY: false,
   vibration: true,
   reducedMotion: false,
@@ -125,6 +127,7 @@ export function useSettings(active = true) {
           footIKPredictionMs: Number.isFinite(stored.footIKPredictionMs) ? Math.max(100,Math.min(500,Number(stored.footIKPredictionMs))) : 220,
           drivingTouchLayout: normalizeDrivingTouchLayout(stored.drivingTouchLayout),
           thirdPersonCameraDistanceMeters: normalizeThirdPersonCameraDistance(stored.thirdPersonCameraDistanceMeters),
+          firstPersonShooting: stored.firstPersonShooting === true,
           renderClarity: normalizeRenderClarity(stored.renderClarity),
           renderScalePercent: normalizeRenderScalePercent(stored.renderScalePercent),
         });

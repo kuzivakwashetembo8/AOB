@@ -40,9 +40,9 @@ describe("POI-010 nine-work-package contracts",()=>{
  it("pairs each accepted rapid pistol shot with a pooled spark and existing audio event",()=>{
   const reese=source("src/game/character/reese-player-001.ts");
   expect(reese).toContain("clip.stop();clip.start(false)");
-  expect(reese).toContain("muzzleEffect.emit(muzzle,anchor.rotation.y)");
+  expect(reese).toContain('muzzleEffect.emit(muzzle,anchor.rotation.y,selectedWeapon??"m4a1")');
   expect(reese).not.toContain('attack==="shoot"?260:550');
-  expect(source("src/game/character/reese-muzzle-spark-010.ts")).toContain("length:10");
+  expect(source("src/game/character/reese-muzzle-spark-010.ts")).toContain("length: 8");
   expect(source("src/game/experiments/north-heights-city-8.ts")).toContain("vehicleAudio.playCombatCue(kind)");
  });
  it("reconciles stale junction reservations in ordinary traffic without collisions",()=>{

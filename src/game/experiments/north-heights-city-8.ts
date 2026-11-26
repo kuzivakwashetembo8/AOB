@@ -352,6 +352,21 @@ export async function createNorthHeightsCity8(
     }
   };
   const setCameraAt=(player:{x:number;y:number;z:number})=>{
+    const firstPerson=Boolean(settings.firstPersonShooting&&settings.enableCharacter&&actor&&
+      mode==="walk"&&!ridingSedanId&&!machineView&&!paused&&
+      !liftFrame?.cameraCabin&&!genericLiftFrame?.cameraCabin&&
+      !liftFrame?.traveling&&!genericLiftFrame?.traveling);
+    actor?.setFirstPersonPresentation(camera,firstPerson);
+    if(firstPerson){
+      // Rapier's player position is the capsule centre (.92m above the feet).
+      // Reese is 1.78m tall; +.68m places the camera near the measured eye line.
+      const eye=new Vector3(player.x,player.y+.68,player.z);
+      camera.position.copyFrom(eye);
+      const direction=new Vector3(Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),
+        Math.cos(yaw)*Math.cos(pitch));
+      camera.setTarget(eye.add(direction));
+      return;
+    }
     const computed=resolveNorthHeightsThirdPersonCamera(
       player,yaw,pitch,normalizeThirdPersonCameraDistance(settings.thirdPersonCameraDistanceMeters),
       northHeightsGround,
@@ -918,7 +933,11 @@ export async function createNorthHeightsCity8(
     setPaused(value){
       paused=value;
       vehicleAudio.setPaused(value);
-      if(value)actor?.clearCombatFX();
+      if(value){
+        actor?.clearCombatFX();
+        actor?.setFirstPersonPresentation(camera,false);
+        if(walk&&!ridingSedanId&&!machineView)setCameraAt(walk.physics.playerPosition());
+      }
       if(value){clearKeys();trafficAccumulator=0;}
       else {renderLast=0;trafficAccumulator=0;engine.resize();}
     },
@@ -947,8 +966,10 @@ export async function createNorthHeightsCity8(
       if(paused||!walk||!actor||!humanoid||ridingSedanId)return machineView;
       if(!machineView&&(liftFrame?.traveling||genericLiftFrame?.traveling))return false;
       machineView=!machineView;
-      if(machineView){savedOrbit={yaw,pitch};}
-      else{
+      if(machineView){
+        savedOrbit={yaw,pitch};
+        actor.setFirstPersonPresentation(camera,false);
+      }else{
         yaw=savedOrbit.yaw;pitch=savedOrbit.pitch;
         setCameraAt(walk.physics.playerPosition());
       }

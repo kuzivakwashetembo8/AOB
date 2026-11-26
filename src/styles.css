@@ -2069,6 +2069,7 @@ html[data-display="standalone"] body > * {
 .touch-actions .gtd-uniform-action.control-button {width:58px;height:58px;min-width:58px;min-height:58px;}
 @media(max-height:440px){.touch-actions:has(.gtd-uniform-action){grid-template-columns:repeat(3,54px);grid-auto-rows:54px;gap:6px;}.touch-actions .gtd-uniform-action.control-button{width:54px;height:54px;min-width:54px;min-height:54px;}}
 .gtd-machine-camera-always{position:absolute;top:max(8px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 159px);width:44px;height:44px;z-index:17;pointer-events:auto;}
+.gtd-first-person-always{position:absolute;top:max(8px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 53px);width:44px;height:44px;z-index:17;pointer-events:auto;}
 
 /* POI-009: exact 1.20x action hit areas from POI-008 accepted sizes. */
 .touch-actions:has(.gtd-uniform-action){grid-template-columns:repeat(3,69.6px);grid-auto-rows:69.6px;}

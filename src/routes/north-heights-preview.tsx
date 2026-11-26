@@ -411,6 +411,16 @@ function NorthHeightsPreview(){
          aria-label="Machine Camera Activate · Disable to return to John">
          Machine Camera Activate · Disable to return to John
        </div>}
+      {ready&&!paused&&!vehicle&&!machineView&&<Button type="button" variant="control"
+         data-testid="lms-first-person-toggle"
+         aria-label={settings.firstPersonShooting?"Switch to third-person view":"Switch to first-person shooting view"}
+         title={settings.firstPersonShooting?"Return to third-person view":"Enable first-person shooting view"}
+         aria-pressed={settings.firstPersonShooting}
+         disabled={!settings.enableCharacter}
+         className="gtd-first-person-always flex items-center justify-center border border-white/20 bg-black/55"
+         onClick={()=>{const next={...settings,firstPersonShooting:!settings.firstPersonShooting};save(next);controller.current?.applySettings(next);}}>
+         <Camera size={18}/>
+       </Button>}
       {ready&&!paused&&!vehicle&&<Button type="button" variant="control"
          data-testid="poi-machine-camera" aria-label={machineView?"Return to Reese":"Activate Machine camera"}
          title={machineView?"Return to Reese":"The Machine · Surveillance POV"}
