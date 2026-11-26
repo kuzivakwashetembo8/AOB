@@ -511,8 +511,7 @@ export function createReesePlayer001(scene:Scene,
    lastAttackAt=now;
    return attack;
   },
-  get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire&&
-   !!groups.rifleIdle&&!!groups.rifleAim&&!!groups.rifleFire;},
+  get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire;},
   get shotsFired(){return shotSerial;},
   clearCombatFX(){
    muzzleEffect.clear();
