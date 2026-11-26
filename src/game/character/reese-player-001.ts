@@ -8,7 +8,7 @@
  */
 import {
   AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
-  Vector3, type AssetContainer, type Camera, type Scene,
+  Bone, Vector3, type AssetContainer, type Camera, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
 import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
@@ -56,6 +56,19 @@ export function reeseGroundClip001(
 export function reeseSafeLocomotion007(speed:number,sprint:boolean):"idle"|"walk"|"run"{
  return speed<=.15?"idle":sprint||speed>5?"run":"walk";
 }
+
+/** M4A1 and MPX-9 share Reese's authored two-handed long-gun animation set. */
+export function reeseIsLongGun001(id:ReeseWeaponId001|null):boolean{
+ return id==="m4a1"||id==="mpx9";
+}
+export function reeseLongGunClipKey001(
+ gait:"idle"|"walk"|"run",sprint:boolean,
+):"rifleIdle"|"rifleWalk"|"rifleRun"|"rifleSprint"{
+ if(sprint)return "rifleSprint";
+ if(gait==="walk")return "rifleWalk";
+ if(gait==="run")return "rifleRun";
+ return "rifleIdle";
+}
 export function createReesePlayer001(scene:Scene,
  load?:(path:string,scene:Scene)=>Promise<AssetContainer>,
 ){
@@ -77,6 +90,9 @@ export function createReesePlayer001(scene:Scene,
  let handItem:"hand"|"gun"="hand";
  let selectedWeapon:ReeseWeaponId001|null=null;
  let weaponMount:Mesh|null=null;
+ let supportHandBone:Bone|null=null;
+ let supportHandReferenceMesh:AbstractMesh|null=null;
+ let supportGripDiagnosticSeconds=0;
  const weaponRoots:Partial<Record<ReeseWeaponId001,TransformNode>>={};
  let firstPersonActive=false;
  const firstPersonHiddenMeshes:{mesh:AbstractMesh;visibility:number;isVisible:boolean}[]=[];
@@ -106,8 +122,10 @@ export function createReesePlayer001(scene:Scene,
   for(const [id,root] of Object.entries(weaponRoots))
    root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
  }
- const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire",AnimationGroup|null>={
-  idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,pistolAim:null,pistolFire:null,
+ const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire"|"rifleIdle"|"rifleAim"|"rifleFire"|"rifleWalk"|"rifleRun"|"rifleSprint",AnimationGroup|null>={
+  idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,
+  pistolAim:null,pistolFire:null,rifleIdle:null,rifleAim:null,rifleFire:null,
+  rifleWalk:null,rifleRun:null,rifleSprint:null,
  };
  const report={source:REESE_PLAYER_PATH_001,animations:0,scale:1,
   height:REESE_PLAYER_HEIGHT_001,activeClip:"idle"};
@@ -147,6 +165,24 @@ export function createReesePlayer001(scene:Scene,
   groups.punch=findReeseClip001(instance.animationGroups,"punch");
   groups.pistolAim=findReeseClip001(instance.animationGroups,"pistol_aim","Pistol aim");
   groups.pistolFire=findReeseClip001(instance.animationGroups,"pistol_fire","Pistol fire");
+  // These display names are authored by 3d-gen's shooter clip catalogue and
+  // exported verbatim into the existing Reese GLB. The clips bake both-arm IK.
+  groups.rifleIdle=findReeseClip001(instance.animationGroups,"rifle_idle","Rifle idle (low ready)");
+  groups.rifleAim=findReeseClip001(instance.animationGroups,"rifle_aim","Rifle aim idle");
+  groups.rifleFire=findReeseClip001(instance.animationGroups,"rifle_fire","Rifle fire (single)");
+  groups.rifleWalk=findReeseClip001(instance.animationGroups,"rifle_walk","Rifle walk (aiming)");
+  groups.rifleRun=findReeseClip001(instance.animationGroups,"rifle_run","Rifle run");
+  groups.rifleSprint=findReeseClip001(instance.animationGroups,"rifle_sprint","Rifle sprint");
+  console.info("[LMS-GUN-002] Reese long-gun clip binding",{
+   rifleIdle:groups.rifleIdle?.name??null,rifleAim:groups.rifleAim?.name??null,
+   rifleFire:groups.rifleFire?.name??null,rifleWalk:groups.rifleWalk?.name??null,
+   rifleRun:groups.rifleRun?.name??null,rifleSprint:groups.rifleSprint?.name??null,
+  });
+  if(!groups.rifleIdle||!groups.rifleAim||!groups.rifleFire)
+   console.warn("[LMS-GUN-002] Required Reese rifle clips are incomplete; long-gun presentation will use available rifle clips only.",{
+    idle:!!groups.rifleIdle,aim:!!groups.rifleAim,fire:!!groups.rifleFire,
+    available:instance.animationGroups.map(group=>group.name),
+   });
   if(!groups.jump||!groups.land)console.warn("[POI-010] Missing jump phases",instance.animationGroups.map(g=>g.name));
   if(!groups.punch||!groups.pistolAim||!groups.pistolFire)
    console.warn("[POI-009] combat animation group missing in Reese export",{
@@ -221,14 +257,18 @@ export function createReesePlayer001(scene:Scene,
   fit.position.set(-(minX+maxX)*.5*scale,-minY*scale,-(minZ+maxZ)*.5*scale);
   // Link a stable Babylon transform to Reese's actual right-hand bone. The
   // procedural LMS weapons use the web-of-thumb as their local origin.
-  const rightHand=instance.skeletons.flatMap(skeleton=>skeleton.bones)
-   .find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
+  const bones=instance.skeletons.flatMap(skeleton=>skeleton.bones);
+  const rightHand=bones.find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
+  const leftHand=bones.find(bone=>/(left.?hand|hand[._:-]?l|l[._:-]?hand)$/i.test(bone.name));
   if(rightHand){
    const handSkeleton=rightHand.getSkeleton();
    const referenceMesh=[...meshes]
     .filter(mesh=>mesh.skeleton===handSkeleton&&mesh.getTotalVertices()>0)
     .sort((a,b)=>b.getTotalVertices()-a.getTotalVertices())[0];
    if(!referenceMesh)throw Error("REESE-001 right-hand skeleton has no skinned reference mesh");
+   supportHandBone=leftHand??null;
+   supportHandReferenceMesh=referenceMesh;
+   if(!supportHandBone)console.warn("[LMS-GUN-002] Reese left-hand bone was not found; support-grip alignment cannot be measured.");
    // attachToBone keeps the GLB's existing linked bone TransformNode intact.
    // The mount has no geometry; it only provides a rigid parent for the guns.
    weaponMount=new Mesh("reese-lms-right-hand-mount",scene);
@@ -311,10 +351,14 @@ export function createReesePlayer001(scene:Scene,
    console.error("[LMS-GUN-001] Cannot equip "+id+": right-hand mount unavailable.");
    handItem="hand";
   }
+  supportGripDiagnosticSeconds=0;
   alignWeaponMountToCharacterForward();
   applyWeaponVisibility();
-  if(handItem==="gun"&&groups.pistolAim)play(groups.pistolAim);
-  else play(groups.idle);
+  if(handItem==="gun"){
+   if(reeseIsLongGun001(selectedWeapon))
+    play(groups.rifleIdle??groups.rifleAim??groups.idle);
+   else play(groups.pistolAim??groups.idle);
+  }else play(groups.idle);
  }
  function resetFlight(){
   flight=false;flightPitch=0;flightRoll=0;
@@ -325,6 +369,25 @@ export function createReesePlayer001(scene:Scene,
   anchor.rotation.y=yaw;
  }
  let weaponGripDiagnosticsLogged=false;
+ function reportSupportGripAlignment(dt:number){
+  if(handItem!=="gun"||!reeseIsLongGun001(selectedWeapon)||
+   !supportHandBone||!supportHandReferenceMesh||!selectedWeapon)return;
+  supportGripDiagnosticSeconds+=Math.max(0,dt);
+  if(supportGripDiagnosticSeconds<1)return;
+  supportGripDiagnosticSeconds=0;
+  const root=weaponRoots[selectedWeapon];
+  const grip=root?.metadata?.gripL as number[]|null|undefined;
+  if(!root||!grip||grip.length<3)return;
+  root.computeWorldMatrix(true);
+  supportHandReferenceMesh.computeWorldMatrix(true);
+  const target=Vector3.TransformCoordinates(
+   new Vector3(grip[0]??0,grip[1]??0,grip[2]??0),root.getWorldMatrix());
+  const wrist=supportHandBone.getAbsolutePosition(supportHandReferenceMesh);
+  const error=Vector3.Distance(wrist,target);
+  const result={weapon:selectedWeapon,errorMetres:Number(error.toFixed(4))};
+  if(error>.04)console.warn("[LMS-GUN-002] Support wrist is not on authored gripL target",result);
+  else console.info("[LMS-GUN-002] Support wrist/gripL alignment",result);
+ }
  function alignWeaponMountToCharacterForward(){
   if(!weaponMount)return;
   weaponMount.computeWorldMatrix(true);
@@ -388,6 +451,7 @@ export function createReesePlayer001(scene:Scene,
    if(flight)resetFlight();
    positionAt(p,yaw);
    alignWeaponMountToCharacterForward();
+   reportSupportGripAlignment(dt);
    muzzleEffect.update(dt);
    // The Rapier capsule determines physical Y; glTF clips only articulate bones.
    const airborne=!grounded||verticalVelocity>.65;
@@ -424,8 +488,13 @@ export function createReesePlayer001(scene:Scene,
     combatRemaining=Math.max(0,combatRemaining-Math.max(0,dt));
     if(combatRemaining>0){advance(dt);return;}
    }
-   play(handItem==="gun"&&stableGait==="idle"&&groups.pistolAim?groups.pistolAim:
-    groups[stableGait]??groups.idle);
+   if(handItem==="gun"&&reeseIsLongGun001(selectedWeapon)){
+    const key=reeseLongGunClipKey001(stableGait==="walk"||stableGait==="run"?stableGait:"idle",sprint);
+    play(groups[key]??groups.rifleAim??groups.rifleIdle??groups.idle);
+   }else{
+    play(handItem==="gun"&&stableGait==="idle"&&groups.pistolAim?groups.pistolAim:
+     groups[stableGait]??groups.idle);
+   }
    advance(dt);
   },
   updateControlledFlight(
@@ -450,7 +519,9 @@ export function createReesePlayer001(scene:Scene,
   triggerCombat(): "punch"|"shoot"|null {
    if(!controlled||closed||hiddenDriving||flight||wasAirborne||landingRemaining>0)return null;
    const attack=handItem==="gun"?"shoot":"punch";
-   const clip=attack==="shoot"?groups.pistolFire:groups.punch;
+   const clip=attack==="shoot"
+    ?(reeseIsLongGun001(selectedWeapon)?groups.rifleFire:groups.pistolFire)
+    :groups.punch;
    if(!clip)return null;
    const now=typeof performance!=="undefined"?performance.now():Date.now();
    if(attack==="punch"&&(combatRemaining>0||now-lastAttackAt<550))return null;
