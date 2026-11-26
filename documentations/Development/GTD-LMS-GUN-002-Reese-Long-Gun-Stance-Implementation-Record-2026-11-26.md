@@ -83,7 +83,7 @@ Before treating this implementation as accepted, verify the Preview build and ac
 
 If either weapon's support-hand error exceeds the threshold, or visual contact is poor, do not mask the discrepancy with arbitrary weapon rotation. Revisit the per-weapon support target/animation fit and document any required 3d-gen change here before changing that repository.
 
-## 6. Current verification status
+## 5. Current verification status
 
 | Check | Status |
 | --- | --- |
@@ -98,7 +98,7 @@ If either weapon's support-hand error exceeds the threshold, or visual contact i
 | In-runtime clip binding confirmation | Pending; actual preview asset group names still need runtime confirmation |
 | Visual grip/shoulder/weapon-switch QA | Pending owner/runtime review |
 
-## 5. Preview deployment
+## 6. Preview deployment
 
 - **Status:** READY (Preview only; not production)
 - **Branch:** `feature/lms-reese-long-gun-stance-002`
