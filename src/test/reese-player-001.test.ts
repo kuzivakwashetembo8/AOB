@@ -4,6 +4,7 @@ import {resolve} from "node:path";
 import {
  REESE_PLAYER_PATH_001,REESE_PLAYER_EXPECTED_ANIMATIONS_001,
  REESE_PLAYER_HEIGHT_001,findReeseClip001,reeseGroundClip001,
+ reeseIsLongGun001,reeseLongGunClipKey001,
 } from "../game/character/reese-player-001";
 const read=(path:string)=>readFileSync(resolve(process.cwd(),path),"utf8");
 
@@ -21,6 +22,26 @@ describe("REESE-001 playable actor replacement",()=>{
   expect(findReeseClip001(list,"run")?.name).toBe("Reese|Run");
   expect(findReeseClip001(list,"jump_air","jump")?.name).toBe("Jump air");
   expect(findReeseClip001([{name:"Sit idle"}],"idle")).toBeNull();
+ });
+ it("binds the authored rifle clips and keeps weapon classes separate",()=>{
+  const names=[
+   "Rifle idle (low ready)","Rifle aim idle","Rifle fire (single)",
+   "Rifle walk (aiming)","Rifle run","Rifle sprint",
+  ].map(name=>({name}));
+  expect(findReeseClip001(names,"rifle_idle","Rifle idle (low ready)")?.name).toBe("Rifle idle (low ready)");
+  expect(findReeseClip001(names,"rifle_aim","Rifle aim idle")?.name).toBe("Rifle aim idle");
+  expect(findReeseClip001(names,"rifle_fire","Rifle fire (single)")?.name).toBe("Rifle fire (single)");
+  expect(findReeseClip001(names,"rifle_walk","Rifle walk (aiming)")?.name).toBe("Rifle walk (aiming)");
+  expect(findReeseClip001(names,"rifle_run","Rifle run")?.name).toBe("Rifle run");
+  expect(findReeseClip001(names,"rifle_sprint","Rifle sprint")?.name).toBe("Rifle sprint");
+  expect(reeseIsLongGun001("m4a1")).toBe(true);
+  expect(reeseIsLongGun001("mpx9")).toBe(true);
+  expect(reeseIsLongGun001("p19")).toBe(false);
+  expect(reeseIsLongGun001(null)).toBe(false);
+  expect(reeseLongGunClipKey001("idle",false)).toBe("rifleIdle");
+  expect(reeseLongGunClipKey001("walk",false)).toBe("rifleWalk");
+  expect(reeseLongGunClipKey001("run",false)).toBe("rifleRun");
+  expect(reeseLongGunClipKey001("run",true)).toBe("rifleSprint");
  });
  it("derives gait and airborne states from the existing physical controller",()=>{
   expect(reeseGroundClip001(0,false,true,0)).toBe("idle");
