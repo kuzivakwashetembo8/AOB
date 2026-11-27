@@ -8,7 +8,7 @@
  */
 import {
   AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
-  Bone, Vector3, type AssetContainer, type Camera, type Scene,
+  Bone, Quaternion, Vector3, type AssetContainer, type Camera, type Scene,
 } from "@babylonjs/core";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
 import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
@@ -67,9 +67,35 @@ export function reeseCanFire001(speed:number,sprint:boolean):boolean{
  * authored crouch pose/locomotion; upper-body tracks come from the weapon's
  * authored firing clip. This avoids blending two full-body clips together.
  */
+/** Blend the authored deep-crouch lower-body keys toward Reese's neutral idle pose. */
+function softenCrouchAnimation001(
+ animation:import("@babylonjs/core").Animation,
+ neutral:import("@babylonjs/core").Animation|null,
+):import("@babylonjs/core").Animation{
+ if(!neutral)return animation;
+ const neutralValue=neutral.getKeys()[0]?.value;
+ if(neutralValue===undefined)return animation;
+ const keys=animation.getKeys().map(key=>{
+  const value=key.value;
+  let softened=value;
+  if(value instanceof Quaternion&&neutralValue instanceof Quaternion)
+   softened=Quaternion.Slerp(neutralValue,value,.38);
+  else if(value instanceof Vector3&&neutralValue instanceof Vector3)
+   softened=Vector3.Lerp(neutralValue,value,.38);
+  return {...key,value:softened};
+ });
+ animation.setKeys(keys);
+ return animation;
+}
+
+/**
+ * Build one coherent full-body shot clip: lower-body tracks come from the
+ * authored crouch pose/locomotion, softened toward neutral idle; upper-body
+ * tracks come from the weapon's authored firing clip.
+ */
 function createCrouchedFireGroup001(
  scene:Scene,name:string,lower:AnimationGroup|null,upper:AnimationGroup|null,
- playTo?:number,
+ neutral:AnimationGroup|null,playTo?:number,
 ):AnimationGroup|null{
  if(!lower||!upper)return null;
  const group=new AnimationGroup(name,scene);
@@ -80,7 +106,12 @@ function createCrouchedFireGroup001(
   const targetName=String((entry.target as {name?:string;id?:string}).name??
    (entry.target as {id?:string}).id??"");
   if(!lowerTrack.test(targetName))continue;
-  group.addTargetedAnimation(entry.animation.clone(),entry.target);
+  const neutralTrack=neutral?.targetedAnimations.find(candidate=>
+   String((candidate.target as {name?:string;id?:string}).name??
+    (candidate.target as {id?:string}).id??"")===targetName);
+  const softened=softenCrouchAnimation001(entry.animation.clone(),
+   neutralTrack?.animation??null);
+  group.addTargetedAnimation(softened,entry.target);
   lowerCount++;
  }
  for(const entry of upper.targetedAnimations){
@@ -226,17 +257,17 @@ export function createReesePlayer001(scene:Scene,
     crouchWalk:groups.rifleCrouchWalk?.name??null,
    });
   groups.pistolCrouchAim=createCrouchedFireGroup001(scene,"reese-pistol-crouch-aim",
-   groups.rifleCrouchAim,groups.pistolAim,groups.rifleCrouchAim?.to);
+   groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.rifleCrouchAim?.to);
   groups.pistolCrouchWalk=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk",
-   groups.rifleCrouchWalk,groups.pistolAim,groups.rifleCrouchWalk?.to);
+   groups.rifleCrouchWalk,groups.pistolAim,groups.idle,groups.rifleCrouchWalk?.to);
   groups.rifleCrouchFire=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire",
-   groups.rifleCrouchAim,groups.rifleFire);
+   groups.rifleCrouchAim,groups.rifleFire,groups.idle);
   groups.rifleCrouchWalkFire=createCrouchedFireGroup001(scene,"reese-rifle-crouch-walk-fire",
-   groups.rifleCrouchWalk,groups.rifleFire);
+   groups.rifleCrouchWalk,groups.rifleFire,groups.idle);
   groups.pistolCrouchFire=createCrouchedFireGroup001(scene,"reese-pistol-crouch-fire",
-   groups.rifleCrouchAim,groups.pistolFire);
+   groups.rifleCrouchAim,groups.pistolFire,groups.idle);
   groups.pistolCrouchWalkFire=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk-fire",
-   groups.rifleCrouchWalk,groups.pistolFire);
+   groups.rifleCrouchWalk,groups.pistolFire,groups.idle);
   for(const group of [groups.pistolCrouchAim,groups.pistolCrouchWalk,
    groups.rifleCrouchFire,groups.rifleCrouchWalkFire,
    groups.pistolCrouchFire,groups.pistolCrouchWalkFire])
