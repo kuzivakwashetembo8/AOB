@@ -42,3 +42,13 @@ Only revise COMBAT-001 posture/locomotion presentation. Do not implement COMBAT-
 
 **Release target:** 1 December 2026.  
 **Merge policy:** PR #12 must remain draft and must not be merged until the revised posture is visually accepted.
+## Owner clarification — separate low crouch from gun-ready stance
+
+The previously rejected deep crouch is not to be discarded. It is the intended dedicated low-crouch/cover posture. The armed player controls now have two distinct states:
+
+- **Gun-ready crouch (default):** minimal knee/hip bend while holding or firing a weapon. The normal armed idle, moving-fire and firing compositions use a 12% authored-crouch contribution blended toward neutral.
+- **Low crouch (explicit toggle):** retain the previous 38% crouch contribution. Render a down-arrow button directly above Sprint while armed; clicking toggles the deeper cover posture on/off. Hide the control when unarmed, driving, or in detached camera flight.
+
+Both touch and desktop action pads expose the toggle. The low-crouch state is routed to Reese's actor and is cleared when the player disarms. The existing running/shooting exclusion remains unchanged.
+
+**Implementation note:** automated validation and visual acceptance remain pending. The current North Heights preview is a character-control exercise, not the LMS production mode. Do not merge before visual review.
