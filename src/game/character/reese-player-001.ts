@@ -483,8 +483,8 @@ export function createReesePlayer001(scene:Scene,
   applyWeaponVisibility();
   if(handItem==="gun"){
    if(reeseIsLongGun001(selectedWeapon))
-    play(groups.rifleCrouchAim??groups.rifleAim??groups.rifleIdle??groups.idle);
-   else play(groups.pistolCrouchAim??groups.pistolAim??groups.idle);
+    play(groups.rifleCrouchAimMinimal??groups.rifleCrouchAim??groups.rifleAim??groups.rifleIdle??groups.idle);
+   else play(groups.pistolCrouchAimMinimal??groups.pistolCrouchAim??groups.pistolAim??groups.idle);
   }else play(groups.idle);
  }
  function resetFlight(){
