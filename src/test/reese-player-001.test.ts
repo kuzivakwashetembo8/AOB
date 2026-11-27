@@ -54,20 +54,23 @@ describe("REESE-001 playable actor replacement",()=>{
  it("softens authored crouch lower-body motion toward neutral idle instead of retaining a deep squat",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain("softenCrouchAnimation001");
-  expect(actor).toContain("Quaternion.Slerp(neutralValue,value,.38)");
-  expect(actor).toContain("Vector3.Lerp(neutralValue,value,.38)");
-  expect(actor).toContain("groups.rifleCrouchAim,groups.pistolAim,groups.idle");
-  expect(actor).toContain("groups.rifleCrouchWalk,groups.rifleFire,groups.idle");
+  expect(actor).toContain("Quaternion.Slerp(neutralValue,value,weight)");
+  expect(actor).toContain("Vector3.Lerp(neutralValue,value,weight)");
+  expect(actor).toContain("groups.pistolCrouchAimMinimal=createCrouchedFireGroup001");
+  expect(actor).toContain("groups.rifleCrouchAimMinimal=createCrouchedFireGroup001");
+  expect(actor).toContain("groups.rifleCrouchAim,groups.rifleAim,groups.idle,groups.rifleAim?.to,.12");
+  expect(actor).toContain("groups.rifleCrouchWalk,groups.rifleFire,groups.idle,undefined,.12");
  });
  it("uses rifle fire and the support weapon's authored gripL without changing P-19 selection",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
-  expect(actor).toContain('groups.rifleCrouchWalkFire:groups.rifleCrouchFire');
-  expect(actor).toContain('groups.pistolCrouchWalkFire:groups.pistolCrouchFire');
+  expect(actor).toContain("lowCrouch?(moving?groups.rifleCrouchWalkFire:groups.rifleCrouchFire)");
+  expect(actor).toContain("lowCrouch?(moving?groups.pistolCrouchWalkFire:groups.pistolCrouchFire)");
   expect(actor).toContain('currentRunning))return null');
   expect(actor).toContain('createCrouchedFireGroup001');
   expect(actor).toContain('root?.metadata?.gripL');
   expect(actor).toContain('supportHandBone.getAbsolutePosition(supportHandReferenceMesh)');
-  expect(actor).toContain('groups.pistolCrouchAim??groups.pistolAim??groups.idle');
+  expect(actor).toContain("setLowCrouch(enabled:boolean)");
+  expect(actor).toContain("lowCrouch?groups.pistolCrouchAim:groups.pistolCrouchAimMinimal");
  });
  it("derives gait and airborne states from the existing physical controller",()=>{
   expect(reeseGroundClip001(0,false,true,0)).toBe("idle");
