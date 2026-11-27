@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, fireEvent, screen, cleanup } from "@testing-library/react";
 import { DrivingArrowHolds } from "../ui/hud/driving-arrow-holds";
 import { DrivingArrowControls, TouchControls, visibleTouchActions } from "../ui/hud/touch-controls";
+import {DesktopControls} from "../ui/hud/desktop-controls";
 import { MovementInputArbiter } from "../game/input/movement-input-arbiter";
 import { stepDriveControl } from "../game/vehicles/drive-kinematics";
 import { defaults, normalizeDrivingTouchLayout } from "../ui/menus/settings-state";
@@ -18,6 +19,20 @@ function pointer(element: Element, type: string, pointerId: number) {
 }
 afterEach(()=>cleanup());
 describe("UI-DRIVE-009 optional vehicle arrows",()=>{
+  it("uses the mobile joystick and identical action-button classes on desktop without directional buttons",()=>{
+    const send=vi.fn();
+    const mobile=render(<TouchControls settings={defaults} send={send} onAction={()=>{}} armed/>);
+    const mobileJump=mobile.container.querySelector(".gtd-action-jump");
+    expect(mobile.getByRole("group",{name:"Movement joystick"})).toBeTruthy();
+    mobile.unmount();
+    const desktop=render(<DesktopControls send={send} onAction={()=>{}} armed/>);
+    const desktopJump=desktop.container.querySelector(".gtd-action-jump");
+    expect(desktop.getByRole("group",{name:"Movement joystick"})).toBeTruthy();
+    expect(desktopJump?.className).toBe(mobileJump?.className);
+    expect(desktop.container.querySelector(".desktop-movement-pad")).toBeNull();
+    expect(desktop.queryByRole("button",{name:/Move forward|Move left|Move right|Move back/})).toBeNull();
+    expect(desktop.getByRole("button",{name:"Low crouch"})).toBeTruthy();
+  });
   it("shows a latched low-crouch toggle only while armed and sends its selected state",()=>{
     const send=vi.fn();
     const {rerender}=render(<TouchControls settings={defaults} send={send} onAction={()=>{}} armed={false}/>);
