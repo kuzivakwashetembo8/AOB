@@ -1,6 +1,6 @@
 # COMBAT-001 follow-up — Reduce third-person shooting crouch depth
 
-**Status:** Logged; implementation in progress on the existing COMBAT-001 feature branch  
+**Status:** Dual crouch implementation committed; automated validation and visual acceptance pending on the existing COMBAT-001 feature branch  
 **Date:** 27 November 2026  
 **Parent:** [COMBAT-001 — Third-Person Shooting Posture and Locomotion](COMBAT-001-Third-Person-Shooting-Posture-and-Locomotion.md)  
 **Branch:** `feature/combat-001-third-person-shooting-posture`  
