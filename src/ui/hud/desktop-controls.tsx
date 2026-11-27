@@ -1,5 +1,5 @@
 import {PistolIcon009} from "./pistol-icon-009";
-import {useState} from "react";
+import {useEffect,useState} from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -88,6 +88,7 @@ export function DesktopControls({
   elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
   const [lowCrouch,setLowCrouch]=useState(false);
+  useEffect(()=>{if(!armed)setLowCrouch(false);},[armed]);
   return (
     <div className="desktop-controls" aria-label="Desktop game controls">
       {passenger&&<div className="desktop-movement-pad" aria-label="Manual Sedan free driving controls">
@@ -117,7 +118,7 @@ export function DesktopControls({
           flying ? ["sprint","jump","descend"].includes(action) :
           ["jump","sprint","combat"].includes(action)
         ).filter(a=>a.action!=="combat"||combatEnabled)
-          .flatMap(a=>a.action==="sprint"&&armed?[a,{action:"crouch" as GameAction,label:"Low crouch",keyHint:"LOW",icon:ArrowDown}]:[a])
+          .flatMap(a=>a.action==="sprint"&&armed&&!driving&&!flying?[a,{action:"crouch" as GameAction,label:"Low crouch",keyHint:"LOW",icon:ArrowDown}]:[a])
           .map(({ action, label, keyHint, icon: BaseIcon }) => {
           const Icon=action==="combat"&&armed?PistolIcon009:BaseIcon;
           const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
