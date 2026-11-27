@@ -3,6 +3,7 @@
  */
 export const GALLERY_VEHICLES_008 = [
   {id:"sedan",name:"Four Door Sedan",status:"ACCEPTED",note:"Owner accepted 26 October 2026; deployed as the only moving traffic body on GEN-VEH-009",paint:"#B7353B"},
+  {id:"mustang",name:"Ford Mustang",status:"NEW MODEL · PREVIEW",note:"Owner-supplied Mustang.glb committed to main on 27 November 2026; showroom preview only, not yet approved for traffic.",paint:"#B7353B"},
   {id:"hatchback",name:"Fourd Confusion Hatchback",status:"REPAIR REQUIRED",note:"Manual source-informed exterior reconstruction pending",paint:"#F0F1EB"},
   {id:"dodge",name:"Dodge HP",status:"REPAIR REQUIRED",note:"Incomplete body shell in GEN-VEH-007 preview",paint:"#B63232"},
   {id:"rover",name:"Range Rover Sport 2018",status:"NEEDS WORK",note:"Previously accepted source extraction retained; overall vehicle not approved for this traffic batch",paint:"#BFC9D1"},
