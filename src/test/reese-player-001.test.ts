@@ -3,10 +3,25 @@ import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {
  REESE_PLAYER_PATH_001,REESE_PLAYER_EXPECTED_ANIMATIONS_001,
- REESE_PLAYER_HEIGHT_001,findReeseClip001,reeseGroundClip001,
+ REESE_PLAYER_HEIGHT_001,findReeseClip001,reeseGroundClip001,reeseFootGroundCorrection001,
  reeseIsLongGun001,reeseLongGunClipKey001,reeseCanFire001,
 } from "../game/character/reese-player-001";
 const read=(path:string)=>readFileSync(resolve(process.cwd(),path),"utf8");
+
+describe("REESE-001 animated foot grounding",()=>{
+ it("lifts only the rendered rig when the lowest animated sole is below the floor",()=>{
+  expect(reeseFootGroundCorrection001(0,[.02,.01])).toBe(0);
+  expect(reeseFootGroundCorrection001(0,[-.08,.01])).toBeCloseTo(.08);
+ });
+ it("is stable after the visual correction has been applied",()=>{
+  expect(reeseFootGroundCorrection001(0,[.04,.13],.12)).toBeCloseTo(.12);
+ });
+ it("caps abnormal corrections and safely handles missing foot samples",()=>{
+  expect(reeseFootGroundCorrection001(0,[-.5])).toBe(.18);
+  expect(reeseFootGroundCorrection001(0,[])).toBe(0);
+  expect(reeseFootGroundCorrection001(Number.NaN,[-.1])).toBe(0);
+ });
+});
 
 describe("REESE-001 playable actor replacement",()=>{
  it("references exactly the owner-committed asset and requires the full clip set",()=>{
