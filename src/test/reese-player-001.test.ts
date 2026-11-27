@@ -1,9 +1,11 @@
 import {describe,it,expect} from "vitest";
+import { Quaternion, Vector3 } from "@babylonjs/core";
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {
  REESE_PLAYER_PATH_001,REESE_PLAYER_EXPECTED_ANIMATIONS_001,
  REESE_PLAYER_HEIGHT_001,findReeseClip001,reeseGroundClip001,reeseFootGroundCorrection001,
+ reeseFootContactPoint001,reeseFootGroundSamples001,
  reeseIsLongGun001,reeseLongGunClipKey001,reeseCanFire001,
 } from "../game/character/reese-player-001";
 const read=(path:string)=>readFileSync(resolve(process.cwd(),path),"utf8");
@@ -21,6 +23,24 @@ describe("REESE-001 animated foot grounding",()=>{
   expect(reeseFootGroundCorrection001(0,[])).toBe(0);
   expect(reeseFootGroundCorrection001(Number.NaN,[-.1])).toBe(0);
  });
+ it("rotates the calibrated sole point with the animated foot bone",()=>{
+  const point=reeseFootContactPoint001(
+   new Vector3(0,1,0),Quaternion.RotationAxis(new Vector3(0,0,1),Math.PI/2),
+   new Vector3(0,-1,0),
+  );
+  expect(point.x).toBeCloseTo(1);
+  expect(point.y).toBeCloseTo(1);
+ });
+ it("adds rotation-aware probes for standing but preserves low-crouch grounding samples",()=>{
+  const legacy=[.02,.01],rotated=[-.08,.03];
+  const standing=reeseFootGroundSamples001("idle",false,legacy,rotated);
+  const lowCrouch=reeseFootGroundSamples001("idle",true,legacy,rotated);
+  expect(standing).toEqual([...legacy,...rotated]);
+  expect(reeseFootGroundCorrection001(0,standing)).toBeCloseTo(.08);
+  expect(lowCrouch).toEqual(legacy);
+  expect(reeseFootGroundCorrection001(0,lowCrouch)).toBe(0);
+  expect(reeseFootGroundSamples001("walk",false,legacy,rotated)).toEqual(legacy);
+ });
 });
 
 describe("REESE-001 rendered ground contact wiring",()=>{
@@ -28,7 +48,11 @@ describe("REESE-001 rendered ground contact wiring",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain("scene.onBeforeRenderObservable.add");
   expect(actor).toContain("footGroundOffsets");
-  expect(actor).toContain("bone.getAbsolutePosition");
+  expect(actor).toContain('["foot","toeBase","toeEnd"]');
+  expect(actor).toContain("bone.getPosition(Space.WORLD,supportHandReferenceMesh)");
+  expect(actor).toContain("bone.getRotationQuaternion(Space.WORLD,supportHandReferenceMesh)");
+  expect(actor).toContain("localSoleOffset");
+  expect(actor).toContain("reeseFootGroundSamples001(currentGait,lowCrouch,legacySoleYs,rotatedSoleYs)");
   expect(actor).toContain("fit.position.y=fitBaseY+fitGroundCorrection");
   expect(actor).not.toContain("anchor.position.y+=fitGroundCorrection");
  });
