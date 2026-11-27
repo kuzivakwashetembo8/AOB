@@ -6,6 +6,7 @@ import {
  REESE_PLAYER_PATH_001,REESE_PLAYER_EXPECTED_ANIMATIONS_001,
  REESE_PLAYER_HEIGHT_001,findReeseClip001,reeseGroundClip001,reeseFootGroundCorrection001,
  reeseFootContactPoint001,reeseFootGroundSamples001,
+ reeseGunReadyLegAngle001,reeseGunReadyLegRotation001,
  reeseIsLongGun001,reeseLongGunClipKey001,reeseCanFire001,
 } from "../game/character/reese-player-001";
 const read=(path:string)=>readFileSync(resolve(process.cwd(),path),"utf8");
@@ -57,6 +58,34 @@ describe("REESE-001 rendered ground contact wiring",()=>{
   expect(actor).toContain("reeseFootGroundSamples001(currentGait,lowCrouch,legacySoleYs,rotatedSoleYs)");
   expect(actor).toContain("fit.position.y=fitBaseY+fitGroundCorrection");
   expect(actor).not.toContain("anchor.position.y+=fitGroundCorrection");
+ });
+});
+
+describe("REESE-001 armed standing leg stance",()=>{
+ it("places the right thigh forward and the left thigh behind while counter-rotating the shins",()=>{
+  const identity=Quaternion.Identity();
+  const rightThigh=reeseGunReadyLegRotation001("mixamorig:RightUpLeg",identity);
+  const rightShin=reeseGunReadyLegRotation001("mixamorig:RightLeg",identity);
+  const leftThigh=reeseGunReadyLegRotation001("mixamorig:LeftUpLeg",identity);
+  const leftShin=reeseGunReadyLegRotation001("mixamorig:LeftLeg",identity);
+  const down=new Vector3(0,-1,0);
+  expect(reeseGunReadyLegAngle001("mixamorig:RightUpLeg")).toBeCloseTo(-.12);
+  expect(reeseGunReadyLegAngle001("mixamorig:LeftUpLeg")).toBeCloseTo(.08);
+  expect(down.applyRotationQuaternion(rightThigh).z).toBeGreaterThan(0);
+  expect(down.applyRotationQuaternion(leftThigh).z).toBeLessThan(0);
+  expect(down.applyRotationQuaternion(rightThigh.multiply(rightShin)).z).toBeCloseTo(0);
+  expect(down.applyRotationQuaternion(leftThigh.multiply(leftShin)).z).toBeCloseTo(0);
+  expect(reeseGunReadyLegAngle001("mixamorig:Spine2")).toBe(0);
+ });
+ it("applies the stance only to standing gun-ready idle and stationary-fire blends, not cover or walk clips",()=>{
+  const actor=read("src/game/character/reese-player-001.ts");
+  expect(actor).toContain("if(gunReadyStance)softened=applyGunReadyLegStance001(softened,targetName)");
+  expect(actor).toContain("groups.rifleCrouchAim,groups.rifleAim,groups.idle,groups.rifleAim?.to,.12,true");
+  expect(actor).toContain("groups.rifleCrouchAim,groups.rifleFire,groups.idle,undefined,.12,true");
+  expect(actor).toContain("groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12,true");
+  expect(actor).toContain("groups.rifleCrouchAim,groups.pistolFire,groups.idle,undefined,.12,true");
+  expect(actor).toContain("groups.rifleCrouchWalk,groups.rifleWalk,groups.idle,groups.rifleWalk?.to,.12);");
+  expect(actor).toContain("groups.rifleCrouchAim,groups.rifleFire,groups.idle,undefined);");
  });
 });
 
