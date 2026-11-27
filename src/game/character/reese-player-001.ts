@@ -383,6 +383,7 @@ export function createReesePlayer001(scene:Scene,
   fit.scaling.setAll(scale);
   // Ara exports +Y up, +Z forward. No Voight-specific PI flip.
   fit.position.set(-(minX+maxX)*.5*scale,-minY*scale,-(minZ+maxZ)*.5*scale);
+  const bones=instance.skeletons.flatMap(skeleton=>skeleton.bones);
   fitBaseY=fit.position.y;
   fitGroundCorrection=0;
   // Calibrate each ankle-to-sole distance against the GLB's bind-pose floor.
@@ -418,7 +419,6 @@ export function createReesePlayer001(scene:Scene,
   }
   // Link a stable Babylon transform to Reese's actual right-hand bone. The
   // procedural LMS weapons use the web-of-thumb as their local origin.
-  const bones=instance.skeletons.flatMap(skeleton=>skeleton.bones);
   const rightHand=bones.find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
   const leftHand=bones.find(bone=>/(left.?hand|hand[._:-]?l|l[._:-]?hand)$/i.test(bone.name));
   if(rightHand){
