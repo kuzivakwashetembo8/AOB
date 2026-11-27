@@ -196,12 +196,16 @@ export function createReesePlayer001(scene:Scene,
   for(const [id,root] of Object.entries(weaponRoots))
    root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
  }
- const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire"|"rifleIdle"|"rifleAim"|"rifleFire"|"rifleWalk"|"rifleRun"|"rifleSprint"|"rifleCrouchAim"|"rifleCrouchWalk"|"pistolCrouchAim"|"pistolCrouchWalk"|"rifleCrouchFire"|"rifleCrouchWalkFire"|"pistolCrouchFire"|"pistolCrouchWalkFire",AnimationGroup|null>={
+ const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire"|"rifleIdle"|"rifleAim"|"rifleFire"|"rifleWalk"|"rifleRun"|"rifleSprint"|"rifleCrouchAim"|"rifleCrouchWalk"|"pistolCrouchAim"|"pistolCrouchWalk"|"rifleCrouchFire"|"rifleCrouchWalkFire"|"pistolCrouchFire"|"pistolCrouchWalkFire"|"rifleCrouchAimMinimal"|"rifleCrouchWalkMinimal"|"rifleCrouchFireMinimal"|"rifleCrouchWalkFireMinimal"|"pistolCrouchAimMinimal"|"pistolCrouchWalkMinimal"|"pistolCrouchFireMinimal"|"pistolCrouchWalkFireMinimal",AnimationGroup|null>={
   idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,
   pistolAim:null,pistolFire:null,rifleIdle:null,rifleAim:null,rifleFire:null,
   rifleWalk:null,rifleRun:null,rifleSprint:null,rifleCrouchAim:null,rifleCrouchWalk:null,
   pistolCrouchAim:null,pistolCrouchWalk:null,rifleCrouchFire:null,rifleCrouchWalkFire:null,
   pistolCrouchFire:null,pistolCrouchWalkFire:null,
+  rifleCrouchAimMinimal:null,rifleCrouchWalkMinimal:null,
+  rifleCrouchFireMinimal:null,rifleCrouchWalkFireMinimal:null,
+  pistolCrouchAimMinimal:null,pistolCrouchWalkMinimal:null,
+  pistolCrouchFireMinimal:null,pistolCrouchWalkFireMinimal:null,
  };
  const report={source:REESE_PLAYER_PATH_001,animations:0,scale:1,
   height:REESE_PLAYER_HEIGHT_001,activeClip:"idle"};
