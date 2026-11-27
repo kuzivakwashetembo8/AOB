@@ -85,7 +85,8 @@ describe("REESE-001 armed standing leg stance",()=>{
   expect(actor).toContain("groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12,true");
   expect(actor).toContain("groups.rifleCrouchAim,groups.pistolFire,groups.idle,undefined,.12,true");
   expect(actor).toContain("groups.rifleCrouchWalk,groups.rifleWalk,groups.idle,groups.rifleWalk?.to,.12);");
-  expect(actor).toContain("groups.rifleCrouchAim,groups.rifleFire,groups.idle,undefined);");
+  expect(actor).toContain("groups.rifleCrouchFire=createCrouchedFireGroup001");
+  expect(actor).toContain("groups.rifleCrouchAim,groups.rifleFire,groups.idle);");
  });
 });
 
