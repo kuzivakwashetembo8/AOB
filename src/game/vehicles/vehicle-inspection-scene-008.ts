@@ -144,9 +144,11 @@ export function createVehicleInspectionScene008(canvas:HTMLCanvasElement):Vehicl
    return "LOCKED GEN-VEH ACCEPTED SOURCE REFERENCE // source-native geometry";
  }
  function view(perspective:Perspective008){
+   // Vehicle axes: +Y up, +Z forward, -Z rear, -X vehicle-left, +X vehicle-right.
+   // ArcRotateCamera alpha selects the camera side: alpha 0 is +X; PI is -X.
    const angles:Record<Perspective008,[number,number]>={
      front:[Math.PI/2,Math.PI*.46],rear:[-Math.PI/2,Math.PI*.46],
-     left:[0,Math.PI*.48],right:[Math.PI,Math.PI*.48],
+     left:[Math.PI,Math.PI*.48],right:[0,Math.PI*.48],
      top:[Math.PI/2,.19],threeQuarter:[Math.PI/4,Math.PI*.39]
    };
    const [alpha,beta]=angles[perspective];camera.alpha=alpha;camera.beta=beta;
