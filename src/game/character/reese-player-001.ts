@@ -10,6 +10,7 @@ import {
   AbstractMesh, AnimationGroup, Material, Mesh, MultiMaterial, TransformNode, loadAssetContainerAsync,
   Bone, Quaternion, Vector3, type AssetContainer, type Camera, type Scene,
 } from "@babylonjs/core";
+import { Space } from "@babylonjs/core/Maths/math.axis";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
 import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
@@ -51,6 +52,23 @@ export function reeseFootGroundCorrection001(
  const finite=footSoleYs.filter(Number.isFinite).map(y=>y-currentCorrection);
  if(!Number.isFinite(groundY)||!finite.length)return 0;
  return Math.max(0,Math.min(.18,groundY-Math.min(...finite)));
+}
+
+/** Transform a bind-pose sole point with its animated foot bone. */
+export function reeseFootContactPoint001(
+ bonePosition:Vector3,boneRotation:Quaternion,localSoleOffset:Vector3,
+):Vector3{
+ return bonePosition.add(localSoleOffset.applyRotationQuaternion(boneRotation));
+}
+
+/** Keep the accepted cover pose on its existing grounding probes. */
+export function reeseFootGroundSamples001(
+ gait:"idle"|"walk"|"run",lowCrouch:boolean,
+ bindRelativeSoleYs:readonly number[],rotatedSoleYs:readonly number[],
+):number[]{
+ return gait==="idle"&&!lowCrouch
+  ?[...bindRelativeSoleYs,...rotatedSoleYs]
+  :[...bindRelativeSoleYs];
 }
 
 export function reeseGroundClip001(
@@ -159,7 +177,7 @@ export function createReesePlayer001(scene:Scene,
  let fit:TransformNode|null=null;
  let fitBaseY=0,fitGroundCorrection=0,groundingEnabled=false;
  let groundingObserver:import("@babylonjs/core").Observer<Scene>|null=null;
- const footGroundOffsets:{bone:Bone;soleOffset:number}[]=[];
+ const footGroundOffsets:{bone:Bone;soleOffset:number;localSoleOffset:Vector3}[]=[];
  let active:AnimationGroup|null=null;
  let outgoing:AnimationGroup|null=null;
  let transition=1;
@@ -414,18 +432,24 @@ export function createReesePlayer001(scene:Scene,
   }else{
    console.error("[LMS-GUN-001] Reese right-hand bone was not found; extracted weapons will remain unequipped.");
   }
-  // Calibrate each ankle-to-sole distance against the GLB's bind-pose floor.
+  // Calibrate a floor-contact point beneath each foot, toe base and toe tip
+  // in bone-local space. Rotating that point with the animated bone detects
+  // sole penetration that ankle/toe-joint Y samples cannot see.
   // The Rapier capsule remains authoritative; only the rendered rig is lifted.
   const footBones=["left","right"].flatMap(side=>
-   ["foot","toe"].map(part=>bones.find(bone=>
-    new RegExp(side+".*"+part+"|"+part+".*"+side,"i").test(bone.name))))
+   ["foot","toeBase","toeEnd"].map(part=>bones.find(bone=>
+    keyOf(bone.name)===keyOf(side+part))))
    .filter((bone):bone is Bone=>bone!==undefined);
   if(supportHandReferenceMesh&&footBones.length){
    fit.computeWorldMatrix(true);
    supportHandReferenceMesh.computeWorldMatrix(true);
    for(const bone of footBones){
-    const bindFoot=bone.getAbsolutePosition(supportHandReferenceMesh);
-    footGroundOffsets.push({bone,soleOffset:bindFoot.y-anchor.position.y});
+    const bindFoot=bone.getPosition(Space.WORLD,supportHandReferenceMesh);
+    const bindRotation=bone.getRotationQuaternion(Space.WORLD,supportHandReferenceMesh)??Quaternion.Identity();
+    const bindFloorPoint=new Vector3(bindFoot.x,anchor.position.y,bindFoot.z);
+    const localSoleOffset=bindFloorPoint.subtract(bindFoot)
+     .applyRotationQuaternion(Quaternion.Inverse(bindRotation));
+    footGroundOffsets.push({bone,soleOffset:bindFoot.y-anchor.position.y,localSoleOffset});
    }
    groundingObserver=scene.onBeforeRenderObservable.add(()=>{
     if(!fit||!supportHandReferenceMesh||!groundingEnabled||!controlled||
@@ -437,8 +461,14 @@ export function createReesePlayer001(scene:Scene,
     }
     fit.computeWorldMatrix(true);
     supportHandReferenceMesh.computeWorldMatrix(true);
-    const soleYs=footGroundOffsets.map(({bone,soleOffset})=>
-     bone.getAbsolutePosition(supportHandReferenceMesh!).y-soleOffset);
+    const legacySoleYs=footGroundOffsets.map(({bone,soleOffset})=>
+     bone.getPosition(Space.WORLD,supportHandReferenceMesh!).y-soleOffset);
+    const rotatedSoleYs=footGroundOffsets.map(({bone,localSoleOffset})=>{
+     const bonePosition=bone.getPosition(Space.WORLD,supportHandReferenceMesh!);
+     const boneRotation=bone.getRotationQuaternion(Space.WORLD,supportHandReferenceMesh!)??Quaternion.Identity();
+     return reeseFootContactPoint001(bonePosition,boneRotation,localSoleOffset).y;
+    });
+    const soleYs=reeseFootGroundSamples001(currentGait,lowCrouch,legacySoleYs,rotatedSoleYs);
     fitGroundCorrection=reeseFootGroundCorrection001(
      anchor.position.y,soleYs,fitGroundCorrection);
     fit.position.y=fitBaseY+fitGroundCorrection;
