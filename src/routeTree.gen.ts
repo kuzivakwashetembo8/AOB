@@ -15,6 +15,7 @@ import { Route as FirstLightComparisonRouteImport } from './routes/first-light-c
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SettingsAnalyticsRouteImport } from './routes/settings.analytics'
 import { Route as VehiclesRouteImport } from './routes/vehicles'
+import { Route as CarsRouteImport } from './routes/cars'
 import { Route as GunsRouteImport } from './routes/guns'
 import { Route as WorldRouteImport } from './routes/world'
 import { Route as NorthHeightsPreviewRouteImport } from './routes/north-heights-preview'
@@ -49,6 +50,11 @@ const VehiclesRoute = VehiclesRouteImport.update({
   path: '/vehicles',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CarsRoute = CarsRouteImport.update({
+  id: '/cars',
+  path: '/cars',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GunsRoute = GunsRouteImport.update({
   id: '/guns',
   path: '/guns',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/settings/analytics': typeof SettingsAnalyticsRoute
   '/vehicles': typeof VehiclesRoute
+  '/cars': typeof CarsRoute
   '/guns': typeof GunsRoute
   '/world': typeof WorldRoute
   '/north-heights-preview': typeof NorthHeightsPreviewRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/settings/analytics': typeof SettingsAnalyticsRoute
   '/vehicles': typeof VehiclesRoute
+  '/cars': typeof CarsRoute
   '/guns': typeof GunsRoute
   '/world': typeof WorldRoute
   '/north-heights-preview': typeof NorthHeightsPreviewRoute
@@ -101,10 +109,10 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/game' | '/first-light-comparison' | '/settings' | '/settings/analytics' | '/vehicles' | '/guns' | '/world' | '/north-heights-preview'
+  fullPaths: '/' | '/game' | '/first-light-comparison' | '/settings' | '/settings/analytics' | '/vehicles' | '/cars' | '/guns' | '/world' | '/north-heights-preview'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/game' | '/first-light-comparison' | '/settings' | '/settings/analytics' | '/vehicles' | '/guns' | '/world' | '/north-heights-preview'
-  id: '__root__' | '/' | '/game' | '/first-light-comparison' | '/settings' | '/settings/analytics' | '/vehicles' | '/guns' | '/world' | '/north-heights-preview'
+  to: '/' | '/game' | '/first-light-comparison' | '/settings' | '/settings/analytics' | '/vehicles' | '/cars' | '/guns' | '/world' | '/north-heights-preview'
+  id: '__root__' | '/' | '/game' | '/first-light-comparison' | '/settings' | '/settings/analytics' | '/vehicles' | '/cars' | '/guns' | '/world' | '/north-heights-preview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -114,6 +122,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SettingsAnalyticsRoute: typeof SettingsAnalyticsRoute
   VehiclesRoute: typeof VehiclesRoute
+  CarsRoute: typeof CarsRoute
   GunsRoute: typeof GunsRoute
   WorldRoute: typeof WorldRoute
   NorthHeightsPreviewRoute: typeof NorthHeightsPreviewRoute
@@ -163,6 +172,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VehiclesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cars': {
+      id: '/cars'
+      path: '/cars'
+      fullPath: '/cars'
+      preLoaderRoute: typeof CarsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/guns': {
       id: '/guns'
       path: '/guns'
@@ -194,6 +210,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SettingsAnalyticsRoute: SettingsAnalyticsRoute,
   VehiclesRoute: VehiclesRoute,
+  CarsRoute: CarsRoute,
   GunsRoute: GunsRoute,
   WorldRoute: WorldRoute,
   NorthHeightsPreviewRoute: NorthHeightsPreviewRoute,
