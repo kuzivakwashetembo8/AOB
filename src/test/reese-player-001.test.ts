@@ -14,7 +14,7 @@ describe("REESE-001 animated foot grounding",()=>{
   expect(reeseFootGroundCorrection001(0,[-.08,.01])).toBeCloseTo(.08);
  });
  it("is stable after the visual correction has been applied",()=>{
-  expect(reeseFootGroundCorrection001(0,[.04,.13],.12)).toBeCloseTo(.12);
+  expect(reeseFootGroundCorrection001(0,[0,.09],.12)).toBeCloseTo(.12);
  });
  it("caps abnormal corrections and safely handles missing foot samples",()=>{
   expect(reeseFootGroundCorrection001(0,[-.5])).toBe(.18);
