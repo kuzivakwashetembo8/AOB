@@ -23,6 +23,8 @@ export function DesktopControls({
   passenger?:boolean;
   armed?:boolean;
   combatEnabled?:boolean;
+  canEnterVehicle?:boolean;
+  canExitVehicle?:boolean;
 }){
   const [lowCrouch,setLowCrouch]=useState(false);
   useEffect(()=>{if(!armed)setLowCrouch(false);},[armed]);
