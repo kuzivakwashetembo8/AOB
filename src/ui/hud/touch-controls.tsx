@@ -1,5 +1,5 @@
 import {PistolIcon009} from "./pistol-icon-009";
-import { useEffect, useRef, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { Hand, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Crosshair, Footprints, Car, Zap, HandFist } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameAction, GameCommand } from "@/game/core/types";
@@ -258,6 +258,7 @@ export function TouchControls({
     "--control-scale": settings.scale / 100,
     "--joystick-size": `${settings.joystickSize}px`,
   } as CSSProperties;
+  const [lowCrouch,setLowCrouch]=useState(false);
   const arrowMode = driving && !passenger && settings.drivingTouchLayout === "arrows";
   return (
     <div
@@ -278,11 +279,15 @@ export function TouchControls({
             className={`gtd-uniform-action gtd-action-${action}`}
             aria-label={actualLabel}
             title={actualLabel}
+            aria-pressed={action==="crouch"?lowCrouch:undefined}
             key={action}
             onPointerDown={(event) => {
               event.preventDefault();
               event.currentTarget.setPointerCapture(event.pointerId);
-              send({ type: "action", action, pressed: true });
+              if(action==="crouch"){
+                const next=!lowCrouch;setLowCrouch(next);
+                send({ type: "action", action, pressed: next });
+              }else send({ type: "action", action, pressed: true });
               onAction(action);
               if (settings.haptics) navigator.vibrate?.(12);
             }}
@@ -291,9 +296,15 @@ export function TouchControls({
             onLostPointerCapture={() => {if(action!=="crouch")send({ type: "action", action, pressed: false });}}
             onClick={(event) => {
               if (event.detail === 0) {
-                send({ type: "action", action, pressed: true });
-                onAction(action);
-                if(action!=="crouch")send({ type: "action", action, pressed: false });
+                if(action==="crouch"){
+                  const next=!lowCrouch;setLowCrouch(next);
+                  send({ type: "action", action, pressed: next });
+                  onAction(action);
+                }else{
+                  send({ type: "action", action, pressed: true });
+                  onAction(action);
+                  send({ type: "action", action, pressed: false });
+                }
               }
             }}
           >
