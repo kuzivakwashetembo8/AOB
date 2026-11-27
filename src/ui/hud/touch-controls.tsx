@@ -259,6 +259,7 @@ export function TouchControls({
     "--joystick-size": `${settings.joystickSize}px`,
   } as CSSProperties;
   const [lowCrouch,setLowCrouch]=useState(false);
+  useEffect(()=>{if(!armed)setLowCrouch(false);},[armed]);
   const arrowMode = driving && !passenger && settings.drivingTouchLayout === "arrows";
   return (
     <div
@@ -269,7 +270,7 @@ export function TouchControls({
       <div className="touch-actions">
         {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle)
           .filter(a=>a.action!=="combat"||combatEnabled)
-          .flatMap(a=>a.action==="sprint"&&armed?[a,{action:"crouch" as GameAction,label:"Low crouch",icon:ArrowDown}]:[a])
+          .flatMap(a=>a.action==="sprint"&&armed&&!driving&&!flying?[a,{action:"crouch" as GameAction,label:"Low crouch",icon:ArrowDown}]:[a])
           .map(({ action, label, icon: BaseIcon }) => {
           const Icon=action==="combat"&&armed?PistolIcon009:BaseIcon;
           const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
