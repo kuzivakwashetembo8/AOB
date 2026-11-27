@@ -59,7 +59,7 @@ describe("REESE-001 playable actor replacement",()=>{
   expect(actor).toContain('createCrouchedFireGroup001');
   expect(actor).toContain('root?.metadata?.gripL');
   expect(actor).toContain('supportHandBone.getAbsolutePosition(supportHandReferenceMesh)');
-  expect(actor).toContain('else play(groups.pistolAim??groups.idle)');
+  expect(actor).toContain('groups.pistolCrouchAim??groups.pistolAim??groups.idle');
  });
  it("derives gait and airborne states from the existing physical controller",()=>{
   expect(reeseGroundClip001(0,false,true,0)).toBe("idle");
