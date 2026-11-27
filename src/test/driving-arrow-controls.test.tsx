@@ -18,6 +18,21 @@ function pointer(element: Element, type: string, pointerId: number) {
 }
 afterEach(()=>cleanup());
 describe("UI-DRIVE-009 optional vehicle arrows",()=>{
+  it("shows a latched low-crouch toggle only while armed and sends its selected state",()=>{
+    const send=vi.fn();
+    const {rerender}=render(<TouchControls settings={defaults} send={send} onAction={()=>{}} armed={false}/>);
+    expect(screen.queryByRole("button",{name:"Low crouch"})).toBeNull();
+    rerender(<TouchControls settings={defaults} send={send} onAction={()=>{}} armed={true}/>);
+    const crouch=screen.getByRole("button",{name:"Low crouch"});
+    expect(crouch).toBeTruthy();
+    fireEvent.click(crouch);
+    expect(send).toHaveBeenCalledWith({type:"action",action:"crouch",pressed:true});
+    expect(crouch.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(crouch);
+    expect(send).toHaveBeenLastCalledWith({type:"action",action:"crouch",pressed:false});
+    rerender(<TouchControls settings={defaults} send={send} onAction={()=>{}} armed={false}/>);
+    expect(screen.queryByRole("button",{name:"Low crouch"})).toBeNull();
+  });
   it("keeps vehicle controls outside the three-action on-foot row",()=>{
     expect(visibleTouchActions(true).map(a=>a.action)).toEqual([]);
     expect(visibleTouchActions(false).map(a=>a.action)).toEqual(["jump","sprint","combat"]);
