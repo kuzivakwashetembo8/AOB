@@ -441,6 +441,8 @@ export function createReesePlayer001(scene:Scene,
     fitGroundCorrection=reeseFootGroundCorrection001(
      anchor.position.y,soleYs,fitGroundCorrection);
     fit.position.y=fitBaseY+fitGroundCorrection;
+    fit.computeWorldMatrix(true);
+    supportHandReferenceMesh.computeWorldMatrix(true);
    });
   }else{
    console.warn("[REESE-001] Animated foot grounding unavailable: left/right foot bones or skinned reference mesh missing.");
