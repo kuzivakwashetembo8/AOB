@@ -911,6 +911,11 @@ export async function createNorthHeightsCity8(
       if(pressed&&action==="vehicle"){
         toggleVehicle();return;
       }
+      if(action==="crouch"){
+        if(!machineView&&!ridingSedanId&&!liftFrame?.traveling&&!genericLiftFrame?.traveling)
+          actor?.setLowCrouch(pressed);
+        return;
+      }
       if(action==="combat"){
         if(!pressed||uiBlocked||machineView||ridingSedanId||liftFrame?.traveling||genericLiftFrame?.traveling)return;
         const kind=actor?.triggerCombat();
