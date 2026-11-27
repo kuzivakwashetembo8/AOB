@@ -277,7 +277,7 @@ export function TouchControls({
           return (
           <Button
             variant="control"
-            className={`gtd-uniform-action gtd-action-${action}`}
+            className={`desktop-control-button gtd-uniform-action gtd-action-${action}`}
             aria-label={actualLabel}
             title={actualLabel}
             aria-pressed={action==="crouch"?lowCrouch:undefined}
