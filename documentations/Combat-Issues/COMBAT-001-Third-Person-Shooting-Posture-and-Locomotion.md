@@ -1,6 +1,6 @@
 # COMBAT-001 — Third-Person Shooting Posture and Locomotion
 
-**Status:** Implemented on feature branch; automated validation passed; runtime visual acceptance pending  
+**Status:** Revised after visual rejection; automated validation and runtime visual acceptance pending  
 **Area:** Player combat presentation — third person  
 **Target release:** 1 December 2026  
 **Related direction:** [AOB Combat-First Direction Addendum (26 November 2026)](../AOB-Combat-First-Direction-Addendum-2026-11-26.md)
@@ -66,3 +66,12 @@ Regression coverage was added in `src/test/reese-player-001.test.ts`.
 **Automated validation:** `npx tsc --noEmit` passed; Vitest passed **809 tests across 197 files**; Vite/Nitro production build completed and the Vercel preview deployment reached READY.
 
 **Runtime acceptance remains pending.** The available character exercise route is the North Heights preview, where Reese is currently instantiated. This work does not claim LMS production-mode integration. Do not check off the visual acceptance criteria until stationary fire, moving fire, run/fire rejection, transitions, foot contact, and the normal third-person camera have been inspected in that runtime.
+
+
+## Visual rejection follow-up — 27 November 2026
+
+The initial implementation was rejected because the authored crouch clips produced an overly deep, full-bend posture. The accepted visual target is the COD crouch reference committed on `main` in commit `d4ec01e358e1c78de0ef043145c8538b4d7ab937`; the AOB crouch image in that commit is the rejected example.
+
+The follow-up implementation blends lower-body crouch animation keys toward Reese's neutral idle pose (38% crouch contribution) for both rifle and pistol stationary/moving shooting compositions. This retains the authored shooting upper body while reducing knee/hip flexion and pelvis lowering. See [COMBAT-001 follow-up — Reduce crouch depth](COMBAT-001-Follow-up-Reduce-Crouch-Depth.md).
+
+**Validation status:** pending a fresh Vercel build and visual inspection. PR #12 remains draft and must not be merged before visual acceptance.
