@@ -72,6 +72,6 @@ Regression coverage was added in `src/test/reese-player-001.test.ts`.
 
 The initial implementation was rejected because the authored crouch clips produced an overly deep, full-bend posture. The accepted visual target is the COD crouch reference committed on `main` in commit `d4ec01e358e1c78de0ef043145c8538b4d7ab937`; the AOB crouch image in that commit is the rejected example.
 
-The follow-up implementation blends lower-body crouch animation keys toward Reese's neutral idle pose (38% crouch contribution) for both rifle and pistol stationary/moving shooting compositions. This retains the authored shooting upper body while reducing knee/hip flexion and pelvis lowering. See [COMBAT-001 follow-up — Reduce crouch depth](COMBAT-001-Follow-up-Reduce-Crouch-Depth.md).
+The follow-up now treats the previous deeper posture as a dedicated low-crouch/cover state instead of discarding it. Default gun handling uses a minimal 12% crouch contribution for stationary/moving rifle and pistol aim/fire compositions. The explicit low-crouch toggle selects the previous 38% crouch contribution (and the corresponding authored deep rifle crouch pose). Touch and desktop HUDs show a down-arrow toggle directly above Sprint while armed; the control is hidden when unarmed, driving, or using detached camera flight. See [COMBAT-001 follow-up — Reduce crouch depth](COMBAT-001-Follow-up-Reduce-Crouch-Depth.md).
 
-**Validation status:** pending a fresh Vercel build and visual inspection. PR #12 remains draft and must not be merged before visual acceptance.
+**Validation status:** source changes and regression coverage are committed; fresh Vercel preview build and visual inspection are pending. PR #12 remains draft and must not be merged before visual acceptance.
