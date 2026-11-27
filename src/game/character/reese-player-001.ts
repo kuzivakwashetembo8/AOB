@@ -71,6 +71,7 @@ export function reeseCanFire001(speed:number,sprint:boolean):boolean{
 function softenCrouchAnimation001(
  animation:import("@babylonjs/core").Animation,
  neutral:import("@babylonjs/core").Animation|null,
+ weight=.38,
 ):import("@babylonjs/core").Animation{
  if(!neutral)return animation;
  const neutralValue=neutral.getKeys()[0]?.value;
@@ -79,9 +80,9 @@ function softenCrouchAnimation001(
   const value=key.value;
   let softened=value;
   if(value instanceof Quaternion&&neutralValue instanceof Quaternion)
-   softened=Quaternion.Slerp(neutralValue,value,.38);
+   softened=Quaternion.Slerp(neutralValue,value,weight);
   else if(value instanceof Vector3&&neutralValue instanceof Vector3)
-   softened=Vector3.Lerp(neutralValue,value,.38);
+   softened=Vector3.Lerp(neutralValue,value,weight);
   return {...key,value:softened};
  });
  animation.setKeys(keys);
@@ -95,7 +96,7 @@ function softenCrouchAnimation001(
  */
 function createCrouchedFireGroup001(
  scene:Scene,name:string,lower:AnimationGroup|null,upper:AnimationGroup|null,
- neutral:AnimationGroup|null,playTo?:number,
+ neutral:AnimationGroup|null,playTo?:number,crouchWeight=.38,
 ):AnimationGroup|null{
  if(!lower||!upper)return null;
  const group=new AnimationGroup(name,scene);
@@ -110,7 +111,7 @@ function createCrouchedFireGroup001(
    String((candidate.target as {name?:string;id?:string}).name??
     (candidate.target as {id?:string}).id??"")===targetName);
   const softened=softenCrouchAnimation001(entry.animation.clone(),
-   neutralTrack?.animation??null);
+   neutralTrack?.animation??null,crouchWeight);
   group.addTargetedAnimation(softened,entry.target);
   lowerCount++;
  }
@@ -157,6 +158,7 @@ export function createReesePlayer001(scene:Scene,
  let stableGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let pendingGait:"idle"|"walk"|"run"|"jump"|"fall"="idle";
  let handItem:"hand"|"gun"="hand";
+ let lowCrouch=false;
  let selectedWeapon:ReeseWeaponId001|null=null;
  let weaponMount:Mesh|null=null;
  let supportHandBone:Bone|null=null;
