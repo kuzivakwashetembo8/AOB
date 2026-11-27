@@ -69,11 +69,12 @@ export function reeseCanFire001(speed:number,sprint:boolean):boolean{
  */
 function createCrouchedFireGroup001(
  scene:Scene,name:string,lower:AnimationGroup|null,upper:AnimationGroup|null,
+ playTo?:number,
 ):AnimationGroup|null{
  if(!lower||!upper)return null;
  const group=new AnimationGroup(name,scene);
  const lowerTrack=/(hips|pelvis|upleg|leg|foot|toebase|spine)$/i;
- const upperTrack=/(spine1|spine2|neck|head|shoulder|arm|forearm|hand|thumb|index|middle|ring|pinky)\\d*$/i;
+ const upperTrack=/(spine1|spine2|neck|head|shoulder|arm|forearm|hand|thumb|index|middle|ring|pinky)\d*$/i;
  let lowerCount=0,upperCount=0;
  for(const entry of lower.targetedAnimations){
   const targetName=String((entry.target as {name?:string;id?:string}).name??
@@ -90,7 +91,7 @@ function createCrouchedFireGroup001(
   upperCount++;
  }
  if(!lowerCount||!upperCount){group.dispose();return null;}
- group.metadata={...(group.metadata??{}),playTo:upper.to};
+ group.metadata={...(group.metadata??{}),playTo:playTo??upper.to};
  return group;
 }
 
@@ -225,9 +226,9 @@ export function createReesePlayer001(scene:Scene,
     crouchWalk:groups.rifleCrouchWalk?.name??null,
    });
   groups.pistolCrouchAim=createCrouchedFireGroup001(scene,"reese-pistol-crouch-aim",
-   groups.rifleCrouchAim,groups.pistolAim);
+   groups.rifleCrouchAim,groups.pistolAim,groups.rifleCrouchAim?.to);
   groups.pistolCrouchWalk=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk",
-   groups.rifleCrouchWalk,groups.pistolAim);
+   groups.rifleCrouchWalk,groups.pistolAim,groups.rifleCrouchWalk?.to);
   groups.rifleCrouchFire=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire",
    groups.rifleCrouchAim,groups.rifleFire);
   groups.rifleCrouchWalkFire=createCrouchedFireGroup001(scene,"reese-rifle-crouch-walk-fire",
@@ -581,7 +582,8 @@ export function createReesePlayer001(scene:Scene,
      :groups.pistolCrouchAim??groups.pistolAim??groups.idle;
     play(target,true,interruptedShot);
    }else{
-    play(groups[stableGait]??groups.idle,true,interruptedShot);
+    play(currentRunning?(groups.run??groups.idle):(groups[stableGait]??groups.idle),
+    true,interruptedShot);
    }
    advance(dt);
   },
