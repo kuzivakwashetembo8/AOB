@@ -1,4 +1,5 @@
 import {PistolIcon009} from "./pistol-icon-009";
+import {useState} from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -86,6 +87,7 @@ export function DesktopControls({
   combatEnabled?: boolean;
   elevator?:{direction:"up"|"down";label:string;onClick:()=>void}|undefined;
 }) {
+  const [lowCrouch,setLowCrouch]=useState(false);
   return (
     <div className="desktop-controls" aria-label="Desktop game controls">
       {passenger&&<div className="desktop-movement-pad" aria-label="Manual Sedan free driving controls">
@@ -114,7 +116,9 @@ export function DesktopControls({
           driving ? false :
           flying ? ["sprint","jump","descend"].includes(action) :
           ["jump","sprint","combat"].includes(action)
-        ).filter(a=>a.action!=="combat"||combatEnabled).map(({ action, label, keyHint, icon: BaseIcon }) => {
+        ).filter(a=>a.action!=="combat"||combatEnabled)
+          .flatMap(a=>a.action==="sprint"&&armed?[a,{action:"crouch" as GameAction,label:"Low crouch",keyHint:"LOW",icon:ArrowDown}]:[a])
+          .map(({ action, label, keyHint, icon: BaseIcon }) => {
           const Icon=action==="combat"&&armed?PistolIcon009:BaseIcon;
           const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
           return (
@@ -123,16 +127,20 @@ export function DesktopControls({
             className={`desktop-control-button gtd-uniform-action gtd-action-${action}`}
             aria-label={`${actualLabel} (${keyHint})`}
             data-tooltip={`${actualLabel} · ${keyHint}`}
+            aria-pressed={action==="crouch"?lowCrouch:undefined}
             key={action}
             onPointerDown={(event) => {
               event.preventDefault();
               event.currentTarget.setPointerCapture(event.pointerId);
-              send({ type: "action", action, pressed: true });
+              if(action==="crouch"){
+                const next=!lowCrouch;setLowCrouch(next);
+                send({ type: "action", action, pressed: next });
+              }else send({ type: "action", action, pressed: true });
               onAction(action);
             }}
-            onPointerUp={() => send({ type: "action", action, pressed: false })}
-            onPointerCancel={() => send({ type: "action", action, pressed: false })}
-            onLostPointerCapture={() => send({ type: "action", action, pressed: false })}
+            onPointerUp={() => {if(action!=="crouch")send({ type: "action", action, pressed: false });}}
+            onPointerCancel={() => {if(action!=="crouch")send({ type: "action", action, pressed: false });}}
+            onLostPointerCapture={() => {if(action!=="crouch")send({ type: "action", action, pressed: false });}}
           >
             <Icon size={18} />
           </Button>
