@@ -530,7 +530,8 @@ export function createReesePlayer001(scene:Scene,
    if(flight)resetFlight();
    positionAt(p,yaw);
    alignWeaponMountToCharacterForward();
-   currentGait=reeseSafeLocomotion007(speed,sprint);
+   const next=reeseSafeLocomotion007(speed,sprint);
+   currentGait=next;
    currentRunning=!reeseCanFire001(speed,sprint);
    const interruptedShot=currentRunning&&combatRemaining>0;
    if(interruptedShot)combatRemaining=0;
@@ -558,7 +559,6 @@ export function createReesePlayer001(scene:Scene,
     landingRemaining=Math.max(0,landingRemaining-dt);
     if(landingRemaining>0){advance(dt);return;}
    }
-   const next=currentGait;
    if(next===stableGait){pendingGait=next;pendingGaitSeconds=0;}
    else if(stableGait==="idle"&&next!=="idle"){
     // Begin the alternating first step on the same frame as movement.
@@ -624,8 +624,7 @@ export function createReesePlayer001(scene:Scene,
     const muzzle=muzzleWorld();if(!muzzle)return null;
     shotSerial++;
     // Rapid distinct taps restart one existing clip, never stack animation groups.
-    if(active===clip){outgoing?.stop();outgoing=null;clip.stop();
-      clip.start(false,1,0,Number(clip.metadata?.playTo??clip.to));
+    if(active===clip){outgoing?.stop();outgoing=null;clip.stop();clip.start(false);
       clip.setWeightForAllAnimatables(1);transition=1;}
     else play(clip,false);
     muzzleEffect.emit(muzzle,anchor.rotation.y,selectedWeapon??"m4a1");
