@@ -416,9 +416,10 @@ export function createReesePlayer001(scene:Scene,
   }
   // Calibrate each ankle-to-sole distance against the GLB's bind-pose floor.
   // The Rapier capsule remains authoritative; only the rendered rig is lifted.
-  const footBones=["left","right"].map(side=>bones.find(bone=>
-   new RegExp(side+".*foot|foot.*"+side,"i").test(bone.name))).filter(
-   (bone):bone is Bone=>bone!==undefined);
+  const footBones=["left","right"].flatMap(side=>
+   ["foot","toe"].map(part=>bones.find(bone=>
+    new RegExp(side+".*"+part+"|"+part+".*"+side,"i").test(bone.name))))
+   .filter((bone):bone is Bone=>bone!==undefined);
   if(supportHandReferenceMesh&&footBones.length){
    fit.computeWorldMatrix(true);
    supportHandReferenceMesh.computeWorldMatrix(true);
