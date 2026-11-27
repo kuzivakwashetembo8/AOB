@@ -266,7 +266,10 @@ export function TouchControls({
     >
       {passenger ? <SedanPassengerPedals send={send} haptics={settings.haptics}/> : arrowMode ? <DrivingArrowControls send={send} haptics={settings.haptics}/> : <Joystick send={send} />}
       <div className="touch-actions">
-        {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle).filter(a=>a.action!=="combat"||combatEnabled).map(({ action, label, icon: BaseIcon }) => {
+        {visibleTouchActions(driving,flying,canEnterVehicle,canExitVehicle)
+          .filter(a=>a.action!=="combat"||combatEnabled)
+          .flatMap(a=>a.action==="sprint"&&armed?[a,{action:"crouch" as GameAction,label:"Low crouch",icon:ArrowDown}]:[a])
+          .map(({ action, label, icon: BaseIcon }) => {
           const Icon=action==="combat"&&armed?PistolIcon009:BaseIcon;
           const actualLabel=action==="combat"?(armed?"Fire pistol":"Punch"):label;
           return (
@@ -283,14 +286,14 @@ export function TouchControls({
               onAction(action);
               if (settings.haptics) navigator.vibrate?.(12);
             }}
-            onPointerUp={() => send({ type: "action", action, pressed: false })}
-            onPointerCancel={() => send({ type: "action", action, pressed: false })}
-            onLostPointerCapture={() => send({ type: "action", action, pressed: false })}
+            onPointerUp={() => {if(action!=="crouch")send({ type: "action", action, pressed: false });}}
+            onPointerCancel={() => {if(action!=="crouch")send({ type: "action", action, pressed: false });}}
+            onLostPointerCapture={() => {if(action!=="crouch")send({ type: "action", action, pressed: false });}}
             onClick={(event) => {
               if (event.detail === 0) {
                 send({ type: "action", action, pressed: true });
                 onAction(action);
-                send({ type: "action", action, pressed: false });
+                if(action!=="crouch")send({ type: "action", action, pressed: false });
               }
             }}
           >
