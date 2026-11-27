@@ -266,6 +266,15 @@ export function createReesePlayer001(scene:Scene,
    groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.rifleCrouchAim?.to);
   groups.pistolCrouchWalk=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk",
    groups.rifleCrouchWalk,groups.pistolAim,groups.idle,groups.rifleCrouchWalk?.to);
+  // The default armed stance uses a restrained 12% crouch contribution.
+  groups.rifleCrouchAimMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-aim-minimal",groups.rifleCrouchAim,groups.rifleAim,groups.idle,groups.rifleAim?.to,.12);
+  groups.rifleCrouchWalkMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-walk-minimal",groups.rifleCrouchWalk,groups.rifleWalk,groups.idle,groups.rifleWalk?.to,.12);
+  groups.rifleCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire-minimal",groups.rifleCrouchAim,groups.rifleFire,groups.idle,undefined,.12);
+  groups.rifleCrouchWalkFireMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-walk-fire-minimal",groups.rifleCrouchWalk,groups.rifleFire,groups.idle,undefined,.12);
+  groups.pistolCrouchAimMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-aim-minimal",groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12);
+  groups.pistolCrouchWalkMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk-minimal",groups.rifleCrouchWalk,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12);
+  groups.pistolCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-fire-minimal",groups.rifleCrouchAim,groups.pistolFire,groups.idle,undefined,.12);
+  groups.pistolCrouchWalkFireMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk-fire-minimal",groups.rifleCrouchWalk,groups.pistolFire,groups.idle,undefined,.12);
   groups.rifleCrouchFire=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire",
    groups.rifleCrouchAim,groups.rifleFire,groups.idle);
   groups.rifleCrouchWalkFire=createCrouchedFireGroup001(scene,"reese-rifle-crouch-walk-fire",
@@ -276,7 +285,9 @@ export function createReesePlayer001(scene:Scene,
    groups.rifleCrouchWalk,groups.pistolFire,groups.idle);
   for(const group of [groups.pistolCrouchAim,groups.pistolCrouchWalk,
    groups.rifleCrouchFire,groups.rifleCrouchWalkFire,
-   groups.pistolCrouchFire,groups.pistolCrouchWalkFire])
+   groups.pistolCrouchFire,groups.pistolCrouchWalkFire,
+  groups.rifleCrouchAimMinimal,groups.rifleCrouchWalkMinimal,groups.rifleCrouchFireMinimal,groups.rifleCrouchWalkFireMinimal,
+  groups.pistolCrouchAimMinimal,groups.pistolCrouchWalkMinimal,groups.pistolCrouchFireMinimal,groups.pistolCrouchWalkFireMinimal])
    if(group)composedGroups.push(group);
   console.info("[LMS-GUN-002] Reese long-gun clip binding",{
    rifleIdle:groups.rifleIdle?.name??null,rifleAim:groups.rifleAim?.name??null,
