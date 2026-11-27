@@ -2170,3 +2170,15 @@ html[data-display="standalone"] body > * {
  .gun-gallery-stage{height:48dvh;min-height:270px}
  .gun-gallery-side{display:grid;grid-template-columns:1fr;gap:7px}
 }
+
+/* COMBAT-001: the armed low-crouch toggle sits directly above Sprint. */
+.touch-actions:has(.gtd-action-crouch){display:grid;grid-template-areas:". crouch ." "jump sprint combat";grid-template-columns:repeat(3,var(--poi010-action-size,76.56px));grid-auto-rows:var(--poi010-action-size,76.56px);}
+.touch-actions .gtd-action-crouch{grid-area:crouch;}
+.touch-actions .gtd-action-jump{grid-area:jump;}
+.touch-actions .gtd-action-sprint{grid-area:sprint;}
+.touch-actions .gtd-action-combat{grid-area:combat;}
+.desktop-action-pad:has(.gtd-action-crouch){display:grid;grid-template-areas:". crouch ." "jump sprint combat";grid-template-columns:repeat(3,55.44px);grid-auto-rows:55.44px;}
+.desktop-action-pad .gtd-action-crouch{grid-area:crouch;}
+.desktop-action-pad .gtd-action-jump{grid-area:jump;}
+.desktop-action-pad .gtd-action-sprint{grid-area:sprint;}
+.desktop-action-pad .gtd-action-combat{grid-area:combat;}
