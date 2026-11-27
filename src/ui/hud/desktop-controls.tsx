@@ -3,7 +3,7 @@ import {useEffect,useState} from "react";
 import {ArrowDown} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import type {GameAction,GameCommand} from "@/game/core/types";
-import {Joystick,visibleTouchActions} from "./touch-controls";
+import {Joystick,visibleTouchActions,SedanPassengerPedals} from "./touch-controls";
 
 type Send=(command:GameCommand)=>void;
 
@@ -28,14 +28,15 @@ export function DesktopControls({
 }){
   const [lowCrouch,setLowCrouch]=useState(false);
   useEffect(()=>{if(!armed)setLowCrouch(false);},[armed]);
-  const visibleActions=visibleTouchActions(driving||passenger,flying)
+  const canShowActions=driving ? false : !passenger;
+  const visibleActions=(canShowActions?visibleTouchActions(false,flying):[])
     .filter(action=>action.action!=="combat"||combatEnabled)
     .flatMap(action=>action.action==="sprint"&&armed&&!driving&&!passenger&&!flying
       ?[action,{action:"crouch" as GameAction,label:"Low crouch",icon:ArrowDown}]
       :[action]);
   return(
     <div className={`touch-controls desktop-controls ${driving?"gtd-driving":flying?"gtd-flying":"gtd-walking"}`} aria-label="Desktop on-screen controls">
-      <Joystick send={send}/>
+      {driving&&passenger?<SedanPassengerPedals send={send} haptics={false}/>:<Joystick send={send}/>}
       <div className="touch-actions" aria-label="Action controls">
         {visibleActions.map(({action,label,icon:BaseIcon})=>{
           const Icon=action==="combat"&&armed?PistolIcon009:BaseIcon;
@@ -43,7 +44,7 @@ export function DesktopControls({
           return(
             <Button
               variant="control"
-              className={`gtd-uniform-action gtd-action-${action}`}
+              className={`desktop-control-button gtd-uniform-action gtd-action-${action}`}
               aria-label={actualLabel}
               title={actualLabel}
               aria-pressed={action==="crouch"?lowCrouch:undefined}
