@@ -621,13 +621,15 @@ export function createReesePlayer001(scene:Scene,
    }
    if(handItem==="gun"&&reeseIsLongGun001(selectedWeapon)){
     const key=reeseLongGunClipKey001(currentGait,sprint);
-    const target=groups[key]??(currentGait==="walk"?groups.rifleWalk:
-     currentRunning?groups.rifleRun:groups.rifleAim)??groups.idle;
+    const target=currentRunning?(groups[key]??groups.rifleRun):
+     currentGait==="walk"
+      ?(lowCrouch?groups.rifleCrouchWalk:groups.rifleCrouchWalkMinimal)??groups.rifleWalk
+      :(lowCrouch?groups.rifleCrouchAim:groups.rifleCrouchAimMinimal)??groups.rifleAim??groups.idle;
     play(target,true,interruptedShot);
    }else if(handItem==="gun"&&!currentRunning){
     const target=currentGait==="walk"
-     ?groups.pistolCrouchWalk??groups.pistolAim??groups.walk
-     :groups.pistolCrouchAim??groups.pistolAim??groups.idle;
+     ?(lowCrouch?groups.pistolCrouchWalk:groups.pistolCrouchWalkMinimal)??groups.pistolAim??groups.walk
+     :(lowCrouch?groups.pistolCrouchAim:groups.pistolCrouchAimMinimal)??groups.pistolAim??groups.idle;
     play(target,true,interruptedShot);
    }else{
     play(currentRunning?(groups.run??groups.idle):(groups[stableGait]??groups.idle),
@@ -652,6 +654,10 @@ export function createReesePlayer001(scene:Scene,
   },
   setHandItem(item:"hand"|"gun"){
    selectWeapon(item==="hand"?"hand":selectedWeapon??"m4a1");
+   if(item==="hand")lowCrouch=false;
+  },
+  setLowCrouch(enabled:boolean){
+   lowCrouch=handItem==="gun"&&enabled;
   },
   /** Animation-and-audio-only: never performs damage, rays or projectile simulation. */
   triggerCombat(): "punch"|"shoot"|null {
@@ -661,8 +667,10 @@ export function createReesePlayer001(scene:Scene,
    const moving=currentGait==="walk";
    const clip=attack==="shoot"
     ?(reeseIsLongGun001(selectedWeapon)
-      ?(moving?groups.rifleCrouchWalkFire:groups.rifleCrouchFire)??groups.rifleFire
-      :(moving?groups.pistolCrouchWalkFire:groups.pistolCrouchFire)??groups.pistolFire)
+      ?(lowCrouch?(moving?groups.rifleCrouchWalkFire:groups.rifleCrouchFire):
+        (moving?groups.rifleCrouchWalkFireMinimal:groups.rifleCrouchFireMinimal))??groups.rifleFire
+      :(lowCrouch?(moving?groups.pistolCrouchWalkFire:groups.pistolCrouchFire):
+        (moving?groups.pistolCrouchWalkFireMinimal:groups.pistolCrouchFireMinimal))??groups.pistolFire)
     :groups.punch;
    if(!clip)return null;
    const now=typeof performance!=="undefined"?performance.now():Date.now();
