@@ -695,6 +695,7 @@ export function createReesePlayer001(scene:Scene,
    muzzleEffect.clear();
   },
   get handItem(){return handItem;},
+  get lowCrouch(){return lowCrouch;},
   get poseReport(){
    return {meshCount,boneCount,animations:report.animations,
     activeClip:report.activeClip,scale:report.scale,controlled};
