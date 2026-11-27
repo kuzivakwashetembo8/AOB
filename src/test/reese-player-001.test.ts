@@ -48,6 +48,8 @@ describe("REESE-001 rendered ground contact wiring",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain("scene.onBeforeRenderObservable.add");
   expect(actor).toContain("footGroundOffsets");
+  expect(actor).toContain("footGroundContactOffsets");
+  expect(actor).toContain('["foot","toe"]');
   expect(actor).toContain('["foot","toeBase","toeEnd"]');
   expect(actor).toContain("bone.getPosition(Space.WORLD,supportHandReferenceMesh)");
   expect(actor).toContain("bone.getRotationQuaternion(Space.WORLD,supportHandReferenceMesh)");
