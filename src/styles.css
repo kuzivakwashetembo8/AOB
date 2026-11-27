@@ -2182,3 +2182,19 @@ html[data-display="standalone"] body > * {
 .desktop-action-pad .gtd-action-jump{grid-area:jump;}
 .desktop-action-pad .gtd-action-sprint{grid-area:sprint;}
 .desktop-action-pad .gtd-action-combat{grid-area:combat;}
+
+/* HUD parity: desktop uses the mobile joystick + uniform action-button layout. */
+.desktop-controls.touch-controls{
+ display:block;
+ position:absolute;
+ left:0;
+ right:0;
+ bottom:max(20px,env(safe-area-inset-bottom));
+ height:185px;
+ justify-content:initial;
+ align-items:initial;
+ pointer-events:none;
+ z-index:4;
+}
+.desktop-controls.touch-controls>.joystick,
+.desktop-controls.touch-controls>.touch-actions{pointer-events:auto;}
