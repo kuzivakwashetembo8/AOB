@@ -70,6 +70,7 @@ describe("REESE-001 playable actor replacement",()=>{
   expect(actor).toContain('root?.metadata?.gripL');
   expect(actor).toContain('supportHandBone.getAbsolutePosition(supportHandReferenceMesh)');
   expect(actor).toContain("setLowCrouch(enabled:boolean)");
+  expect(actor).toContain("get lowCrouch(){return lowCrouch;}");
   expect(actor).toContain("lowCrouch?groups.pistolCrouchAim:groups.pistolCrouchAimMinimal");
  });
  it("derives gait and airborne states from the existing physical controller",()=>{
@@ -88,6 +89,7 @@ describe("REESE-001 playable actor replacement",()=>{
   expect(game).toContain("resolveNorthHeightsThirdPersonCamera");
   expect(game).toContain("createFinchSuite005");
   expect(game).toContain("toggleVehicle=()=>");
+  expect(game).toContain('(active("fast")||key("ShiftLeft")||key("ShiftRight"))&&!actor?.lowCrouch');
   expect(read("src/game/world/mercer-static-character-103.ts"))
    .toContain('MERCER_STATIC_CHARACTER_PATH="/GLBs/Characters/character.glb"');
  });
