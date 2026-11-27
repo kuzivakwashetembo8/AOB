@@ -71,6 +71,43 @@ export function reeseFootGroundSamples001(
   :[...bindRelativeSoleYs];
 }
 
+/**
+ * Small sagittal-plane offsets for the default armed standing base.
+ * Reese faces +Z: the right thigh advances and the left thigh supports behind.
+ * Counter-rotation at each shin keeps the ankle/foot orientation level.
+ */
+export function reeseGunReadyLegAngle001(targetName:string):number{
+ const name=keyOf(targetName);
+ if(name.includes("rightupleg")||name.includes("rightthigh"))return -.12;
+ if(name.includes("rightleg")||name.includes("rightcalf"))return .12;
+ if(name.includes("leftupleg")||name.includes("leftthigh"))return .08;
+ if(name.includes("leftleg")||name.includes("leftcalf"))return -.08;
+ return 0;
+}
+
+/** Apply the authored gun-ready leg bias without touching torso/arm tracks. */
+export function reeseGunReadyLegRotation001(targetName:string,rotation:Quaternion):Quaternion{
+ const angle=reeseGunReadyLegAngle001(targetName);
+ return angle===0?rotation.clone():rotation.clone().multiply(
+  Quaternion.RotationAxis(new Vector3(1,0,0),angle));
+}
+
+function applyGunReadyLegStance001(
+ animation:import("@babylonjs/core").Animation,targetName:string,
+):import("@babylonjs/core").Animation{
+ const angle=reeseGunReadyLegAngle001(targetName);
+ if(!angle||!animation.targetProperty.toLowerCase().includes("rotation"))return animation;
+ const keys=animation.getKeys().map(key=>{
+  if(key.value instanceof Quaternion)
+   return {...key,value:reeseGunReadyLegRotation001(targetName,key.value)};
+  if(key.value instanceof Vector3)
+   return {...key,value:new Vector3(key.value.x+angle,key.value.y,key.value.z)};
+  return key;
+ });
+ animation.setKeys(keys);
+ return animation;
+}
+
 export function reeseGroundClip001(
  speed:number,sprint:boolean,grounded:boolean,verticalVelocity:number,
 ):"idle"|"walk"|"run"|"jump"|"fall"{
@@ -123,7 +160,7 @@ function softenCrouchAnimation001(
  */
 function createCrouchedFireGroup001(
  scene:Scene,name:string,lower:AnimationGroup|null,upper:AnimationGroup|null,
- neutral:AnimationGroup|null,playTo?:number,crouchWeight=.38,
+ neutral:AnimationGroup|null,playTo?:number,crouchWeight=.38,gunReadyStance=false,
 ):AnimationGroup|null{
  if(!lower||!upper)return null;
  const group=new AnimationGroup(name,scene);
@@ -137,8 +174,9 @@ function createCrouchedFireGroup001(
   const neutralTrack=neutral?.targetedAnimations.find(candidate=>
    String((candidate.target as {name?:string;id?:string}).name??
     (candidate.target as {id?:string}).id??"")===targetName);
-  const softened=softenCrouchAnimation001(entry.animation.clone(),
+  let softened=softenCrouchAnimation001(entry.animation.clone(),
    neutralTrack?.animation??null,crouchWeight);
+  if(gunReadyStance)softened=applyGunReadyLegStance001(softened,targetName);
   group.addTargetedAnimation(softened,entry.target);
   lowerCount++;
  }
@@ -298,13 +336,13 @@ export function createReesePlayer001(scene:Scene,
   groups.pistolCrouchWalk=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk",
    groups.rifleCrouchWalk,groups.pistolAim,groups.idle,groups.rifleCrouchWalk?.to);
   // The default armed stance uses a restrained 12% crouch contribution.
-  groups.rifleCrouchAimMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-aim-minimal",groups.rifleCrouchAim,groups.rifleAim,groups.idle,groups.rifleAim?.to,.12);
+  groups.rifleCrouchAimMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-aim-minimal",groups.rifleCrouchAim,groups.rifleAim,groups.idle,groups.rifleAim?.to,.12,true);
   groups.rifleCrouchWalkMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-walk-minimal",groups.rifleCrouchWalk,groups.rifleWalk,groups.idle,groups.rifleWalk?.to,.12);
-  groups.rifleCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire-minimal",groups.rifleCrouchAim,groups.rifleFire,groups.idle,undefined,.12);
+  groups.rifleCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire-minimal",groups.rifleCrouchAim,groups.rifleFire,groups.idle,undefined,.12,true);
   groups.rifleCrouchWalkFireMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-walk-fire-minimal",groups.rifleCrouchWalk,groups.rifleFire,groups.idle,undefined,.12);
-  groups.pistolCrouchAimMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-aim-minimal",groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12);
+  groups.pistolCrouchAimMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-aim-minimal",groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12,true);
   groups.pistolCrouchWalkMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk-minimal",groups.rifleCrouchWalk,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12);
-  groups.pistolCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-fire-minimal",groups.rifleCrouchAim,groups.pistolFire,groups.idle,undefined,.12);
+  groups.pistolCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-fire-minimal",groups.rifleCrouchAim,groups.pistolFire,groups.idle,undefined,.12,true);
   groups.pistolCrouchWalkFireMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk-fire-minimal",groups.rifleCrouchWalk,groups.pistolFire,groups.idle,undefined,.12);
   groups.rifleCrouchFire=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire",
    groups.rifleCrouchAim,groups.rifleFire,groups.idle);
