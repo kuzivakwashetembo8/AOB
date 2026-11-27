@@ -570,7 +570,7 @@ export async function createNorthHeightsCity8(
       Number(active("forward")||key("ArrowUp")||key("KeyW"))-
       Number(active("back")||key("ArrowDown")||key("KeyS"))-analog.y+stickY));
     const ascend=active("up")||key("Space");
-    const fast=active("fast")||key("ShiftLeft")||key("ShiftRight");
+    const fast=(active("fast")||key("ShiftLeft")||key("ShiftRight"))&&!actor?.lowCrouch;
     const heading=new Vector3(Math.sin(yaw),0,Math.cos(yaw));
     const side=new Vector3(Math.cos(yaw),0,-Math.sin(yaw));
     if(ridingSedanId&&walk){
