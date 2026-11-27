@@ -2,11 +2,12 @@
  * No city simulation, Rapier, character, traffic dots or browser-time GLB import.
  * The source-native artifacts are generated offline by the accepted extractors.
  */
+import "@babylonjs/loaders/glTF";
 import {
  ArcRotateCamera,Color3,Color4,Engine,HemisphericLight,Mesh,MeshBuilder,
- Scene,StandardMaterial,TransformNode,Vector3,VertexData
+ Scene,SceneLoader,StandardMaterial,TransformNode,Vector3,VertexData
 } from "@babylonjs/core";
-import type {GalleryVehicle008,GalleryVehicleId008} from "./vehicle-inspection-registry-008";
+import type {GalleryVehicle008} from "./vehicle-inspection-registry-008";
 
 type Encoded008={p:string;n:string;i:string;indexBits:number;vertices:number;triangles:number};
 type Wheel008={center:number[];radius:number;width:number;rim:Encoded008;tire:Encoded008};
@@ -79,6 +80,19 @@ export function createVehicleInspectionScene008(canvas:HTMLCanvasElement):Vehicl
  const assign=(mesh:Mesh,part:string,paint:string,root:TransformNode)=>{
    mesh.parent=root;mesh.material=createMaterial(part,paint);mesh.isPickable=false;return mesh;
  };
+ async function buildMustang(root:TransformNode,signal:AbortSignal){
+   if(signal.aborted)throw new DOMException("Aborted","AbortError");
+   const imported=await SceneLoader.ImportMeshAsync("", "/", "Mustang.glb", scene);
+   if(signal.aborted){for(const mesh of imported.meshes)mesh.dispose();throw new DOMException("Aborted","AbortError");}
+   let count=0;
+   for(const mesh of imported.meshes){
+     if(mesh instanceof Mesh){
+       mesh.parent=root;mesh.isPickable=false;mesh.receiveShadows=false;
+       count+=mesh.getTotalVertices();
+     }
+   }
+   return "MUSTANG GLB // "+count.toLocaleString()+" vertices loaded // SHOWROOM PREVIEW";
+ }
  async function buildSeven(model:GalleryVehicle008,root:TransformNode,signal:AbortSignal){
    const response=await fetch("/vehicle-gallery/"+model.id+".json",{signal});
    if(!response.ok)throw Error("Missing generated review asset: "+response.status);
@@ -108,8 +122,6 @@ export function createVehicleInspectionScene008(canvas:HTMLCanvasElement):Vehicl
       (wheelCount<8?" // wheel fit pending":"");
  }
  async function buildAccepted(model:GalleryVehicle008,root:TransformNode){
-   // Import the separate accepted source builders only when an accepted
-   // reference model is selected. Do not preload this geometry on the launcher.
    const library=await import("./native-vehicle-geometry-001");
    for(const part of PARTS){
      const mesh=model.id==="rover"
@@ -150,9 +162,11 @@ export function createVehicleInspectionScene008(canvas:HTMLCanvasElement):Vehicl
      current=root;
      view("threeQuarter");
      try{
-       const info=model.id==="rover"||model.id==="temerario"
-         ?await buildAccepted(model,root)
-         :await buildSeven(model,root,controller.signal);
+       const info=model.id==="mustang"
+         ?await buildMustang(root,controller.signal)
+         :model.id==="rover"||model.id==="temerario"
+           ?await buildAccepted(model,root)
+           :await buildSeven(model,root,controller.signal);
        if(closed||currentVersion!==version)return "REVIEW SWITCHED";
        return info;
      }catch(error){
