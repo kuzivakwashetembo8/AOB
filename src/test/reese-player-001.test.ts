@@ -23,6 +23,17 @@ describe("REESE-001 animated foot grounding",()=>{
  });
 });
 
+describe("REESE-001 rendered ground contact wiring",()=>{
+ it("samples animated foot/toe bones and adjusts only the visual fit node",()=>{
+  const actor=read("src/game/character/reese-player-001.ts");
+  expect(actor).toContain("scene.onBeforeRenderObservable.add");
+  expect(actor).toContain("footGroundOffsets");
+  expect(actor).toContain("bone.getAbsolutePosition");
+  expect(actor).toContain("fit.position.y=fitBaseY+fitGroundCorrection");
+  expect(actor).not.toContain("anchor.position.y+=fitGroundCorrection");
+ });
+});
+
 describe("REESE-001 playable actor replacement",()=>{
  it("references exactly the owner-committed asset and requires the full clip set",()=>{
   expect(REESE_PLAYER_PATH_001).toBe("/GLBs/Reese%20(1).glb");
