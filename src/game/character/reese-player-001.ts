@@ -386,6 +386,34 @@ export function createReesePlayer001(scene:Scene,
   const bones=instance.skeletons.flatMap(skeleton=>skeleton.bones);
   fitBaseY=fit.position.y;
   fitGroundCorrection=0;
+  // Link a stable Babylon transform to Reese's actual right-hand bone. The
+  // procedural LMS weapons use the web-of-thumb as their local origin.
+  const rightHand=bones.find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
+  const leftHand=bones.find(bone=>/(left.?hand|hand[._:-]?l|l[._:-]?hand)$/i.test(bone.name));
+  if(rightHand){
+   const handSkeleton=rightHand.getSkeleton();
+   const referenceMesh=[...meshes]
+    .filter(mesh=>mesh.skeleton===handSkeleton&&mesh.getTotalVertices()>0)
+    .sort((a,b)=>b.getTotalVertices()-a.getTotalVertices())[0];
+   if(!referenceMesh)throw Error("REESE-001 right-hand skeleton has no skinned reference mesh");
+   supportHandBone=leftHand??null;
+   supportHandReferenceMesh=referenceMesh;
+   if(!supportHandBone)console.warn("[LMS-GUN-002] Reese left-hand bone was not found; support-grip alignment cannot be measured.");
+   // attachToBone keeps the GLB's existing linked bone TransformNode intact.
+   // The mount has no geometry; it only provides a rigid parent for the guns.
+   weaponMount=new Mesh("reese-lms-right-hand-mount",scene);
+   weaponMount.isPickable=false;weaponMount.checkCollisions=false;
+   weaponMount.attachToBone(rightHand,referenceMesh);
+   // Prebuild once: rapid taps only switch visibility and never allocate meshes.
+   for(const id of ["m4a1","mpx9","p19"] as const){
+    const root=createReeseWeapon001(scene,id);
+    root.parent=weaponMount;
+    root.setEnabled(false);
+    weaponRoots[id]=root;
+   }
+  }else{
+   console.error("[LMS-GUN-001] Reese right-hand bone was not found; extracted weapons will remain unequipped.");
+  }
   // Calibrate each ankle-to-sole distance against the GLB's bind-pose floor.
   // The Rapier capsule remains authoritative; only the rendered rig is lifted.
   const footBones=["left","right"].map(side=>bones.find(bone=>
@@ -416,34 +444,6 @@ export function createReesePlayer001(scene:Scene,
    });
   }else{
    console.warn("[REESE-001] Animated foot grounding unavailable: left/right foot bones or skinned reference mesh missing.");
-  }
-  // Link a stable Babylon transform to Reese's actual right-hand bone. The
-  // procedural LMS weapons use the web-of-thumb as their local origin.
-  const rightHand=bones.find(bone=>/(right.?hand|hand[._:-]?r|r[._:-]?hand)$/i.test(bone.name));
-  const leftHand=bones.find(bone=>/(left.?hand|hand[._:-]?l|l[._:-]?hand)$/i.test(bone.name));
-  if(rightHand){
-   const handSkeleton=rightHand.getSkeleton();
-   const referenceMesh=[...meshes]
-    .filter(mesh=>mesh.skeleton===handSkeleton&&mesh.getTotalVertices()>0)
-    .sort((a,b)=>b.getTotalVertices()-a.getTotalVertices())[0];
-   if(!referenceMesh)throw Error("REESE-001 right-hand skeleton has no skinned reference mesh");
-   supportHandBone=leftHand??null;
-   supportHandReferenceMesh=referenceMesh;
-   if(!supportHandBone)console.warn("[LMS-GUN-002] Reese left-hand bone was not found; support-grip alignment cannot be measured.");
-   // attachToBone keeps the GLB's existing linked bone TransformNode intact.
-   // The mount has no geometry; it only provides a rigid parent for the guns.
-   weaponMount=new Mesh("reese-lms-right-hand-mount",scene);
-   weaponMount.isPickable=false;weaponMount.checkCollisions=false;
-   weaponMount.attachToBone(rightHand,referenceMesh);
-   // Prebuild once: rapid taps only switch visibility and never allocate meshes.
-   for(const id of ["m4a1","mpx9","p19"] as const){
-    const root=createReeseWeapon001(scene,id);
-    root.parent=weaponMount;
-    root.setEnabled(false);
-    weaponRoots[id]=root;
-   }
-  }else{
-   console.error("[LMS-GUN-001] Reese right-hand bone was not found; extracted weapons will remain unequipped.");
   }
   // Limit only imported PBR shader light count, not city lights.
   for(const m of source.materials){
