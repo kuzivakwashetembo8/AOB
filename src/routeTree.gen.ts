@@ -90,6 +90,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/settings/analytics': typeof SettingsAnalyticsRoute
   '/vehicles': typeof VehiclesRoute
+  '/cars': typeof CarsRoute
   '/guns': typeof GunsRoute
   '/world': typeof WorldRoute
   '/north-heights-preview': typeof NorthHeightsPreviewRoute
