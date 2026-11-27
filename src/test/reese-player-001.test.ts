@@ -51,6 +51,14 @@ describe("REESE-001 playable actor replacement",()=>{
   expect(reeseCanFire001(2,false)).toBe(true);
   expect(reeseCanFire001(2,true)).toBe(false);
  });
+ it("softens authored crouch lower-body motion toward neutral idle instead of retaining a deep squat",()=>{
+  const actor=read("src/game/character/reese-player-001.ts");
+  expect(actor).toContain("softenCrouchAnimation001");
+  expect(actor).toContain("Quaternion.Slerp(neutralValue,value,.38)");
+  expect(actor).toContain("Vector3.Lerp(neutralValue,value,.38)");
+  expect(actor).toContain("groups.rifleCrouchAim,groups.pistolAim,groups.idle");
+  expect(actor).toContain("groups.rifleCrouchWalk,groups.rifleFire,groups.idle");
+ });
  it("uses rifle fire and the support weapon's authored gripL without changing P-19 selection",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain('groups.rifleCrouchWalkFire:groups.rifleCrouchFire');
