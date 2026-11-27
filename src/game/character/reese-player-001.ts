@@ -485,7 +485,7 @@ export function createReesePlayer001(scene:Scene,
    if(reeseIsLongGun001(selectedWeapon))
     play(groups.rifleCrouchAimMinimal??groups.rifleCrouchAim??groups.rifleAim??groups.rifleIdle??groups.idle);
    else play(groups.pistolCrouchAimMinimal??groups.pistolCrouchAim??groups.pistolAim??groups.idle);
-  }else play(groups.idle);
+  }else{lowCrouch=false;play(groups.idle);}
  }
  function resetFlight(){
   flight=false;flightPitch=0;flightRoll=0;
