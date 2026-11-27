@@ -44,6 +44,15 @@ export function findReeseClip001<T extends {name:string}>(
  return null;
 }
 
+/** Raise only the rendered rig when an animated foot penetrates its floor plane. */
+export function reeseFootGroundCorrection001(
+ groundY:number,footSoleYs:readonly number[],currentCorrection=0,
+):number{
+ const finite=footSoleYs.filter(Number.isFinite).map(y=>y-currentCorrection);
+ if(!Number.isFinite(groundY)||!finite.length)return 0;
+ return Math.max(0,Math.min(.18,groundY-Math.min(...finite)));
+}
+
 export function reeseGroundClip001(
  speed:number,sprint:boolean,grounded:boolean,verticalVelocity:number,
 ):"idle"|"walk"|"run"|"jump"|"fall"{
@@ -148,6 +157,9 @@ export function createReesePlayer001(scene:Scene,
  let tilt:TransformNode|null=null;
  let offset:TransformNode|null=null;
  let fit:TransformNode|null=null;
+ let fitBaseY=0,fitGroundCorrection=0,groundingEnabled=false;
+ let groundingObserver:import("@babylonjs/core").Observer<Scene>|null=null;
+ const footGroundOffsets:{bone:Bone;soleOffset:number}[]=[];
  let active:AnimationGroup|null=null;
  let outgoing:AnimationGroup|null=null;
  let transition=1;
@@ -371,6 +383,39 @@ export function createReesePlayer001(scene:Scene,
   fit.scaling.setAll(scale);
   // Ara exports +Y up, +Z forward. No Voight-specific PI flip.
   fit.position.set(-(minX+maxX)*.5*scale,-minY*scale,-(minZ+maxZ)*.5*scale);
+  fitBaseY=fit.position.y;
+  fitGroundCorrection=0;
+  // Calibrate each ankle-to-sole distance against the GLB's bind-pose floor.
+  // The Rapier capsule remains authoritative; only the rendered rig is lifted.
+  const footBones=["left","right"].map(side=>bones.find(bone=>
+   new RegExp(side+".*foot|foot.*"+side,"i").test(bone.name))).filter(
+   (bone):bone is Bone=>bone!==undefined);
+  if(supportHandReferenceMesh&&footBones.length){
+   fit.computeWorldMatrix(true);
+   supportHandReferenceMesh.computeWorldMatrix(true);
+   for(const bone of footBones){
+    const bindFoot=bone.getAbsolutePosition(supportHandReferenceMesh);
+    footGroundOffsets.push({bone,soleOffset:bindFoot.y-anchor.position.y});
+   }
+   groundingObserver=scene.onBeforeRenderObservable.add(()=>{
+    if(!fit||!supportHandReferenceMesh||!groundingEnabled||!controlled||
+     hiddenDriving||flight){
+     if(fit&&fitGroundCorrection!==0){
+      fitGroundCorrection=0;fit.position.y=fitBaseY;
+     }
+     return;
+    }
+    fit.computeWorldMatrix(true);
+    supportHandReferenceMesh.computeWorldMatrix(true);
+    const soleYs=footGroundOffsets.map(({bone,soleOffset})=>
+     bone.getAbsolutePosition(supportHandReferenceMesh!).y-soleOffset);
+    fitGroundCorrection=reeseFootGroundCorrection001(
+     anchor.position.y,soleYs,fitGroundCorrection);
+    fit.position.y=fitBaseY+fitGroundCorrection;
+   });
+  }else{
+   console.warn("[REESE-001] Animated foot grounding unavailable: left/right foot bones or skinned reference mesh missing.");
+  }
   // Link a stable Babylon transform to Reese's actual right-hand bone. The
   // procedural LMS weapons use the web-of-thumb as their local origin.
   const bones=instance.skeletons.flatMap(skeleton=>skeleton.bones);
@@ -552,7 +597,7 @@ export function createReesePlayer001(scene:Scene,
   setFirstPersonPresentation,
   setControlled(enabled:boolean){
    if(closed)return;
-   controlled=enabled;hiddenDriving=false;combatRemaining=0;
+   controlled=enabled;hiddenDriving=false;groundingEnabled=enabled;combatRemaining=0;
    wasAirborne=false;takeoffRemaining=0;landingRemaining=0;muzzleEffect.clear();
    anchor.setEnabled(enabled&&!hiddenDriving);
    if(enabled){resetFlight();play(groups.idle);}
@@ -576,6 +621,7 @@ export function createReesePlayer001(scene:Scene,
   ){
    if(!controlled||closed)return;
    if(flight)resetFlight();
+   groundingEnabled=grounded&&verticalVelocity<=.65;
    positionAt(p,yaw);
    alignWeaponMountToCharacterForward();
    const next=reeseSafeLocomotion007(speed,sprint);
@@ -642,7 +688,7 @@ export function createReesePlayer001(scene:Scene,
    input:FlightPoseInput&{dt:number},
   ){
    if(!controlled||closed)return;
-   flight=true;
+   flight=true;groundingEnabled=false;
    positionAt(p,yaw);
    // Owner requested no Reese flying animation. Preserve only movement physics.
    resetFlight();
@@ -703,6 +749,7 @@ export function createReesePlayer001(scene:Scene,
   dispose(){
    if(closed)return;
    closed=true;
+   if(groundingObserver)scene.onBeforeRenderObservable.remove(groundingObserver);
    active?.stop();outgoing?.stop();muzzleEffect.dispose();
    for(const group of composedGroups){group.stop();group.dispose();}
    composedGroups.length=0;
