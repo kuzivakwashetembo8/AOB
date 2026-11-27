@@ -4,7 +4,7 @@ import {resolve} from "node:path";
 import {
  REESE_PLAYER_PATH_001,REESE_PLAYER_EXPECTED_ANIMATIONS_001,
  REESE_PLAYER_HEIGHT_001,findReeseClip001,reeseGroundClip001,
- reeseIsLongGun001,reeseLongGunClipKey001,
+ reeseIsLongGun001,reeseLongGunClipKey001,reeseCanFire001,
 } from "../game/character/reese-player-001";
 const read=(path:string)=>readFileSync(resolve(process.cwd(),path),"utf8");
 
@@ -27,6 +27,7 @@ describe("REESE-001 playable actor replacement",()=>{
   const names=[
    "Rifle idle (low ready)","Rifle aim idle","Rifle fire (single)",
    "Rifle walk (aiming)","Rifle run","Rifle sprint",
+   "Crouch aim idle","Crouch walk (aiming)",
   ].map(name=>({name}));
   expect(findReeseClip001(names,"rifle_idle","Rifle idle (low ready)")?.name).toBe("Rifle idle (low ready)");
   expect(findReeseClip001(names,"rifle_aim","Rifle aim idle")?.name).toBe("Rifle aim idle");
@@ -34,19 +35,28 @@ describe("REESE-001 playable actor replacement",()=>{
   expect(findReeseClip001(names,"rifle_walk","Rifle walk (aiming)")?.name).toBe("Rifle walk (aiming)");
   expect(findReeseClip001(names,"rifle_run","Rifle run")?.name).toBe("Rifle run");
   expect(findReeseClip001(names,"rifle_sprint","Rifle sprint")?.name).toBe("Rifle sprint");
+  expect(findReeseClip001(names,"rifle_crouch_aim","Crouch aim idle")?.name).toBe("Crouch aim idle");
+  expect(findReeseClip001(names,"rifle_crouch_walk","Crouch walk (aiming)")?.name).toBe("Crouch walk (aiming)");
   expect(reeseIsLongGun001("m4a1")).toBe(true);
   expect(reeseIsLongGun001("mpx9")).toBe(true);
   expect(reeseIsLongGun001("p19")).toBe(false);
   expect(reeseIsLongGun001(null)).toBe(false);
-  expect(reeseLongGunClipKey001("idle",false)).toBe("rifleIdle");
-  expect(reeseLongGunClipKey001("walk",false)).toBe("rifleWalk");
+  expect(reeseLongGunClipKey001("idle",false)).toBe("rifleCrouchAim");
+  expect(reeseLongGunClipKey001("walk",false)).toBe("rifleCrouchWalk");
   expect(reeseLongGunClipKey001("run",false)).toBe("rifleRun");
   expect(reeseLongGunClipKey001("run",true)).toBe("rifleSprint");
+  expect(reeseCanFire001(0,false)).toBe(true);
+  expect(reeseCanFire001(3.8,false)).toBe(true);
+  expect(reeseCanFire001(5.1,false)).toBe(false);
+  expect(reeseCanFire001(2,false)).toBe(true);
+  expect(reeseCanFire001(2,true)).toBe(false);
  });
  it("uses rifle fire and the support weapon's authored gripL without changing P-19 selection",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
-  expect(actor).toContain('reeseIsLongGun001(selectedWeapon)?groups.rifleFire:groups.pistolFire');
-  expect(actor).toContain('groups[key]??groups.rifleAim??groups.rifleIdle??groups.idle');
+  expect(actor).toContain('groups.rifleCrouchWalkFire:groups.rifleCrouchFire');
+  expect(actor).toContain('groups.pistolCrouchWalkFire:groups.pistolCrouchFire');
+  expect(actor).toContain('currentRunning))return null');
+  expect(actor).toContain('createCrouchedFireGroup001');
   expect(actor).toContain('root?.metadata?.gripL');
   expect(actor).toContain('supportHandBone.getAbsolutePosition(supportHandReferenceMesh)');
   expect(actor).toContain('else play(groups.pistolAim??groups.idle)');
