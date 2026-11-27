@@ -177,7 +177,8 @@ export function createReesePlayer001(scene:Scene,
  let fit:TransformNode|null=null;
  let fitBaseY=0,fitGroundCorrection=0,groundingEnabled=false;
  let groundingObserver:import("@babylonjs/core").Observer<Scene>|null=null;
- const footGroundOffsets:{bone:Bone;soleOffset:number;localSoleOffset:Vector3}[]=[];
+ const footGroundOffsets:{bone:Bone;soleOffset:number}[]=[];
+ const footGroundContactOffsets:{bone:Bone;localSoleOffset:Vector3}[]=[];
  let active:AnimationGroup|null=null;
  let outgoing:AnimationGroup|null=null;
  let transition=1;
@@ -432,24 +433,33 @@ export function createReesePlayer001(scene:Scene,
   }else{
    console.error("[LMS-GUN-001] Reese right-hand bone was not found; extracted weapons will remain unequipped.");
   }
-  // Calibrate a floor-contact point beneath each foot, toe base and toe tip
-  // in bone-local space. Rotating that point with the animated bone detects
-  // sole penetration that ankle/toe-joint Y samples cannot see.
-  // The Rapier capsule remains authoritative; only the rendered rig is lifted.
-  const footBones=["left","right"].flatMap(side=>
+  // Preserve the original ankle/toe scalar probes for movement and cover.
+  const legacyFootBones=["left","right"].flatMap(side=>
+   ["foot","toe"].map(part=>bones.find(bone=>
+    new RegExp(side+".*"+part+"|"+part+".*"+side,"i").test(bone.name))))
+   .filter((bone):bone is Bone=>bone!==undefined);
+  // Add rotation-aware contact points under each foot, toe base and toe tip
+  // for a stationary standing pose, where foot rotation can bury the sole
+  // even while the ankle/toe joint origins remain above the floor.
+  const contactFootBones=["left","right"].flatMap(side=>
    ["foot","toeBase","toeEnd"].map(part=>bones.find(bone=>
     keyOf(bone.name)===keyOf(side+part))))
    .filter((bone):bone is Bone=>bone!==undefined);
-  if(supportHandReferenceMesh&&footBones.length){
+  // The Rapier capsule remains authoritative; only the rendered rig is lifted.
+  if(supportHandReferenceMesh&&legacyFootBones.length&&contactFootBones.length){
    fit.computeWorldMatrix(true);
    supportHandReferenceMesh.computeWorldMatrix(true);
-   for(const bone of footBones){
+   for(const bone of legacyFootBones){
+    const bindFoot=bone.getAbsolutePosition(supportHandReferenceMesh);
+    footGroundOffsets.push({bone,soleOffset:bindFoot.y-anchor.position.y});
+   }
+   for(const bone of contactFootBones){
     const bindFoot=bone.getPosition(Space.WORLD,supportHandReferenceMesh);
     const bindRotation=bone.getRotationQuaternion(Space.WORLD,supportHandReferenceMesh)??Quaternion.Identity();
     const bindFloorPoint=new Vector3(bindFoot.x,anchor.position.y,bindFoot.z);
     const localSoleOffset=bindFloorPoint.subtract(bindFoot)
      .applyRotationQuaternion(Quaternion.Inverse(bindRotation));
-    footGroundOffsets.push({bone,soleOffset:bindFoot.y-anchor.position.y,localSoleOffset});
+    footGroundContactOffsets.push({bone,localSoleOffset});
    }
    groundingObserver=scene.onBeforeRenderObservable.add(()=>{
     if(!fit||!supportHandReferenceMesh||!groundingEnabled||!controlled||
@@ -462,8 +472,8 @@ export function createReesePlayer001(scene:Scene,
     fit.computeWorldMatrix(true);
     supportHandReferenceMesh.computeWorldMatrix(true);
     const legacySoleYs=footGroundOffsets.map(({bone,soleOffset})=>
-     bone.getPosition(Space.WORLD,supportHandReferenceMesh!).y-soleOffset);
-    const rotatedSoleYs=footGroundOffsets.map(({bone,localSoleOffset})=>{
+     bone.getAbsolutePosition(supportHandReferenceMesh!).y-soleOffset);
+    const rotatedSoleYs=footGroundContactOffsets.map(({bone,localSoleOffset})=>{
      const bonePosition=bone.getPosition(Space.WORLD,supportHandReferenceMesh!);
      const boneRotation=bone.getRotationQuaternion(Space.WORLD,supportHandReferenceMesh!)??Quaternion.Identity();
      return reeseFootContactPoint001(bonePosition,boneRotation,localSoleOffset).y;
