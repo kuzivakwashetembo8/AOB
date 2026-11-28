@@ -12,6 +12,7 @@ import {
 } from "@babylonjs/core";
 import { Space } from "@babylonjs/core/Maths/math.axis";
 import {createReeseMuzzleSpark010} from "./reese-muzzle-spark-010";
+import {advanceReeseAutomaticFireCadence001} from "./reese-automatic-fire-012";
 import {createReeseWeapon001,solveReeseWeaponGripOffset001,solveReeseWeaponMountRotation001,type ReeseWeaponId001} from "../weapons/gun-runtime-001";
 import type { FlightPoseInput } from "./locomotion/flight-pose";
 import { gtdLoadingLedger as audit } from "../../lib/real-loading-ledger";
@@ -159,6 +160,22 @@ function softenCrouchAnimation001(
  * authored crouch pose/locomotion, softened toward neutral idle; upper-body
  * tracks come from the weapon's authored firing clip.
  */
+function createUpperBodyFireOverlay001(
+ scene:Scene,name:string,source:AnimationGroup|null,
+):AnimationGroup|null{
+ if(!source)return null;
+ const group=new AnimationGroup(name,scene);
+ const upperTrack=/(spine1|spine2|neck|head|shoulder|arm|forearm|hand|thumb|index|middle|ring|pinky)\d*$/i;
+ for(const entry of source.targetedAnimations){
+  const targetName=String((entry.target as {name?:string;id?:string}).name??
+   (entry.target as {id?:string}).id??"");
+  if(upperTrack.test(targetName))group.addTargetedAnimation(entry.animation.clone(),entry.target);
+ }
+ if(!group.targetedAnimations.length){group.dispose();return null;}
+ group.metadata={...(group.metadata??{}),playTo:source.to};
+ return group;
+}
+
 function createCrouchedFireGroup001(
  scene:Scene,name:string,lower:AnimationGroup|null,upper:AnimationGroup|null,
  neutral:AnimationGroup|null,playTo?:number,crouchWeight=.38,gunReadyStance=false,
@@ -242,6 +259,11 @@ export function createReesePlayer001(scene:Scene,
  const firstPersonHeadPattern=/(head|hair|eyebrow|eye|face|teeth|tongue)/i;
  let combatRemaining=0;
  let lastAttackAt=-Infinity;
+ let combatHeld=false;
+ let automaticFireElapsedMs=0;
+ let combatShotHandler:((weapon:ReeseWeaponId001)=>void)|null=null;
+ let combatStopHandler:(()=>void)|null=null;
+ let fireOverlay:AnimationGroup|null=null;
  let currentGait:"idle"|"walk"|"run"="idle";
  let currentRunning=false;
  const composedGroups:AnimationGroup[]=[];
@@ -273,7 +295,7 @@ export function createReesePlayer001(scene:Scene,
   for(const [id,root] of Object.entries(weaponRoots))
    root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving);
  }
- const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire"|"rifleIdle"|"rifleAim"|"rifleFire"|"rifleWalk"|"rifleRun"|"rifleSprint"|"rifleCrouchAim"|"rifleCrouchWalk"|"rifleWalkAim"|"pistolWalkAim"|"pistolCrouchAim"|"pistolCrouchWalk"|"rifleCrouchFire"|"rifleCrouchWalkFire"|"pistolCrouchFire"|"pistolCrouchWalkFire"|"rifleReadyAim"|"pistolReadyAim"|"rifleCrouchAimMinimal"|"rifleCrouchWalkMinimal"|"rifleCrouchFireMinimal"|"rifleCrouchWalkFireMinimal"|"pistolCrouchAimMinimal"|"pistolCrouchWalkMinimal"|"pistolCrouchFireMinimal"|"pistolCrouchWalkFireMinimal",AnimationGroup|null>={
+ const groups:Record<"idle"|"walk"|"run"|"jumpStart"|"jump"|"fall"|"land"|"punch"|"pistolAim"|"pistolFire"|"rifleIdle"|"rifleAim"|"rifleFire"|"rifleWalk"|"rifleRun"|"rifleSprint"|"rifleCrouchAim"|"rifleCrouchWalk"|"rifleWalkAim"|"pistolWalkAim"|"pistolCrouchAim"|"pistolCrouchWalk"|"rifleCrouchFire"|"rifleCrouchWalkFire"|"pistolCrouchFire"|"pistolCrouchWalkFire"|"rifleReadyAim"|"pistolReadyAim"|"rifleCrouchAimMinimal"|"rifleCrouchWalkMinimal"|"rifleCrouchFireMinimal"|"rifleCrouchWalkFireMinimal"|"pistolCrouchAimMinimal"|"pistolCrouchWalkMinimal"|"pistolCrouchFireMinimal"|"pistolCrouchWalkFireMinimal"|"rifleFireOverlay"|"pistolFireOverlay",AnimationGroup|null>={
   idle:null,walk:null,run:null,jumpStart:null,jump:null,fall:null,land:null,punch:null,
   pistolAim:null,pistolFire:null,rifleIdle:null,rifleAim:null,rifleFire:null,
   rifleWalk:null,rifleRun:null,rifleSprint:null,rifleCrouchAim:null,rifleCrouchWalk:null,
@@ -283,6 +305,7 @@ export function createReesePlayer001(scene:Scene,
   rifleCrouchFireMinimal:null,rifleCrouchWalkFireMinimal:null,
   pistolCrouchAimMinimal:null,pistolCrouchWalkMinimal:null,
   pistolCrouchFireMinimal:null,pistolCrouchWalkFireMinimal:null,
+  rifleFireOverlay:null,pistolFireOverlay:null,
  };
  function weaponAimGroup():AnimationGroup|null{
   if(handItem!=="gun")return null;
@@ -375,12 +398,15 @@ export function createReesePlayer001(scene:Scene,
    groups.rifleCrouchAim,groups.pistolFire,groups.idle);
   groups.pistolCrouchWalkFire=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk-fire",
    groups.rifleCrouchWalk,groups.pistolFire,groups.idle);
+  groups.rifleFireOverlay=createUpperBodyFireOverlay001(scene,"reese-rifle-fire-overlay",groups.rifleFire);
+  groups.pistolFireOverlay=createUpperBodyFireOverlay001(scene,"reese-pistol-fire-overlay",groups.pistolFire);
   for(const group of [groups.pistolCrouchAim,groups.pistolCrouchWalk,
    groups.rifleCrouchFire,groups.rifleCrouchWalkFire,
    groups.pistolCrouchFire,groups.pistolCrouchWalkFire,
   groups.rifleWalkAim,groups.pistolWalkAim,groups.rifleReadyAim,groups.pistolReadyAim,
   groups.rifleCrouchAimMinimal,groups.rifleCrouchWalkMinimal,groups.rifleCrouchFireMinimal,groups.rifleCrouchWalkFireMinimal,
-  groups.pistolCrouchAimMinimal,groups.pistolCrouchWalkMinimal,groups.pistolCrouchFireMinimal,groups.pistolCrouchWalkFireMinimal])
+  groups.pistolCrouchAimMinimal,groups.pistolCrouchWalkMinimal,groups.pistolCrouchFireMinimal,groups.pistolCrouchWalkFireMinimal,
+  groups.rifleFireOverlay,groups.pistolFireOverlay])
    if(group)composedGroups.push(group);
   console.info("[LMS-GUN-002] Reese long-gun clip binding",{
    rifleIdle:groups.rifleIdle?.name??null,rifleAim:groups.rifleAim?.name??null,
@@ -609,6 +635,75 @@ export function createReesePlayer001(scene:Scene,
   }
   return null;
  }
+ function stopCombatFire(interruptPresentation=false){
+  const wasHeld=combatHeld;combatHeld=false;automaticFireElapsedMs=0;
+  if(wasHeld)combatStopHandler?.();
+  if(interruptPresentation){fireOverlay?.stop();fireOverlay=null;}
+ }
+ function baseWeaponLocomotionGroup():AnimationGroup|null{
+  if(reeseIsLongGun001(selectedWeapon)){
+   if(currentGait==="walk")return (lowCrouch?groups.rifleCrouchWalk:groups.rifleWalkAim)??groups.rifleWalk;
+   return (lowCrouch?groups.rifleCrouchAim:groups.rifleReadyAim)??groups.rifleAim??groups.idle;
+  }
+  if(currentGait==="walk")return (lowCrouch?groups.pistolCrouchWalk:groups.pistolWalkAim)??groups.pistolAim??groups.walk;
+  return (lowCrouch?groups.pistolCrouchAim:groups.pistolReadyAim)??groups.pistolAim??groups.idle;
+ }
+ function playFireOverlay(weapon:ReeseWeaponId001):boolean{
+  const overlay=reeseIsLongGun001(weapon)?groups.rifleFireOverlay:groups.pistolFireOverlay;
+  if(!overlay)return false;
+  if(fireOverlay===overlay)overlay.stop();else fireOverlay?.stop();
+  fireOverlay=overlay;overlay.start(false,1,0,Number(overlay.metadata?.playTo??overlay.to));
+  overlay.setWeightForAllAnimatables(1);return true;
+ }
+ function triggerCombatInternal(automatic=false):"punch"|"shoot"|null{
+  if(!controlled||closed||hiddenDriving||flight||wasAirborne||landingRemaining>0||
+   (handItem==="gun"&&currentRunning))return null;
+  const attack=handItem==="gun"?"shoot":"punch";
+  const now=typeof performance!=="undefined"?performance.now():Date.now();
+  if(attack==="punch"&&(combatRemaining>0||now-lastAttackAt<550))return null;
+  if(attack==="shoot"&&!automatic&&now-lastAttackAt<12)return null;
+  if(attack==="shoot"){
+   const muzzle=muzzleWorld();if(!muzzle)return null;
+   const base=baseWeaponLocomotionGroup();if(base)play(base,true);
+   if(!playFireOverlay(selectedWeapon??"m4a1")){
+    const fallback=reeseIsLongGun001(selectedWeapon)?groups.rifleFire:groups.pistolFire;
+    if(!fallback)return null;play(fallback,false);
+   }
+   shotSerial++;muzzleEffect.emit(muzzle,anchor.rotation.y,selectedWeapon??"m4a1");
+  }else{
+   if(!groups.punch)return null;combatRemaining=.55;play(groups.punch,false);
+  }
+  lastAttackAt=now;return attack;
+ }
+ function setCombatHeld(pressed:boolean):"punch"|"shoot"|null{
+  if(!pressed){stopCombatFire(false);return null;}
+  if(!controlled||closed||hiddenDriving||flight||wasAirborne||landingRemaining>0)return null;
+  if(handItem!=="gun")return triggerCombatInternal();
+  if(!reeseIsLongGun001(selectedWeapon)){
+   const kind=triggerCombatInternal();
+   if(kind==="shoot"&&selectedWeapon)combatShotHandler?.(selectedWeapon);
+   return kind;
+  }
+  if(combatHeld||currentRunning)return null;
+  combatHeld=true;automaticFireElapsedMs=0;
+  const kind=triggerCombatInternal(true);
+  if(kind!=="shoot"){stopCombatFire(true);return null;}
+  if(selectedWeapon)combatShotHandler?.(selectedWeapon);
+  return kind;
+ }
+ function updateAutomaticFire(dt:number){
+  if(!combatHeld)return;
+  if(!controlled||closed||hiddenDriving||flight||wasAirborne||landingRemaining>0||
+   currentRunning||handItem!=="gun"||!reeseIsLongGun001(selectedWeapon)){
+   stopCombatFire(true);return;
+  }
+  const cadence=advanceReeseAutomaticFireCadence001(automaticFireElapsedMs,Math.max(0,dt)*1000);
+  automaticFireElapsedMs=cadence.elapsedMs;
+  for(let i=0;i<cadence.shots;i++){
+   if(triggerCombatInternal(true)!=="shoot"){stopCombatFire(true);return;}
+   if(selectedWeapon)combatShotHandler?.(selectedWeapon);
+  }
+ }
  function advance(dt:number){
   if(!active)return;
   if(outgoing){
@@ -619,7 +714,7 @@ export function createReesePlayer001(scene:Scene,
   }
  }
  function selectWeapon(id:"hand"|ReeseWeaponId001){
-  combatRemaining=0;muzzleEffect.clear();
+  stopCombatFire(true);combatRemaining=0;muzzleEffect.clear();
   if(id==="hand"){
    handItem="hand";
   }else if(weaponMount&&weaponRoots[id]){
@@ -702,7 +797,7 @@ export function createReesePlayer001(scene:Scene,
   setFirstPersonPresentation,
   setControlled(enabled:boolean){
    if(closed)return;
-   controlled=enabled;hiddenDriving=false;groundingEnabled=enabled;combatRemaining=0;
+   stopCombatFire(true);controlled=enabled;hiddenDriving=false;groundingEnabled=enabled;combatRemaining=0;
    wasAirborne=false;takeoffRemaining=0;landingRemaining=0;muzzleEffect.clear();
    anchor.setEnabled(enabled&&!hiddenDriving);
    if(enabled){resetFlight();play(groups.idle);}
@@ -711,7 +806,7 @@ export function createReesePlayer001(scene:Scene,
   setDrivingHidden(hidden:boolean){
    if(closed||!controlled)return;
    hiddenDriving=hidden;
-   if(hidden)muzzleEffect.clear();
+   if(hidden){stopCombatFire(true);muzzleEffect.clear();}
    anchor.setEnabled(!hidden);
    applyWeaponVisibility();
   },
@@ -732,6 +827,7 @@ export function createReesePlayer001(scene:Scene,
    const next=reeseSafeLocomotion007(speed,sprint);
    currentGait=next;
    currentRunning=!reeseCanFire001(speed,sprint);
+   if(currentRunning)stopCombatFire(true);
    const interruptedShot=currentRunning&&combatRemaining>0;
    if(interruptedShot)combatRemaining=0;
    reportSupportGripAlignment(dt);
@@ -739,7 +835,7 @@ export function createReesePlayer001(scene:Scene,
    // The Rapier capsule determines physical Y; glTF clips only articulate bones.
    const airborne=!grounded||verticalVelocity>.65;
    if(airborne){
-    landingRemaining=0;
+    stopCombatFire(true);landingRemaining=0;
     if(!wasAirborne){
      wasAirborne=true;takeoffRemaining=verticalVelocity>.7 ? .15 : 0;
      play(takeoffRemaining>0?(groups.jumpStart??groups.jump):(groups.fall??groups.jump),takeoffRemaining<=0);
@@ -751,7 +847,7 @@ export function createReesePlayer001(scene:Scene,
     advance(dt);return;
    }
    if(wasAirborne){
-    wasAirborne=false;takeoffRemaining=0;landingRemaining=groups.land ? .35 : 0;
+    stopCombatFire(true);wasAirborne=false;takeoffRemaining=0;landingRemaining=groups.land ? .35 : 0;
     if(groups.land)play(groups.land,false);
    }
    if(landingRemaining>0){
@@ -766,6 +862,7 @@ export function createReesePlayer001(scene:Scene,
    else if((pendingGaitSeconds+=Math.max(0,dt))>=.15){
     stableGait=next;pendingGaitSeconds=0;
    }
+   updateAutomaticFire(dt);
    if(combatRemaining>0){
     combatRemaining=Math.max(0,combatRemaining-Math.max(0,dt));
     if(combatRemaining>0){advance(dt);return;}
@@ -793,7 +890,7 @@ export function createReesePlayer001(scene:Scene,
    input:FlightPoseInput&{dt:number},
   ){
    if(!controlled||closed)return;
-   flight=true;groundingEnabled=false;
+   stopCombatFire(true);flight=true;groundingEnabled=false;
    positionAt(p,yaw);
    // Owner requested no Reese flying animation. Preserve only movement physics.
    resetFlight();
@@ -811,39 +908,15 @@ export function createReesePlayer001(scene:Scene,
    lowCrouch=handItem==="gun"&&enabled;
   },
   /** Animation-and-audio-only: never performs damage, rays or projectile simulation. */
-  triggerCombat(): "punch"|"shoot"|null {
-   if(!controlled||closed||hiddenDriving||flight||wasAirborne||landingRemaining>0||
-    (handItem==="gun"&&currentRunning))return null;
-   const attack=handItem==="gun"?"shoot":"punch";
-   const moving=currentGait==="walk";
-   const clip=attack==="shoot"
-    ?(reeseIsLongGun001(selectedWeapon)
-      ?(lowCrouch?(moving?groups.rifleCrouchWalkFire:groups.rifleCrouchFire):
-        (moving?groups.rifleCrouchWalkFireMinimal:groups.rifleCrouchFireMinimal))??groups.rifleFire
-      :(lowCrouch?(moving?groups.pistolCrouchWalkFire:groups.pistolCrouchFire):
-        (moving?groups.pistolCrouchWalkFireMinimal:groups.pistolCrouchFireMinimal))??groups.pistolFire)
-    :groups.punch;
-   if(!clip)return null;
-   const now=typeof performance!=="undefined"?performance.now():Date.now();
-   if(attack==="punch"&&(combatRemaining>0||now-lastAttackAt<550))return null;
-   if(attack==="shoot"&&now-lastAttackAt<12)return null;
-   if(attack==="shoot"){
-    const muzzle=muzzleWorld();if(!muzzle)return null;
-    shotSerial++;
-    // Rapid distinct taps restart one existing clip, never stack animation groups.
-    if(active===clip){outgoing?.stop();outgoing=null;clip.stop();clip.start(false);
-      clip.setWeightForAllAnimatables(1);transition=1;}
-    else play(clip,false);
-    muzzleEffect.emit(muzzle,anchor.rotation.y,selectedWeapon??"m4a1");
-    combatRemaining=.10;
-   }else{combatRemaining=.55;play(clip,false);}
-   lastAttackAt=now;
-   return attack;
+  triggerCombat(): "punch"|"shoot"|null {return triggerCombatInternal();},
+  setCombatHeld(pressed:boolean):"punch"|"shoot"|null{return setCombatHeld(pressed);},
+  setCombatShotHandlers(onShot:(weapon:ReeseWeaponId001)=>void,onStop:()=>void){
+   combatShotHandler=onShot;combatStopHandler=onStop;
   },
   get combatReady(){return !!groups.punch&&!!groups.pistolAim&&!!groups.pistolFire;},
   get shotsFired(){return shotSerial;},
   clearCombatFX(){
-   muzzleEffect.clear();
+   stopCombatFire(true);muzzleEffect.clear();
   },
   get handItem(){return handItem;},
   get lowCrouch(){return lowCrouch;},
@@ -853,7 +926,7 @@ export function createReesePlayer001(scene:Scene,
   },
   dispose(){
    if(closed)return;
-   closed=true;
+   stopCombatFire(true);closed=true;
    if(groundingObserver)scene.onBeforeRenderObservable.remove(groundingObserver);
    active?.stop();outgoing?.stop();muzzleEffect.dispose();
    for(const group of composedGroups){group.stop();group.dispose();}

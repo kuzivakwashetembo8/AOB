@@ -290,8 +290,12 @@ export async function createNorthHeightsCity8(
     }
     keys.add(event.code);
   };
-  const keyUp = (event: KeyboardEvent) => { keys.delete(event.code); };
+  const keyUp = (event: KeyboardEvent) => {
+    keys.delete(event.code);
+    if(event.code==="KeyC")controller.action("combat",false);
+  };
   const clearKeys = () => {
+    actor?.setCombatHeld(false);
     keys.clear();held.clear();analog={x:0,y:0};dragPointer=null;
     // Lost focus, pause, and exit must clear ALL manual pedal requests.
     traffic?.setDriverBrake(null,false);
@@ -434,7 +438,10 @@ export async function createNorthHeightsCity8(
   window.addEventListener("keyup", keyUp);
   window.addEventListener("blur", clearKeys);
   window.addEventListener("resize", resize);
-  const soundVisibility=()=>vehicleAudio.setHidden(document.hidden);
+  const soundVisibility=()=>{
+    vehicleAudio.setHidden(document.hidden);
+    if(document.hidden){actor?.setCombatHeld(false);actor?.clearCombatFX();}
+  };
   document.addEventListener("visibilitychange",soundVisibility);
   soundVisibility();
   scene.onBeforeRenderObservable.add(() => {
@@ -906,6 +913,7 @@ export async function createNorthHeightsCity8(
     },
     setUiBlocked(blocked){uiBlocked=blocked;if(blocked)clearKeys();},
     action(action,pressed){
+      if(action==="combat"&&!pressed){actor?.setCombatHeld(false);return;}
       if(paused||uiBlocked)return;
       if(pressed)vehicleAudio.unlockFromGesture();
       if(pressed&&action==="vehicle"){
@@ -917,9 +925,11 @@ export async function createNorthHeightsCity8(
         return;
       }
       if(action==="combat"){
-        if(!pressed||uiBlocked||machineView||ridingSedanId||liftFrame?.traveling||genericLiftFrame?.traveling)return;
-        const kind=actor?.triggerCombat();
-        if(kind)vehicleAudio.playCombatCue(kind);
+        if(machineView||ridingSedanId||liftFrame?.traveling||genericLiftFrame?.traveling){
+          actor?.setCombatHeld(false);return;
+        }
+        const kind=actor?.setCombatHeld(true);
+        if(kind==="punch")vehicleAudio.playCombatCue(kind);
         return;
       }
       const control=northHeightsActionControl007(action);
@@ -1219,6 +1229,10 @@ export async function createNorthHeightsCity8(
     actor=createReesePlayer001(scene);
     await actor.ready;
     if(closed)return controller;
+    actor.setCombatShotHandlers(weapon=>{
+      if(weapon==="m4a1"||weapon==="mpx9")vehicleAudio.startAutomaticFire(weapon,100);
+      else vehicleAudio.playCombatCue("shoot");
+    },()=>vehicleAudio.stopAutomaticFire());
     actor.setControlled(true);
     const initial=walk.physics.playerPosition();
     actor.updateControlled(initial,0,0,1/60,false,false,0);

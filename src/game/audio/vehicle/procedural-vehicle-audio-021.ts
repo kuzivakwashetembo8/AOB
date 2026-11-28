@@ -137,6 +137,9 @@ export class ProceduralVehicleAudio021 {
   private trafficBus:GainNode|null=null;
   private masterBus:GainNode|null=null;
   private noise:AudioBuffer|null=null;
+  private automaticFireSource:AudioBufferSourceNode|null=null;
+  private automaticFireGain:GainNode|null=null;
+  private automaticFireFilter:BiquadFilterNode|null=null;
   private voices=new Map<string,ProceduralVoice021>();
   private enabled=false;
   private closed=false;
@@ -192,10 +195,10 @@ export class ProceduralVehicleAudio021 {
     }
   }
   setSettings(next:ProceduralVehicleSoundSettings021):void{
-    this.volume=next;this.applyVolume();
+    this.volume=next;if(next.muted)this.stopAutomaticFire();this.applyVolume();
   }
-  setPaused(value:boolean):void{this.paused=value;this.applyVolume();}
-  setHidden(value:boolean):void{this.hidden=value;this.applyVolume();}
+  setPaused(value:boolean):void{this.paused=value;if(value)this.stopAutomaticFire();this.applyVolume();}
+  setHidden(value:boolean):void{this.hidden=value;if(value)this.stopAutomaticFire();this.applyVolume();}
   private applyVolume():void{
     const ctx=this.ctx,bus=this.masterBus;
     if(!ctx||!bus)return;
@@ -266,6 +269,54 @@ export class ProceduralVehicleAudio021 {
       osc.start(now);osc.stop(now+.16);
     }
   }
+  /** Sustained automatic-fire bed. Its pulse interval is the accepted shot cadence. */
+  startAutomaticFire(weapon:"m4a1"|"mpx9",cadenceMs=100):void{
+    if(this.automaticFireSource)return;
+    this.unlockFromGesture();
+    const ctx=this.ctx,noise=this.noise,bus=this.playerBus;
+    if(!ctx||!noise||!bus||this.paused||this.hidden||this.volume.muted)return;
+    try{
+      const interval=Math.max(.04,Math.min(.2,cadenceMs/1000));
+      const frames=Math.max(1,Math.round(ctx.sampleRate*interval));
+      const pulse=ctx.createBuffer(1,frames,ctx.sampleRate);
+      const samples=pulse.getChannelData(0),raw=noise.getChannelData(0);
+      for(let i=0;i<frames;i++){
+        const t=i/frames,envelope=Math.exp(-t*18);
+        samples[i]=((raw[i%raw.length]??0)*.62+Math.sin(t*Math.PI*2*92)*.12)*envelope;
+      }
+      const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+      this.automaticFireSource=source;this.automaticFireFilter=filter;this.automaticFireGain=gain;
+      source.buffer=pulse;source.loop=true;source.loopStart=0;source.loopEnd=interval;
+      filter.type="bandpass";filter.frequency.value=weapon==="m4a1"?1120:1420;filter.Q.value=.85;
+      const now=ctx.currentTime;gain.gain.setValueAtTime(.001,now);
+      gain.gain.linearRampToValueAtTime(weapon==="m4a1"?.24:.21,now+.025);
+      source.connect(filter);filter.connect(gain);gain.connect(bus);
+      source.onended=()=>{
+        source.disconnect();filter.disconnect();gain.disconnect();
+        if(this.automaticFireSource===source){
+          this.automaticFireSource=null;this.automaticFireFilter=null;this.automaticFireGain=null;
+        }
+      };
+      source.start(now);
+    }catch{
+      this.stopAutomaticFire();
+    }
+  }
+  stopAutomaticFire():void{
+    const source=this.automaticFireSource,gain=this.automaticFireGain,filter=this.automaticFireFilter;
+    this.automaticFireSource=null;this.automaticFireGain=null;this.automaticFireFilter=null;
+    if(!source)return;
+    const ctx=this.ctx,now=ctx?.currentTime??0;
+    source.onended=()=>{source.disconnect();filter?.disconnect();gain?.disconnect();};
+    try{
+      if(gain&&ctx){
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(Math.max(.001,gain.gain.value),now);
+        gain.gain.linearRampToValueAtTime(.001,now+.05);
+        source.stop(now+.055);
+      }else source.stop();
+    }catch{/* audio shutdown must not interrupt gameplay */}
+  }
   /** Positional vehicle horn for a genuine obstruction, rate-limited per car. */
   playHorn(id:string,x:number,y:number,z:number):boolean{
     const ctx=this.ctx,bus=this.trafficBus;
@@ -334,7 +385,7 @@ export class ProceduralVehicleAudio021 {
     }
   }
   dispose():void{
-    if(this.closed)return;this.closed=true;
+    if(this.closed)return;this.stopAutomaticFire();this.closed=true;
     for(const voice of this.voices.values())voice.stop();
     this.voices.clear();this.selections=[];this.lastHorn.clear();
     this.playerBus?.disconnect();

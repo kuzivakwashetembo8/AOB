@@ -159,8 +159,11 @@ describe("REESE-001 playable actor replacement",()=>{
  });
  it("uses rifle fire and the support weapon's authored gripL without changing P-19 selection",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
-  expect(actor).toContain("lowCrouch?(moving?groups.rifleCrouchWalkFire:groups.rifleCrouchFire)");
-  expect(actor).toContain("lowCrouch?(moving?groups.pistolCrouchWalkFire:groups.pistolCrouchFire)");
+  expect(actor).toContain("createUpperBodyFireOverlay001");
+  expect(actor).toContain("groups.rifleFireOverlay=createUpperBodyFireOverlay001");
+  expect(actor).toContain("groups.pistolFireOverlay=createUpperBodyFireOverlay001");
+  expect(actor).toContain("baseWeaponLocomotionGroup()");
+  expect(actor).toContain("updateAutomaticFire(dt)");
   expect(actor).toContain("currentRunning))return null");
   expect(actor).toContain("createCrouchedFireGroup001");
   expect(actor).toContain("root?.metadata?.gripL");
