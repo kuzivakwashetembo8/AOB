@@ -36,7 +36,7 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(player).toContain("firstPersonHeadPattern");
   expect(player).toContain("entry.mesh.visibility=enabled?0:entry.visibility");
   expect(player).toContain("anchor.setEnabled(controlled&&!hiddenDriving)");
-  expect(player).toContain("root?.setEnabled(handItem===\"gun\"&&selectedWeapon===id&&controlled&&!hiddenDriving)");
+  expect(player).toContain('root?.setEnabled(handItem==="gun"&&selectedWeapon===id&&controlled&&!hiddenDriving)');
   expect(player).toContain("weaponMount.attachToBone(rightHand,referenceMesh)");
   expect(player).not.toContain("MeshBuilder.CreateCapsule");
   expect(player).not.toContain("MeshBuilder.CreateSphere");
@@ -45,15 +45,15 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(player).toContain("solveReeseWeaponGripOffset001");
   expect(player).toContain('muzzleEffect.emit(muzzle,anchor.rotation.y,selectedWeapon??"m4a1")');
  });
- it("activates the existing weapon aim pose on POV entry and restores armed aim on exit",()=>{
+ it("activates the existing weapon-ready aim pose on POV entry and restores it on exit",()=>{
   const player=read("src/game/character/reese-player-001.ts");
   const presentation=player.split("function setFirstPersonPresentation")[1]?.split("function applyWeaponVisibility")[0]??"";
   expect(player).toContain("function weaponAimGroup():AnimationGroup|null");
   expect(presentation).toContain('if(handItem==="gun")');
   expect(presentation).toContain("if(enabled)play(weaponAimGroup(),true,true)");
   expect(presentation).toContain("else play(weaponAimGroup())");
-  expect(player).toContain("groups.rifleCrouchAimMinimal??groups.rifleCrouchAim??groups.rifleAim");
-  expect(player).toContain("groups.pistolCrouchAimMinimal??groups.pistolCrouchAim??groups.pistolAim");
+  expect(player).toContain("return groups.rifleReadyAim??groups.rifleCrouchAimMinimal??groups.rifleAim??groups.rifleIdle??groups.idle");
+  expect(player).toContain("return groups.pistolReadyAim??groups.pistolCrouchAimMinimal??groups.pistolAim??groups.idle");
  });
  it("shows a centered accessible reticle only for an armed first-person on-foot view",()=>{
   const route=read("src/routes/north-heights-preview.tsx");
