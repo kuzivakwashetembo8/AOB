@@ -75,6 +75,13 @@ describe("REESE-001 armed standing leg stance",()=>{
   expect(down.applyRotationQuaternion(leftThigh.multiply(leftShin)).z).toBeCloseTo(0);
   expect(reeseGunReadyLegAngle001("mixamorig:Spine2")).toBe(0);
  });
+ it("uses the ordinary alternating walk lower body with the weapon-ready upper body",()=>{
+  const actor=read("src/game/character/reese-player-001.ts");
+  expect(actor).toContain('groups.rifleWalkAim=createCrouchedFireGroup001(scene,"reese-rifle-walk-aim",groups.walk,groups.rifleAim,groups.idle,groups.rifleAim?.to,1)');
+  expect(actor).toContain('groups.pistolWalkAim=createCrouchedFireGroup001(scene,"reese-pistol-walk-aim",groups.walk,groups.pistolAim,groups.idle,groups.pistolAim?.to,1)');
+  expect(actor).toContain('(lowCrouch?groups.rifleCrouchWalk:groups.rifleWalkAim)');
+  expect(actor).toContain('(lowCrouch?groups.pistolCrouchWalk:groups.pistolWalkAim)');
+ });
  it("applies the stance only to standing gun-ready idle and stationary-fire blends, not cover or walk clips",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain("if(gunReadyStance)softened=applyGunReadyLegStance001(softened,targetName)");
