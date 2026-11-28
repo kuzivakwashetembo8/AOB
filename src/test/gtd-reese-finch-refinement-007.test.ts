@@ -54,14 +54,26 @@ describe("GTD-REESE-FINCH-007 owner gameplay corrections",()=>{
   expect(page).toContain('max-w-[min(60vw,380px)]');
   expect(page).toContain("<ArrowRight size={17} strokeWidth={1.25}/>");
  });
- it("has three evenly spaced header buttons and a blurred game-backed focused map",()=>{
+ it("has five evenly spaced desktop header controls, a narrow-screen rail and a blurred game-backed focused map",()=>{
   const style=src("src/styles.css");
   const page=src("src/routes/north-heights-preview.tsx");
+  const hud=src("src/ui/hud/game-hud.tsx");
   const map=src("src/ui/hud/north-heights-map-010.tsx");
   expect(style).toContain(".gtd-hand-always");
-  expect(style).toContain(" + 106px");
-  expect(style).toContain("right:max(65px,env(safe-area-inset-right))");
+  expect(style).toContain(" + 65px");
+  expect(style).toContain(" + 118px");
+  expect(style).toContain(" + 171px");
+  expect(style).toContain(" + 224px");
+  expect(style).toContain("top:calc(max(8px,env(safe-area-inset-top)) + 53px)");
+  expect(style).toContain("top:calc(max(8px,env(safe-area-inset-top)) + 106px)");
+  expect(style).toContain("top:calc(max(8px,env(safe-area-inset-top)) + 159px)");
+  expect(style).toContain("top:calc(max(8px,env(safe-area-inset-top)) + 212px)");
+  expect(style).toContain("top:calc(max(8px,env(safe-area-inset-top)) + 265px)");
+  expect(style).toContain("@media(max-width:740px) and (max-height:440px)");
   expect(page).toContain('className="gtd-hand-always');
+  expect(page).toContain('className="gtd-first-person-always');
+  expect(hud).toContain('className="gtd-header-reveal"');
+  expect(hud).toContain('<Info size={18} aria-hidden="true" />');
   // POI-009 replaces the bespoke dark map frame with the uniform control-glass
   // panel while retaining its transparent square canvas and backdrop blur.
   expect(map).toContain("poi009-expanded-map");
