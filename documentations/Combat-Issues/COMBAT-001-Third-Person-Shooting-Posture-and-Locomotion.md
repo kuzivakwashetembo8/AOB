@@ -1,6 +1,6 @@
 # COMBAT-001 — Third-Person Shooting Posture and Locomotion
 
-**Status:** Documented; implementation not yet assessed  
+**Status:** Revised after visual rejection; automated validation and runtime visual acceptance pending  
 **Area:** Player combat presentation — third person  
 **Target release:** 1 December 2026  
 **Related direction:** [AOB Combat-First Direction Addendum (26 November 2026)](../AOB-Combat-First-Direction-Addendum-2026-11-26.md)
@@ -46,3 +46,32 @@ Validate in the actual AOB runtime with stationary fire, movement while firing, 
 ## Release constraint
 
 The 1 December 2026 release deadline is fixed. Prefer a stable, readable implementation over optional animation embellishment. This document records requirements; it does not claim implementation or test completion.
+
+
+## Implementation record — 27 November 2026
+
+**Branch:** `feature/combat-001-third-person-shooting-posture`  
+**Pull request:** [COMBAT-001 implementation](https://github.com/kuzivakwashetembo8/AOB/pull/12)
+
+Implemented in `src/game/character/reese-player-001.ts`:
+
+- Resolve the authored `Crouch aim idle` and `Crouch walk (aiming)` clips from the Reese GLB.
+- Use crouched full-body idle/walk presentation while a weapon is equipped.
+- Compose weapon-specific firing clips from crouch lower-body tracks and the corresponding rifle/pistol upper-body firing tracks.
+- Reject gunfire while the current locomotion state is running; cancel an in-progress shot presentation when the actor transitions into a run.
+- Preserve the existing movement authority, weapon attachment, and muzzle-event path.
+
+Regression coverage was added in `src/test/reese-player-001.test.ts`.
+
+**Automated validation:** `npx tsc --noEmit` passed; Vitest passed **809 tests across 197 files**; Vite/Nitro production build completed and the Vercel preview deployment reached READY.
+
+**Runtime acceptance remains pending.** The available character exercise route is the North Heights preview, where Reese is currently instantiated. This work does not claim LMS production-mode integration. Do not check off the visual acceptance criteria until stationary fire, moving fire, run/fire rejection, transitions, foot contact, and the normal third-person camera have been inspected in that runtime.
+
+
+## Visual rejection follow-up — 27 November 2026
+
+The initial implementation was rejected because the authored crouch clips produced an overly deep, full-bend posture. The accepted visual target is the COD crouch reference committed on `main` in commit `d4ec01e358e1c78de0ef043145c8538b4d7ab937`; the AOB crouch image in that commit is the rejected example.
+
+The follow-up now treats the previous deeper posture as a dedicated low-crouch/cover state instead of discarding it. Default gun handling uses a minimal 12% crouch contribution for stationary/moving rifle and pistol aim/fire compositions. The explicit low-crouch toggle selects the previous 38% crouch contribution (and the corresponding authored deep rifle crouch pose). Touch and desktop HUDs show a down-arrow toggle directly above Sprint while armed; the control is hidden when unarmed, driving, or using detached camera flight. See [COMBAT-001 follow-up — Reduce crouch depth](COMBAT-001-Follow-up-Reduce-Crouch-Depth.md).
+
+**Validation status:** source changes and regression coverage are committed; fresh Vercel preview build and visual inspection are pending. PR #12 remains draft and must not be merged before visual acceptance.

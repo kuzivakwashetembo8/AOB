@@ -29,6 +29,7 @@ export type GameAction =
   | "jump"
   | "combat"
   | "sprint"
+  | "crouch"
   | "vehicle"
   | "context"
   | "fly"

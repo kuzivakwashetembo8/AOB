@@ -45,6 +45,27 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(player).toContain("solveReeseWeaponGripOffset001");
   expect(player).toContain('muzzleEffect.emit(muzzle,anchor.rotation.y,selectedWeapon??"m4a1")');
  });
+ it("activates the existing weapon aim pose on POV entry and restores armed aim on exit",()=>{
+  const player=read("src/game/character/reese-player-001.ts");
+  const presentation=player.split("function setFirstPersonPresentation")[1]?.split("function applyWeaponVisibility")[0]??"";
+  expect(player).toContain("function weaponAimGroup():AnimationGroup|null");
+  expect(presentation).toContain('if(handItem==="gun")');
+  expect(presentation).toContain("if(enabled)play(weaponAimGroup(),true,true)");
+  expect(presentation).toContain("else play(weaponAimGroup())");
+  expect(player).toContain("groups.rifleCrouchAimMinimal??groups.rifleCrouchAim??groups.rifleAim");
+  expect(player).toContain("groups.pistolCrouchAimMinimal??groups.pistolCrouchAim??groups.pistolAim");
+ });
+ it("shows a centered accessible reticle only for an armed first-person on-foot view",()=>{
+  const route=read("src/routes/north-heights-preview.tsx");
+  const css=read("src/styles.css");
+  expect(route).toContain('data-testid="lms-first-person-reticle"');
+  expect(route).toContain('settings.firstPersonShooting&&');
+  expect(route).toContain('settings.enableCharacter&&heldItem!=="hand"');
+  expect(route).toContain("!vehicle&&!mapOpen&&!machineView");
+  expect(route).toContain('aria-label={heldItem.toUpperCase()+" aiming reticle"}');
+  expect(css).toContain(".gtd-first-person-reticle");
+  expect(css).toContain("pointer-events:none");
+ });
  it("does not expand the existing animation-and-audio-only combat contract",()=>{
   const player=read("src/game/character/reese-player-001.ts");
   expect(player).toContain("Animation-and-audio-only: never performs damage, rays or projectile simulation.");

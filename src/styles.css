@@ -2009,12 +2009,12 @@ html[data-display="standalone"] body > * {
 
 /* OPT-010: keep the map and pause reachable while optional header metadata fades. */
 .gtd-map-always { position:absolute; top:max(8px,env(safe-area-inset-top)); left:max(12px,env(safe-area-inset-left)); z-index:16; pointer-events:auto; }
-.gtd-header-reveal { position:absolute; top:max(8px,env(safe-area-inset-top)); right:max(65px,env(safe-area-inset-right)); z-index:17; pointer-events:auto; }
+.gtd-header-reveal { position:absolute; top:max(8px,env(safe-area-inset-top)); right:calc(max(12px,env(safe-area-inset-right)) + 118px); z-index:17; pointer-events:auto; }
 /* REESE-007: identical button width and 9px horizontal gaps, including safe area. */
 .gtd-hand-always {
  position:absolute;
  top:max(8px,env(safe-area-inset-top));
- right:calc(max(12px,env(safe-area-inset-right)) + 106px);
+ right:calc(max(12px,env(safe-area-inset-right)) + 171px);
  z-index:17;
  pointer-events:auto;
  width:44px;
@@ -2068,8 +2068,29 @@ html[data-display="standalone"] body > * {
 .touch-actions:has(.gtd-uniform-action) {grid-template-columns:repeat(3,58px);grid-auto-rows:58px;gap:9px;}
 .touch-actions .gtd-uniform-action.control-button {width:58px;height:58px;min-width:58px;min-height:58px;}
 @media(max-height:440px){.touch-actions:has(.gtd-uniform-action){grid-template-columns:repeat(3,54px);grid-auto-rows:54px;gap:6px;}.touch-actions .gtd-uniform-action.control-button{width:54px;height:54px;min-width:54px;min-height:54px;}}
-.gtd-machine-camera-always{position:absolute;top:max(8px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 159px);width:44px;height:44px;z-index:17;pointer-events:auto;}
-.gtd-first-person-always{position:absolute;top:max(8px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 53px);width:44px;height:44px;z-index:17;pointer-events:auto;}
+/* POI-010: five distinct top-right controls; narrow screens use a vertical rail. */
+.gtd-machine-camera-always{position:absolute;top:max(8px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 224px);width:44px;height:44px;z-index:17;pointer-events:auto;}
+.gtd-first-person-always{position:absolute;top:max(8px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 65px);width:44px;height:44px;z-index:17;pointer-events:auto;}
+/* LMS-FPV-001 scope: a non-interactive, centered aim guide for armed POV. */
+.gtd-first-person-reticle{
+ position:absolute;left:50%;top:50%;width:24px;height:24px;
+ transform:translate(-50%,-50%);z-index:14;pointer-events:none;
+ color:#fff;filter:drop-shadow(0 1px 2px rgb(0 0 0 / 95%));
+}
+.gtd-first-person-reticle::before{
+ content:"";position:absolute;inset:0;
+ background:
+  linear-gradient(currentColor,currentColor) center top/2px 6px no-repeat,
+  linear-gradient(currentColor,currentColor) center bottom/2px 6px no-repeat,
+  linear-gradient(currentColor,currentColor) left center/6px 2px no-repeat,
+  linear-gradient(currentColor,currentColor) right center/6px 2px no-repeat;
+}
+.gtd-first-person-reticle::after{
+ content:"";position:absolute;width:3px;height:3px;left:50%;top:50%;
+ transform:translate(-50%,-50%);border-radius:50%;background:currentColor;
+ box-shadow:0 0 0 1px rgb(0 0 0 / 65%);
+}
+
 
 /* POI-009: exact 1.20x action hit areas from POI-008 accepted sizes. */
 .touch-actions:has(.gtd-uniform-action){grid-template-columns:repeat(3,69.6px);grid-auto-rows:69.6px;}
@@ -2120,16 +2141,30 @@ html[data-display="standalone"] body > * {
 }
 .poi010-context-button{width:48px;height:48px;display:grid;place-items:center;padding:0;}
 .poi010-camera-status{
- position:absolute;top:max(8px,env(safe-area-inset-top));
- right:calc(max(12px,env(safe-area-inset-right)) + 211px);
+ position:absolute;top:calc(max(8px,env(safe-area-inset-top)) + 53px);
+ right:max(12px,env(safe-area-inset-right));
  height:44px;padding:0 9px;z-index:17;display:flex;align-items:center;
- max-width:calc(100vw - 375px);white-space:nowrap;
+ max-width:min(calc(100vw - 24px),360px);white-space:nowrap;
  font:500 10px/1.2 var(--font-mono);letter-spacing:.01em;
  pointer-events:none;overflow:hidden;text-overflow:ellipsis;
 }
 @media(max-width:740px){
- .poi010-camera-status{font-size:9px;padding:0 5px;max-width:calc(100vw - 355px);}
+ .gtd-first-person-always{top:calc(max(8px,env(safe-area-inset-top)) + 53px);right:max(12px,env(safe-area-inset-right));}
+ .gtd-header-reveal{top:calc(max(8px,env(safe-area-inset-top)) + 106px);right:max(12px,env(safe-area-inset-right));}
+ .gtd-hand-always{top:calc(max(8px,env(safe-area-inset-top)) + 159px);right:max(12px,env(safe-area-inset-right));}
+ .gtd-machine-camera-always{top:calc(max(8px,env(safe-area-inset-top)) + 212px);right:max(12px,env(safe-area-inset-right));}
+ .poi010-camera-status{top:calc(max(8px,env(safe-area-inset-top)) + 265px);right:max(12px,env(safe-area-inset-right));font-size:9px;padding:0 5px;max-width:min(calc(100vw - 68px),360px);}
  .poi010-context-button{width:44px;height:44px;}
+}
+@media(max-width:740px) and (max-height:440px){
+ .gtd-pause-always,.gtd-first-person-always,.gtd-header-reveal,.gtd-hand-always,.gtd-machine-camera-always{
+  width:40px;height:40px;min-width:40px;min-height:40px;
+ }
+ .gtd-first-person-always{top:calc(max(8px,env(safe-area-inset-top)) + 46px);}
+ .gtd-header-reveal{top:calc(max(8px,env(safe-area-inset-top)) + 92px);}
+ .gtd-hand-always{top:calc(max(8px,env(safe-area-inset-top)) + 138px);}
+ .gtd-machine-camera-always{top:calc(max(8px,env(safe-area-inset-top)) + 184px);}
+ .poi010-camera-status{top:calc(max(8px,env(safe-area-inset-top)) + 230px);height:36px;}
 }
 
 
@@ -2170,3 +2205,31 @@ html[data-display="standalone"] body > * {
  .gun-gallery-stage{height:48dvh;min-height:270px}
  .gun-gallery-side{display:grid;grid-template-columns:1fr;gap:7px}
 }
+
+/* COMBAT-001: the armed low-crouch toggle sits directly above Sprint. */
+.touch-actions:has(.gtd-action-crouch){display:grid;grid-template-areas:". crouch ." "jump sprint combat";grid-template-columns:repeat(3,var(--poi010-action-size,76.56px));grid-auto-rows:var(--poi010-action-size,76.56px);}
+.touch-actions .gtd-action-crouch{grid-area:crouch;}
+.touch-actions .gtd-action-jump{grid-area:jump;}
+.touch-actions .gtd-action-sprint{grid-area:sprint;}
+.touch-actions .gtd-action-combat{grid-area:combat;}
+.desktop-action-pad:has(.gtd-action-crouch){display:grid;grid-template-areas:". crouch ." "jump sprint combat";grid-template-columns:repeat(3,55.44px);grid-auto-rows:55.44px;}
+.desktop-action-pad .gtd-action-crouch{grid-area:crouch;}
+.desktop-action-pad .gtd-action-jump{grid-area:jump;}
+.desktop-action-pad .gtd-action-sprint{grid-area:sprint;}
+.desktop-action-pad .gtd-action-combat{grid-area:combat;}
+
+/* HUD parity: desktop uses the mobile joystick + uniform action-button layout. */
+.desktop-controls.touch-controls{
+ display:block;
+ position:absolute;
+ left:0;
+ right:0;
+ bottom:max(20px,env(safe-area-inset-bottom));
+ height:185px;
+ justify-content:initial;
+ align-items:initial;
+ pointer-events:none;
+ z-index:4;
+}
+.desktop-controls.touch-controls>.joystick,
+.desktop-controls.touch-controls>.touch-actions{pointer-events:auto;}

@@ -33,4 +33,18 @@ describe("NH-OPT2 pre-merge default Voight and uniform info button",()=>{
    const rule=css.match(/\.gtd-header-reveal \{[^}]*\}/)?.[0]??"";
    expect(rule).not.toMatch(/background:|border:|padding:|font:/);
  });
+ it("allocates a non-overlapping top-right control row and stacks it on narrow screens",()=>{
+   const css=readFileSync("src/styles.css","utf8");
+   expect(css).toContain("right:calc(max(12px,env(safe-area-inset-right)) + 65px)");
+   expect(css).toContain("right:calc(max(12px,env(safe-area-inset-right)) + 118px)");
+   expect(css).toContain("right:calc(max(12px,env(safe-area-inset-right)) + 171px)");
+   expect(css).toContain("right:calc(max(12px,env(safe-area-inset-right)) + 224px)");
+   expect(css).toContain(".gtd-first-person-always{top:calc(max(8px,env(safe-area-inset-top)) + 53px)");
+   expect(css).toContain(".gtd-header-reveal{top:calc(max(8px,env(safe-area-inset-top)) + 106px)");
+   expect(css).toContain(".gtd-hand-always{top:calc(max(8px,env(safe-area-inset-top)) + 159px)");
+   expect(css).toContain(".gtd-machine-camera-always{top:calc(max(8px,env(safe-area-inset-top)) + 212px)");
+   expect(css).toContain(".poi010-camera-status{top:calc(max(8px,env(safe-area-inset-top)) + 265px)");
+   expect(css).toContain("@media(max-width:740px) and (max-height:440px)");
+   expect(css).toContain(".gtd-map-always");
+ });
 });
