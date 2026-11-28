@@ -75,6 +75,15 @@ describe("REESE-001 armed standing leg stance",()=>{
   expect(down.applyRotationQuaternion(leftThigh.multiply(leftShin)).z).toBeCloseTo(0);
   expect(reeseGunReadyLegAngle001("mixamorig:Spine2")).toBe(0);
  });
+ it("uses neutral idle legs for armed standing while retaining the authored weapon upper body",()=>{
+  const actor=read("src/game/character/reese-player-001.ts");
+  expect(actor).toContain('groups.rifleReadyAim=createCrouchedFireGroup001(scene,"reese-rifle-ready-aim",groups.idle,groups.rifleAim,groups.idle,groups.rifleAim?.to,1)');
+  expect(actor).toContain('groups.pistolReadyAim=createCrouchedFireGroup001(scene,"reese-pistol-ready-aim",groups.idle,groups.pistolAim,groups.idle,groups.pistolAim?.to,1)');
+  expect(actor).toContain("return groups.rifleReadyAim??groups.rifleCrouchAimMinimal");
+  expect(actor).toContain("return groups.pistolReadyAim??groups.pistolCrouchAimMinimal");
+  expect(actor).toContain("(lowCrouch?groups.rifleCrouchAim:groups.rifleReadyAim)");
+  expect(actor).toContain("(lowCrouch?groups.pistolCrouchAim:groups.pistolReadyAim)");
+ });
  it("uses the ordinary alternating walk lower body with the weapon-ready upper body",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain('groups.rifleWalkAim=createCrouchedFireGroup001(scene,"reese-rifle-walk-aim",groups.walk,groups.rifleAim,groups.idle,groups.rifleAim?.to,1)');
