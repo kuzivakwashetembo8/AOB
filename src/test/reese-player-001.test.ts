@@ -32,15 +32,13 @@ describe("REESE-001 animated foot grounding",()=>{
   expect(point.x).toBeCloseTo(1);
   expect(point.y).toBeCloseTo(1);
  });
- it("adds rotation-aware probes for standing but preserves low-crouch grounding samples",()=>{
+ it("uses rotation-aware sole probes for every grounded gait and crouch state",()=>{
   const legacy=[.02,.01],rotated=[-.08,.03];
-  const standing=reeseFootGroundSamples001("idle",false,legacy,rotated);
-  const lowCrouch=reeseFootGroundSamples001("idle",true,legacy,rotated);
-  expect(standing).toEqual([...legacy,...rotated]);
-  expect(reeseFootGroundCorrection001(0,standing)).toBeCloseTo(.08);
-  expect(lowCrouch).toEqual(legacy);
-  expect(reeseFootGroundCorrection001(0,lowCrouch)).toBe(0);
-  expect(reeseFootGroundSamples001("walk",false,legacy,rotated)).toEqual(legacy);
+  for(const gait of ["idle","walk","run"] as const){
+   expect(reeseFootGroundSamples001(gait,false,legacy,rotated)).toEqual([...legacy,...rotated]);
+   expect(reeseFootGroundSamples001(gait,true,legacy,rotated)).toEqual([...legacy,...rotated]);
+  }
+  expect(reeseFootGroundCorrection001(0,reeseFootGroundSamples001("walk",false,legacy,rotated))).toBeCloseTo(.08);
  });
 });
 
@@ -77,13 +75,29 @@ describe("REESE-001 armed standing leg stance",()=>{
   expect(down.applyRotationQuaternion(leftThigh.multiply(leftShin)).z).toBeCloseTo(0);
   expect(reeseGunReadyLegAngle001("mixamorig:Spine2")).toBe(0);
  });
+ it("uses neutral idle legs for armed standing while retaining the authored weapon upper body",()=>{
+  const actor=read("src/game/character/reese-player-001.ts");
+  expect(actor).toContain('groups.rifleReadyAim=createCrouchedFireGroup001(scene,"reese-rifle-ready-aim",groups.idle,groups.rifleAim,groups.idle,groups.rifleAim?.to,1)');
+  expect(actor).toContain('groups.pistolReadyAim=createCrouchedFireGroup001(scene,"reese-pistol-ready-aim",groups.idle,groups.pistolAim,groups.idle,groups.pistolAim?.to,1)');
+  expect(actor).toContain("return groups.rifleReadyAim??groups.rifleCrouchAimMinimal");
+  expect(actor).toContain("return groups.pistolReadyAim??groups.pistolCrouchAimMinimal");
+  expect(actor).toContain("(lowCrouch?groups.rifleCrouchAim:groups.rifleReadyAim)");
+  expect(actor).toContain("(lowCrouch?groups.pistolCrouchAim:groups.pistolReadyAim)");
+ });
+ it("uses the ordinary alternating walk lower body with the weapon-ready upper body",()=>{
+  const actor=read("src/game/character/reese-player-001.ts");
+  expect(actor).toContain('groups.rifleWalkAim=createCrouchedFireGroup001(scene,"reese-rifle-walk-aim",groups.walk,groups.rifleAim,groups.idle,groups.rifleAim?.to,1)');
+  expect(actor).toContain('groups.pistolWalkAim=createCrouchedFireGroup001(scene,"reese-pistol-walk-aim",groups.walk,groups.pistolAim,groups.idle,groups.pistolAim?.to,1)');
+  expect(actor).toContain('(lowCrouch?groups.rifleCrouchWalk:groups.rifleWalkAim)');
+  expect(actor).toContain('(lowCrouch?groups.pistolCrouchWalk:groups.pistolWalkAim)');
+ });
  it("applies the stance only to standing gun-ready idle and stationary-fire blends, not cover or walk clips",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain("if(gunReadyStance)softened=applyGunReadyLegStance001(softened,targetName)");
   expect(actor).toContain("groups.rifleCrouchAim,groups.rifleAim,groups.idle,groups.rifleAim?.to,.12,true");
-  expect(actor).toContain("groups.rifleCrouchAim,groups.rifleFire,groups.idle,undefined,.12,true");
+  expect(actor).toContain("groups.idle,groups.rifleFire,groups.idle,undefined,1");
   expect(actor).toContain("groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12,true");
-  expect(actor).toContain("groups.rifleCrouchAim,groups.pistolFire,groups.idle,undefined,.12,true");
+  expect(actor).toContain("groups.idle,groups.pistolFire,groups.idle,undefined,1");
   expect(actor).toContain("groups.rifleCrouchWalk,groups.rifleWalk,groups.idle,groups.rifleWalk?.to,.12);");
   expect(actor).toContain("groups.rifleCrouchFire=createCrouchedFireGroup001");
   expect(actor).toContain("groups.rifleCrouchAim,groups.rifleFire,groups.idle);");
@@ -147,13 +161,13 @@ describe("REESE-001 playable actor replacement",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain("lowCrouch?(moving?groups.rifleCrouchWalkFire:groups.rifleCrouchFire)");
   expect(actor).toContain("lowCrouch?(moving?groups.pistolCrouchWalkFire:groups.pistolCrouchFire)");
-  expect(actor).toContain('currentRunning))return null');
-  expect(actor).toContain('createCrouchedFireGroup001');
-  expect(actor).toContain('root?.metadata?.gripL');
-  expect(actor).toContain('supportHandBone.getAbsolutePosition(supportHandReferenceMesh)');
+  expect(actor).toContain("currentRunning))return null");
+  expect(actor).toContain("createCrouchedFireGroup001");
+  expect(actor).toContain("root?.metadata?.gripL");
+  expect(actor).toContain("supportHandBone.getAbsolutePosition(supportHandReferenceMesh)");
   expect(actor).toContain("setLowCrouch(enabled:boolean)");
   expect(actor).toContain("get lowCrouch(){return lowCrouch;}");
-  expect(actor).toContain("lowCrouch?groups.pistolCrouchAim:groups.pistolCrouchAimMinimal");
+  expect(actor).toContain("return groups.pistolReadyAim??groups.pistolCrouchAimMinimal??groups.pistolAim??groups.idle");
  });
  it("derives gait and airborne states from the existing physical controller",()=>{
   expect(reeseGroundClip001(0,false,true,0)).toBe("idle");

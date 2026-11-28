@@ -15,6 +15,13 @@ describe("POI-010 nine-work-package contracts",()=>{
   expect(route).toContain('data-testid="poi005-lift-independent"');
   expect(route).toContain("Machine Camera Activate · Disable to return to John");
  });
+ it("keeps the unarmed actions in separate jump, sprint and fight grid positions",()=>{
+  const css=source("src/styles.css");
+  expect(css).toContain('.touch-actions:has(.gtd-uniform-action):not(:has(.gtd-action-crouch)){grid-template-areas:"jump sprint combat"');
+  expect(css).toContain('.touch-actions:not(:has(.gtd-action-crouch)) .gtd-action-jump{grid-area:jump;}');
+  expect(css).toContain('.touch-actions:not(:has(.gtd-action-crouch)) .gtd-action-sprint{grid-area:sprint;}');
+  expect(css).toContain('.touch-actions:not(:has(.gtd-action-crouch)) .gtd-action-combat{grid-area:combat;}');
+ });
  it("sizes controls exactly ten percent larger and aligns jump and fight with movement",()=>{
   const css=source("src/styles.css");
   for(const size of ["76.56px","71.28px","55.44px"])expect(css).toContain(size);
