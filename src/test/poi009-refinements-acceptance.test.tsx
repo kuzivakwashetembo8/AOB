@@ -55,7 +55,8 @@ describe("POI-009 owner-approved refinement contracts",()=>{
   expect(reese).toContain("groups.pistolFire");
   expect(reese).not.toContain("applyDamage(");
   const engine=source("src/game/experiments/north-heights-city-8.ts");
-  expect(engine).toContain("vehicleAudio.playCombatCue(kind)");
+  expect(engine).toContain('vehicleAudio.playCombatCue("shoot")');
+  expect(engine).toContain("vehicleAudio.startAutomaticFire(weapon,100)");
  });
  it("reuses a spatial hash and bounded Rapier NPC body pool, not per-frame all-pairs physics",()=>{
   const ped=source("src/game/experiments/north-heights-pedestrian-simulator-001.ts");
