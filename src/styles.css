@@ -2208,6 +2208,13 @@ html[data-display="standalone"] body > * {
 
 /* COMBAT-001: the armed low-crouch toggle sits directly above Sprint. */
 .touch-actions:has(.gtd-action-crouch){display:grid;grid-template-areas:". crouch ." "jump sprint combat";grid-template-columns:repeat(3,var(--poi010-action-size,76.56px));grid-auto-rows:var(--poi010-action-size,76.56px);}
+/* Restore the standard three distinct action positions when unarmed. */
+.touch-actions:has(.gtd-uniform-action):not(:has(.gtd-action-crouch)){grid-template-areas:"jump sprint combat";grid-template-columns:repeat(3,var(--poi010-action-size,76.56px));grid-auto-rows:var(--poi010-action-size,76.56px);}
+.touch-actions:not(:has(.gtd-action-crouch)) .gtd-action-jump{grid-area:jump;}
+.touch-actions:not(:has(.gtd-action-crouch)) .gtd-action-sprint{grid-area:sprint;}
+.touch-actions:not(:has(.gtd-action-crouch)) .gtd-action-combat{grid-area:combat;}
+.desktop-controls .touch-actions:has(.gtd-uniform-action):not(:has(.gtd-action-crouch)){grid-template-areas:"jump sprint combat";grid-template-columns:repeat(3,55.44px);grid-auto-rows:55.44px;}
+
 .touch-actions .gtd-action-crouch{grid-area:crouch;}
 .touch-actions .gtd-action-jump{grid-area:jump;}
 .touch-actions .gtd-action-sprint{grid-area:sprint;}
