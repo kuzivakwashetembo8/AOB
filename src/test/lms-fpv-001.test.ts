@@ -52,7 +52,6 @@ describe("LMS-FPV-001 optional first-person shooting view",()=>{
   expect(presentation).toContain('if(handItem==="gun")');
   expect(presentation).toContain("if(enabled)play(weaponAimGroup(),true,true)");
   expect(presentation).toContain("else play(weaponAimGroup())");
-  expect(player).toContain("if(firstPersonActive&&handItem===\"gun\")play(weaponAimGroup(),true,true)");
   expect(player).toContain("groups.rifleCrouchAimMinimal??groups.rifleCrouchAim??groups.rifleAim");
   expect(player).toContain("groups.pistolCrouchAimMinimal??groups.pistolCrouchAim??groups.pistolAim");
  });

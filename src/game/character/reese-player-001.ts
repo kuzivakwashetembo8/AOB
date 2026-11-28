@@ -555,7 +555,6 @@ export function createReesePlayer001(scene:Scene,
     console.warn("[LMS-GUN-001] Extracted weapons unavailable: Reese's right-hand bone was not found.");
    active=groups.idle;
   active.start(true);
-  if(firstPersonActive&&handItem==="gun")play(weaponAimGroup(),true,true);
   report.activeClip=active.name;
   anchor.setEnabled(controlled&&!hiddenDriving);
   if(firstPersonHiddenMeshes.length===0)console.warn("[LMS-FPV-001] Reese head mesh was not identified by name/material; inspect first-person camera clipping.");
