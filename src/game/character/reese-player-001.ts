@@ -257,6 +257,13 @@ export function createReesePlayer001(scene:Scene,
    entry.mesh.isVisible=enabled?false:entry.isVisible;
   }
   anchor.setEnabled(controlled&&!hiddenDriving);
+  // Entering first person immediately selects the existing weapon-ready aim
+  // pose. Leaving returns to the same third-person ready pose; firing input,
+  // weapon mounting and shot origin remain unchanged.
+  if(handItem==="gun"){
+   if(enabled)play(weaponAimGroup(),true,true);
+   else play(weaponAimGroup());
+  }
   applyWeaponVisibility();
  }
  function applyWeaponVisibility(){
@@ -276,6 +283,12 @@ export function createReesePlayer001(scene:Scene,
   pistolCrouchAimMinimal:null,pistolCrouchWalkMinimal:null,
   pistolCrouchFireMinimal:null,pistolCrouchWalkFireMinimal:null,
  };
+ function weaponAimGroup():AnimationGroup|null{
+  if(handItem!=="gun")return null;
+  if(reeseIsLongGun001(selectedWeapon))
+   return groups.rifleCrouchAimMinimal??groups.rifleCrouchAim??groups.rifleAim??groups.rifleIdle??groups.idle;
+  return groups.pistolCrouchAimMinimal??groups.pistolCrouchAim??groups.pistolAim??groups.idle;
+ }
  const report={source:REESE_PLAYER_PATH_001,animations:0,scale:1,
   height:REESE_PLAYER_HEIGHT_001,activeClip:"idle"};
 
@@ -542,6 +555,7 @@ export function createReesePlayer001(scene:Scene,
     console.warn("[LMS-GUN-001] Extracted weapons unavailable: Reese's right-hand bone was not found.");
    active=groups.idle;
   active.start(true);
+  if(firstPersonActive&&handItem==="gun")play(weaponAimGroup(),true,true);
   report.activeClip=active.name;
   anchor.setEnabled(controlled&&!hiddenDriving);
   if(firstPersonHiddenMeshes.length===0)console.warn("[LMS-FPV-001] Reese head mesh was not identified by name/material; inspect first-person camera clipping.");

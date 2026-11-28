@@ -351,6 +351,11 @@ function NorthHeightsPreview(){
       </aside>}
       <canvas ref={canvas} aria-label="North Heights interactive city"
         className="absolute inset-0 h-full w-full" style={{touchAction:"none"}}/>
+      {ready&&!paused&&!vehicle&&!mapOpen&&!machineView&&mode==="walk"&&
+       !elevator?.moving&&!buildingLift?.moving&&settings.firstPersonShooting&&
+       settings.enableCharacter&&heldItem!=="hand"&&
+       <div className="gtd-first-person-reticle" data-testid="lms-first-person-reticle"
+        role="img" aria-label={heldItem.toUpperCase()+" aiming reticle"}/>}
       {ready&&settings.hud&&<GameHud snapshot={snapshot}
         context={vehicle?"driving":"walking"}
         mapSlot={<NorthHeightsMiniMap position={position} poi={dianeMission.poi} buildings={mapBuildings}

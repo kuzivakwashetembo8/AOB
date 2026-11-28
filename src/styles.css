@@ -2070,6 +2070,26 @@ html[data-display="standalone"] body > * {
 @media(max-height:440px){.touch-actions:has(.gtd-uniform-action){grid-template-columns:repeat(3,54px);grid-auto-rows:54px;gap:6px;}.touch-actions .gtd-uniform-action.control-button{width:54px;height:54px;min-width:54px;min-height:54px;}}
 .gtd-machine-camera-always{position:absolute;top:max(8px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 159px);width:44px;height:44px;z-index:17;pointer-events:auto;}
 .gtd-first-person-always{position:absolute;top:max(8px,env(safe-area-inset-top));right:calc(max(12px,env(safe-area-inset-right)) + 53px);width:44px;height:44px;z-index:17;pointer-events:auto;}
+/* LMS-FPV-001 scope: a non-interactive, centered aim guide for armed POV. */
+.gtd-first-person-reticle{
+ position:absolute;left:50%;top:50%;width:24px;height:24px;
+ transform:translate(-50%,-50%);z-index:14;pointer-events:none;
+ color:#fff;filter:drop-shadow(0 1px 2px rgb(0 0 0 / 95%));
+}
+.gtd-first-person-reticle::before{
+ content:"";position:absolute;inset:0;
+ background:
+  linear-gradient(currentColor,currentColor) center top/2px 6px no-repeat,
+  linear-gradient(currentColor,currentColor) center bottom/2px 6px no-repeat,
+  linear-gradient(currentColor,currentColor) left center/6px 2px no-repeat,
+  linear-gradient(currentColor,currentColor) right center/6px 2px no-repeat;
+}
+.gtd-first-person-reticle::after{
+ content:"";position:absolute;width:3px;height:3px;left:50%;top:50%;
+ transform:translate(-50%,-50%);border-radius:50%;background:currentColor;
+ box-shadow:0 0 0 1px rgb(0 0 0 / 65%);
+}
+
 
 /* POI-009: exact 1.20x action hit areas from POI-008 accepted sizes. */
 .touch-actions:has(.gtd-uniform-action){grid-template-columns:repeat(3,69.6px);grid-auto-rows:69.6px;}
