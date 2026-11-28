@@ -361,11 +361,11 @@ export function createReesePlayer001(scene:Scene,
   groups.rifleReadyAim=createCrouchedFireGroup001(scene,"reese-rifle-ready-aim",groups.idle,groups.rifleAim,groups.idle,groups.rifleAim?.to,1);
   groups.pistolReadyAim=createCrouchedFireGroup001(scene,"reese-pistol-ready-aim",groups.idle,groups.pistolAim,groups.idle,groups.pistolAim?.to,1);
   groups.rifleCrouchWalkMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-walk-minimal",groups.rifleCrouchWalk,groups.rifleWalk,groups.idle,groups.rifleWalk?.to,.12);
-  groups.rifleCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire-minimal",groups.rifleCrouchAim,groups.rifleFire,groups.idle,undefined,.12,true);
+  groups.rifleCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire-minimal",groups.idle,groups.rifleFire,groups.idle,undefined,1);
   groups.rifleCrouchWalkFireMinimal=createCrouchedFireGroup001(scene,"reese-rifle-crouch-walk-fire-minimal",groups.rifleCrouchWalk,groups.rifleFire,groups.idle,undefined,.12);
   groups.pistolCrouchAimMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-aim-minimal",groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12,true);
   groups.pistolCrouchWalkMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk-minimal",groups.rifleCrouchWalk,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12);
-  groups.pistolCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-fire-minimal",groups.rifleCrouchAim,groups.pistolFire,groups.idle,undefined,.12,true);
+  groups.pistolCrouchFireMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-fire-minimal",groups.idle,groups.pistolFire,groups.idle,undefined,1);
   groups.pistolCrouchWalkFireMinimal=createCrouchedFireGroup001(scene,"reese-pistol-crouch-walk-fire-minimal",groups.rifleCrouchWalk,groups.pistolFire,groups.idle,undefined,.12);
   groups.rifleCrouchFire=createCrouchedFireGroup001(scene,"reese-rifle-crouch-fire",
    groups.rifleCrouchAim,groups.rifleFire,groups.idle);
