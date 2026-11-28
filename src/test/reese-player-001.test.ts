@@ -95,9 +95,9 @@ describe("REESE-001 armed standing leg stance",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain("if(gunReadyStance)softened=applyGunReadyLegStance001(softened,targetName)");
   expect(actor).toContain("groups.rifleCrouchAim,groups.rifleAim,groups.idle,groups.rifleAim?.to,.12,true");
-  expect(actor).toContain("groups.rifleCrouchAim,groups.rifleFire,groups.idle,undefined,.12,true");
+  expect(actor).toContain("groups.idle,groups.rifleFire,groups.idle,undefined,1");
   expect(actor).toContain("groups.rifleCrouchAim,groups.pistolAim,groups.idle,groups.pistolAim?.to,.12,true");
-  expect(actor).toContain("groups.rifleCrouchAim,groups.pistolFire,groups.idle,undefined,.12,true");
+  expect(actor).toContain("groups.idle,groups.pistolFire,groups.idle,undefined,1");
   expect(actor).toContain("groups.rifleCrouchWalk,groups.rifleWalk,groups.idle,groups.rifleWalk?.to,.12);");
   expect(actor).toContain("groups.rifleCrouchFire=createCrouchedFireGroup001");
   expect(actor).toContain("groups.rifleCrouchAim,groups.rifleFire,groups.idle);");
