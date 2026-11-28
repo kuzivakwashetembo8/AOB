@@ -32,15 +32,13 @@ describe("REESE-001 animated foot grounding",()=>{
   expect(point.x).toBeCloseTo(1);
   expect(point.y).toBeCloseTo(1);
  });
- it("adds rotation-aware probes for standing but preserves low-crouch grounding samples",()=>{
+ it("uses rotation-aware sole probes for every grounded gait and crouch state",()=>{
   const legacy=[.02,.01],rotated=[-.08,.03];
-  const standing=reeseFootGroundSamples001("idle",false,legacy,rotated);
-  const lowCrouch=reeseFootGroundSamples001("idle",true,legacy,rotated);
-  expect(standing).toEqual([...legacy,...rotated]);
-  expect(reeseFootGroundCorrection001(0,standing)).toBeCloseTo(.08);
-  expect(lowCrouch).toEqual(legacy);
-  expect(reeseFootGroundCorrection001(0,lowCrouch)).toBe(0);
-  expect(reeseFootGroundSamples001("walk",false,legacy,rotated)).toEqual(legacy);
+  for(const gait of ["idle","walk","run"] as const){
+   expect(reeseFootGroundSamples001(gait,false,legacy,rotated)).toEqual([...legacy,...rotated]);
+   expect(reeseFootGroundSamples001(gait,true,legacy,rotated)).toEqual([...legacy,...rotated]);
+  }
+  expect(reeseFootGroundCorrection001(0,reeseFootGroundSamples001("walk",false,legacy,rotated))).toBeCloseTo(.08);
  });
 });
 
