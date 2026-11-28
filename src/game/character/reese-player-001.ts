@@ -378,7 +378,7 @@ export function createReesePlayer001(scene:Scene,
   for(const group of [groups.pistolCrouchAim,groups.pistolCrouchWalk,
    groups.rifleCrouchFire,groups.rifleCrouchWalkFire,
    groups.pistolCrouchFire,groups.pistolCrouchWalkFire,
-  groups.rifleWalkAim,groups.pistolWalkAim,
+  groups.rifleWalkAim,groups.pistolWalkAim,groups.rifleReadyAim,groups.pistolReadyAim,
   groups.rifleCrouchAimMinimal,groups.rifleCrouchWalkMinimal,groups.rifleCrouchFireMinimal,groups.rifleCrouchWalkFireMinimal,
   groups.pistolCrouchAimMinimal,groups.pistolCrouchWalkMinimal,groups.pistolCrouchFireMinimal,groups.pistolCrouchWalkFireMinimal])
    if(group)composedGroups.push(group);
