@@ -161,13 +161,13 @@ describe("REESE-001 playable actor replacement",()=>{
   const actor=read("src/game/character/reese-player-001.ts");
   expect(actor).toContain("lowCrouch?(moving?groups.rifleCrouchWalkFire:groups.rifleCrouchFire)");
   expect(actor).toContain("lowCrouch?(moving?groups.pistolCrouchWalkFire:groups.pistolCrouchFire)");
-  expect(actor).toContain('currentRunning))return null');
-  expect(actor).toContain('createCrouchedFireGroup001');
-  expect(actor).toContain('root?.metadata?.gripL');
-  expect(actor).toContain('supportHandBone.getAbsolutePosition(supportHandReferenceMesh)');
+  expect(actor).toContain("currentRunning))return null");
+  expect(actor).toContain("createCrouchedFireGroup001");
+  expect(actor).toContain("root?.metadata?.gripL");
+  expect(actor).toContain("supportHandBone.getAbsolutePosition(supportHandReferenceMesh)");
   expect(actor).toContain("setLowCrouch(enabled:boolean)");
   expect(actor).toContain("get lowCrouch(){return lowCrouch;}");
-  expect(actor).toContain("lowCrouch?groups.pistolCrouchAim:groups.pistolCrouchAimMinimal");
+  expect(actor).toContain("return groups.pistolReadyAim??groups.pistolCrouchAimMinimal??groups.pistolAim??groups.idle");
  });
  it("derives gait and airborne states from the existing physical controller",()=>{
   expect(reeseGroundClip001(0,false,true,0)).toBe("idle");
